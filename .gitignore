@@ -1,32 +1,37 @@
 # Dependencies
 node_modules/
+
 # Build output
 dist/
 build/
-#Enviroment files
+*.tsbuildinfo       # <-- ADDED: TypeScript build cache files
+
+# Environment files
 .env
 .env.*
 !.env.example
 
-# Vite
+# Vite / Frontend
 .vite/
+.eslintcache        # <-- ADDED: ESLint cache files (used by Vite/React)
 
-#Logs
-*.logs
+# Logs
+*.log               # <-- FIXED: Changed from *.logs to *.log
 npm-debug.log*
 npm-debug
 npm-debug.*
 
 # Coverage
 coverage/
+.nyc_output/        # <-- ADDED: Coverage output often used by backend test runners
 
-#IDE
+# IDE
 .vscode/
 .idea/
 
-#OS
+# OS
 .DS_Store
 Thumbs.db
 
-#MkDocs
+# MkDocs
 site/
