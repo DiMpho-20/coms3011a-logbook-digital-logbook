@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState } from "react";
 import { FolderPlus, Archive, CheckCircle, Plus, Search, Layers, AlertCircle } from "lucide-react";
 
 interface Project {
@@ -10,59 +9,66 @@ interface Project {
   createdAt: string;
 }
 
+const MOCK_PROJECTS: Project[] = [
+  {
+    id: "1",
+    name: "COMS3011A Software Engineering",
+    description: "Digital Logbook project for team No Boys Just Bugs.",
+    status: "ACTIVE",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "2",
+    name: "Database Architecture Redesign",
+    description: "Migration of legacy tables to PostgreSQL and Neon cloud instances.",
+    status: "ACTIVE",
+    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+  },
+  {
+    id: "3",
+    name: "User Authentication Prototype",
+    description: "Initial JWT implementation and testing setup.",
+    status: "ARCHIVED",
+    createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+  },
+];
+
 export const DigitalLogBookProjects: React.FC = () => {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
   const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "ARCHIVED">("ACTIVE");
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const fetchProjects = async () => {
-    try {
-      const response = await axios.get("/api/projects");
-      setProjects(response.data);
-    } catch (err) {
-      console.error("Failed to load projects", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const handleCreateProject = async (e: React.FormEvent) => {
+  const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setError("Project name is required");
       return;
     }
-    setLoading(true);
-    try {
-      await axios.post("/api/projects", { name, description });
-      setName("");
-      setDescription("");
-      setIsModalOpen(false);
-      setError("");
-      fetchProjects();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to create project");
-    } font-sans flex-col;
-    finally {
-      setLoading(false);
-    }
+
+    const newProj: Project = {
+      id: String(Date.now()),
+      name,
+      description,
+      status: "ACTIVE",
+      createdAt: new Date().toISOString(),
+    };
+
+    setProjects([newProj, ...projects]);
+    setName("");
+    setDescription("");
+    setIsModalOpen(false);
+    setError("");
   };
 
-  const handleToggleArchive = async (id: string, currentStatus: "ACTIVE" | "ARCHIVED") => {
+  const handleToggleArchive = (id: string, currentStatus: "ACTIVE" | "ARCHIVED") => {
     const nextStatus = currentStatus === "ACTIVE" ? "ARCHIVED" : "ACTIVE";
-    try {
-      await axios.patch(`/api/projects/${id}/status`, { status: nextStatus });
-      fetchProjects();
-    } catch (err) {
-      console.error("Failed to update project status", err);
-    }
+    setProjects(
+      projects.map((p) => (p.id === id ? { ...p, status: nextStatus } : p))
+    );
   };
 
   const filteredProjects = projects.filter((p) => {
@@ -76,6 +82,8 @@ export const DigitalLogBookProjects: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 text-white p-6 md:p-10 font-sans">
       <div className="max-w-6xl mx-auto space-y-8">
+        
+        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 via-purple-200 to-pink-200">
@@ -94,6 +102,7 @@ export const DigitalLogBookProjects: React.FC = () => {
           </button>
         </div>
 
+        {/* Filter & Search */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
           <div className="relative w-full sm:w-72">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -123,6 +132,7 @@ export const DigitalLogBookProjects: React.FC = () => {
           </div>
         </div>
 
+        {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => (
             <div
@@ -178,6 +188,7 @@ export const DigitalLogBookProjects: React.FC = () => {
           )}
         </div>
 
+        {/* Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-slate-900 border border-white/15 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-5">
@@ -236,16 +247,16 @@ export const DigitalLogBookProjects: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={loading}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-md transition-all active:scale-95 disabled:opacity-50"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-md transition-all active:scale-95"
                   >
-                    {loading ? "Creating..." : "Create Project"}
+                    Create Project
                   </button>
                 </div>
               </form>
             </div>
           </div>
         )}
+
       </div>
     </div>
   );
