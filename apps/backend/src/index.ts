@@ -35,9 +35,9 @@ app.get("/api/projects", async (_req, res) => {
       ORDER BY id DESC
     `);
     res.json(result.rows);
-  } catch (error) {
-    console.error("Error fetching projects:", error);
-    res.status(500).json({ error: "Failed to fetch projects" });
+  } catch (error: any) {
+    console.error("GET /api/projects error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -66,9 +66,9 @@ app.post("/api/projects", async (req, res) => {
     
     const result = await pool.query(query, values);
     res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error("Error creating project:", error);
-    res.status(500).json({ error: "Failed to create project" });
+  } catch (error: any) {
+    console.error("POST /api/projects error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -103,9 +103,9 @@ app.put("/api/projects/:id", async (req, res) => {
     }
     
     res.json(result.rows[0]);
-  } catch (error) {
-    console.error("Error updating project:", error);
-    res.status(500).json({ error: "Failed to update project" });
+  } catch (error: any) {
+    console.error("PUT /api/projects error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
