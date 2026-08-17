@@ -1,6 +1,6 @@
+﻿import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import express from "express";
 import { pool } from "./db.js";
 
 dotenv.config();
@@ -11,28 +11,101 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Health endpoint
-app.get("/api/health", (_req, res) => {
-  res.json({
-    status: "ok",
-  });
+app.get("/", (_req, res) => {
+  res.send("🚀 Backend is running");
 });
 
-// Neon Database check endpoint
-app.get("/api/db-check", async (_req, res) => {
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
+// GET /api/projects
+app.get("/api/projects", async (_req, res) => {
   try {
-    const result = await pool.query("SELECT NOW()");
-    res.json({
-      status: "ok",
-      message: "Successfully connected to Neon PostgreSQL!",
-      time: result.rows[0].now,
-    });
-  } catch (error) {
-    console.error("Database connection error:", error);
-    res.status(500).json({
-      status: "error",
-      message: "Failed to connect to the database",
-    });
+    const result = await pool.query(`
+      SELECT 
+        id, 
+        user_id AS "userId", 
+        name, 
+        description, 
+        status, 
+        created_at AS "createdAt", 
+        updated_at AS "updatedAt" 
+      FROM projects 
+      ORDER BY id DESC
+    `);
+    res.json(result.rows);
+  } catch (error: any) {
+    console.error("GET /api/projects error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/projects
+app.post("/api/projects", async (req, res) => {
+  const { name, description, userId, status } = req.body;
+  try {
+    const query = `
+      INSERT INTO projects (name, description, user_id, status)
+      VALUES ($1, $2, $3, $4)
+      RETURNING 
+        id, 
+        user_id AS "userId", 
+        name, 
+        description, 
+        status, 
+        created_at AS "createdAt", 
+        updated_at AS "updatedAt";
+    `;
+    const values = [
+      name, 
+      description || null, 
+      userId || null, 
+      status || 'ACTIVE'
+    ];
+    
+    const result = await pool.query(query, values);
+    res.status(201).json(result.rows[0]);
+  } catch (error: any) {
+    console.error("POST /api/projects error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/projects/:id
+app.put("/api/projects/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, description, status } = req.body;
+  
+  try {
+    const query = `
+      UPDATE projects 
+      SET 
+        name = COALESCE($1, name),
+        description = COALESCE($2, description),
+        status = COALESCE($3, status),
+        updated_at = NOW()
+      WHERE id = $4
+      RETURNING 
+        id, 
+        user_id AS "userId", 
+        name, 
+        description, 
+        status, 
+        created_at AS "createdAt", 
+        updated_at AS "updatedAt";
+    `;
+    const values = [name, description, status, id];
+    const result = await pool.query(query, values);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    console.error("PUT /api/projects error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
