@@ -1,13 +1,6 @@
 import { useState } from "react";
 
-type FieldType = "text" | "number" | "date" | "boolean";
-
-export interface EntryField {
-  id: string;
-  name: string;
-  type: FieldType;
-  required: boolean;
-}
+import type { EntryField, FieldType } from "./entryTypes";
 
 interface EntryFormatBuilderProps {
   projectName: string;
