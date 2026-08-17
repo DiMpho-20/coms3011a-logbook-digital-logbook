@@ -1,0 +1,13 @@
+site_name: Digital Logbook Documentation
+site_description: Technical documentation and architecture for the Digital Logbook project.
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: indigo
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Setup Guide: setup.md
+  - Client Interactions: client-interactions.md
