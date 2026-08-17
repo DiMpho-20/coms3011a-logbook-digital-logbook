@@ -2,12 +2,12 @@
 
 export interface Project {
   id: string | number;
-  code: string;
-  title: string;
-  description: string;
-  assignedTo: string;
+  userId?: string | number | null;
+  name: string;
+  description?: string;
   status: "ACTIVE" | "ARCHIVED";
-  entriesCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export async function fetchProjects(): Promise<Project[]> {

@@ -25,65 +25,77 @@ app.get("/api/projects", async (_req, res) => {
     const result = await pool.query(`
       SELECT 
         id, 
-        code, 
-        title, 
+        user_id AS "userId", 
+        name, 
         description, 
-        assigned_to AS "assignedTo", 
-        entries_count AS "entriesCount", 
-        status 
+        status, 
+        created_at AS "createdAt", 
+        updated_at AS "updatedAt" 
       FROM projects 
       ORDER BY id DESC
     `);
     res.json(result.rows);
-  } catch (error) {
-    console.error("Error fetching projects:", error);
-    res.status(500).json({ error: "Failed to fetch projects" });
+  } catch (error: any) {
+    console.error("GET /api/projects error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
 // POST /api/projects
 app.post("/api/projects", async (req, res) => {
-  const { code, title, description, assignedTo, status } = req.body;
+  const { name, description, userId, status } = req.body;
   try {
     const query = `
-      INSERT INTO projects (code, title, description, assigned_to, status, entries_count)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, code, title, description, assigned_to AS "assignedTo", status, entries_count AS "entriesCount";
+      INSERT INTO projects (name, description, user_id, status)
+      VALUES ($1, $2, $3, $4)
+      RETURNING 
+        id, 
+        user_id AS "userId", 
+        name, 
+        description, 
+        status, 
+        created_at AS "createdAt", 
+        updated_at AS "updatedAt";
     `;
     const values = [
-      code, 
-      title, 
-      description || '', 
-      assignedTo || 'Unassigned', 
-      status || 'ACTIVE', 
-      0
+      name, 
+      description || null, 
+      userId || null, 
+      status || 'ACTIVE'
     ];
     
     const result = await pool.query(query, values);
     res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error("Error creating project:", error);
-    res.status(500).json({ error: "Failed to create project" });
+  } catch (error: any) {
+    console.error("POST /api/projects error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
 // PUT /api/projects/:id
 app.put("/api/projects/:id", async (req, res) => {
   const { id } = req.params;
-  const { title, description, assignedTo, status } = req.body;
+  const { name, description, status } = req.body;
   
   try {
     const query = `
       UPDATE projects 
       SET 
-        title = COALESCE($1, title),
+        name = COALESCE($1, name),
         description = COALESCE($2, description),
-        assigned_to = COALESCE($3, assigned_to),
-        status = COALESCE($4, status)
-      WHERE id = $5
-      RETURNING id, code, title, description, assigned_to AS "assignedTo", status, entries_count AS "entriesCount";
+        status = COALESCE($3, status),
+        updated_at = NOW()
+      WHERE id = $4
+      RETURNING 
+        id, 
+        user_id AS "userId", 
+        name, 
+        description, 
+        status, 
+        created_at AS "createdAt", 
+        updated_at AS "updatedAt";
     `;
-    const values = [title, description, assignedTo, status, id];
+    const values = [name, description, status, id];
     const result = await pool.query(query, values);
     
     if (result.rows.length === 0) {
@@ -91,9 +103,9 @@ app.put("/api/projects/:id", async (req, res) => {
     }
     
     res.json(result.rows[0]);
-  } catch (error) {
-    console.error("Error updating project:", error);
-    res.status(500).json({ error: "Failed to update project" });
+  } catch (error: any) {
+    console.error("PUT /api/projects error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 

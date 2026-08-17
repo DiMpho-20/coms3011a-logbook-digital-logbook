@@ -13,9 +13,8 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [formData, setFormData] = useState({
-    title: "",
+    name: "",
     description: "",
-    assignedTo: "",
   });
 
   const loadProjects = async () => {
@@ -35,16 +34,15 @@ export default function App() {
 
   const handleOpenCreateModal = () => {
     setEditingProject(null);
-    setFormData({ title: "", description: "", assignedTo: "" });
+    setFormData({ name: "", description: "" });
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (project: Project) => {
     setEditingProject(project);
     setFormData({
-      title: project.title || "",
+      name: project.name || "",
       description: project.description || "",
-      assignedTo: project.assignedTo || "",
     });
     setIsModalOpen(true);
   };
@@ -61,24 +59,19 @@ export default function App() {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title) return;
+    if (!formData.name) return;
 
     try {
       if (editingProject) {
         await updateProject(editingProject.id, {
-          title: formData.title,
+          name: formData.name,
           description: formData.description,
-          assignedTo: formData.assignedTo,
         });
       } else {
-        const nextCode = `PRJ-${(projects.length + 1).toString().padStart(3, "0")}`;
         await createProject({
-          code: nextCode,
-          title: formData.title,
-          description: formData.description || "N/A",
-          assignedTo: formData.assignedTo || "Unassigned",
+          name: formData.name,
+          description: formData.description || "",
           status: "ACTIVE",
-          entriesCount: 0,
         });
       }
       await loadProjects();
@@ -91,9 +84,8 @@ export default function App() {
   const filteredProjects = projects.filter((p) => {
     const matchesFilter = filter === "ALL" || p.status === filter;
     const matchesSearch =
-      (p.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.code || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.assignedTo || "").toLowerCase().includes(searchQuery.toLowerCase());
+      (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.description || "").toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
@@ -168,11 +160,9 @@ export default function App() {
             <table className="w-full text-left text-xs text-slate-600">
               <thead className="bg-slate-50 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-100">
                 <tr>
-                  <th className="p-3.5">CODE</th>
-                  <th className="p-3.5">PROJECT TITLE</th>
+                  <th className="p-3.5">ID</th>
+                  <th className="p-3.5">PROJECT NAME</th>
                   <th className="p-3.5">DESCRIPTION</th>
-                  <th className="p-3.5">ASSIGNED TO</th>
-                  <th className="p-3.5">ENTRIES</th>
                   <th className="p-3.5">STATUS</th>
                   <th className="p-3.5 text-right">ACTIONS</th>
                 </tr>
@@ -180,11 +170,9 @@ export default function App() {
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredProjects.map((project) => (
                   <tr key={project.id} className="hover:bg-slate-50 transition">
-                    <td className="p-3.5 font-bold text-slate-400">{project.code}</td>
-                    <td className="p-3.5 font-bold text-slate-800">{project.title}</td>
-                    <td className="p-3.5">{project.description}</td>
-                    <td className="p-3.5">{project.assignedTo}</td>
-                    <td className="p-3.5">{project.entriesCount ?? 0}</td>
+                    <td className="p-3.5 font-bold text-slate-400">#{project.id}</td>
+                    <td className="p-3.5 font-bold text-slate-800">{project.name}</td>
+                    <td className="p-3.5">{project.description || "N/A"}</td>
                     <td className="p-3.5">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         project.status === "ACTIVE" 
@@ -228,7 +216,7 @@ export default function App() {
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
               <div className="flex justify-between items-center border-b pb-3">
                 <h3 className="font-bold text-slate-800 text-sm">
-                  {editingProject ? `Edit Project (${editingProject.code})` : "Create New Project"}
+                  {editingProject ? `Edit Project (#${editingProject.id})` : "Create New Project"}
                 </h3>
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                   <X className="h-4 w-4" />
@@ -237,33 +225,23 @@ export default function App() {
 
               <form onSubmit={handleFormSubmit} className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-slate-600 font-bold mb-1">Project Title *</label>
+                  <label className="block text-slate-600 font-bold mb-1">Project Name *</label>
                   <input 
                     type="text" 
                     required 
                     placeholder="Enter project name..."
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full border rounded-lg p-2 text-slate-800 outline-none focus:ring-2 focus:ring-[#0084D4]"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 font-bold mb-1">Description</label>
+                  <label className="block text-slate-600 font-bold mb-1">Description (Optional)</label>
                   <input 
                     type="text" 
                     placeholder="Brief description..."
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full border rounded-lg p-2 text-slate-800 outline-none focus:ring-2 focus:ring-[#0084D4]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-bold mb-1">Assigned Person/Role</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. Person 3 / Field Lead"
-                    value={formData.assignedTo}
-                    onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
                     className="w-full border rounded-lg p-2 text-slate-800 outline-none focus:ring-2 focus:ring-[#0084D4]"
                   />
                 </div>
