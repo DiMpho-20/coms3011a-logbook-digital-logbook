@@ -1,7 +1,7 @@
 ﻿const API_BASE_URL = "http://localhost:3000/api";
 
 export interface Project {
-  id?: string;
+  id: string | number;
   code: string;
   title: string;
   description: string;
@@ -23,5 +23,15 @@ export async function createProject(project: Omit<Project, "id">): Promise<Proje
     body: JSON.stringify(project),
   });
   if (!res.ok) throw new Error("Failed to create project");
+  return res.json();
+}
+
+export async function updateProject(id: string | number, updates: Partial<Project>): Promise<Project> {
+  const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) throw new Error("Failed to update project");
   return res.json();
 }

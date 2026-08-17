@@ -1,8 +1,8 @@
 ﻿import React, { useState, useEffect } from "react";
 import { 
-  Plus, Search, FolderKanban, LayoutDashboard, X 
+  Plus, Search, FolderKanban, Edit2, Archive, ArchiveRestore, X 
 } from "lucide-react";
-import { fetchProjects, createProject, type Project } from "./api";
+import { fetchProjects, createProject, updateProject, type Project } from "./api";
 
 export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -10,8 +10,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -33,43 +33,72 @@ export default function App() {
     loadProjects();
   }, []);
 
+  const handleOpenCreateModal = () => {
+    setEditingProject(null);
+    setFormData({ title: "", description: "", assignedTo: "" });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (project: Project) => {
+    setEditingProject(project);
+    setFormData({
+      title: project.title || "",
+      description: project.description || "",
+      assignedTo: project.assignedTo || "",
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleToggleArchive = async (project: Project) => {
+    const newStatus = project.status === "ACTIVE" ? "ARCHIVED" : "ACTIVE";
+    try {
+      await updateProject(project.id, { status: newStatus });
+      await loadProjects();
+    } catch (err) {
+      console.error("Failed to update project status:", err);
+    }
+  };
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title) return;
 
-    const nextCode = `PRJ-${(projects.length + 1).toString().padStart(3, "0")}`;
-    const newProj = {
-      code: nextCode,
-      title: formData.title,
-      description: formData.description || "N/A",
-      assignedTo: formData.assignedTo || "Unassigned",
-      status: "ACTIVE" as const,
-      entriesCount: 0,
-    };
-
     try {
-      await createProject(newProj);
+      if (editingProject) {
+        await updateProject(editingProject.id, {
+          title: formData.title,
+          description: formData.description,
+          assignedTo: formData.assignedTo,
+        });
+      } else {
+        const nextCode = `PRJ-${(projects.length + 1).toString().padStart(3, "0")}`;
+        await createProject({
+          code: nextCode,
+          title: formData.title,
+          description: formData.description || "N/A",
+          assignedTo: formData.assignedTo || "Unassigned",
+          status: "ACTIVE",
+          entriesCount: 0,
+        });
+      }
       await loadProjects();
       setIsModalOpen(false);
-      setFormData({ title: "", description: "", assignedTo: "" });
     } catch (err) {
-      console.error("Failed to create project:", err);
+      console.error("Failed to save project:", err);
     }
   };
 
-  // Replace lines 60-67 in App.tsx with this safe filter:
-const filteredProjects = projects.filter((p) => {
-  const matchesFilter = filter === "ALL" || p.status === filter;
-  const matchesSearch =
-    (p.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.code || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.assignedTo || "").toLowerCase().includes(searchQuery.toLowerCase());
-  return matchesFilter && matchesSearch;
-});
+  const filteredProjects = projects.filter((p) => {
+    const matchesFilter = filter === "ALL" || p.status === filter;
+    const matchesSearch =
+      (p.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.code || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.assignedTo || "").toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans overflow-hidden text-slate-800">
-      {/* Sidebar */}
       <aside className="w-64 bg-[#0084D4] text-white flex flex-col justify-between p-4 shrink-0 shadow-lg relative z-20">
         <div>
           <div className="flex items-center gap-3 px-2 py-3 mb-4 border-b border-white/20">
@@ -89,7 +118,6 @@ const filteredProjects = projects.filter((p) => {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-8 space-y-6 relative z-10">
         <div className="flex justify-between items-start">
           <div>
@@ -97,16 +125,31 @@ const filteredProjects = projects.filter((p) => {
             <p className="text-xs font-medium text-slate-500 mt-0.5">Manage and track project records</p>
           </div>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenCreateModal}
             className="flex items-center gap-2 bg-[#0084D4] hover:bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
           >
             <Plus className="h-4 w-4" /> New Project
           </button>
         </div>
 
-        {/* Search & Filters */}
-        <div className="flex gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row justify-between gap-3">
+          <div className="flex gap-2 bg-slate-200/60 p-1 rounded-xl text-xs font-bold">
+            {(["ALL", "ACTIVE", "ARCHIVED"] as const).map((statusTab) => (
+              <button
+                key={statusTab}
+                onClick={() => setFilter(statusTab)}
+                className={`px-3 py-1.5 rounded-lg transition ${
+                  filter === statusTab
+                    ? "bg-white text-blue-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {statusTab}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input 
               type="text"
@@ -118,7 +161,6 @@ const filteredProjects = projects.filter((p) => {
           </div>
         </div>
 
-        {/* Projects Table */}
         {loading ? (
           <div className="p-8 text-center text-slate-500 font-medium">Loading from database...</div>
         ) : (
@@ -132,6 +174,7 @@ const filteredProjects = projects.filter((p) => {
                   <th className="p-3.5">ASSIGNED TO</th>
                   <th className="p-3.5">ENTRIES</th>
                   <th className="p-3.5">STATUS</th>
+                  <th className="p-3.5 text-right">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
@@ -143,9 +186,35 @@ const filteredProjects = projects.filter((p) => {
                     <td className="p-3.5">{project.assignedTo}</td>
                     <td className="p-3.5">{project.entriesCount ?? 0}</td>
                     <td className="p-3.5">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        project.status === "ACTIVE" 
+                          ? "bg-emerald-100 text-emerald-700" 
+                          : "bg-slate-200 text-slate-600"
+                      }`}>
                         {project.status}
                       </span>
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleOpenEditModal(project)}
+                          title="Edit Project"
+                          className="p-1.5 hover:bg-slate-100 text-slate-600 hover:text-blue-600 rounded-lg transition"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleToggleArchive(project)}
+                          title={project.status === "ACTIVE" ? "Archive Project" : "Unarchive Project"}
+                          className="p-1.5 hover:bg-slate-100 text-slate-600 hover:text-amber-600 rounded-lg transition"
+                        >
+                          {project.status === "ACTIVE" ? (
+                            <Archive className="h-4 w-4" />
+                          ) : (
+                            <ArchiveRestore className="h-4 w-4 text-emerald-600" />
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -154,12 +223,13 @@ const filteredProjects = projects.filter((p) => {
           </div>
         )}
 
-        {/* Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
               <div className="flex justify-between items-center border-b pb-3">
-                <h3 className="font-bold text-slate-800 text-sm">Create New Project</h3>
+                <h3 className="font-bold text-slate-800 text-sm">
+                  {editingProject ? `Edit Project (${editingProject.code})` : "Create New Project"}
+                </h3>
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                   <X className="h-4 w-4" />
                 </button>
@@ -209,7 +279,7 @@ const filteredProjects = projects.filter((p) => {
                     type="submit" 
                     className="px-3 py-1.5 rounded-lg bg-[#0084D4] text-white font-bold hover:bg-blue-600"
                   >
-                    Save Project
+                    {editingProject ? "Update Project" : "Save Project"}
                   </button>
                 </div>
               </form>
