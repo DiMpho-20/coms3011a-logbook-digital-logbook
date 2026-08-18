@@ -1,114 +1,85 @@
 ﻿import express from "express";
 import cors from "cors";
+import { Pool } from "pg";
 import dotenv from "dotenv";
-import { pool } from "./db.js";
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
 app.use(cors());
 app.use(express.json());
 
-app.get("/", (_req, res) => {
-  res.send("🚀 Backend is running");
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 });
 
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok" });
-});
-
-// GET /api/projects
-app.get("/api/projects", async (_req, res) => {
+app.get("/api/projects", async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT 
-        id, 
-        user_id AS "userId", 
-        name, 
-        description, 
-        status, 
-        created_at AS "createdAt", 
-        updated_at AS "updatedAt" 
-      FROM projects 
-      ORDER BY id DESC
-    `);
+    const result = await pool.query("SELECT * FROM projects ORDER BY created_at DESC;");
     res.json(result.rows);
-  } catch (error: any) {
-    console.error("GET /api/projects error:", error);
-    res.status(500).json({ error: error.message });
+  } catch (err: any) {
+    try {
+      const fallbackResult = await pool.query("SELECT * FROM projects;");
+      res.json(fallbackResult.rows);
+    } catch (fallbackErr: any) {
+      console.error("GET /api/projects error:", fallbackErr);
+      res.status(500).json({ error: fallbackErr.message });
+    }
   }
 });
 
-// POST /api/projects
 app.post("/api/projects", async (req, res) => {
-  const { name, description, userId, status } = req.body;
+  const { name, description, status, user_id } = req.body;
   try {
+    let targetUserId = user_id;
+    if (!targetUserId) {
+      const userRes = await pool.query("SELECT id FROM users LIMIT 1;");
+      if (userRes.rows.length > 0) {
+        targetUserId = userRes.rows[0].id;
+      } else {
+        return res.status(400).json({ error: "No valid user_id provided or found in database." });
+      }
+    }
+
     const query = `
-      INSERT INTO projects (name, description, user_id, status)
-      VALUES ($1, $2, $3, $4)
-      RETURNING 
-        id, 
-        user_id AS "userId", 
-        name, 
-        description, 
-        status, 
-        created_at AS "createdAt", 
-        updated_at AS "updatedAt";
+      INSERT INTO projects (id, user_id, name, description, status, updated_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
+      RETURNING *;
     `;
-    const values = [
-      name, 
-      description || null, 
-      userId || null, 
-      status || 'ACTIVE'
-    ];
-    
+    const values = [targetUserId, name, description || "", status || "ACTIVE"];
     const result = await pool.query(query, values);
+    
     res.status(201).json(result.rows[0]);
-  } catch (error: any) {
-    console.error("POST /api/projects error:", error);
-    res.status(500).json({ error: error.message });
+  } catch (err: any) {
+    console.error("POST /api/projects error:", err);
+    res.status(500).json({ error: err.message, detail: err.detail });
   }
 });
 
-// PUT /api/projects/:id
 app.put("/api/projects/:id", async (req, res) => {
   const { id } = req.params;
   const { name, description, status } = req.body;
-  
   try {
     const query = `
-      UPDATE projects 
-      SET 
-        name = COALESCE($1, name),
-        description = COALESCE($2, description),
-        status = COALESCE($3, status),
-        updated_at = NOW()
+      UPDATE projects
+      SET name = COALESCE($1, name),
+          description = COALESCE($2, description),
+          status = COALESCE($3, status),
+          updated_at = NOW()
       WHERE id = $4
-      RETURNING 
-        id, 
-        user_id AS "userId", 
-        name, 
-        description, 
-        status, 
-        created_at AS "createdAt", 
-        updated_at AS "updatedAt";
+      RETURNING *;
     `;
     const values = [name, description, status, id];
     const result = await pool.query(query, values);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Project not found" });
-    }
-    
     res.json(result.rows[0]);
-  } catch (error: any) {
-    console.error("PUT /api/projects error:", error);
-    res.status(500).json({ error: error.message });
+  } catch (err: any) {
+    console.error("PUT /api/projects error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Backend running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
