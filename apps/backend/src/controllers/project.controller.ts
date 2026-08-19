@@ -1,8 +1,15 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import { createProjectSchema, updateProjectStatusSchema } from "../schemas/project.schema";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { createProjectSchema, updateProjectStatusSchema } from "../schemas/project.schema.js";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL!,
+});
+
+const prisma = new PrismaClient({
+  adapter,
+});
 
 export const createProject = async (req: Request, res: Response) => {
   try {
@@ -41,7 +48,7 @@ export const getProjects = async (req: Request, res: Response) => {
 export const updateProjectStatus = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id || req.headers["x-user-id"];
-    const { id } = req.params;
+    const  id  = String(req.params.id);
     const { status } = updateProjectStatusSchema.parse(req.body);
 
     const existing = await prisma.project.findFirst({
