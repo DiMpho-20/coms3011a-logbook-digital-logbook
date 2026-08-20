@@ -1,6 +1,21 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
 enum ProjectStatus {
   ACTIVE
   ARCHIVED
+}
+
+enum EntryFieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
 }
 
 model Project {
@@ -12,7 +27,48 @@ model Project {
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entryFields EntryField[]
+  entries     LogbookEntry[]
 
   @@map("projects")
+}
+
+model EntryField {
+  id        String         @id @default(uuid()) @db.Uuid
+  projectId String         @map("project_id") @db.Uuid
+  name      String         @db.VarChar(255)
+  type      EntryFieldType
+
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  values    EntryValue[]
+
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  @@map("entry_fields")
+}
+
+model LogbookEntry {
+  id        String       @id @default(uuid()) @db.Uuid
+  projectId String       @map("project_id") @db.Uuid
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  values    EntryValue[]
+
+  @@map("logbook_entries")
+}
+
+model EntryValue {
+  id       String       @id @default(uuid()) @db.Uuid
+  entryId  String       @map("entry_id") @db.Uuid
+  fieldId  String       @map("field_id") @db.Uuid
+  value    String       @db.Text
+
+  entry    LogbookEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  field    EntryField   @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, fieldId])
+  @@map("entry_values")
 }
