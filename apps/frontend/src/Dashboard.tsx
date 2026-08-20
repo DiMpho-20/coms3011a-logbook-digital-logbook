@@ -4,6 +4,7 @@ import {
   LayoutDashboard, ClipboardList, CheckSquare, FileBarChart,
   User, LogOut, ChevronDown,
 } from "lucide-react";
+import EntryBrowser from "./EntryBrowser";
 
 import {
   fetchProjects,
@@ -302,7 +303,7 @@ export default function Dashboard() {
           <PlaceholderView label="Dashboard" icon={LayoutDashboard} />
         )}
         {activeView === "entries" && (
-          <PlaceholderView label="Entry Browser" icon={ClipboardList} />
+          <EntryBrowser />
         )}
         {activeView === "validation" && (
           <PlaceholderView label="Logbook Validation" icon={CheckSquare} />
