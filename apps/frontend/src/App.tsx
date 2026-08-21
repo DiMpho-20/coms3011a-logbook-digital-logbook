@@ -1,4 +1,4 @@
-﻿import React from "react";
+
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // 1. Core Root Components (src/)
@@ -8,8 +8,6 @@ import EntryBrowser from "./EntryBrowser";
 
 // 2. Component Pages & Layouts (src/components/)
 import LandingPage from "./components/LandingPage";
-import EntryFormatBuilder from "./components/EntryFormatBuilder";
-import LogbookEntryForm from "./components/LogbookEntryForm";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 // 3. Auth & Settings Pages (src/pages/)
@@ -60,22 +58,7 @@ export function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/format-builder"
-            element={
-              <ProtectedRoute>
-                <EntryFormatBuilder />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/logbook-entry"
-            element={
-              <ProtectedRoute>
-                <LogbookEntryForm />
-              </ProtectedRoute>
-            }
-          />
+
           <Route
             path="/settings"
             element={
@@ -94,19 +77,3 @@ export function App() {
 }
 
 export default App;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
