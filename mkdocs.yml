@@ -10,4 +10,6 @@ nav:
   - Home: index.md
   - Architecture: architecture.md
   - Setup Guide: setup.md
+  - Methodology: methodology.md
   - Client Interactions: client-interactions.md
+  - User Stories: user-stories/user-stories.md
