@@ -14,7 +14,7 @@
   EntryFieldType,
 } from "@logbook/shared";
 
-const API_BASE_URL = "http://localhost:3000/api";
+const API_BASE_URL = "/api";
 
 // TODO: replace with real auth once available
 const USER_ID = "df8cb59f-b366-4612-8f49-403cde4d3058";
