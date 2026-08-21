@@ -4,6 +4,7 @@ import prisma from "./prisma.js";
 import projectRoutes from "./routes/project.routes.js";
 import entryFieldRoutes from "./routes/entryField.routes.js";
 import entryRoutes from "./routes/entry.routes.js";
+import authRoutes from "./routes/auth.routes.js";
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use(express.json());
 app.use("/api", projectRoutes);
 app.use("/api", entryFieldRoutes);
 app.use("/api", entryRoutes);
+app.use("/api/auth", authRoutes);
 
 // ── Utility routes ────────────────────────────────────────────────────
 app.get("/", (_req, res) => {

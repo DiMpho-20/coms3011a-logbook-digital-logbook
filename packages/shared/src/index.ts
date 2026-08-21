@@ -89,3 +89,7 @@ export interface CreateEntryFieldInput {
 export interface ApiError {
   error: string;
 }
+
+// ─── Auth ────────────────────────────────────────────────────────────────
+
+export * from "./auth.js";
