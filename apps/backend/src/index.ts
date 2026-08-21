@@ -1,36 +1,43 @@
 ﻿import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
-import { pool } from "./db.js";
+import prisma from "./prisma.js";
+import projectRoutes from "./routes/project.routes.js";
 import entryFieldRoutes from "./routes/entryField.routes.js";
-
-dotenv.config();
+import entryRoutes from "./routes/entry.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use("/api", entryFieldRoutes);
-app.use(cors());
+// ── Global middleware (must come before routes) ──────────────────────
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://127.0.0.1:5174"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
-// Root welcome route
+// ── API routes ────────────────────────────────────────────────────────
+app.use("/api", projectRoutes);
+app.use("/api", entryFieldRoutes);
+app.use("/api", entryRoutes);
+
+// ── Utility routes ────────────────────────────────────────────────────
 app.get("/", (_req, res) => {
-  res.send("🚀 Backend is running. Use /api/health, /api/db-check, or /api/projects");
+  res.send("Backend is running. Use /api/health or /api/db-check");
 });
 
-// Health check
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-// Database connection check
 app.get("/api/db-check", async (_req, res) => {
   try {
-    const result = await pool.query("SELECT NOW()");
+    const rows = await prisma.$queryRaw<{ now: Date }[]>`SELECT NOW() AS now`;
     res.json({
       status: "ok",
-      message: "Successfully connected to Neon PostgreSQL!",
-      time: result.rows[0].now,
+      message: "Successfully connected to Neon PostgreSQL via Prisma",
+      time: rows[0].now,
     });
   } catch (error) {
     console.error("Database connection error:", error);
@@ -38,35 +45,7 @@ app.get("/api/db-check", async (_req, res) => {
   }
 });
 
-// GET /api/projects
-app.get("/api/projects", async (_req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM projects ORDER BY id DESC");
-    res.json(result.rows);
-  } catch (error) {
-    console.error("Error fetching projects:", error);
-    res.status(500).json({ error: "Failed to fetch projects" });
-  }
-});
-
-// POST /api/projects
-app.post("/api/projects", async (req, res) => {
-  const { code, name, gt, owner, captain, homePort, status, entries } = req.body;
-  try {
-    const query = `
-      INSERT INTO projects (code, name, gt, owner, captain, home_port, status, entries)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING id, code, name, gt, owner, captain, home_port AS "homePort", status, entries;
-    `;
-    const values = [code, name, gt, owner, captain, homePort, status || 'ACTIVE', entries || 0];
-    const result = await pool.query(query, values);
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error("Error creating project:", error);
-    res.status(500).json({ error: "Failed to create project" });
-  }
-});
-
+// ── Start server ──────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`Backend running on http://localhost:${PORT}`);
 });

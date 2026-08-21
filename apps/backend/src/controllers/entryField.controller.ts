@@ -1,19 +1,10 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL!,
-});
-
-const prisma = new PrismaClient({
-  adapter,
-});
+import prisma from "../prisma.js";
 
 export const createEntryField = async (req: Request, res: Response) => {
   try {
-    const projectId  = String(req.params.projectId);
-    const { name, type } = req.body;
+    const projectId = String(req.params.projectId);
+    const { name, type, required } = req.body;
 
     if (!name || !type) {
       return res.status(400).json({
@@ -44,6 +35,7 @@ export const createEntryField = async (req: Request, res: Response) => {
         projectId,
         name,
         type,
+        required: required ?? false,
       },
     });
 
@@ -62,12 +54,8 @@ export const getEntryFields = async (req: Request, res: Response) => {
     const projectId = String(req.params.projectId);
 
     const fields = await prisma.entryField.findMany({
-      where: {
-        projectId,
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
+      where: { projectId },
+      orderBy: { createdAt: "asc" },
     });
 
     return res.status(200).json(fields);
