@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Search, Flame, ListChecks, Clock, CalendarDays, FolderKanban } from "lucide-react";
+import { Search, Flame, ListChecks, Clock, CalendarDays, FolderKanban, AlertTriangle } from "lucide-react";
 
 import {
   fetchProjects,
@@ -44,6 +44,7 @@ export default function EntriesPage() {
   // Browse state
   const [filterProjectId, setFilterProjectId] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterTab, setFilterTab] = useState<"all" | "week" | "overdue">("all");
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -179,11 +180,28 @@ export default function EntriesPage() {
     const dateKeys = new Set(allEntries.map((e) => e.createdAt.slice(0, 10)));
     const streak = computeStreak(dateKeys);
 
-    return { weekCount: weekEntries.length, weekMinutes, streak, total: allEntries.length };
+    // Overdue: dueDate is before today (start of day)
+    const today = new Date(new Date().toDateString());
+    const overdueCount = allEntries.filter(
+      (e) => e.dueDate && new Date(e.dueDate) < today
+    ).length;
+
+    return { weekCount: weekEntries.length, weekMinutes, streak, total: allEntries.length, overdueCount };
   }, [allEntries]);
 
   const filteredEntries = useMemo(() => {
     let list = [...allEntries];
+    const today = new Date(new Date().toDateString());
+
+    // Tab filter
+    if (filterTab === "week") {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      list = list.filter((e) => new Date(e.createdAt) >= weekAgo);
+    } else if (filterTab === "overdue") {
+      list = list.filter((e) => e.dueDate && new Date(e.dueDate) < today);
+    }
+
     if (filterProjectId !== "all") {
       list = list.filter((e) => e.projectId === filterProjectId);
     }
@@ -195,9 +213,14 @@ export default function EntriesPage() {
         return name.includes(q) || vals.includes(q);
       });
     }
-    list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    // Overdue entries sort by most overdue first; otherwise newest first
+    if (filterTab === "overdue") {
+      list.sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || ""));
+    } else {
+      list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
     return list;
-  }, [allEntries, filterProjectId, searchQuery, projectName]);
+  }, [allEntries, filterTab, filterProjectId, searchQuery, projectName]);
 
   const groupedByDate = useMemo(() => {
     const groups: Record<string, Entry[]> = {};
@@ -221,11 +244,12 @@ export default function EntriesPage() {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard icon={ListChecks} label="This Week" value={stats.weekCount} color="blue" />
         <StatCard icon={Clock} label="Time This Week" value={formatDuration(stats.weekMinutes)} color="emerald" />
         <StatCard icon={Flame} label="Day Streak" value={stats.streak} color="orange" />
         <StatCard icon={CalendarDays} label="Total Entries" value={stats.total} color="slate" />
+        <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdueCount} color="red" />
       </div>
 
       {projects.length === 0 ? (
@@ -382,7 +406,50 @@ export default function EntriesPage() {
           {/* Timeline / Browse */}
           <div className="bg-white rounded-lg border border-slate-200">
             <div className="px-4 py-3 border-b border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">Timeline</h2>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setFilterTab("all")}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                    filterTab === "all"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  All Entries
+                </button>
+                <button
+                  onClick={() => setFilterTab("week")}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                    filterTab === "week"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  This Week
+                </button>
+                <button
+                  onClick={() => setFilterTab("overdue")}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${
+                    filterTab === "overdue"
+                      ? "bg-red-600 text-white"
+                      : stats.overdueCount > 0
+                        ? "text-red-600 hover:bg-red-50"
+                        : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Overdue
+                  {stats.overdueCount > 0 && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                      filterTab === "overdue"
+                        ? "bg-white/20 text-white"
+                        : "bg-red-100 text-red-700"
+                    }`}>
+                      {stats.overdueCount}
+                    </span>
+                  )}
+                </button>
+              </div>
               <div className="flex flex-wrap gap-2">
                 <select
                   value={filterProjectId}
@@ -412,17 +479,29 @@ export default function EntriesPage() {
             <div className="p-4">
               {groupedByDate.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-sm text-slate-400">No entries match.</p>
-                  {(searchQuery || filterProjectId !== "all") && (
-                    <button
-                      onClick={() => {
-                        setSearchQuery("");
-                        setFilterProjectId("all");
-                      }}
-                      className="text-xs text-blue-600 font-medium hover:underline mt-2"
-                    >
-                      Clear filters
-                    </button>
+                  {filterTab === "overdue" ? (
+                    <>
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 mb-3">
+                        <AlertTriangle className="h-5 w-5 text-emerald-500" />
+                      </div>
+                      <p className="text-sm font-medium text-slate-700">All caught up!</p>
+                      <p className="text-xs text-slate-400 mt-1">No overdue entries.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-slate-400">No entries match.</p>
+                      {(searchQuery || filterProjectId !== "all") && (
+                        <button
+                          onClick={() => {
+                            setSearchQuery("");
+                            setFilterProjectId("all");
+                          }}
+                          className="text-xs text-blue-600 font-medium hover:underline mt-2"
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               ) : (

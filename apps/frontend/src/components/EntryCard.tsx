@@ -1,4 +1,4 @@
-import { Clock } from "lucide-react";
+import { Clock, AlertTriangle } from "lucide-react";
 import { formatDuration, isEmptyValue } from "../lib/utils";
 import type { Entry, EntryField } from "../api";
 
@@ -21,8 +21,15 @@ export default function EntryCard({
     minute: "2-digit",
   });
 
+  // Compute overdue: dueDate is in the past and entry exists
+  const isOverdue = entry.dueDate ? new Date(entry.dueDate) < new Date(new Date().toDateString()) : false;
+
   return (
-    <div className="border border-slate-200 rounded-lg p-3 hover:bg-slate-50/50 transition">
+    <div className={`border rounded-lg p-3 transition ${
+      isOverdue
+        ? "border-red-200 bg-red-50/40 hover:bg-red-50"
+        : "border-slate-200 hover:bg-slate-50/50"
+    }`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           {showProject && projectName && (
@@ -34,6 +41,12 @@ export default function EntryCard({
             <Clock className="h-3 w-3 text-slate-400" />
             {formatDuration(entry.durationMinutes)}
           </span>
+          {isOverdue && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-red-100 text-red-700 border border-red-200">
+              <AlertTriangle className="h-3 w-3" />
+              Overdue
+            </span>
+          )}
         </div>
         <span className="text-[11px] text-slate-400 shrink-0">{timeStr}</span>
       </div>
@@ -56,8 +69,11 @@ export default function EntryCard({
       )}
 
       {entry.dueDate && (
-        <p className="mt-1.5 text-[11px] text-amber-600 font-medium">
+        <p className={`mt-1.5 text-[11px] font-medium ${
+          isOverdue ? "text-red-600" : "text-amber-600"
+        }`}>
           Due: {new Date(entry.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          {isOverdue && " — overdue"}
         </p>
       )}
     </div>
