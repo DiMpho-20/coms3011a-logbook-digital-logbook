@@ -23,12 +23,17 @@ Welcome to the technical documentation for the **COMS3011A Digital Logbook** pro
 
 ## Sprint 1 Summary
 
-Sprint 1 delivers the core logbook functionality:
+Sprint 1 delivers the core logbook functionality with authentication and user management:
 
+- **Authentication** — Registration, login, JWT tokens, email verification, password reset, and account deletion.
 - **Project Management** — Create, edit, archive/unarchive projects with unique name enforcement per user.
 - **Entry Schema Definition** — Define custom entry fields (TEXT, NUMBER, DATE, BOOLEAN) per project.
 - **Entry CRUD** — Create, update, delete logbook entries with typed field values, due dates, and backdated entry dates.
 - **Time Tracking** — Record duration per entry, view per-project time summaries (total hours, entry count, last entry).
-- **Dashboard** — Overview cards showing active projects, entries this week, time this week, and total time across projects.
+- **Dashboard** — Overview cards showing active projects, entries this week, time this week, and total time.
 - **Project Detail View** — View a single project's time summary, entry schema, and full entries list.
+- **Entry Browser** — Cross-project entry search and filtering.
+- **Profile Page** — Avatar upload, bio/slogan, degree, year, and student number with edit mode.
+- **Settings** — Account management, dark/light theme, notification preferences, logbook preferences, and data export/import (JSON/CSV).
 - **API Testing** — 27 Vitest integration tests covering all endpoints against the live database.
+- **Responsive Design** — Tailwind CSS v4 design system with dark mode, collapsible sidebar, and mobile-friendly layout.

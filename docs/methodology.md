@@ -61,14 +61,13 @@ We use Gitea's built-in **Issues, Labels, Milestones, and Projects (Kanban board
 
 #### What Could Be Improved
 
-* **Authentication:** Sprint 1 uses a simple `x-user-id` header for user identification. Real authentication (JWT/session) should be prioritised in Sprint 2.
-* **Frontend error handling:** The frontend currently uses basic `alert()` or console errors for API failures. A proper toast notification system would improve UX.
+* **Frontend error handling:** The frontend uses basic error banners for API failures. A proper toast notification system would improve UX.
 * **Test isolation:** Integration tests run against the live database without transaction rollback. Tests create and clean up data, but parallel test runs could conflict.
 * **Documentation gaps:** Some documentation was only written at the end of Sprint 1 rather than incrementally. Future sprints should update docs alongside code changes.
 
 #### Action Items for Sprint 2
 
-1. Implement JWT-based authentication (replaces `x-user-id` header).
+1. ~~Implement JWT based authentication (replaces `x-user-id` header).~~ **Done** — JWT auth with email verification, password reset, and account deletion implemented in Sprint 1.
 2. Add frontend toast notifications for API errors.
 3. Consider adding unit tests alongside integration tests for complex business logic.
 4. Add Calendar API integration (client-requested external API).
