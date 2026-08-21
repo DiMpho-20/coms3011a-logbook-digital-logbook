@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../prisma.js";
 import { createEntrySchema, updateEntrySchema } from "../schemas/entry.schema.js";
+import type { Entry } from "@logbook/shared";
 
 /**
  * Convert an array of EntryValue records (with included field) into a
@@ -32,7 +33,7 @@ function formatEntry(entry: {
   createdAt: Date;
   updatedAt: Date;
   values: { fieldId: string; value: string; field: { type: string } }[];
-}) {
+}): Entry {
   return {
     id: entry.id,
     projectId: entry.projectId,

@@ -6,6 +6,7 @@ import {
   updateProjectSchema,
   updateProjectStatusSchema,
 } from "../schemas/project.schema.js";
+import type { TimeSummary } from "@logbook/shared";
 
 /** Extract the x-user-id header as the acting user. */
 function getUserId(req: Request): string {
@@ -51,7 +52,7 @@ export const createProject = async (req: Request, res: Response) => {
         userId,
         name: validatedData.name,
         description: validatedData.description,
-        status: "ACTIVE",
+        status: validatedData.status ?? "ACTIVE",
       },
     });
 
@@ -137,7 +138,7 @@ export const getProjectTimeSummary = async (req: Request, res: Response) => {
 
     const totalMinutes = entries.reduce((sum, e) => sum + e.durationMinutes, 0);
     const entryCount = entries.length;
-    const lastEntryAt = entryCount > 0 ? entries[0].createdAt : null;
+    const lastEntryAt = entryCount > 0 ? entries[0].createdAt.toISOString() : null;
 
     return res.status(200).json({
       projectId: id,
@@ -145,7 +146,7 @@ export const getProjectTimeSummary = async (req: Request, res: Response) => {
       totalHours: Math.round((totalMinutes / 60) * 10) / 10,
       entryCount,
       lastEntryAt,
-    });
+    } satisfies TimeSummary);
   } catch (error: any) {
     return res.status(500).json({ error: "Failed to fetch time summary" });
   }

@@ -13,14 +13,11 @@ import {
   createEntryField,
   fetchEntryFields,
   type Project,
+  type EntryField as BaseEntryField,
 } from "./api";
 
-type EntryField = {
-  id: string;
-  name: string;
-  type: "TEXT" | "NUMBER" | "DATE" | "BOOLEAN";
-  required: boolean;
-  isNew?: boolean; // Optional property to indicate if the field is newly added
+type EntryField = Partial<BaseEntryField> & Pick<BaseEntryField, "id" | "name" | "type" | "required"> & {
+  isNew?: boolean;
 };
 
 type ViewId = "dashboard" | "projects" | "entries" | "validation" | "reports";

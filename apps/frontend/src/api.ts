@@ -1,102 +1,109 @@
-﻿const API_BASE_URL = "http://localhost:3000/api";
+﻿import type {
+  Project,
+  ProjectWithFields,
+  EntryField,
+  EntryFieldValue,
+  Entry,
+  TimeSummary,
+  CreateProjectInput,
+  UpdateProjectInput,
+  CreateEntryInput,
+  UpdateEntryInput,
+  CreateEntryFieldInput,
+  EntryFieldType,
+} from "@logbook/shared";
+
+const API_BASE_URL = "http://localhost:3000/api";
 
 // TODO: replace with real auth once available
 const USER_ID = "df8cb59f-b366-4612-8f49-403cde4d3058";
- 
+
 const authHeaders = {
   "Content-Type": "application/json",
   "x-user-id": USER_ID,
 };
 
-export interface Project {
-  id: string ;
-  userId?: string | number | null;
-  name: string;
-  description?: string;
-  status: "ACTIVE" | "ARCHIVED";
-  createdAt?: string;
-  updatedAt?: string;
-}
+// Re-export types so the rest of the frontend can import from api.ts
+export type {
+  Project,
+  ProjectWithFields,
+  EntryField,
+  EntryFieldValue,
+  Entry,
+  TimeSummary,
+  EntryFieldType,
+};
 
-export interface EntryField {
-  id: string;
-  name: string;
-  type: "TEXT" | "NUMBER" | "DATE" | "BOOLEAN";
-  required: boolean; 
-}
-
-export type EntryFieldValue = string | number | boolean | null;
-
-export interface Entry {
-  id: string;
-  projectId: string;
-  durationMinutes: number;
-  values: Record<string, EntryFieldValue>;
-  createdAt: string;
-  updatedAt?: string;
-}
-
-//project 
+// ── Projects ─────────────────────────────────────────────────────────────
 
 export async function fetchProjects(): Promise<Project[]> {
-  const res = await fetch(`${API_BASE_URL}/projects`);
+  const res = await fetch(`${API_BASE_URL}/projects`, { headers: authHeaders });
   if (!res.ok) throw new Error("Failed to fetch projects");
   return res.json();
 }
 
-export async function createProject(project: Omit<Project, "id">): Promise<Project> {
+export async function fetchProject(id: string): Promise<ProjectWithFields> {
+  const res = await fetch(`${API_BASE_URL}/projects/${id}`, { headers: authHeaders });
+  if (!res.ok) throw new Error("Failed to fetch project");
+  return res.json();
+}
+
+export async function createProject(data: CreateProjectInput): Promise<Project> {
   const res = await fetch(`${API_BASE_URL}/projects`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(project),
+    headers: authHeaders,
+    body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to create project");
   return res.json();
 }
 
-export async function updateProject(id: string | number, updates: Partial<Project>): Promise<Project> {
+export async function updateProject(id: string, updates: UpdateProjectInput): Promise<Project> {
   const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders,
     body: JSON.stringify(updates),
   });
   if (!res.ok) throw new Error("Failed to update project");
   return res.json();
 }
 
+export async function fetchProjectTimeSummary(id: string): Promise<TimeSummary> {
+  const res = await fetch(`${API_BASE_URL}/projects/${id}/time-summary`, { headers: authHeaders });
+  if (!res.ok) throw new Error("Failed to fetch time summary");
+  return res.json();
+}
+
+// ── Entry Fields ─────────────────────────────────────────────────────────
+
 export async function createEntryField(
   projectId: string,
-  data: {
-    name: string;
-    type: "TEXT" | "NUMBER" | "DATE" | "BOOLEAN";
-  }
+  data: CreateEntryFieldInput
 ): Promise<EntryField> {
-  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/entry-fields`, {
+  const res = await fetch(`${API_BASE_URL}/projects/${projectId}/entry-fields`, {
     method: "POST",
     headers: authHeaders,
     body: JSON.stringify(data),
   });
-
-  if (!response.ok) {
-    const error = await response.text();
+  if (!res.ok) {
+    const error = await res.text();
     throw new Error(error || "Failed to create entry field");
   }
-
-  return response.json();
+  return res.json();
 }
 
 export async function fetchEntryFields(projectId: string): Promise<EntryField[]> {
-  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/entry-fields`, {
+  const res = await fetch(`${API_BASE_URL}/projects/${projectId}/entry-fields`, {
     headers: authHeaders,
   });
-
-  if (!response.ok) {
-    const error = await response.text();
+  if (!res.ok) {
+    const error = await res.text();
     throw new Error(error || "Failed to fetch entry fields");
   }
-
-  return response.json();
+  return res.json();
 }
+
+// ── Entries ──────────────────────────────────────────────────────────────
 
 export async function fetchEntries(projectId: string): Promise<Entry[]> {
   const res = await fetch(`${API_BASE_URL}/projects/${projectId}/entries`, {
@@ -108,7 +115,7 @@ export async function fetchEntries(projectId: string): Promise<Entry[]> {
 
 export async function createEntry(
   projectId: string,
-  data: { durationMinutes: number; values: Record<string, EntryFieldValue> }
+  data: CreateEntryInput
 ): Promise<Entry> {
   const res = await fetch(`${API_BASE_URL}/projects/${projectId}/entries`, {
     method: "POST",
@@ -121,7 +128,7 @@ export async function createEntry(
 
 export async function updateEntry(
   id: string,
-  updates: Partial<Pick<Entry, "durationMinutes" | "values">>
+  updates: UpdateEntryInput
 ): Promise<Entry> {
   const res = await fetch(`${API_BASE_URL}/entries/${id}`, {
     method: "PUT",
