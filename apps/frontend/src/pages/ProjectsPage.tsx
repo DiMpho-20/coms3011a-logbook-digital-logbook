@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Search, X } from "lucide-react";
+import { Plus, Search, X, LayoutGrid, List } from "lucide-react";
 
 import {
   fetchProjects,
@@ -34,8 +34,9 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [filter, setFilter] = useState<FilterTab>("ALL");
+  const [filter, setFilter] = useState<FilterTab>("ACTIVE");
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -190,7 +191,7 @@ export default function ProjectsPage() {
     <div className="space-y-6 max-w-6xl">
       <PageHeader
         title="Projects"
-        subtitle="Manage and organize your logbook projects."
+        subtitle="Manage your projects and track the work you've done."
         action={
           <button
             onClick={openCreateModal}
@@ -203,22 +204,7 @@ export default function ProjectsPage() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="flex gap-1 bg-slate-200/60 p-1 rounded-lg">
-          {(["ALL", "ACTIVE", "ARCHIVED"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilter(tab)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
-                filter === tab
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {tab.charAt(0) + tab.slice(1).toLowerCase()}
-            </button>
-          ))}
-        </div>
-        <div className="relative w-full sm:w-64">
+        <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
             type="text"
@@ -227,6 +213,41 @@ export default function ProjectsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as FilterTab)}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="ALL">All</option>
+            <option value="ACTIVE">Active</option>
+            <option value="ARCHIVED">Archived</option>
+          </select>
+          <div className="flex border border-slate-200 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`p-2 transition ${
+                viewMode === "grid"
+                  ? "bg-slate-100 text-slate-900"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
+              title="Grid view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-2 transition ${
+                viewMode === "list"
+                  ? "bg-slate-100 text-slate-900"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
+              title="List view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -252,7 +273,7 @@ export default function ProjectsPage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "space-y-3"}>
           {filteredProjects.map((project) => (
             <ProjectCard
               key={project.id}

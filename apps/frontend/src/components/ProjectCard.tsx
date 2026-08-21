@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Clock, FileText, Archive, ArchiveRestore, Edit2 } from "lucide-react";
-import StatusBadge from "./StatusBadge";
+import { Archive, ArchiveRestore, Edit2 } from "lucide-react";
 import { formatDuration } from "../lib/utils";
 import type { Project, TimeSummary } from "../api";
 
@@ -11,6 +10,19 @@ interface ProjectCardProps {
   onToggleArchive: (project: Project) => void;
 }
 
+function relativeDay(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.floor((today.getTime() - target.getTime()) / 86400000);
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export default function ProjectCard({
   project,
   summary,
@@ -19,75 +31,90 @@ export default function ProjectCard({
 }: ProjectCardProps) {
   const navigate = useNavigate();
   const isArchived = project.status === "ARCHIVED";
+  const isActive = project.status === "ACTIVE";
 
   return (
     <div
-      className={`bg-white rounded-lg border border-slate-200 p-4 hover:border-slate-300 transition group ${
-        isArchived ? "opacity-70" : ""
+      className={`bg-white rounded-xl border border-slate-200 p-5 hover:border-slate-300 hover:shadow-sm transition group cursor-pointer ${
+        isArchived ? "opacity-60" : ""
       }`}
+      onClick={() => navigate(`/projects/${project.id}`)}
     >
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <button
-          onClick={() => navigate(`/projects/${project.id}`)}
-          className="text-sm font-semibold text-slate-900 hover:text-blue-600 transition text-left"
-        >
-          {project.name}
-        </button>
-        <StatusBadge status={project.status} />
-      </div>
+      {/* Project name */}
+      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-2">
+        {project.name}
+      </h3>
 
       {/* Description */}
-      {project.description && (
-        <p className="text-xs text-slate-500 mb-3 line-clamp-2">{project.description}</p>
+      {project.description ? (
+        <p className="text-sm text-slate-500 mb-4 line-clamp-2 min-h-[2.5rem]">
+          {project.description}
+        </p>
+      ) : (
+        <div className="mb-4 min-h-[2.5rem]" />
       )}
 
-      {/* Stats row */}
-      <div className="flex items-center gap-4 text-xs text-slate-500 mb-3">
-        {summary && (
-          <>
-            <span className="flex items-center gap-1">
-              <FileText className="h-3 w-3 text-slate-400" />
-              {summary.entryCount} entries
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3 text-slate-400" />
-              {formatDuration(summary.totalMinutes)}
-            </span>
-            {summary.lastEntryAt && (
-              <span className="text-slate-400">
-                Last: {new Date(summary.lastEntryAt).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                })}
-              </span>
-            )}
-          </>
-        )}
+      {/* Status badge */}
+      <div className="mb-4">
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              isActive ? "bg-emerald-500" : "bg-slate-400"
+            }`}
+          />
+          {isActive ? "Active" : "Archived"}
+        </span>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+      {/* Divider */}
+      <div className="border-t border-slate-100 my-3" />
+
+      {/* Stats */}
+      <div className="space-y-1">
+        <p className="text-sm font-semibold text-slate-800">
+          {summary?.entryCount ?? 0} {summary?.entryCount === 1 ? "entry" : "entries"}
+        </p>
+        <p className="text-sm font-semibold text-slate-800">
+          {formatDuration(summary?.totalMinutes ?? 0)}
+        </p>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-slate-100 my-3" />
+
+      {/* Last activity */}
+      <div>
+        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">
+          Last activity
+        </p>
+        <p className="text-sm font-medium text-slate-700 mt-0.5">
+          {summary?.lastEntryAt
+            ? relativeDay(summary.lastEntryAt)
+            : "No entries yet"}
+        </p>
+      </div>
+
+      {/* Hover actions (only visible on hover) */}
+      <div className="flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition">
         <button
-          onClick={() => navigate(`/projects/${project.id}`)}
-          className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-blue-600 transition"
-          title="View project"
-        >
-          <FileText className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={() => onEdit(project)}
-          className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(project);
+          }}
+          className="p-1.5 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
           title="Edit project"
         >
           <Edit2 className="h-3.5 w-3.5" />
         </button>
         <button
-          onClick={() => onToggleArchive(project)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleArchive(project);
+          }}
           className={`p-1.5 rounded-md transition ${
             isArchived
               ? "text-emerald-600 hover:bg-emerald-50"
-              : "text-slate-500 hover:bg-slate-100 hover:text-amber-600"
+              : "text-slate-400 hover:bg-slate-100 hover:text-amber-600"
           }`}
           title={isArchived ? "Unarchive" : "Archive"}
         >
