@@ -44,6 +44,30 @@ export const LoginPage: React.FC = () => {
 
   return (
     <AuthLayout>
+      {/* Back to home */}
+      <a
+        href="/"
+        style={{
+          position: "absolute",
+          top: "1.5rem",
+          left: "1.5rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.4rem",
+          color: "rgba(255, 255, 255, 0.6)",
+          fontSize: "0.85rem",
+          textDecoration: "none",
+          transition: "color 0.2s",
+          zIndex: 20,
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "#00c6ff")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255, 255, 255, 0.6)")}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
+        </svg>
+        Back to home
+      </a>
       <GlassCard>
         {/* Header Section */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
