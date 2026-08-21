@@ -1,5 +1,4 @@
 import { Router, Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import crypto from "node:crypto";
 import { 
   registerSchema, 
@@ -12,54 +11,86 @@ import {
 import { hashPassword, comparePassword, generateToken } from "../utils/auth.js";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/email.js";
+import prisma from "../prisma.js";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ---------------------------------------------------------
 // US00.1: POST /api/auth/register
 // ---------------------------------------------------------
 router.post("/register", async (req: Request, res: Response) => {
-  const parseResult = registerSchema.safeParse(req.body);
-  if (!parseResult.success) {
-    return res.status(400).json({ errors: parseResult.error.flatten().fieldErrors });
-  }
-
-  const { fullName, email, password } = parseResult.data;
-
-  const existingUser = await prisma.user.findUnique({ where: { email } });
-  if (existingUser) {
-    return res.status(409).json({ error: "An account with this email already exists" });
-  }
-
-  const passwordHash = await hashPassword(password);
-
-  // Generate Email Verification Token (1 hour validity)
-  const verificationToken = crypto.randomBytes(32).toString("hex");
-  const verificationExpiry = new Date(Date.now() + 3600000); // 1 hour
-
-  const user = await prisma.user.create({
-    data: { 
-      fullName, 
-      email, 
-      passwordHash,
-      isEmailVerified: false,
-      emailVerificationToken: verificationToken,
-      emailVerificationExpiry: verificationExpiry,
-    },
-  });
-
-  // Send real verification email using positional arguments
   try {
-    await sendVerificationEmail(user.email, verificationToken);
-  } catch (emailErr) {
-    console.error("Failed to send verification email:", emailErr);
-  }
+    const parseResult = registerSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ errors: parseResult.error.flatten().fieldErrors });
+    }
 
-  return res.status(201).json({
-    message: "User registered successfully. Please check your email to verify your account.",
-    user: { id: user.id, fullName: user.fullName, email: user.email },
-  });
+    const { fullName, email, password } = parseResult.data;
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return res.status(409).json({ error: "An account with this email already exists" });
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    // Generate Email Verification Token (1 hour validity)
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+    const verificationExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+    const user = await prisma.user.create({
+      data: {
+        fullName,
+        email,
+        passwordHash,
+        isEmailVerified: false,
+        emailVerificationToken: verificationToken,
+        emailVerificationExpiry: verificationExpiry,
+      },
+    });
+
+    // Check if email credentials are configured
+    const hasEmailConfig = process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD;
+
+    if (hasEmailConfig) {
+      // Send verification email
+      try {
+        await sendVerificationEmail(user.email, verificationToken);
+      } catch (emailErr) {
+        console.error("Failed to send verification email:", emailErr);
+      }
+    } else {
+      // Dev mode: auto-verify and log the link
+      console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`  📧 EMAIL VERIFICATION (no SMTP configured)`);
+      console.log(`  Verify link: http://localhost:5173/verify-email?token=${verificationToken}`);
+      console.log(`  Auto-verifying account for development...`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          isEmailVerified: true,
+          emailVerificationToken: null,
+          emailVerificationExpiry: null,
+        },
+      });
+    }
+
+    const message = hasEmailConfig
+      ? "User registered successfully. Please check your email to verify your account."
+      : "User registered successfully. Email auto-verified (dev mode).";
+
+    return res.status(201).json({
+      message,
+      user: { id: user.id, fullName: user.fullName, email: user.email },
+    });
+  } catch (err) {
+    console.error("POST /auth/register failed:", err);
+    return res.status(500).json({
+      error: "Registration failed. The database may need to be migrated. Run `npx prisma db push` in the backend folder.",
+    });
+  }
 });
 
 // ---------------------------------------------------------

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import app from "../app.js";
+import prisma from "../prisma.js";
 
 // ── Shared constants ─────────────────────────────────────────────────────
 
@@ -12,6 +13,28 @@ const TEST_PROJECT_NAME = `__test_${ts}`;
 let projectId: string;
 let fieldId: string;
 let entryId: string;
+
+// ── Setup: create test user ──────────────────────────────────────────────
+
+beforeAll(async () => {
+  // Create the test user that the projects will reference
+  await prisma.user.upsert({
+    where: { id: USER_ID },
+    update: {},
+    create: {
+      id: USER_ID,
+      email: `test_${ts}@example.com`,
+      passwordHash: "dummy_hash",
+      fullName: "Test User",
+      isEmailVerified: true,
+    },
+  });
+});
+
+afterAll(async () => {
+  // Clean up test user (cascades to projects, entries, etc.)
+  await prisma.user.delete({ where: { id: USER_ID } }).catch(() => {});
+});
 
 // ── Health ───────────────────────────────────────────────────────────────
 
