@@ -18,7 +18,7 @@ This document tracks requirements, Q&A, and decisions made in consultation with 
 ## [Date: 2026-08-17] — Requirements Clarification Meeting
 
 * **Channel:** Requirements Review Meeting
-* **Attendees:** Client / Lecturer, Development Team
+* **Attendees:** Client / Lecturer, Development Team (all of us)
 
 ### Confirmed Decisions & Architectural Impact
 
@@ -71,7 +71,7 @@ This document tracks requirements, Q&A, and decisions made in consultation with 
 ## [Date: 2026-08-21] — Sprint Review & Rubric Compliance Check
 
 * **Channel:** In-person sprint review meeting with client/lecturer.
-* **Attendees:** Client / Lecturer, Development Team (Dineo Motloung, Athandwa Mathole)
+* **Attendees:** Client / Lecturer, Development Team (Dineo Motloung, Athandwa,Alondwe and Wendy )
 
 ### Meeting Context
 
