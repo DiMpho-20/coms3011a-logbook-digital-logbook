@@ -1,10 +1,18 @@
 # Digital Logbook (COMS3011A)
-Group: no-boys-just-bugs
 
-
-# Digital Logbook
+**Group:** no-boys-just-bugs
 
 A web-based digital logbook application designed to help university students keep track of their projects, work completed, time spent, and tasks that still need to be done.
+
+## Deployed Application
+
+| Environment | URL |
+|---|---|
+| **Live App** | _[Add your deployed URL here]_ |
+| **API Server** | _[Add your deployed API URL here]_ |
+| **Gitea Repository** | <https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook> |
+
+> Replace the placeholders above with your actual deployment URLs once deployed (e.g. Vercel, Railway, Render).
 
 ## Overview
 
@@ -27,44 +35,52 @@ The main goals of the Digital Logbook are to:
 * Allow users to filter entries by project.
 * Allow projects to be archived when they are no longer active.
 
-## Basic Features
+## Features
 
-The initial implementation focuses on the **Basic** requirements:
+### Core Features
 
-* Customisable entry formats for each project.
-* Quick creation of logbook entries.
-* Project creation, description, and archiving.
-* Recording time spent on entries.
-* Basic statistics about projects and entries.
-* Timeline for browsing entries.
-* Searching across entries.
-* Filtering entries by project.
+* **User authentication** — registration, login, email verification, and password reset
+* **Customisable entry formats** — each project defines its own logbook entry fields
+* **Quick entry capture** — create logbook entries with time tracking
+* **Project management** — create, describe, archive, and organise projects
+* **Dashboard** — statistics, recent entries, and project overview at a glance
+* **Entry browser** — search and filter entries across all projects
 
-Intermediate and Advanced features will be considered after the Basic requirements have been implemented.
+### User Experience
+
+* **Profile page** — avatar upload, bio/slogan, degree, year, and student number
+* **Settings** — account management, dark/light theme, notifications, logbook preferences, and data export/import
+* **Responsive design** — works on desktop and mobile with a collapsible sidebar
+* **Dark mode** — system-aware or manual toggle with accent colour customisation
+* **Data portability** — export logbook as JSON or CSV, import from JSON backup
 
 ## Technology Stack
 
 ### Frontend
 
-* React
-* Vite
-* TypeScript
+* React 19 with TypeScript
+* Vite 8 (build tooling)
+* Tailwind CSS v4 (design system with `@theme` directive)
+* React Router v7 (client-side routing with nested protected routes)
+* Axios (HTTP client with JWT token interceptor)
 
 ### Backend
 
-* Node.js 22
-* Express
-* TypeScript
+* Node.js 22 with TypeScript
+* Express 5 (REST API)
+* Prisma 7 (ORM with driver adapter pattern)
+* bcryptjs (password hashing)
+* jsonwebtoken (JWT authentication)
+* nodemailer (email verification and password reset)
+* Zod (schema validation, shared with frontend)
 
 ### Database
 
-* PostgreSQL
-
-The database layer is configured through the `DATABASE_URL` environment variable.
+* PostgreSQL (hosted on [Neon](https://neon.tech))
 
 ### Shared Package
 
-The `packages/shared` package contains TypeScript definitions and interfaces that can be shared between the frontend and backend.
+The `@logbook/shared` package (`packages/shared/`) contains TypeScript definitions, Zod schemas, and interfaces shared between the frontend and backend.
 
 ## Project Structure
 
@@ -72,19 +88,40 @@ The `packages/shared` package contains TypeScript definitions and interfaces tha
 coms3011a-logbook-digital-logbook/
 │
 ├── apps/
-│   ├── frontend/          # React + Vite frontend application
-│   └── backend/           # Node.js + Express API server
+│   ├── frontend/
+│   │   ├── src/
+│   │   │   ├── components/      # Reusable UI components (Sidebar, Modal, etc.)
+│   │   │   ├── pages/           # Route pages (Dashboard, Projects, Entries, etc.)
+│   │   │   ├── lib/             # Utility functions
+│   │   │   ├── api/             # Axios client with JWT interceptor
+│   │   │   ├── App.tsx          # Router configuration
+│   │   │   └── index.css        # Tailwind v4 theme and global styles
+│   │   ├── vite.config.ts
+│   │   └── package.json
+│   │
+│   └── backend/
+│       ├── prisma/              # Prisma schema
+│       ├── src/
+│       │   ├── controllers/     # Request handlers
+│       │   ├── routes/          # Express route definitions
+│       │   ├── middleware/      # Auth middleware
+│       │   ├── utils/           # Auth helpers, email sender
+│       │   ├── schemas/        # Validation schemas
+│       │   └── __tests__/       # Vitest integration tests
+│       ├── .env.example
+│       └── package.json
 │
 ├── packages/
-│   └── shared/            # Shared TypeScript definitions and interfaces
+│   └── shared/                  # @logbook/shared — shared types and Zod schemas
 │
-├── docs/                  # Project documentation
+├── docs/                        # Project documentation
 │   ├── architecture.md
 │   ├── client-interactions.md
-│   ├── index.md
-│   └── setup.md
+│   ├── methodology.md
+│   ├── setup.md
+│   └── user-stories/
 │
-├── .gitignore
+├── .nvmrc
 ├── mkdocs.yml
 ├── package.json
 └── package-lock.json
@@ -116,79 +153,20 @@ The frontend and backend are developed as separate applications and communicate 
 
 ## Development Setup
 
-### Prerequisites
+See [docs/setup.md](docs/setup.md) for the full development setup guide.
 
-Install the following before setting up the project:
-
-* Node.js 22 or later
-* npm 10 or later
-* nvm (recommended)
-* PostgreSQL
-
-### Clone the Repository
+**Quick start:**
 
 ```bash
 git clone https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook.git
 cd coms3011a-logbook-digital-logbook
-```
-
-### Select the Node.js Version
-
-If using nvm:
-
-```bash
-nvm use
-```
-
-### Install Dependencies
-
-Install all workspace dependencies from the repository root:
-
-```bash
 npm install
+cp apps/backend/.env.example apps/backend/.env
+# Edit apps/backend/.env with your DATABASE_URL
+npx prisma db push --schema=apps/backend/prisma/schema.prisma
+npm run dev --workspace=backend   # Terminal 1
+npm run dev --workspace=frontend  # Terminal 2
 ```
-
-### Configure Environment Variables
-
-Create the backend environment file:
-
-```text
-apps/backend/.env
-```
-
-Add the PostgreSQL database connection string:
-
-```env
-DATABASE_URL="postgresql://<user>:<password>@<host>/<dbname>?sslmode=require"
-```
-
-Do not commit the `.env` file or real database credentials to the repository.
-
-A safe example environment file is provided at:
-
-```text
-apps/backend/.env.example
-```
-
-### Run the Backend
-
-From the repository root:
-
-```bash
-npm run dev --workspace=backend
-```
-
-The backend API will start in development mode.
-
-### Run the Frontend
-
-In a separate terminal:
-
-```bash
-npm run dev --workspace=frontend
-```
-
-The Vite development server will start the frontend application.
 
 ## Code Quality and Linting
 
@@ -236,8 +214,13 @@ docs: update setup guide
 test: add project creation tests
 ```
 
+## Team
+
+| Member | Role |
+|---|---|
+| Dineo Motloung | Frontend UI, Dashboard, Projects, Entries, Profile, Settings |
+| Athandwa Mathole | Authentication (register, login, email verification, password reset) |
+
 ## Project Status
 
-The project is currently under active development. The Basic requirements are being implemented first, with Intermediate and Advanced functionality planned for later stages.
-
-The database schema and implementation will continue to evolve as the requirements for customisable project-specific entry formats are refined.
+The project is currently under active development. The Basic requirements are complete, and Intermediate and Advanced features are planned for later stages.

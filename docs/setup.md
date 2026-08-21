@@ -34,43 +34,69 @@ npm install
 
 ### 4. Configure environment variables
 
-Create `apps/backend/.env` with your Neon database URL:
+Create `apps/backend/.env` from the example file:
 
-```env
-DATABASE_URL="postgresql://<user>:<password>@<host>/<dbname>?sslmode=require"
+```bash
+cp apps/backend/.env.example apps/backend/.env
 ```
 
-> **Note:** The backend also requires a `PORT` variable if you want a non-default port. Default is `3000`.
+Edit `apps/backend/.env` and set the following variables:
+
+```env
+# Required — PostgreSQL connection string (from Neon dashboard)
+DATABASE_URL="postgresql://<user>:<password>@<host>/<dbname>?sslmode=require"
+
+# Required — secret key for signing JWT auth tokens
+JWT_SECRET=your-random-secret-string-here
+
+# Backend port (default: 3000)
+PORT=3000
+
+# Frontend URL (used in verification/reset email links)
+APP_URL=http://localhost:5173
+
+# Optional — Gmail SMTP for email verification and password reset
+# Without these, accounts are auto-verified in dev mode (no email sent)
+GMAIL_USER=your-email@gmail.com
+GMAIL_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+```
+
+> **Tip:** To get a Gmail App Password: go to [Google Account](https://myaccount.google.com) → Security → enable 2-Step Verification → App Passwords → create one for "Mail".
+
+> **Warning:** Never commit `.env` files with real credentials to the repository.
 
 ### 5. Set up the database schema
 
-Generate the Prisma client (required before first run and after any schema changes):
+Generate the Prisma client and push the schema to your Neon database:
 
 ```bash
 npx prisma generate --schema=apps/backend/prisma/schema.prisma
-```
-
-To apply schema migrations to the database:
-
-```bash
 npx prisma db push --schema=apps/backend/prisma/schema.prisma
 ```
 
+> This creates all tables (`users`, `projects`, `entry_fields`, `entries`, `password_resets`) in your Neon database. Use `--force-reset` if you need to clear existing data during development.
+
 ### 6. Run development servers
 
-**Backend** (Express API on port 3000):
+You need **both** servers running simultaneously:
+
+**Terminal 1 — Backend** (Express API on port 3000):
 
 ```bash
 npm run dev --workspace=backend
 ```
 
-**Frontend** (Vite dev server on port 5173):
+**Terminal 2 — Frontend** (Vite dev server on port 5173):
 
 ```bash
 npm run dev --workspace=frontend
 ```
 
-The frontend proxies `/api/*` requests to the backend at `http://localhost:3000`.
+The frontend proxies `/api/*` requests to `http://localhost:3000` via the Vite config.
+
+Open <http://localhost:5173> in your browser to use the app.
+
+> **Note:** Both servers must be running. Without the backend, all API calls return a `502 Bad Gateway`.
 
 ## Project Scripts
 
@@ -100,10 +126,10 @@ npm run typecheck --workspace=backend
 
 ## Testing
 
-The backend includes 27 integration tests using Vitest and Supertest that exercise all API endpoints against the live Neon database.
+The backend includes 27 integration tests using Vitest and Supertest that exercise all API endpoints (projects, entries, entry fields) against the live Neon database.
 
 ```bash
-# Run tests once
+# Run all tests
 npm run test --workspace=backend
 
 # Run tests in watch mode
@@ -114,4 +140,21 @@ Tests are located in `apps/backend/src/__tests__/api.test.ts`.
 
 ## Shared Types Package
 
-The `@logbook/shared` package (in `packages/shared/`) contains TypeScript interfaces shared between frontend and backend. It is referenced via npm workspace linking (`"@logbook/shared": "*"`). After modifying shared types, regenerate the Prisma client and restart both servers.
+The `@logbook/shared` package (`packages/shared/`) contains TypeScript interfaces, Zod validation schemas, and types shared between frontend and backend. It is linked via npm workspaces (`"@logbook/shared": "*"`).
+
+After modifying shared types:
+1. Restart both dev servers
+2. Regenerate the Prisma client if the schema changed: `npx prisma generate --schema=apps/backend/prisma/schema.prisma`
+
+## Authentication & Email
+
+The app uses JWT-based authentication with email verification:
+
+* **Registration** creates a user with an unverified email
+* **Email verification** — a verification link is sent via Gmail SMTP (if configured)
+* **Login** is blocked until the email is verified
+* **Password reset** — reset link sent via email
+
+**Dev mode (no Gmail credentials):** accounts are automatically verified so you can develop without email setup. The verification link is logged to the backend console.
+
+**Production mode:** set `GMAIL_USER` and `GMAIL_APP_PASSWORD` in `.env` to enable real email sending.
