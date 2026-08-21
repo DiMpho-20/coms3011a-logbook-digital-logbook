@@ -202,17 +202,30 @@ App (BrowserRouter)
 │
 └── Protected Routes (JWT required)
     └── AppLayout                  # Sidebar + main content area
-        ├── DashboardPage          # Stats, recent entries, project overview
+        ├── DashboardPage          # Stats, recent entries, project overview, overdue count
         ├── ProjectsPage           # Grid/list view with search
-        ├── ProjectDetailPage      # Timeline, fields, entry management
-        ├── EntriesPage            # Cross-project entry browser
+        ├── ProjectDetailPage      # Timeline, fields, entry management, stopwatch, time summary
+        ├── EntriesPage            # Cross-project entry browser (All / This Week / Overdue tabs)
         ├── SettingsPage           # Account, appearance, notifications, prefs, data
         └── ProfilePage            # Avatar, bio, degree, year, student number
 ```
 
 - **`api/client.ts`** — Axios instance with request interceptor that attaches the JWT `Bearer` token from `localStorage`.
-- **`components/Sidebar.tsx`** — Responsive sidebar with navigation, user avatar, dropdown menu (Profile, Settings, Log out).
+- **`components/Sidebar.tsx`** — Notion-style dark sidebar with animated glow effects, section labels, user avatar with pulsing ring, and mouse-proximity glow.
 - **`components/ProtectedRoute.tsx`** — Checks for JWT token in `localStorage`, redirects to `/login` if missing.
+
+### Planned Features (from 2026-08-21 client meeting)
+
+| Feature | Description | Schema Support | Priority |
+|---------|-------------|----------------|----------|
+| **Overdue tab** | Entries page gains an "Overdue" filter tab; entries past `due_date` auto-flagged | `due_date` on LogbookEntry exists | P1 |
+| **Live stopwatch** | Start/pause/reset stopwatch widget on entry form; saves `duration_minutes` | `duration_minutes` on LogbookEntry exists | P1 |
+| **Overdue dashboard stat** | Dashboard stat card showing count of overdue entries | Computed from entries | P1 |
+| **Overdue visual indicators** | Red badge/warning icon on overdue entries in all views | Frontend-only | P1 |
+| **Deadline reminders** | In-app notifications at 3 days, 1 day, and day-of due date | Computed or new `notifications` table | P2 |
+| **Notification indicator** | Bell icon or badge count in sidebar/header | Frontend component | P2 |
+| **Calendar API sync** | Google Calendar API integration to sync entry due dates as calendar events | `due_date` on LogbookEntry exists | P2 (Sprint 2) |
+| **Per-project time rollup** | Prominent cumulative time display on project detail page | `time-summary` endpoint exists | P1 |
 
 ## 7. Testing
 

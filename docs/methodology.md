@@ -71,3 +71,9 @@ We use Gitea's built-in **Issues, Labels, Milestones, and Projects (Kanban board
 2. Add frontend toast notifications for API errors.
 3. Consider adding unit tests alongside integration tests for complex business logic.
 4. Add Calendar API integration (client-requested external API).
+5. Implement **Overdue tab** on Entries page — auto-flag entries past `due_date` with visual indicators (red badge, warning icon). _(P1, from 2026-08-21 client meeting)_
+6. Add **live stopwatch widget** to entry creation/edit form — start/pause/reset count-up timer that saves to `duration_minutes`. _(P1, from 2026-08-21 client meeting)_
+7. Add **overdue entry count** to Dashboard stats. _(P1, from 2026-08-21 client meeting)_
+8. Implement **in-app deadline reminders** — notifications at 3 days, 1 day, and day-of due date. _(P2, from 2026-08-21 client meeting)_
+9. Add **notification indicator** (bell icon or badge) to sidebar/header. _(P2, from 2026-08-21 client meeting)_
+10. Surface **per-project cumulative time** more prominently on Project Detail page. _(P1, from 2026-08-21 client meeting)_
