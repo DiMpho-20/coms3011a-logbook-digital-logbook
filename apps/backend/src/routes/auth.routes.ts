@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import crypto from "node:crypto";
-import { authenticator } from "otplib";
+import { generateSecret, generateURI, verifySync, generateSync } from "otplib";
 import QRCode from "qrcode";
 import { 
   registerSchema, 
@@ -192,12 +192,12 @@ router.post("/login/2fa", async (req: Request, res: Response) => {
     return res.status(401).json({ error: "Invalid or expired session" });
   }
 
-  const isValid = authenticator.verify({
+  const isValid = verifySync({
     token: totpCode,
     secret: user.twoFactorSecret,
   });
 
-  if (!isValid) {
+  if (!isValid.valid) {
     return res.status(401).json({ error: "Invalid authentication code" });
   }
 
@@ -325,8 +325,8 @@ router.post("/2fa/setup", requireAuth, async (req: AuthenticatedRequest, res: Re
   }
 
   // Generate a new TOTP secret
-  const secret = authenticator.generateSecret();
-  const otpauthUrl = authenticator.keyuri(user.email, "Digital Logbook", secret);
+  const secret = generateSecret();
+  const otpauthUrl = generateURI({ secret, issuer: "Digital Logbook", label: user.email });
 
   // Generate QR code as data URL
   const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
@@ -360,12 +360,12 @@ router.post("/2fa/verify-setup", requireAuth, async (req: AuthenticatedRequest, 
     return res.status(400).json({ error: "Two-factor authentication is already enabled" });
   }
 
-  const isValid = authenticator.verify({
+  const isValid = verifySync({
     token: parseResult.data.token,
     secret: user.twoFactorSecret,
   });
 
-  if (!isValid) {
+  if (!isValid.valid) {
     return res.status(400).json({ error: "Invalid code. Please try again." });
   }
 
