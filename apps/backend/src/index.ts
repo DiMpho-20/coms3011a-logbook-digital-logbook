@@ -1,4 +1,5 @@
 ﻿import express from "express";
+import authRoutes from "./routes/auth.routes.js";
 import cors from "cors";
 import dotenv from "dotenv";
 import { pool } from "./db.js";
@@ -10,6 +11,12 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// Ensure CORS middleware is enabled
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+
+// Mount the authentication routes
+app.use("/api/auth", authRoutes);
 
 app.get("/", (_req, res) => {
   res.send("🚀 Backend is running");
