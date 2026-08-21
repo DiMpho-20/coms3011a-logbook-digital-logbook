@@ -64,6 +64,7 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "ARCHIVED">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -71,6 +72,9 @@ export default function Dashboard() {
     name: "",
     description: "",
   });
+
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const [entryFields, setEntryFields] = useState<EntryField[]>([]);
 
@@ -90,10 +94,12 @@ export default function Dashboard() {
 
   const loadProjects = async () => {
     try {
+      setLoadError(null);
       const data = await fetchProjects();
       setProjects(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error loading projects:", err);
+      setLoadError(err?.message || "Failed to load projects. Check that the backend is running.");
     } finally {
       setLoading(false);
     }
@@ -168,7 +174,13 @@ export default function Dashboard() {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name.trim()) return;
+    if (!formData.name.trim()) {
+      setFormError("Project name is required.");
+      return;
+    }
+
+    setSaving(true);
+    setFormError(null);
 
     try {
       if (editingProject) {
@@ -191,7 +203,7 @@ export default function Dashboard() {
       } else {
         const newProject = await createProject({
           name: formData.name,
-          description: formData.description || "",
+          description: formData.description || undefined,
           status: "ACTIVE",
         });
 
@@ -199,8 +211,6 @@ export default function Dashboard() {
           if (!field.name.trim()) continue;
 
           if (field.isNew) {
-            console.log("CREATING FIELD:", field.name, field.type);
-
             await createEntryField(newProject.id, {
               name: field.name,
               type: field.type,
@@ -211,8 +221,11 @@ export default function Dashboard() {
 
       await loadProjects();
       setIsModalOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save project:", err);
+      setFormError(err?.message || "Something went wrong while saving. Please try again.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -365,9 +378,20 @@ export default function Dashboard() {
             </div>
 
             {loading ? (
-              <div className="p-8 text-center text-slate-500 font-medium">Loading from database...</div>
+              <div className="p-8 text-center text-slate-500 font-medium">Loading projects...</div>
+            ) : loadError ? (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+                <p className="text-sm font-bold text-red-700">{loadError}</p>
+                <button
+                  onClick={() => { setLoading(true); loadProjects(); }}
+                  className="mt-3 text-xs font-bold text-[#0084D4] hover:underline"
+                >
+                  Retry
+                </button>
+              </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <>
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <table className="w-full text-left text-xs text-slate-600">
                   <thead className="bg-slate-50 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-100">
                     <tr>
@@ -433,7 +457,8 @@ export default function Dashboard() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              </>
             )}
 
             {isModalOpen && (
@@ -449,6 +474,11 @@ export default function Dashboard() {
                   </div>
 
                   <form onSubmit={handleFormSubmit} className="space-y-3 text-xs">
+                    {formError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-[11px] font-bold rounded-lg p-2.5 flex items-center gap-2">
+                        <X className="h-3.5 w-3.5 shrink-0" /> {formError}
+                      </div>
+                    )}
                     <div>
                       <label className="block text-slate-600 font-bold mb-1">Project Name *</label>
                       <input
@@ -563,9 +593,10 @@ export default function Dashboard() {
                       </button>
                       <button
                         type="submit"
-                        className="px-3 py-1.5 rounded-lg bg-[#0084D4] text-white font-bold hover:bg-blue-600"
+                        disabled={saving}
+                        className="px-3 py-1.5 rounded-lg bg-[#0084D4] text-white font-bold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {editingProject ? "Update Project" : "Save Project"}
+                        {saving ? "Saving..." : editingProject ? "Update Project" : "Save Project"}
                       </button>
                     </div>
                   </form>
