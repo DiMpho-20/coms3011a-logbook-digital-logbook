@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { registerSchema } from "shared";
+import { registerSchema } from "@logbook/shared";
 import { api } from "../api/client";
 import { AuthLayout } from "../components/AuthLayout";
 import { GlassCard } from "../components/GlassCard";
@@ -21,7 +21,7 @@ export const RegisterPage: React.FC = () => {
     const validation = registerSchema.safeParse(formData);
     if (!validation.success) {
       const fieldErrors: Record<string, string> = {};
-      validation.error.issues.forEach((issue) => {
+      validation.error.issues.forEach((issue: { path: PropertyKey[]; message: string }) => {
         if (issue.path[0]) fieldErrors[issue.path[0].toString()] = issue.message;
       });
       setErrors(fieldErrors);
@@ -32,6 +32,12 @@ export const RegisterPage: React.FC = () => {
       setIsSubmitting(true);
       const response = await api.post("/auth/register", formData);
       
+      // Save user info for profile pre-fill
+      if (response.data.user) {
+        localStorage.setItem("logbook-name", response.data.user.fullName);
+        localStorage.setItem("logbook-email", response.data.user.email);
+      }
+
       // Clear inputs and display email verification instruction banner
       setFormData({ fullName: "", email: "", password: "" });
       setSuccessMsg(
@@ -39,7 +45,13 @@ export const RegisterPage: React.FC = () => {
           "Account registered! Please check your inbox and verify your email before signing in."
       );
     } catch (err: any) {
-      setServerError(err.response?.data?.error || "Registration failed. Please try again.");
+      console.error("Registration error:", err);
+      const data = err.response?.data;
+      const msg = data?.error
+        || (data?.errors ? Object.values(data.errors).flat().join(", ") : null)
+        || err.message
+        || "Registration failed. Please try again.";
+      setServerError(msg);
     } finally {
       setIsSubmitting(false);
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { verifyEmailSchema } from "shared";
+import { verifyEmailSchema } from "@logbook/shared";
 import { api } from "../api/client";
 import { AuthLayout } from "../components/AuthLayout";
 import { GlassCard } from "../components/GlassCard";

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { loginSchema } from "shared";
+import { loginSchema } from "@logbook/shared";
 import { api } from "../api/client";
 import { AuthLayout } from "../components/AuthLayout";
 import { GlassCard } from "../components/GlassCard";
@@ -18,7 +18,7 @@ export const LoginPage: React.FC = () => {
     const validation = loginSchema.safeParse(formData);
     if (!validation.success) {
       const fieldErrors: Record<string, string> = {};
-      validation.error.issues.forEach((issue) => {
+      validation.error.issues.forEach((issue: { path: PropertyKey[]; message: string }) => {
         if (issue.path[0]) fieldErrors[issue.path[0].toString()] = issue.message;
       });
       setErrors(fieldErrors);
@@ -29,6 +29,11 @@ export const LoginPage: React.FC = () => {
       setIsSubmitting(true);
       const response = await api.post("/auth/login", formData);
       localStorage.setItem("token", response.data.token);
+      // Save user info for profile and sidebar
+      if (response.data.user) {
+        localStorage.setItem("logbook-name", response.data.user.fullName);
+        localStorage.setItem("logbook-email", response.data.user.email);
+      }
       window.location.href = "/dashboard";
     } catch (err: any) {
       setServerError(err.response?.data?.error || "Invalid email or password.");

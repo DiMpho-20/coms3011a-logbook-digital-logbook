@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { resetPasswordSchema } from "shared";
+import { resetPasswordSchema } from "@logbook/shared";
 import { api } from "../api/client";
 import { AuthLayout } from "../components/AuthLayout";
 import { GlassCard } from "../components/GlassCard";
@@ -33,7 +33,7 @@ export const ResetPasswordPage: React.FC = () => {
     const validation = resetPasswordSchema.safeParse({ token, newPassword });
     if (!validation.success) {
       const fieldErrors: Record<string, string> = {};
-      validation.error.issues.forEach((issue) => {
+      validation.error.issues.forEach((issue: { path: PropertyKey[]; message: string }) => {
         if (issue.path[0]) fieldErrors[issue.path[0].toString()] = issue.message;
       });
       setErrors(fieldErrors);

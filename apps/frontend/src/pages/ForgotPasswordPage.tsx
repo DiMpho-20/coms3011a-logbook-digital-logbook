@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { forgotPasswordSchema } from "shared";
+import { forgotPasswordSchema } from "@logbook/shared";
 import { api } from "../api/client";
 import { AuthLayout } from "../components/AuthLayout";
 import { GlassCard } from "../components/GlassCard";

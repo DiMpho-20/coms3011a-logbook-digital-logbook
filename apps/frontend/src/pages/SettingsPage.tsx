@@ -1,259 +1,493 @@
-import React, { useState } from "react";
+﻿import { useState, useEffect, useRef } from "react";
+import {
+  User, Palette, Bell, BookOpen, Download, Upload, Trash2,
+  Check, Sun, Moon, Monitor,
+} from "lucide-react";
+import PageHeader from "../components/PageHeader";
+import { fetchProjects, type Project } from "../api";
 import { api } from "../api/client";
-import { AuthLayout } from "../components/AuthLayout";
-import { GlassCard } from "../components/GlassCard";
 
-export const SettingsPage: React.FC = () => {
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+// -- types --
+
+type Theme = "light" | "dark" | "system";
+type EntryView = "timeline" | "list";
+type SortOrder = "newest" | "oldest";
+type WeekStart = "monday" | "sunday";
+type TimeFormat = "12h" | "24h";
+type AccentColor = "blue" | "emerald" | "violet" | "amber" | "rose";
+
+interface NotifSettings {
+  dailyReminder: boolean;
+  reminderTime: string;
+  dueDateReminders: boolean;
+}
+
+interface LogbookPrefs {
+  defaultProjectId: string;
+  defaultView: EntryView;
+  defaultSort: SortOrder;
+  weekStartsOn: WeekStart;
+  timeFormat: TimeFormat;
+}
+
+const DEFAULTS = {
+  theme: "system" as Theme,
+  accent: "blue" as AccentColor,
+  notif: { dailyReminder: false, reminderTime: "18:00", dueDateReminders: true } as NotifSettings,
+  logbook: { defaultProjectId: "", defaultView: "timeline", defaultSort: "newest", weekStartsOn: "monday", timeFormat: "24h" } as LogbookPrefs,
+};
+
+// -- helpers --
+
+function load<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function save(key: string, value: unknown) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+  if (theme === "system") root.removeAttribute("data-theme");
+  else root.setAttribute("data-theme", theme);
+}
+
+function applyAccent(color: AccentColor) {
+  document.documentElement.setAttribute("data-accent", color);
+}
+
+// -- reusable small components --
+
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <label className="flex items-center justify-between gap-3 cursor-pointer">
+      <span className="text-sm text-slate-700">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative w-10 h-5 rounded-full transition shrink-0 ${
+          checked ? "bg-blue-600" : "bg-slate-300"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 h-4 w-4 bg-white rounded-full shadow transition-transform ${
+            checked ? "translate-x-5" : ""
+          }`}
+        />
+      </button>
+    </label>
+  );
+}
+
+function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
+  return (
+    <section className="bg-white rounded-lg border border-slate-200">
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+        <Icon className="h-4 w-4 text-slate-500" />
+        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+      </div>
+      <div className="p-5 space-y-4">{children}</div>
+    </section>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
+
+// -- main component --
+
+export default function SettingsPage() {
+  // Account
+  const [name, setName] = useState(() => localStorage.getItem("logbook-name") || "Student");
+  const [email, setEmail] = useState(() => localStorage.getItem("logbook-email") || "");
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [accountSaved, setAccountSaved] = useState(false);
+  const [deletePw, setDeletePw] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
-  const handleDeleteAccount = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  // Appearance
+  const [theme, setTheme] = useState<Theme>(() => load("logbook-theme", DEFAULTS.theme));
+  const [accent, setAccent] = useState<AccentColor>(() => load("logbook-accent", DEFAULTS.accent));
 
+  // Notifications
+  const [notif, setNotif] = useState<NotifSettings>(() => load("logbook-notif", DEFAULTS.notif));
+
+  // Logbook
+  const [logbook, setLogbook] = useState<LogbookPrefs>(() => load("logbook-prefs", DEFAULTS.logbook));
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  // Data
+  const importRef = useRef<HTMLInputElement>(null);
+
+  // Persist appearance on change
+  useEffect(() => { save("logbook-theme", theme); applyTheme(theme); }, [theme]);
+  useEffect(() => { save("logbook-accent", accent); applyAccent(accent); }, [accent]);
+  useEffect(() => { save("logbook-notif", notif); }, [notif]);
+  useEffect(() => { save("logbook-prefs", logbook); }, [logbook]);
+
+  // Load projects for default project selector
+  useEffect(() => {
+    fetchProjects().then(setProjects).catch(() => {});
+  }, []);
+
+  // -- handlers --
+
+  const handleSaveAccount = () => {
+    localStorage.setItem("logbook-name", name);
+    localStorage.setItem("logbook-email", email);
+    setAccountSaved(true);
+    setTimeout(() => setAccountSaved(false), 2000);
+    setCurrentPw("");
+    setNewPw("");
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm("Are you sure you want to permanently delete your account? This cannot be undone.")) return;
+    setDeleteError("");
+    setIsDeleting(true);
     try {
-      setIsDeleting(true);
-      await api.delete("/auth/account", { data: { confirmPassword } });
-      localStorage.removeItem("token");
-      setMessage("Account deleted successfully.");
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 1500);
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to delete account.");
-    } finally {
+      await api.delete("/auth/account", { data: { confirmPassword: deletePw } });
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to delete account.";
+      setDeleteError(msg);
       setIsDeleting(false);
+      return;
+    }
+    // Clear all local data
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith("logbook-")) keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+    localStorage.removeItem("token");
+    applyTheme("system");
+    window.location.href = "/";
+  };
+
+  const handleExportJSON = async () => {
+    try {
+      const data: Record<string, unknown> = { exportedAt: new Date().toISOString() };
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith("logbook-")) {
+          try { data[k] = JSON.parse(localStorage.getItem(k) || "null"); } catch { data[k] = localStorage.getItem(k); }
+        }
+      }
+      const projs = await fetchProjects();
+      data._serverProjects = projs;
+      downloadFile("logbook-export.json", JSON.stringify(data, null, 2), "application/json");
+    } catch {
+      alert("Export failed. Check that the backend is running.");
     }
   };
 
+  const handleExportCSV = async () => {
+    try {
+      const projs = await fetchProjects();
+      const rows: string[][] = [["Project ID", "Project Name", "Status", "Description"]];
+      projs.forEach((p) => rows.push([p.id, p.name, p.status, p.description || ""]));
+      const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+      downloadFile("logbook-projects.csv", csv, "text/csv");
+    } catch {
+      alert("CSV export failed. Check that the backend is running.");
+    }
+  };
+
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string);
+        let imported = 0;
+        for (const [key, value] of Object.entries(data)) {
+          if (key.startsWith("logbook-") && key !== "logbook-avatar") {
+            localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+            imported++;
+          }
+        }
+        alert(`Imported ${imported} settings. Refresh to apply.`);
+        window.location.reload();
+      } catch {
+        alert("Invalid JSON file.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleClearData = () => {
+    if (!confirm("Clear all local preferences? Your logbook entries on the server will not be affected.")) return;
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith("logbook-") && k !== "logbook-avatar") keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+    applyTheme("system");
+    setName("Student");
+    setEmail("");
+    setTheme("system");
+    setAccent("blue");
+    setNotif(DEFAULTS.notif);
+    setLogbook(DEFAULTS.logbook);
+  };
+
   return (
-    <AuthLayout>
-      <div style={{ width: "100%", maxWidth: "520px" }}>
-        <GlassCard>
-          {/* Header Section */}
-          <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-            <div
-              style={{
-                width: "56px",
-                height: "56px",
-                margin: "0 auto 1rem auto",
-                borderRadius: "50%",
-                background: "linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(140, 60, 255, 0.25))",
-                border: "1px solid rgba(239, 68, 68, 0.4)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 0 20px rgba(239, 68, 68, 0.25)",
-              }}
-            >
-              {/* Gear / Settings Icon */}
-              <svg
-                width="26"
-                height="26"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </div>
-            <h2 style={{ fontSize: "1.75rem", fontWeight: 700, margin: 0, color: "#ffffff" }}>
-              Account Settings
-            </h2>
-            <p style={{ fontSize: "0.875rem", color: "rgba(255, 255, 255, 0.7)", marginTop: "0.35rem" }}>
-              Manage your account preferences and security
-            </p>
+    <div className="space-y-6 max-w-2xl">
+      <PageHeader title="Settings" subtitle="Manage your account, appearance, and preferences." />
+
+      {/* 1. Account */}
+      <Section icon={User} title="Account">
+        <Field label="Display name">
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+        </Field>
+        <Field label="Email address">
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="you@university.ac.za" />
+        </Field>
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm font-medium text-slate-700 mb-2">Change password</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input type="password" placeholder="Current password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} className={inputCls} />
+            <input type="password" placeholder="New password" value={newPw} onChange={(e) => setNewPw(e.target.value)} className={inputCls} />
           </div>
-
-          {/* Danger Zone Box */}
-          <div
-            style={{
-              backgroundColor: "rgba(239, 68, 68, 0.08)",
-              border: "1px solid rgba(239, 68, 68, 0.25)",
-              borderRadius: "12px",
-              padding: "1.5rem",
-              backdropFilter: "blur(4px)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
-              {/* Warning Triangle Icon */}
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-              <h3 style={{ margin: 0, color: "#fca5a5", fontSize: "1.1rem", fontWeight: 600 }}>
-                Delete Account
-              </h3>
-            </div>
-
-            <p
-              style={{
-                fontSize: "0.85rem",
-                color: "rgba(255, 255, 255, 0.75)",
-                marginTop: "0.25rem",
-                marginBottom: "1.25rem",
-                lineHeight: 1.4,
-              }}
+          <p className="text-[11px] text-slate-400 mt-1">Password management will be available once authentication is connected.</p>
+        </div>
+        <div className="flex items-center gap-3 pt-2">
+          <button onClick={handleSaveAccount} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+            {accountSaved && <Check className="h-3.5 w-3.5" />}
+            {accountSaved ? "Saved" : "Save Changes"}
+          </button>
+        </div>
+        <div className="border-t border-slate-100 pt-4 mt-2">
+          <p className="text-sm font-medium text-red-700 mb-1">Delete account</p>
+          <p className="text-xs text-slate-500 mb-3">Permanently remove your account and all associated data.</p>
+          {deleteError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-2">{deleteError}</p>
+          )}
+          <div className="flex items-end gap-2">
+            <input
+              type="password"
+              placeholder="Confirm your password"
+              value={deletePw}
+              onChange={(e) => setDeletePw(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-red-400 flex-1 max-w-xs"
+            />
+            <button
+              onClick={handleDeleteAccount}
+              disabled={isDeleting || !deletePw}
+              className="shrink-0 flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              This action is permanent and cannot be undone. All associated data will be removed immediately.
-            </p>
+              <Trash2 className="h-3.5 w-3.5" /> {isDeleting ? "Deleting..." : "Delete"}
+            </button>
+          </div>
+        </div>
+      </Section>
 
-            {/* Error Banner */}
-            {error && (
-              <div
-                style={{
-                  backgroundColor: "rgba(239, 68, 68, 0.2)",
-                  border: "1px solid rgba(239, 68, 68, 0.5)",
-                  color: "#fca5a5",
-                  padding: "0.75rem 1rem",
-                  borderRadius: "8px",
-                  fontSize: "0.85rem",
-                  marginBottom: "1.25rem",
-                }}
-              >
-                {error}
-              </div>
-            )}
-
-            {/* Success Banner */}
-            {message && (
-              <div
-                style={{
-                  backgroundColor: "rgba(34, 197, 94, 0.2)",
-                  border: "1px solid rgba(34, 197, 94, 0.5)",
-                  color: "#86efac",
-                  padding: "0.75rem 1rem",
-                  borderRadius: "8px",
-                  fontSize: "0.85rem",
-                  marginBottom: "1.25rem",
-                }}
-              >
-                {message}
-              </div>
-            )}
-
-            <form onSubmit={handleDeleteAccount}>
-              <div style={{ marginBottom: "1.25rem" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "0.5rem",
-                    fontSize: "0.85rem",
-                    fontWeight: 500,
-                    color: "rgba(255, 255, 255, 0.9)",
-                  }}
-                >
-                  Confirm Your Password
-                </label>
-                <div style={{ position: "relative" }}>
-                  {/* Lock Icon */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "14px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      display: "flex",
-                      alignItems: "center",
-                      pointerEvents: "none",
-                    }}
-                  >
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="rgba(255, 255, 255, 0.5)"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                  </div>
-
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    style={{
-                      width: "100%",
-                      padding: "0.75rem 1rem 0.75rem 2.6rem",
-                      boxSizing: "border-box",
-                      borderRadius: "10px",
-                      border: "1px solid rgba(255, 255, 255, 0.18)",
-                      background: "rgba(10, 20, 50, 0.45)",
-                      color: "#ffffff",
-                      fontSize: "0.95rem",
-                      outline: "none",
-                      transition: "all 0.2s ease-in-out",
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = "#ef4444";
-                      e.target.style.boxShadow = "0 0 12px rgba(239, 68, 68, 0.35)";
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = "rgba(255, 255, 255, 0.18)";
-                      e.target.style.boxShadow = "none";
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Danger Action Button */}
+      {/* 2. Appearance */}
+      <Section icon={Palette} title="Appearance">
+        <div>
+          <p className="text-sm text-slate-600 mb-3">Theme</p>
+          <div className="flex gap-3">
+            {([
+              { value: "light" as const, icon: Sun, label: "Light" },
+              { value: "dark" as const, icon: Moon, label: "Dark" },
+              { value: "system" as const, icon: Monitor, label: "System" },
+            ]).map(({ value, icon: Icon, label }) => (
               <button
-                type="submit"
-                disabled={isDeleting}
-                style={{
-                  width: "100%",
-                  padding: "0.85rem",
-                  borderRadius: "10px",
-                  border: "none",
-                  background: "linear-gradient(135deg, #dc2626 0%, #991b1b 100%)",
-                  color: "#ffffff",
-                  fontSize: "0.95rem",
-                  fontWeight: 600,
-                  cursor: isDeleting ? "not-allowed" : "pointer",
-                  boxShadow: "0 4px 15px rgba(220, 38, 38, 0.4)",
-                  transition: "transform 0.15s ease, boxShadow 0.15s ease",
-                  opacity: isDeleting ? 0.7 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!isDeleting) {
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                    e.currentTarget.style.boxShadow = "0 6px 20px rgba(220, 38, 38, 0.6)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 4px 15px rgba(220, 38, 38, 0.4)";
-                }}
+                key={value}
+                onClick={() => setTheme(value)}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition min-w-[90px] ${
+                  theme === value ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:border-slate-300"
+                }`}
               >
-                {isDeleting ? "Deleting Account..." : "Delete My Account"}
+                <Icon className="h-5 w-5" />
+                <span className="text-xs font-medium">{label}</span>
               </button>
-            </form>
+            ))}
           </div>
-        </GlassCard>
-      </div>
-    </AuthLayout>
+        </div>
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm text-slate-600 mb-3">Accent colour</p>
+          <div className="flex gap-2">
+            {([
+              { value: "blue" as const, bg: "bg-blue-500" },
+              { value: "emerald" as const, bg: "bg-emerald-500" },
+              { value: "violet" as const, bg: "bg-violet-500" },
+              { value: "amber" as const, bg: "bg-amber-500" },
+              { value: "rose" as const, bg: "bg-rose-500" },
+            ]).map(({ value, bg }) => (
+              <button
+                key={value}
+                onClick={() => setAccent(value)}
+                className={`h-8 w-8 rounded-full ${bg} transition ${
+                  accent === value ? "ring-2 ring-offset-2 ring-blue-500" : "ring-1 ring-slate-200"
+                }`}
+                aria-label={value}
+              />
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      {/* 3. Notifications */}
+      <Section icon={Bell} title="Notifications">
+        <Toggle
+          label="Daily logbook reminder"
+          checked={notif.dailyReminder}
+          onChange={(v) => setNotif({ ...notif, dailyReminder: v })}
+        />
+        {notif.dailyReminder && (
+          <Field label="Reminder time">
+            <input
+              type="time"
+              value={notif.reminderTime}
+              onChange={(e) => setNotif({ ...notif, reminderTime: e.target.value })}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 w-40"
+            />
+          </Field>
+        )}
+        <Toggle
+          label="Due-date reminders"
+          checked={notif.dueDateReminders}
+          onChange={(v) => setNotif({ ...notif, dueDateReminders: v })}
+        />
+        <p className="text-[11px] text-slate-400">
+          Browser notifications will be requested when this feature is activated.
+        </p>
+      </Section>
+
+      {/* 4. Logbook Preferences */}
+      <Section icon={BookOpen} title="Logbook Preferences">
+        <Field label="Default project for new entries">
+          <select
+            value={logbook.defaultProjectId}
+            onChange={(e) => setLogbook({ ...logbook, defaultProjectId: e.target.value })}
+            className={inputCls}
+          >
+            <option value="">None - always ask</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </Field>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Default entry view">
+            <select
+              value={logbook.defaultView}
+              onChange={(e) => setLogbook({ ...logbook, defaultView: e.target.value as EntryView })}
+              className={inputCls}
+            >
+              <option value="timeline">Timeline</option>
+              <option value="list">List</option>
+            </select>
+          </Field>
+          <Field label="Sort order">
+            <select
+              value={logbook.defaultSort}
+              onChange={(e) => setLogbook({ ...logbook, defaultSort: e.target.value as SortOrder })}
+              className={inputCls}
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </Field>
+          <Field label="Week starts on">
+            <select
+              value={logbook.weekStartsOn}
+              onChange={(e) => setLogbook({ ...logbook, weekStartsOn: e.target.value as WeekStart })}
+              className={inputCls}
+            >
+              <option value="monday">Monday</option>
+              <option value="sunday">Sunday</option>
+            </select>
+          </Field>
+          <Field label="Time format">
+            <select
+              value={logbook.timeFormat}
+              onChange={(e) => setLogbook({ ...logbook, timeFormat: e.target.value as TimeFormat })}
+              className={inputCls}
+            >
+              <option value="24h">24-hour</option>
+              <option value="12h">12-hour</option>
+            </select>
+          </Field>
+        </div>
+      </Section>
+
+      {/* 5. Data */}
+      <Section icon={Download} title="Data">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-slate-800">Export logbook</p>
+            <p className="text-xs text-slate-500 mt-0.5">Download your data as JSON (full) or CSV (projects table).</p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button onClick={handleExportJSON} className="flex items-center gap-1.5 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+              <Download className="h-3.5 w-3.5" /> JSON
+            </button>
+            <button onClick={handleExportCSV} className="flex items-center gap-1.5 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+              <Download className="h-3.5 w-3.5" /> CSV
+            </button>
+          </div>
+        </div>
+        <div className="border-t border-slate-100 pt-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-slate-800">Import / restore backup</p>
+            <p className="text-xs text-slate-500 mt-0.5">Restore settings from a previously exported JSON file.</p>
+          </div>
+          <button onClick={() => importRef.current?.click()} className="shrink-0 flex items-center gap-1.5 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+            <Upload className="h-3.5 w-3.5" /> Import
+          </button>
+          <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
+        </div>
+        <div className="border-t border-slate-100 pt-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-slate-800">Clear local data</p>
+            <p className="text-xs text-slate-500 mt-0.5">Remove saved preferences. Server data is not affected.</p>
+          </div>
+          <button onClick={handleClearData} className="shrink-0 flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 transition">
+            <Trash2 className="h-3.5 w-3.5" /> Clear
+          </button>
+        </div>
+      </Section>
+
+      {/* About */}
+      <p className="text-xs text-slate-400 text-center pb-4">
+        Digital Logbook - COMS3011A Software Design Project
+      </p>
+    </div>
   );
-};
+}
+
+// -- util --
+
+function downloadFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
