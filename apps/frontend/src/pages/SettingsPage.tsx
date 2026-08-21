@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useRef } from "react";
 import {
   User, Palette, Bell, BookOpen, Download, Upload, Trash2,
-  Check, Sun, Moon, Monitor,
+  Check, Sun, Moon, Monitor, Shield, ShieldCheck, X,
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import { fetchProjects, type Project } from "../api";
@@ -137,6 +137,17 @@ export default function SettingsPage() {
   // Data
   const importRef = useRef<HTMLInputElement>(null);
 
+  // 2FA state
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [twoFASecret, setTwoFASecret] = useState("");
+  const [twoFAQrCode, setTwoFAQrCode] = useState("");
+  const [twoFACode, setTwoFACode] = useState("");
+  const [twoFAError, setTwoFAError] = useState("");
+  const [twoFALoading, setTwoFALoading] = useState(false);
+  const [disable2FAPassword, setDisable2FAPassword] = useState("");
+  const [showDisable2FA, setShowDisable2FA] = useState(false);
+
   // Persist appearance on change
   useEffect(() => { save("logbook-theme", theme); applyTheme(theme); }, [theme]);
   useEffect(() => { save("logbook-accent", accent); applyAccent(accent); }, [accent]);
@@ -146,6 +157,11 @@ export default function SettingsPage() {
   // Load projects for default project selector
   useEffect(() => {
     fetchProjects().then(setProjects).catch(() => {});
+  }, []);
+
+  // Load 2FA status
+  useEffect(() => {
+    api.get("/auth/2fa/status").then((res) => setIs2FAEnabled(res.data.isTwoFactorEnabled)).catch(() => {});
   }, []);
 
   // -- handlers --
@@ -253,6 +269,66 @@ export default function SettingsPage() {
     setLogbook(DEFAULTS.logbook);
   };
 
+  // -- 2FA handlers --
+
+  const handleStart2FASetup = async () => {
+    setTwoFAError("");
+    setTwoFALoading(true);
+    try {
+      const res = await api.post("/auth/2fa/setup");
+      setTwoFASecret(res.data.secret);
+      setTwoFAQrCode(res.data.qrCodeUrl);
+      setShow2FASetup(true);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to start 2FA setup.";
+      setTwoFAError(msg);
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  const handleVerify2FASetup = async () => {
+    setTwoFAError("");
+    if (!/^\d{6}$/.test(twoFACode)) {
+      setTwoFAError("Please enter a valid 6-digit code");
+      return;
+    }
+    setTwoFALoading(true);
+    try {
+      await api.post("/auth/2fa/verify-setup", { token: twoFACode });
+      setIs2FAEnabled(true);
+      setShow2FASetup(false);
+      setTwoFACode("");
+      setTwoFASecret("");
+      setTwoFAQrCode("");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || "Invalid code.";
+      setTwoFAError(msg);
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  const handleDisable2FA = async () => {
+    setTwoFAError("");
+    if (!disable2FAPassword) {
+      setTwoFAError("Password is required");
+      return;
+    }
+    setTwoFALoading(true);
+    try {
+      await api.post("/auth/2fa/disable", { password: disable2FAPassword });
+      setIs2FAEnabled(false);
+      setShowDisable2FA(false);
+      setDisable2FAPassword("");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to disable 2FA.";
+      setTwoFAError(msg);
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
       <PageHeader title="Settings" subtitle="Manage your account, appearance, and preferences." />
@@ -273,6 +349,130 @@ export default function SettingsPage() {
           </div>
           <p className="text-[11px] text-slate-400 mt-1">Password management will be available once authentication is connected.</p>
         </div>
+
+        {/* Two-Factor Authentication */}
+        <div className="border-t border-slate-100 pt-4 mt-2">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              {is2FAEnabled ? (
+                <ShieldCheck className="h-4 w-4 text-green-600" />
+              ) : (
+                <Shield className="h-4 w-4 text-slate-500" />
+              )}
+              <p className="text-sm font-medium text-slate-700">Two-factor authentication</p>
+            </div>
+            {is2FAEnabled && (
+              <span className="text-[10px] font-semibold uppercase tracking-wider bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                Enabled
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 mb-3">
+            Add an extra layer of security to your account using Google Authenticator or any TOTP app.
+          </p>
+
+          {twoFAError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{twoFAError}</p>
+          )}
+
+          {/* 2FA Setup Modal */}
+          {show2FASetup && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-800">Set up authenticator</h3>
+                <button
+                  onClick={() => { setShow2FASetup(false); setTwoFACode(""); setTwoFAError(""); }}
+                  className="p-1 text-slate-400 hover:text-slate-600 transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex flex-col items-center gap-3">
+                {twoFAQrCode && (
+                  <img src={twoFAQrCode} alt="QR Code" className="w-40 h-40 rounded-lg border border-slate-200" />
+                )}
+                <div className="text-center">
+                  <p className="text-xs text-slate-500 mb-1">Or enter this secret manually:</p>
+                  <code className="text-xs bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 select-all font-mono">
+                    {twoFASecret}
+                  </code>
+                </div>
+                <div className="w-full max-w-xs">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="Enter 6-digit code"
+                    value={twoFACode}
+                    onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, ""))}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-center text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 tracking-widest"
+                  />
+                </div>
+                <button
+                  onClick={handleVerify2FASetup}
+                  disabled={twoFALoading || !twoFACode}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+                >
+                  {twoFALoading ? "Verifying..." : "Verify & Enable"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Disable 2FA Modal */}
+          {showDisable2FA && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-800">Disable two-factor authentication</h3>
+                <button
+                  onClick={() => { setShowDisable2FA(false); setDisable2FAPassword(""); setTwoFAError(""); }}
+                  className="p-1 text-slate-400 hover:text-slate-600 transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 mb-3">Enter your password to confirm disabling 2FA.</p>
+              <div className="flex items-end gap-2">
+                <input
+                  type="password"
+                  placeholder="Your password"
+                  value={disable2FAPassword}
+                  onChange={(e) => setDisable2FAPassword(e.target.value)}
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-red-400 flex-1"
+                />
+                <button
+                  onClick={handleDisable2FA}
+                  disabled={twoFALoading || !disable2FAPassword}
+                  className="shrink-0 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-50 transition disabled:opacity-50"
+                >
+                  {twoFALoading ? "Disabling..." : "Disable 2FA"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!is2FAEnabled && !show2FASetup && (
+            <button
+              onClick={handleStart2FASetup}
+              disabled={twoFALoading}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+            >
+              <Shield className="h-3.5 w-3.5" />
+              {twoFALoading ? "Starting..." : "Enable 2FA"}
+            </button>
+          )}
+
+          {is2FAEnabled && !showDisable2FA && (
+            <button
+              onClick={() => setShowDisable2FA(true)}
+              className="flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-50 transition"
+            >
+              <Shield className="h-3.5 w-3.5" />
+              Disable 2FA
+            </button>
+          )}
+        </div>
+
         <div className="flex items-center gap-3 pt-2">
           <button onClick={handleSaveAccount} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
             {accountSaved && <Check className="h-3.5 w-3.5" />}

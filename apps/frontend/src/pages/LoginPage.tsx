@@ -9,6 +9,11 @@ export const LoginPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // 2FA state
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
+  const [twoFactorEmail, setTwoFactorEmail] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +33,14 @@ export const LoginPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       const response = await api.post("/auth/login", formData);
+      
+      // Check if 2FA is required
+      if (response.data.requiresTwoFactor) {
+        setRequiresTwoFactor(true);
+        setTwoFactorEmail(response.data.email);
+        return;
+      }
+      
       localStorage.setItem("token", response.data.token);
       // Save user info for profile and sidebar
       if (response.data.user) {
@@ -37,6 +50,36 @@ export const LoginPage: React.FC = () => {
       window.location.href = "/dashboard";
     } catch (err: any) {
       setServerError(err.response?.data?.error || "Invalid email or password.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleTwoFactorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+    setServerError("");
+
+    if (!/^\d{6}$/.test(twoFactorCode)) {
+      setErrors({ code: "Please enter a valid 6-digit code" });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await api.post("/auth/login/2fa", {
+        email: twoFactorEmail,
+        token: twoFactorCode,
+      });
+      
+      localStorage.setItem("token", response.data.token);
+      if (response.data.user) {
+        localStorage.setItem("logbook-name", response.data.user.fullName);
+        localStorage.setItem("logbook-email", response.data.user.email);
+      }
+      window.location.href = "/dashboard";
+    } catch (err: any) {
+      setServerError(err.response?.data?.error || "Invalid authentication code.");
     } finally {
       setIsSubmitting(false);
     }
@@ -126,7 +169,172 @@ export const LoginPage: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        {/* 2FA Code Form (shown after password verification) */}
+        {requiresTwoFactor ? (
+          <form onSubmit={handleTwoFactorSubmit}>
+            <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  margin: "0 auto 0.75rem auto",
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, rgba(0, 198, 255, 0.15), rgba(140, 60, 255, 0.2))",
+                  border: "1px solid rgba(0, 198, 255, 0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#00c6ff"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </div>
+              <p style={{ fontSize: "0.9rem", color: "rgba(255, 255, 255, 0.85)", margin: 0 }}>
+                Enter the 6-digit code from your authenticator app
+              </p>
+            </div>
+
+            {/* 2FA Code Input */}
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  color: "rgba(255, 255, 255, 0.9)",
+                }}
+              >
+                Authentication Code
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ""))}
+                autoFocus
+                style={{
+                  width: "100%",
+                  padding: "0.85rem 1rem",
+                  boxSizing: "border-box",
+                  borderRadius: "10px",
+                  border: errors.code
+                    ? "1px solid rgba(239, 68, 68, 0.6)"
+                    : "1px solid rgba(255, 255, 255, 0.18)",
+                  background: "rgba(10, 20, 50, 0.45)",
+                  color: "#ffffff",
+                  fontSize: "1.25rem",
+                  letterSpacing: "0.5rem",
+                  textAlign: "center",
+                  outline: "none",
+                  transition: "all 0.2s ease-in-out",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "#00c6ff";
+                  e.target.style.boxShadow = "0 0 12px rgba(0, 198, 255, 0.3)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = errors.code
+                    ? "rgba(239, 68, 68, 0.6)"
+                    : "rgba(255, 255, 255, 0.18)";
+                  e.target.style.boxShadow = "none";
+                }}
+              />
+              {errors.code && (
+                <small
+                  style={{
+                    color: "#fca5a5",
+                    fontSize: "0.78rem",
+                    marginTop: "0.35rem",
+                    display: "block",
+                  }}
+                >
+                  {errors.code}
+                </small>
+              )}
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              style={{
+                width: "100%",
+                padding: "0.85rem",
+                borderRadius: "10px",
+                border: "none",
+                background: "linear-gradient(135deg, #0072ff 0%, #7000ff 100%)",
+                color: "#ffffff",
+                fontSize: "1rem",
+                fontWeight: 600,
+                cursor: isSubmitting ? "not-allowed" : "pointer",
+                boxShadow: "0 4px 15px rgba(0, 114, 255, 0.4)",
+                transition: "transform 0.15s ease, boxShadow 0.15s ease",
+                opacity: isSubmitting ? 0.7 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!isSubmitting) {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 6px 20px rgba(112, 0, 255, 0.5)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 15px rgba(0, 114, 255, 0.4)";
+              }}
+            >
+              {isSubmitting ? "Verifying..." : "Verify & Sign In"}
+            </button>
+
+            {/* Back to password form */}
+            <button
+              type="button"
+              onClick={() => {
+                setRequiresTwoFactor(false);
+                setTwoFactorCode("");
+                setServerError("");
+                setErrors({});
+              }}
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                marginTop: "0.75rem",
+                borderRadius: "10px",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                background: "transparent",
+                color: "rgba(255, 255, 255, 0.7)",
+                fontSize: "0.9rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "rgba(0, 198, 255, 0.4)";
+                e.currentTarget.style.color = "#00c6ff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)";
+                e.currentTarget.style.color = "rgba(255, 255, 255, 0.7)";
+              }}
+            >
+              Use a different account
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit}>
           {/* Email Field with Left Icon */}
           <div style={{ marginBottom: "1.25rem" }}>
             <label
@@ -352,6 +560,7 @@ export const LoginPage: React.FC = () => {
             {isSubmitting ? "Signing in..." : "Sign In"}
           </button>
         </form>
+        )}
 
         {/* Footer Link to Register */}
         <p

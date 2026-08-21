@@ -1,12 +1,17 @@
 import { Router, Request, Response } from "express";
 import crypto from "node:crypto";
+import { authenticator } from "otplib";
+import QRCode from "qrcode";
 import { 
   registerSchema, 
   loginSchema, 
   verifyEmailSchema,
   forgotPasswordSchema, 
   resetPasswordSchema, 
-  deleteAccountSchema 
+  deleteAccountSchema,
+  verifyTwoFactorSetupSchema,
+  twoFactorLoginSchema,
+  disableTwoFactorSchema,
 } from "@logbook/shared";
 import { hashPassword, comparePassword, generateToken } from "../utils/auth.js";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth.middleware.js";
@@ -155,11 +160,52 @@ router.post("/login", async (req: Request, res: Response) => {
     });
   }
 
+  // If 2FA is enabled, don't issue token yet — require TOTP code
+  if (user.isTwoFactorEnabled) {
+    return res.json({
+      requiresTwoFactor: true,
+      email: user.email,
+    });
+  }
+
   const token = generateToken(user.id);
   return res.json({
     message: "Login successful",
     user: { id: user.id, fullName: user.fullName, email: user.email },
     token,
+  });
+});
+
+// ---------------------------------------------------------
+// POST /api/auth/login/2fa — Complete login with TOTP code
+// ---------------------------------------------------------
+router.post("/login/2fa", async (req: Request, res: Response) => {
+  const parseResult = twoFactorLoginSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ errors: parseResult.error.flatten().fieldErrors });
+  }
+
+  const { email, token: totpCode } = parseResult.data;
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || !user.twoFactorSecret) {
+    return res.status(401).json({ error: "Invalid or expired session" });
+  }
+
+  const isValid = authenticator.verify({
+    token: totpCode,
+    secret: user.twoFactorSecret,
+  });
+
+  if (!isValid) {
+    return res.status(401).json({ error: "Invalid authentication code" });
+  }
+
+  const jwtToken = generateToken(user.id);
+  return res.json({
+    message: "Login successful",
+    user: { id: user.id, fullName: user.fullName, email: user.email },
+    token: jwtToken,
   });
 });
 
@@ -261,6 +307,127 @@ router.delete("/account", requireAuth, async (req: AuthenticatedRequest, res: Re
   await prisma.user.delete({ where: { id: userId } });
 
   return res.json({ message: "Account deleted successfully." });
+});
+
+// ---------------------------------------------------------
+// 2FA: POST /api/auth/2fa/setup — Generate secret & QR code
+// ---------------------------------------------------------
+router.post("/2fa/setup", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.userId!;
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  if (user.isTwoFactorEnabled) {
+    return res.status(400).json({ error: "Two-factor authentication is already enabled" });
+  }
+
+  // Generate a new TOTP secret
+  const secret = authenticator.generateSecret();
+  const otpauthUrl = authenticator.keyuri(user.email, "Digital Logbook", secret);
+
+  // Generate QR code as data URL
+  const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
+
+  // Store the secret temporarily (not yet enabled until verified)
+  await prisma.user.update({
+    where: { id: userId },
+    data: { twoFactorSecret: secret, isTwoFactorEnabled: false },
+  });
+
+  return res.json({ secret, qrCodeUrl });
+});
+
+// ---------------------------------------------------------
+// 2FA: POST /api/auth/2fa/verify-setup — Verify code & enable 2FA
+// ---------------------------------------------------------
+router.post("/2fa/verify-setup", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const parseResult = verifyTwoFactorSetupSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ errors: parseResult.error.flatten().fieldErrors });
+  }
+
+  const userId = req.userId!;
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user || !user.twoFactorSecret) {
+    return res.status(400).json({ error: "No 2FA setup in progress. Call /2fa/setup first." });
+  }
+
+  if (user.isTwoFactorEnabled) {
+    return res.status(400).json({ error: "Two-factor authentication is already enabled" });
+  }
+
+  const isValid = authenticator.verify({
+    token: parseResult.data.token,
+    secret: user.twoFactorSecret,
+  });
+
+  if (!isValid) {
+    return res.status(400).json({ error: "Invalid code. Please try again." });
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { isTwoFactorEnabled: true },
+  });
+
+  return res.json({ message: "Two-factor authentication enabled successfully" });
+});
+
+// ---------------------------------------------------------
+// 2FA: POST /api/auth/2fa/disable — Disable 2FA with password
+// ---------------------------------------------------------
+router.post("/2fa/disable", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const parseResult = disableTwoFactorSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ errors: parseResult.error.flatten().fieldErrors });
+  }
+
+  const userId = req.userId!;
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  if (!user.isTwoFactorEnabled) {
+    return res.status(400).json({ error: "Two-factor authentication is not enabled" });
+  }
+
+  const isPasswordValid = await comparePassword(parseResult.data.password, user.passwordHash);
+  if (!isPasswordValid) {
+    return res.status(401).json({ error: "Incorrect password" });
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      isTwoFactorEnabled: false,
+      twoFactorSecret: null,
+    },
+  });
+
+  return res.json({ message: "Two-factor authentication disabled" });
+});
+
+// ---------------------------------------------------------
+// 2FA: GET /api/auth/2fa/status — Check if 2FA is enabled
+// ---------------------------------------------------------
+router.get("/2fa/status", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.userId!;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isTwoFactorEnabled: true },
+  });
+
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  return res.json({ isTwoFactorEnabled: user.isTwoFactorEnabled });
 });
 
 export default router;
