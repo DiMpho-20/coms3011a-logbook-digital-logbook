@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
 import {
@@ -7,10 +7,11 @@ import {
   updateProjectStatusSchema,
 } from "../schemas/project.schema.js";
 import type { TimeSummary } from "@logbook/shared";
+import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 
-/** Extract the x-user-id header as the acting user. */
-function getUserId(req: Request): string {
-  return ((req as any).user?.id || req.headers["x-user-id"]) as string;
+/** Extract the authenticated user's ID from req.userId (set by requireAuth middleware). */
+function getUserId(req: AuthenticatedRequest): string {
+  return req.userId!;
 }
 
 /** Detect Prisma P2002 unique-constraint violation. */
@@ -35,7 +36,7 @@ async function nameExistsForUser(userId: string, name: string, excludeId?: strin
 
 // ── POST /projects ───────────────────────────────────────────────────────
 
-export const createProject = async (req: Request, res: Response) => {
+export const createProject = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = getUserId(req);
     const validatedData = createProjectSchema.parse(req.body);
@@ -69,7 +70,7 @@ export const createProject = async (req: Request, res: Response) => {
 
 // ── GET /projects ────────────────────────────────────────────────────────
 
-export const getProjects = async (req: Request, res: Response) => {
+export const getProjects = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = getUserId(req);
     const projects = await prisma.project.findMany({
@@ -85,7 +86,7 @@ export const getProjects = async (req: Request, res: Response) => {
 
 // ── GET /projects/:id ────────────────────────────────────────────────────
 
-export const getProject = async (req: Request, res: Response) => {
+export const getProject = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = getUserId(req);
     const id = String(req.params.id);
@@ -111,7 +112,7 @@ export const getProject = async (req: Request, res: Response) => {
 
 // ── GET /projects/:id/time-summary ───────────────────────────────────────
 
-export const getProjectTimeSummary = async (req: Request, res: Response) => {
+export const getProjectTimeSummary = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = getUserId(req);
     const id = String(req.params.id);
@@ -154,7 +155,7 @@ export const getProjectTimeSummary = async (req: Request, res: Response) => {
 
 // ── PUT /projects/:id ────────────────────────────────────────────────────
 
-export const updateProject = async (req: Request, res: Response) => {
+export const updateProject = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = getUserId(req);
     const id = String(req.params.id);
@@ -198,7 +199,7 @@ export const updateProject = async (req: Request, res: Response) => {
 
 // ── PATCH /projects/:id/status ───────────────────────────────────────────
 
-export const updateProjectStatus = async (req: Request, res: Response) => {
+export const updateProjectStatus = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = getUserId(req);
     const id = String(req.params.id);

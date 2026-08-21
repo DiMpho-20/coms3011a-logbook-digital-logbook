@@ -2,17 +2,18 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import app from "../app.js";
 import prisma from "../prisma.js";
+import { generateToken } from "../utils/auth.js";
 
 // ── Shared constants ─────────────────────────────────────────────────────
 
 const USER_ID = "df8cb59f-b366-4612-8f49-403cde4d3058";
-const H = { "x-user-id": USER_ID };
 const ts = Date.now();
 const TEST_PROJECT_NAME = `__test_${ts}`;
 
 let projectId: string;
 let fieldId: string;
 let entryId: string;
+let H: Record<string, string>;
 
 // ── Setup: create test user ──────────────────────────────────────────────
 
@@ -29,6 +30,10 @@ beforeAll(async () => {
       isEmailVerified: true,
     },
   });
+
+  // Generate a JWT token for the test user
+  const token = generateToken(USER_ID);
+  H = { Authorization: `Bearer ${token}` };
 });
 
 afterAll(async () => {
