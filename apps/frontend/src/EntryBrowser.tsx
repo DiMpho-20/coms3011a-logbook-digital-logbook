@@ -85,6 +85,7 @@ export default function EntryBrowser() {
   // quick capture state
   const [captureProjectId, setCaptureProjectId] = useState<string>("");
   const [captureDuration, setCaptureDuration] = useState<string>("");
+  const [captureDueDate, setCaptureDueDate] = useState<string>("");
   const [captureValues, setCaptureValues] = useState<Record<string, EntryFieldValue>>({});
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -141,6 +142,7 @@ export default function EntryBrowser() {
     const fields = fieldsByProject[captureProjectId] || [];
     setCaptureValues(defaultValuesForFields(fields));
     setCaptureDuration("");
+    setCaptureDueDate("");
     setCaptureError(null);
   }, [captureProjectId, fieldsByProject]);
 
@@ -183,13 +185,18 @@ export default function EntryBrowser() {
     setCaptureError(null);
     setSubmitting(true);
     try {
-      const newEntry = await createEntry(captureProjectId, {
+      const entryData: { durationMinutes: number; values: Record<string, EntryFieldValue>; dueDate?: string } = {
         durationMinutes: minutes,
         values: captureValues,
-      });
+      };
+      if (captureDueDate) {
+        entryData.dueDate = captureDueDate;
+      }
+      const newEntry = await createEntry(captureProjectId, entryData);
       setAllEntries((prev) => [newEntry, ...prev]);
       setCaptureValues(defaultValuesForFields(fields));
       setCaptureDuration("");
+      setCaptureDueDate("");
       durationInputRef.current?.focus();
     } catch (err) {
       console.error("Failed to save entry:", err);
@@ -415,6 +422,18 @@ export default function EntryBrowser() {
                 placeholder="e.g. 45"
                 value={captureDuration}
                 onChange={(e) => setCaptureDuration(e.target.value)}
+                className="w-full border rounded-lg p-2 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-[#0084D4]"
+              />
+            </div>
+
+            <div className="w-40">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+                Due date
+              </label>
+              <input
+                type="date"
+                value={captureDueDate}
+                onChange={(e) => setCaptureDueDate(e.target.value)}
                 className="w-full border rounded-lg p-2 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-[#0084D4]"
               />
             </div>

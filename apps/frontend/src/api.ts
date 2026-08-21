@@ -5,6 +5,7 @@
   EntryFieldValue,
   Entry,
   TimeSummary,
+  ProjectStatus,
   CreateProjectInput,
   UpdateProjectInput,
   CreateEntryInput,
@@ -31,6 +32,7 @@ export type {
   EntryFieldValue,
   Entry,
   TimeSummary,
+  ProjectStatus,
   EntryFieldType,
 };
 
@@ -65,6 +67,19 @@ export async function updateProject(id: string, updates: UpdateProjectInput): Pr
     body: JSON.stringify(updates),
   });
   if (!res.ok) throw new Error("Failed to update project");
+  return res.json();
+}
+
+export async function toggleProjectStatus(
+  id: string,
+  status: ProjectStatus
+): Promise<Project> {
+  const res = await fetch(`${API_BASE_URL}/projects/${id}/status`, {
+    method: "PATCH",
+    headers: authHeaders,
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error("Failed to update project status");
   return res.json();
 }
 

@@ -2,14 +2,17 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Plus, Search, FolderKanban, Edit2, Archive, ArchiveRestore, X,
   LayoutDashboard, ClipboardList, CheckSquare, FileBarChart,
-  User, LogOut, ChevronDown,
+  User, LogOut, ChevronDown, Eye,
 } from "lucide-react";
 import EntryBrowser from "./EntryBrowser";
+import ProjectDetail from "./ProjectDetail";
+import DashboardView from "./DashboardView";
 
 import {
   fetchProjects,
   createProject,
   updateProject,
+  toggleProjectStatus,
   createEntryField,
   fetchEntryFields,
   type Project,
@@ -55,6 +58,7 @@ function PlaceholderView({ label, icon: Icon }: { label: string; icon: React.Ele
 
 export default function Dashboard() {
   const [activeView, setActiveView] = useState<ViewId>("projects");
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "ARCHIVED">("ALL");
@@ -154,7 +158,7 @@ export default function Dashboard() {
   const handleToggleArchive = async (project: Project) => {
     const newStatus = project.status === "ACTIVE" ? "ARCHIVED" : "ACTIVE";
     try {
-      await updateProject(project.id, { status: newStatus });
+      await toggleProjectStatus(project.id, newStatus);
       await loadProjects();
     } catch (err) {
       console.error("Failed to update project status:", err);
@@ -297,7 +301,7 @@ export default function Dashboard() {
 
       <main className="flex-1 overflow-y-auto p-8 space-y-6 relative z-10">
         {activeView === "dashboard" && (
-          <PlaceholderView label="Dashboard" icon={LayoutDashboard} />
+          <DashboardView projects={projects} />
         )}
         {activeView === "entries" && (
           <EntryBrowser />
@@ -309,7 +313,14 @@ export default function Dashboard() {
           <PlaceholderView label="Reports & Exports" icon={FileBarChart} />
         )}
 
-        {activeView === "projects" && (
+        {activeView === "projects" && selectedProjectId && (
+          <ProjectDetail
+            projectId={selectedProjectId}
+            onBack={() => setSelectedProjectId(null)}
+          />
+        )}
+
+        {activeView === "projects" && !selectedProjectId && (
           <>
             <div className="flex justify-between items-start">
               <div>
@@ -371,7 +382,14 @@ export default function Dashboard() {
                     {filteredProjects.map((project) => (
                       <tr key={project.id} className="hover:bg-slate-50 transition">
                         <td className="p-3.5 font-bold text-slate-400">#{project.id}</td>
-                        <td className="p-3.5 font-bold text-slate-800">{project.name}</td>
+                        <td className="p-3.5 font-bold text-slate-800">
+                          <button
+                            onClick={() => setSelectedProjectId(project.id)}
+                            className="hover:text-[#0084D4] hover:underline transition cursor-pointer text-left"
+                          >
+                            {project.name}
+                          </button>
+                        </td>
                         <td className="p-3.5">{project.description || "N/A"}</td>
                         <td className="p-3.5">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -384,6 +402,13 @@ export default function Dashboard() {
                         </td>
                         <td className="p-3.5 text-right">
                           <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => setSelectedProjectId(project.id)}
+                              title="View Details"
+                              className="p-1.5 hover:bg-slate-100 text-slate-600 hover:text-[#0084D4] rounded-lg transition"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
                             <button
                               onClick={() => handleOpenEditModal(project)}
                               title="Edit Project"
