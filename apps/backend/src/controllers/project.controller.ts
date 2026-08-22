@@ -18,7 +18,7 @@ function getUserId(req: AuthenticatedRequest): string {
 function isUniqueViolation(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2002"
+    (error as any)?.code === "P2002"
   );
 }
 
@@ -137,7 +137,7 @@ export const getProjectTimeSummary = async (req: AuthenticatedRequest, res: Resp
       orderBy: { createdAt: "desc" },
     });
 
-    const totalMinutes = entries.reduce((sum, e) => sum + e.durationMinutes, 0);
+    const totalMinutes = entries.reduce((sum: number, e: any) => sum + e.durationMinutes, 0);
     const entryCount = entries.length;
     const lastEntryAt = entryCount > 0 ? entries[0].createdAt.toISOString() : null;
 

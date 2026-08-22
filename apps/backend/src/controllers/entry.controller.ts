@@ -116,7 +116,7 @@ export const updateEntry = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Entry not found" });
     }
 
-    const entry = await prisma.$transaction(async (tx) => {
+    const entry = await prisma.$transaction(async (tx: any) => {
       // Build the data object for fields that were provided
       const entryData: Record<string, unknown> = {};
       if (validated.durationMinutes !== undefined) {
