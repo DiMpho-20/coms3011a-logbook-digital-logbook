@@ -9,45 +9,71 @@ Each of the 10 user stories is assigned to one of four team members based on fun
 
 | Team Member | User Stories | Functional Area |
 | :--- | :--- | :--- |
-| **Person 1** | US00.1, US00.2, US00.3, US00.4 | Authentication & Account Management[cite: 1] |
-| **Person 2** | US01, US05 | Project Management[cite: 1] |
-| **Person 3** | US02, US03 | Entry Structure & Entry Creation[cite: 1] |
-| **Person 4** | US04, US06 | Time Tracking & Entry Browsing[cite: 1] |
+| **Person 1** | US00.1, US00.2, US00.3, US00.4 | Authentication & Account Management |
+| **Person 2** | US01, US05 | Project Management |
+| **Person 3** | US02, US03 | Entry Structure & Entry Creation |
+| **Person 4** | US04, US06 | Time Tracking & Entry Browsing |
 
 Work flows through a single shared Kanban board with columns:  
-`Backlog` $\rightarrow$ `To Do` $\rightarrow$ `In Progress` $\rightarrow$ `Done`[cite: 1].
+`Backlog` $\rightarrow$ `To Do` $\rightarrow$ `In Progress` $\rightarrow$ `Done`.
 
-Each team member manages the flow of their own stories independently rather than pulling from one shared prioritised backlog each sprint cycle[cite: 1].
+Each team member manages the flow of their own stories independently rather than pulling from one shared prioritised backlog each sprint cycle.
 
 ### 1.2 Reasoning & Motivation
-* **Why Kanban instead of Scrum:** The ten user stories do not compete for the same developer's time in a way that benefits from a shared sprint backlog[cite: 1]. Instead, they form a clear dependency chain[cite: 1]:
+* **Why Kanban instead of Scrum:** The ten user stories do not compete for the same developer's time in a way that benefits from a shared sprint backlog. Instead, they form a clear dependency chain:
   $$\text{Authentication} \longrightarrow \text{Projects} \longrightarrow \text{Entry Formats} \longrightarrow \text{Entries} \longrightarrow \text{Time Tracking / Browsing}$$
-* **Functional Ownership:** Stories like US02 (*Define Entry Format*) and US03 (*Record Entry*) are tightly coupled[cite: 1]. Kanban with functional ownership allows one developer to design and build a coherent vertical slice end-to-end[cite: 1].
-* **Handling Cross-Area Dependencies:** We use a `status:blocked-on-dependency` label[cite: 1]. A story waiting on an upstream dependency (e.g., US04 waiting on US03's entry structure) remains in `Backlog` with this label applied[cite: 1]. Once the upstream contract/schema is committed, the label is removed and the issue moves to `To Do`[cite: 1].
+* **Functional Ownership:** Stories like US02 (*Define Entry Format*) and US03 (*Record Entry*) are tightly coupled. Kanban with functional ownership allows one developer to design and build a coherent vertical slice end-to-end.
+* **Handling Cross-Area Dependencies:** We use a `status:blocked-on-dependency` label. A story waiting on an upstream dependency (e.g., US04 waiting on US03's entry structure) remains in `Backlog` with this label applied. Once the upstream contract/schema is committed, the label is removed and the issue moves to `To Do`.
 
 ### 1.3 Evidence of Use
-* All 10 user stories exist as Gitea issues assigned to owners, Sprint 1 milestone, and the Kanban board[cite: 1].
-* Dependencies are recorded directly in issue descriptions using Gitea autolinking (e.g., `Depends on #7`)[cite: 1].
-* Commits and Pull Requests reference issue numbers (e.g., `closes #7`)[cite: 1].
+* All 10 user stories exist as Gitea issues assigned to owners, Sprint 1 milestone, and the Kanban board.
+* Dependencies are recorded directly in issue descriptions using Gitea autolinking (e.g., `Depends on #7`).
+* Commits and Pull Requests reference issue numbers (e.g., `closes #7`).
 
 ---
 
 ## 2. Work Tracker
 
 ### 2.1 Tool
-We use Gitea's built-in **Issues, Labels, Milestones, and Projects (Kanban board)** features as our work tracker[cite: 1].
+We use Gitea's built-in **Issues, Labels, Milestones, and Projects (Kanban board)** features as our work tracker.
 
 ### 2.2 Board & Label Structure
-* **Milestone:** `Sprint 1 – Core Logbook` groups all 10 user story issues[cite: 1].
+* **Milestone:** `Sprint 1 – Core Logbook` groups all 10 user story issues.
 * **Category Labels:**
-  * Area: `area:auth`, `area:projects`, `area:entry-format`, `area:entries`, `area:time-browsing`[cite: 1]
-  * Priority: `priority:p1`, `priority:p2`, `priority:p3`[cite: 1]
-  * Dependency: `status:blocked-on-dependency`[cite: 1]
+  * Area: `area:auth`, `area:projects`, `area:entry-format`, `area:entries`, `area:time-browsing`
+  * Priority: `priority:p1`, `priority:p2`, `priority:p3`
+  * Dependency: `status:blocked-on-dependency`
 * **Board Columns:**
-  * `Backlog`: Story created, not yet startable or not yet picked up[cite: 1].
-  * `To Do`: Ready to start; upstream dependencies resolved[cite: 1].
-  * `In Progress`: Actively being implemented by assigned owner[cite: 1].
-  * `Done`: Merged via PR, issue automatically closed via commit/PR reference[cite: 1].
+  * `Backlog`: Story created, not yet startable or not yet picked up.
+  * `To Do`: Ready to start; upstream dependencies resolved.
+  * `In Progress`: Actively being implemented by assigned owner.
+  * `Done`: Merged via PR, issue automatically closed via commit/PR reference.
 
 ### 2.3 Retrospective (Sprint End)
-*(To be completed at the conclusion of Sprint 1)*[cite: 1]
+
+#### What Went Well
+
+* **Vertical slice delivery:** All 10 user stories from authentication through time tracking and entry browsing were implemented as end-to-end vertical slices (database → API → UI).
+* **Shared types package:** Extracting types into `@logbook/shared` eliminated duplication and caught type mismatches between frontend and backend early.
+* **Integration testing:** 27 Vitest tests running against the live Neon database give confidence that API endpoints work correctly, including edge cases (409 duplicate names, 404 not found, invalid input).
+* **Prisma ORM adoption:** Migrating from raw SQL to Prisma eliminated SQL injection risks, simplified migrations, and provided type-safe queries.
+* **Kanban workflow:** The dependency-chain model (`Auth → Projects → Entry Format → Entries → Time/Browse`) worked well with functional ownership — no team member was blocked waiting on another's column.
+
+#### What Could Be Improved
+
+* **Frontend error handling:** The frontend uses basic error banners for API failures. A proper toast notification system would improve UX.
+* **Test isolation:** Integration tests run against the live database without transaction rollback. Tests create and clean up data, but parallel test runs could conflict.
+* **Documentation gaps:** Some documentation was only written at the end of Sprint 1 rather than incrementally. Future sprints should update docs alongside code changes.
+
+#### Action Items for Sprint 2
+
+1. ~~Implement JWT based authentication (replaces `x-user-id` header).~~ **Done** — JWT auth with email verification, password reset, and account deletion implemented in Sprint 1.
+2. Add frontend toast notifications for API errors.
+3. Consider adding unit tests alongside integration tests for complex business logic.
+4. Add Calendar API integration (client-requested external API).
+5. Implement **Overdue tab** on Entries page — auto-flag entries past `due_date` with visual indicators (red badge, warning icon). _(P1, from 2026-08-21 client meeting)_
+6. Add **live stopwatch widget** to entry creation/edit form — start/pause/reset count-up timer that saves to `duration_minutes`. _(P1, from 2026-08-21 client meeting)_
+7. Add **overdue entry count** to Dashboard stats. _(P1, from 2026-08-21 client meeting)_
+8. Implement **in-app deadline reminders** — notifications at 3 days, 1 day, and day-of due date. _(P2, from 2026-08-21 client meeting)_
+9. Add **notification indicator** (bell icon or badge) to sidebar/header. _(P2, from 2026-08-21 client meeting)_
+10. Surface **per-project cumulative time** more prominently on Project Detail page. _(P1, from 2026-08-21 client meeting)_
