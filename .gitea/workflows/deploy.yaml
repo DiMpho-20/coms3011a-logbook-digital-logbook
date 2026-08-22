@@ -1,4 +1,3 @@
-# trigger reset
 name: Build and Push Docker Image
 
 on:
@@ -7,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,4 +21,3 @@ jobs:
           npm ci
           npx prisma generate --schema=apps/backend/prisma/schema.prisma
           npm run build --workspace=apps/backend
-# build trigger
