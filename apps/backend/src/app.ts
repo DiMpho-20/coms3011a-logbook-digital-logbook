@@ -11,7 +11,12 @@ const app = express();
 // ── Global middleware (must come before routes) ──────────────────────
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5174"],
+    origin: [
+      "http://localhost:5173", 
+      "http://127.0.0.1:5174",
+      "https://31d62b64.coms3011a-logbook-digital-logbook.pages.dev",
+      /^https:\/\/.*\.pages\.dev$/
+    ],
     credentials: true,
   })
 );

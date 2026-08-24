@@ -31,7 +31,7 @@ erDiagram
 
     USER {
         uuid id PK
-        string name
+        string full_name
         string email UK
         string password_hash
     }
@@ -41,7 +41,9 @@ erDiagram
         uuid user_id FK
         string name
         string description
-        string status
+        enum status "ACTIVE, ARCHIVED"
+        datetime created_at
+        datetime updated_at
     }
 
     ENTRY_FIELD {
@@ -50,21 +52,25 @@ erDiagram
         string name
         string data_type
         boolean required
+        datetime created_at
+        datetime updated_at
     }
 
     LOGBOOK_ENTRY {
         uuid id PK
         uuid project_id FK
+        int duration_minutes
         date entry_date
-        int duration
+        date due_date
         datetime created_at
+        datetime updated_at
     }
 
     ENTRY_VALUE {
         uuid id PK
         uuid entry_id FK
         uuid field_id FK
-        string value
+        text value
     }
 
     PASSWORD_RESET {
@@ -75,6 +81,13 @@ erDiagram
         datetime created_at
     }
 ```
+
+### Constraints
+
+- `USER.email` — Unique. Each email can only register once.
+- `PROJECT(user_id, name)` — Unique. A student cannot have two projects with the same name.
+- `ENTRY_VALUE(entry_id, field_id)` — Unique. One value per field per entry.
+- All foreign keys use `ON DELETE CASCADE` for full account erasure.
 
 ## Main Entities
 
