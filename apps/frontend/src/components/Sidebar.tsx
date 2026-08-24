@@ -10,7 +10,9 @@ import {
   User as UserIcon,
   ChevronUp,
   X,
+  Bell,
 } from "lucide-react";
+import { api } from "../api/client";
 
 interface SidebarProps {
   onClose?: () => void;
@@ -30,6 +32,7 @@ const BOTTOM_ITEMS = [
 export default function Sidebar({ onClose }: SidebarProps) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [deadlineCount, setDeadlineCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
@@ -53,6 +56,37 @@ export default function Sidebar({ onClose }: SidebarProps) {
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Fetch upcoming deadline count for notification badge
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const projectsRes = await api.get("/projects");
+        const active: { id: string }[] = (projectsRes.data || []).filter(
+          (p: { status: string }) => p.status === "ACTIVE"
+        );
+        const results = await Promise.all(
+          active.map((p) => api.get(`/projects/${p.id}/entries`).then((r) => r.data))
+        );
+        const today = new Date(new Date().toDateString());
+        const threeDays = new Date(today);
+        threeDays.setDate(threeDays.getDate() + 3);
+        let count = 0;
+        results.forEach((entries: { dueDate?: string }[]) => {
+          entries.forEach((e) => {
+            if (!e.dueDate) return;
+            const due = new Date(e.dueDate + "T00:00:00");
+            if (due <= threeDays) count++;
+          });
+        });
+        if (!cancelled) setDeadlineCount(count);
+      } catch {
+        // Silently ignore — badge just won't show
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Mouse-proximity glow effect
@@ -99,6 +133,19 @@ export default function Sidebar({ onClose }: SidebarProps) {
         <span className="text-sm font-semibold text-white tracking-tight">
           Digital Logbook
         </span>
+        {/* Notification bell with deadline count */}
+        <button
+          onClick={() => handleNav("/entries")}
+          className="relative ml-auto p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition"
+          title={deadlineCount > 0 ? `${deadlineCount} upcoming deadline${deadlineCount > 1 ? "s" : ""}` : "No upcoming deadlines"}
+        >
+          <Bell className="h-4 w-4" />
+          {deadlineCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-[9px] font-bold text-white leading-none">
+              {deadlineCount > 9 ? "9+" : deadlineCount}
+            </span>
+          )}
+        </button>
         {onClose && (
           <button
             onClick={onClose}
