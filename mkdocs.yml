@@ -6,10 +6,25 @@ theme:
     primary: indigo
     accent: indigo
 
+markdown exensiions:
+  - attr_list
+  - md_in_html
+  - pymdownx.superfences:
+    custom_fences:
+      - name: mermaid
+        class: mermaid
+        format: !!python/name:pymdownx.superfences.fence_code_format
+
 nav:
   - Home: index.md
-  - Architecture: architecture.md
   - Setup Guide: setup.md
   - Methodology: methodology.md
   - Client Interactions: client-interactions.md
   - User Stories: user-stories/user-stories.md
+  - Design: design/architecture.md
+  - System Architecture: architecture.md
+  - Database design: design/database-erd.md
+  - UI Design: design/ui-design.md
+  - Development Plan: design/development-plan.md
+  - Roadmap: design/roadmap.md
+ 
