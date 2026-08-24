@@ -19,6 +19,7 @@ import {
 import { formatDuration, getGreeting } from "../lib/utils";
 import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
+import DeadlineReminders from "../components/DeadlineReminders";
 import LoadingState from "../components/LoadingState";
 
 // ── SVG Sparkline ────────────────────────────────────────────────────────
@@ -280,6 +281,9 @@ export default function DashboardPage() {
         <StatCard icon={ListChecks} label="Entries This Week" value={stats.weekCount} color="emerald" />
         <StatCard icon={Clock} label="Total Time Logged" value={formatDuration(stats.totalMinutes)} color="orange" />
       </div>
+
+      {/* ── Deadline Reminders ─────────────────────────────────────────── */}
+      <DeadlineReminders entries={allEntries} projectNames={projectNames} />
 
       {/* ── 3. Activity + Projects ──────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
