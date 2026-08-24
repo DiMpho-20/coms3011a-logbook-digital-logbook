@@ -8,11 +8,11 @@ A web-based digital logbook application designed to help university students kee
 
 | Environment | URL |
 |---|---|
-| **Live App** | _[Add your deployed URL here]_ |
-| **API Server** | _[Add your deployed API URL here]_ |
+| **Live App** | <https://coms3011a-logbook.pages.dev> |
+| **API Server** | <https://coms3011a-logbook.pages.dev> |
 | **Gitea Repository** | <https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook> |
 
-> Replace the placeholders above with your actual deployment URLs once deployed (e.g. Vercel, Railway, Render).
+
 
 ## Overview
 

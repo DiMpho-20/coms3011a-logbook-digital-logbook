@@ -44,7 +44,7 @@ Edit `apps/backend/.env` and set the following variables:
 
 ```env
 # Required — PostgreSQL connection string (from Neon dashboard)
-DATABASE_URL="postgresql://<user>:<password>@<host>/<dbname>?sslmode=require"
+DATABASE_URL=postgresql://neondb_owner:npg_qa3RLS5VCAjB@ep-snowy-recipe-ax9zlpug-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 
 # Required — secret key for signing JWT auth tokens
 JWT_SECRET=your-random-secret-string-here
@@ -52,29 +52,27 @@ JWT_SECRET=your-random-secret-string-here
 # Backend port (default: 3000)
 PORT=3000
 
-# Frontend URL (used in verification/reset email links)
+# Frontend URL
 APP_URL=http://localhost:5173
 
-# Optional — Gmail SMTP for email verification and password reset
-# Without these, accounts are auto-verified in dev mode (no email sent)
-GMAIL_USER=your-email@gmail.com
-GMAIL_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+
 ```
 
-> **Tip:** To get a Gmail App Password: go to [Google Account](https://myaccount.google.com) → Security → enable 2-Step Verification → App Passwords → create one for "Mail".
+
 
 > **Warning:** Never commit `.env` files with real credentials to the repository.
 
 ### 5. Set up the database schema
 
-Generate the Prisma client and push the schema to your Neon database:
+The backend uses Prisma 7 with a `prisma.config.ts` file that reads the `DATABASE_URL` from your `.env`. All Prisma commands must be run from inside the `apps/backend/` directory:
 
 ```bash
-npx prisma generate --schema=apps/backend/prisma/schema.prisma
-npx prisma db push --schema=apps/backend/prisma/schema.prisma
+cd apps/backend
+npx prisma generate
+npx prisma db push
 ```
 
-> This creates all tables (`users`, `projects`, `entry_fields`, `entries`, `password_resets`) in your Neon database. Use `--force-reset` if you need to clear existing data during development.
+> This creates all tables (`users`, `projects`, `entry_fields`, `entries`, `password_resets`) in your Neon database. Use `npx prisma db push --force-reset` if you need to clear existing data during development.
 
 ### 6. Run development servers
 
@@ -108,21 +106,23 @@ Open <http://localhost:5173> in your browser to use the app.
 | `npm run test` | `apps/backend` | Run Vitest integration tests |
 | `npm run test:watch` | `apps/backend` | Run tests in watch mode |
 | `npm run build` | `apps/backend` | Compile TypeScript to `dist/` |
-| `npm run lint` | `apps/backend` | Run ESLint |
+| `npm run lint` | `apps/frontend` | Run oxlint |
 
 ## Code Quality & Linting
 
-Before committing code or opening a Pull Request, always ensure the code passes the workspace linter:
+The frontend uses [oxlint](https://oxc.rs) for fast linting:
 
 ```bash
-npm run lint --workspace=backend
+npm run lint --workspace=frontend
 ```
 
-And passes the type checker:
+The backend uses TypeScript's built-in type checker. Run it before committing:
 
 ```bash
 npm run typecheck --workspace=backend
 ```
+
+> **Note:** The backend does not have a separate `lint` script. The root-level `npm run lint` command uses `--if-present`, so it will skip the backend gracefully.
 
 ## Testing
 
@@ -144,17 +144,30 @@ The `@logbook/shared` package (`packages/shared/`) contains TypeScript interface
 
 After modifying shared types:
 1. Restart both dev servers
-2. Regenerate the Prisma client if the schema changed: `npx prisma generate --schema=apps/backend/prisma/schema.prisma`
+2. Regenerate the Prisma client if the schema changed: run `npx prisma generate` from `apps/backend/`
 
 ## Authentication & Email
 
-The app uses JWT-based authentication with email verification:
+The app uses JWT-based authentication with email verification and optional two-factor authentication (2FA):
 
 * **Registration** creates a user with an unverified email
 * **Email verification** — a verification link is sent via Gmail SMTP (if configured)
 * **Login** is blocked until the email is verified
 * **Password reset** — reset link sent via email
+* **Two-factor authentication (2FA)** — TOTP-based 2FA using `otplib`. Users can enable/disable 2FA in Settings. When enabled, a QR code is generated for authenticator app setup.
 
 **Dev mode (no Gmail credentials):** accounts are automatically verified so you can develop without email setup. The verification link is logged to the backend console.
 
 **Production mode:** set `GMAIL_USER` and `GMAIL_APP_PASSWORD` in `.env` to enable real email sending.
+
+## Commit Convention
+
+All commits must follow [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+```
+<type>: <description>
+
+[optional body]
+```
+
+Common types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
