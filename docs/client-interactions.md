@@ -159,9 +159,9 @@ The client conducted a thorough review of the project against the assessment rub
   * **Methodology documentation** — Kanban board, user stories, retrospectives documented.
 
 * **Items noted as remaining:**
-  * Overdue tab/section in entries UI (backend schema supports it, frontend view needed).
-  * Live stopwatch widget on entry form.
-  * Advance deadline reminders (in-app notifications).
+  * Live stopwatch widget on entry form — **Implemented on feature branch (Dineo), not yet merged to main or deployed.**
+  * In-app deadline reminders (3 days, 1 day, day-of) — **Implemented on feature branch (Dineo), not yet merged to main or deployed.**
+  * Notification indicator (bell badge) in sidebar — **Implemented on feature branch (Dineo), not yet merged to main or deployed.**
   * Calendar API integration (planned for Sprint 2).
 
 ### Action Items from This Meeting
@@ -169,9 +169,26 @@ The client conducted a thorough review of the project against the assessment rub
 | # | Action | Priority | Status |
 |---|--------|----------|--------|
 | 1 | Implement Overdue tab in Entries page (auto-flag overdue entries) | P1 | **Done** |
-| 2 | Add live stopwatch widget to entry creation/edit form | P1 | Pending |
+| 2 | Add live stopwatch widget to entry creation/edit form | P1 | Implemented (feature branch) |
 | 3 | Add overdue entry count to Dashboard stats | P1 | **Done** |
-| 4 | Implement in-app deadline reminders (3 days, 1 day, day-of) | P2 | Pending |
-| 5 | Add notification indicator (bell icon or badge) to UI | P2 | Pending |
+| 4 | Implement in-app deadline reminders (3 days, 1 day, day-of) | P2 | Implemented (feature branch) |
+| 5 | Add notification indicator (bell icon or badge) to UI | P2 | Implemented (feature branch) |
 | 6 | Google Calendar API integration for due date sync | P2 | Sprint 2 |
 | 7 | Visual distinction for overdue entries (red badge/warning) | P1 | **Done** |
+
+### Known Shortcomings
+
+The following features have been developed but are not yet present in the deployed application (`coms3011a-logbook.pages.dev`). They exist on the **Dineo** feature branch and are pending review before merging to `main`.
+
+| # | Feature | Status | Reason Not Deployed |
+|---|---------|--------|---------------------|
+| 1 | Live stopwatch widget on entry forms | Code complete | Awaiting branch review and merge |
+| 2 | Deadline reminders panel on Dashboard | Code complete | Awaiting branch review and merge |
+| 3 | Notification bell badge in sidebar | Code complete | Awaiting branch review and merge |
+| 4 | Google Calendar integration | Not started | Planned for Sprint 2 — requires OAuth2 setup |
+
+Additionally, the following limitations apply to the current deployed release:
+
+* **No external API integration** — Calendar sync (Google Calendar) is deferred to Sprint 2 as it requires Google Cloud Console setup and OAuth2 consent flow.
+* **Documentation site not yet deployed** — MkDocs configuration is complete; a team member is handling deployment to Cloudflare Pages.
+* **Accessibility** — Basic semantic HTML is used throughout, but full WCAG 2.1 compliance (ARIA labels, keyboard navigation audit, screen reader testing) is planned for a later sprint.
