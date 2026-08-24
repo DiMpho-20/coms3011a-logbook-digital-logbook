@@ -8,8 +8,8 @@ A web-based digital logbook application designed to help university students kee
 
 | Environment | URL |
 |---|---|
-| **Live App** | __ |
-| **API Server** | |
+| **Live App** | <https://coms3011a-logbook.pages.dev> |
+| **API Server** | <https://coms3011a-logbook.pages.dev> |
 | **Gitea Repository** | <https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook> |
 
 
