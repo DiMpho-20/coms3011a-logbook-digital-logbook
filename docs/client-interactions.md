@@ -159,19 +159,16 @@ The client conducted a thorough review of the project against the assessment rub
   * **Methodology documentation** — Kanban board, user stories, retrospectives documented.
 
 * **Items noted as remaining:**
-  * Overdue tab/section in entries UI (backend schema supports it, frontend view needed).
-  * Live stopwatch widget on entry form.
-  * Advance deadline reminders (in-app notifications).
-  * Calendar API integration (planned for Sprint 2).
+  * Google Calendar API integration (planned for Sprint 2).
 
 ### Action Items from This Meeting
 
 | # | Action | Priority | Status |
 |---|--------|----------|--------|
 | 1 | Implement Overdue tab in Entries page (auto-flag overdue entries) | P1 | **Done** |
-| 2 | Add live stopwatch widget to entry creation/edit form | P1 | Pending |
+| 2 | Add live stopwatch widget to entry creation/edit form | P1 | **Done** |
 | 3 | Add overdue entry count to Dashboard stats | P1 | **Done** |
-| 4 | Implement in-app deadline reminders (3 days, 1 day, day-of) | P2 | Pending |
-| 5 | Add notification indicator (bell icon or badge) to UI | P2 | Pending |
+| 4 | Implement in-app deadline reminders (3 days, 1 day, day-of) | P2 | **Done** |
+| 5 | Add notification indicator (bell icon or badge) to UI | P2 | **Done** |
 | 6 | Google Calendar API integration for due date sync | P2 | Sprint 2 |
 | 7 | Visual distinction for overdue entries (red badge/warning) | P1 | **Done** |
