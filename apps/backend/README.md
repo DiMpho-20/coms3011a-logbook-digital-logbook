@@ -1,0 +1,170 @@
+# Backend — Digital Logbook API
+
+The REST API server for the Digital Logbook application. Built with Express 5, TypeScript, and Prisma ORM 7, backed by a PostgreSQL database hosted on [Neon](https://neon.tech).
+
+## Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| Express 5 | HTTP API framework |
+| TypeScript 6 | Type safety |
+| Prisma ORM 7 | Database access with driver adapter for `pg` |
+| Zod 4 | Request body validation |
+| bcryptjs | Password hashing |
+| jsonwebtoken | JWT authentication tokens |
+| nodemailer | Email verification and password reset (Gmail SMTP) |
+| otplib 13 | TOTP-based two-factor authentication |
+| qrcode | QR code generation for 2FA setup |
+| Vitest + Supertest | Integration testing (27 tests) |
+
+## Project Structure
+
+```
+apps/backend/
+├── prisma/
+│   ├── schema.prisma        # Database schema (6 models)
+│   └── migrations/          # Prisma migration files
+├── prisma.config.ts         # Prisma 7 config (reads DATABASE_URL from .env)
+├── src/
+│   ├── controllers/         # Business logic (project, entry, entryField)
+│   ├── routes/              # Express route definitions (projects, entries, auth)
+│   ├── middleware/          # JWT auth middleware (requireAuth)
+│   ├── utils/               # Password hashing, email sender, token helpers
+│   ├── schemas/             # Zod validation schemas (project, entry)
+│   ├── __tests__/           # Vitest integration tests (27 tests)
+│   ├── app.ts               # Express app setup (exported for testing)
+│   ├── index.ts             # Server startup
+│   └── prisma.ts            # Prisma client singleton (driver adapter)
+├── .env.example             # Environment variable template
+├── eslint.config.mjs        # ESLint configuration
+├── package.json
+└── tsconfig.json
+```
+
+## Getting Started
+
+### 1. Install dependencies
+
+From the repository root:
+
+```bash
+npm install
+```
+
+### 2. Configure environment variables
+
+Copy the example file and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+Required variables:
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string (from Neon dashboard) |
+| `JWT_SECRET` | Secret key for signing JWT tokens |
+| `PORT` | Server port (default: `3000`) |
+| `APP_URL` | Frontend URL for email links (default: `http://localhost:5173`) |
+
+Optional (for email sending):
+
+| Variable | Description |
+|---|---|
+| `GMAIL_USER` | Gmail address for SMTP |
+| `GMAIL_APP_PASSWORD` | Gmail App Password |
+
+> Without Gmail credentials, accounts are auto-verified in dev mode — no email is sent.
+
+### 3. Set up the database
+
+```bash
+cd apps/backend
+npx prisma generate
+npx prisma db push
+```
+
+### 4. Run the server
+
+From the repository root:
+
+```bash
+npm run dev --workspace=backend
+```
+
+The API will be available at `http://localhost:3000`.
+
+## API Endpoints
+
+All routes are prefixed with `/api`. Protected routes require a `Bearer <token>` in the `Authorization` header.
+
+### Authentication
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | No | Register a new user |
+| `POST` | `/api/auth/login` | No | Log in and receive a JWT token |
+| `POST` | `/api/auth/verify-email` | No | Verify email with token |
+| `POST` | `/api/auth/forgot-password` | No | Request a password reset email |
+| `POST` | `/api/auth/reset-password` | No | Reset password with token |
+| `DELETE` | `/api/auth/account` | Yes | Delete account |
+
+### Projects
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/projects` | Yes | List all projects |
+| `POST` | `/api/projects` | Yes | Create a new project |
+| `GET` | `/api/projects/:id` | Yes | Get a project with entry fields |
+| `PUT` | `/api/projects/:id` | Yes | Update project |
+| `PATCH` | `/api/projects/:id/status` | Yes | Toggle status (ACTIVE/ARCHIVED) |
+| `GET` | `/api/projects/:id/time-summary` | Yes | Aggregate time stats |
+
+### Entry Fields
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/projects/:projectId/entry-fields` | Yes | List entry fields |
+| `POST` | `/api/projects/:projectId/entry-fields` | Yes | Create entry field |
+
+### Entries
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/projects/:projectId/entries` | Yes | List entries |
+| `POST` | `/api/projects/:projectId/entries` | Yes | Create entry with field values |
+| `PUT` | `/api/entries/:id` | Yes | Update entry |
+| `DELETE` | `/api/entries/:id` | Yes | Delete entry |
+
+### Utility
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/health` | No | Health check |
+| `GET` | `/api/db-check` | No | Database connectivity check |
+
+## Testing
+
+27 integration tests using Vitest and Supertest, exercising all API endpoints against the live Neon database:
+
+```bash
+# Run all tests
+npm run test --workspace=backend
+
+# Run tests in watch mode
+npm run test:watch --workspace=backend
+```
+
+Tests are located in `src/__tests__/api.test.ts`.
+
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start with hot reload (`tsx watch`) |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm run start` | Run compiled output from `dist/` |
+| `npm run typecheck` | Run `tsc --noEmit` |
+| `npm run test` | Run Vitest tests |
+| `npm run test:watch` | Run tests in watch mode |
