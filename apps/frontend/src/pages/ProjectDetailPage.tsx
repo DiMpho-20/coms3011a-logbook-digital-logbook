@@ -31,6 +31,7 @@ import { formatDuration, todayISO, defaultValuesForFields, isEmptyValue } from "
 import StatCard from "../components/StatCard";
 import EntryCard from "../components/EntryCard";
 import Modal from "../components/Modal";
+import Stopwatch from "../components/Stopwatch";
 import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 
@@ -411,6 +412,15 @@ export default function ProjectDetailPage() {
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
+          </div>
+
+          {/* Live stopwatch */}
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">Stopwatch</label>
+            <Stopwatch
+              compact
+              onMinutesChange={(mins) => setEntryDuration(String(mins))}
+            />
           </div>
 
           {/* Dynamic fields (everything except first text field) */}

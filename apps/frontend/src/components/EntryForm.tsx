@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Loader2, Check } from "lucide-react";
+import Stopwatch from "./Stopwatch";
 import { todayISO, defaultValuesForFields, isEmptyValue } from "../lib/utils";
 import { createEntry, type Project, type EntryField, type EntryFieldValue } from "../api";
 
@@ -138,6 +139,15 @@ export default function EntryForm({
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        {/* Live stopwatch */}
+        <div className="flex flex-col justify-end">
+          <label className="block text-[11px] font-medium text-slate-500 mb-1">Stopwatch</label>
+          <Stopwatch
+            compact
+            onMinutesChange={(mins) => setDuration(String(mins))}
           />
         </div>
 
