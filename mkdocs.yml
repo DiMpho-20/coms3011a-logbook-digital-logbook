@@ -29,11 +29,11 @@ nav:
   - Methodology: methodology.md
   - Client Interactions: client-interactions.md
   - User Stories: user-stories/user-stories.md
-  - Design:
-    - Architecture: design/architecture.md
-    - System Design: design/system-design.md
-    - Database ERD: design/database-erd.md
-    - UI Design: design/ui-design.md
-    - Development Plan: design/development-plan.md
-    - Roadmap: design/roadmap.md
+  - Design: design/architecture.md
+  - System Architecture: architecture.md
+  - Database design: design/database-erd.md
+  - UI Design: design/ui-design.md
+  - Development Plan: design/development-plan.md
+  - Roadmap: design/roadmap.md
+  - System Design: design/system-design.md
  
