@@ -2,31 +2,31 @@
 
 ## 1. Tech Stack
 
-| Layer | Technology | Version | Purpose |
-|---|---|---|---|
-| **Frontend** | React | 19 | UI framework |
-| | Vite | 8 | Dev server & build tool |
-| | TypeScript | 6 | Type safety |
-| | Tailwind CSS | 4 | Utility-first styling with `@theme` directive |
-| | React Router | 7 | Client-side routing with protected routes |
-| | Axios | — | HTTP client with JWT token interceptor |
-| | Lucide React | — | Icon library |
-| **Backend** | Express | 5 | HTTP API framework |
-| | TypeScript | 6 | Type safety |
-| | Zod | 4 | Request validation schemas |
-| | Prisma ORM | 7 | Database access & migrations |
-| | bcryptjs | — | Password hashing |
-| | jsonwebtoken | — | JWT authentication tokens |
-| | nodemailer | — | Email verification and password reset (Gmail SMTP) |
-| | resend | — | Alternative email provider (transactional emails) |
-| | otplib | 13 | TOTP-based two-factor authentication |
-| | qrcode | — | QR code generation for 2FA authenticator app setup |
-| **Database** | PostgreSQL | — | Hosted on [Neon](https://neon.tech) (serverless) |
-| | `@prisma/adapter-pg` | 7 | Prisma driver adapter for `pg` |
-| **Shared** | `@logbook/shared` | 1.0.0 | Shared TypeScript types, Zod schemas, and interfaces |
-| **Testing** | Vitest | 4 | Test runner |
-| | Supertest | 7 | HTTP-level integration tests |
-| **Workspace** | npm workspaces | — | Monorepo package management |
+| Layer | Technology | Version | Purpose | Why Chosen |
+|---|---|---|---|---|
+| **Frontend** | React | 19 | UI framework | Component-based architecture, large ecosystem, team familiarity |
+| | Vite | 8 | Dev server & build tool | Fast HMR, native ESM, simpler config than Webpack |
+| | TypeScript | 6 | Type safety | Catches errors at compile time, improves IDE support, shared types with backend |
+| | Tailwind CSS | 4 | Utility-first styling with `@theme` directive | No separate CSS files to manage, consistent design tokens, built-in dark mode, responsive utilities |
+| | React Router | 7 | Client-side routing with protected routes | Standard React routing library, supports nested layouts and route guards |
+| | Axios | — | HTTP client with JWT token interceptor | Request/response interceptors for automatic JWT attachment, better error handling than fetch |
+| | Lucide React | — | Icon library | Lightweight, tree-shakeable, consistent icon set |
+| **Backend** | Express | 5 | HTTP API framework | Minimal, flexible, large middleware ecosystem, team familiarity |
+| | TypeScript | 6 | Type safety | End-to-end type safety shared with frontend via `@logbook/shared` |
+| | Zod | 4 | Request validation schemas | Runtime type validation with TypeScript inference, shared between frontend and backend |
+| | Prisma ORM | 7 | Database access & migrations | Type-safe queries, auto-generated client from schema, eliminates SQL injection risks |
+| | bcryptjs | — | Password hashing | Industry standard for password storage, pure JS (no native dependencies) |
+| | jsonwebtoken | — | JWT authentication tokens | Standard JWT library for Node.js, stateless authentication |
+| | nodemailer | — | Email verification and password reset (Gmail SMTP) | Mature email library, supports Gmail SMTP out of the box |
+| | resend | — | Alternative email provider (transactional emails) | Modern REST-based email API, fallback when SMTP is unavailable |
+| | otplib | 13 | TOTP-based two-factor authentication | Standards-compliant TOTP (RFC 6238), compatible with Google Authenticator |
+| | qrcode | — | QR code generation for 2FA authenticator app setup | Generates QR codes for easy authenticator app pairing |
+| **Database** | PostgreSQL | — | Hosted on [Neon](https://neon.tech) (serverless) | ACID-compliant relational database, Neon provides serverless scaling and branching |
+| | `@prisma/adapter-pg` | 7 | Prisma driver adapter for `pg` | Enables Prisma to use the `pg` driver for Neon's serverless connection pooling |
+| **Shared** | `@logbook/shared` | 1.0.0 | Shared TypeScript types, Zod schemas, and interfaces | Single source of truth for data shapes — frontend and backend cannot drift out of sync |
+| **Testing** | Vitest | 4 | Test runner | Native ESM support, fast, compatible with Vite ecosystem |
+| | Supertest | 7 | HTTP-level integration tests | Tests full request/response cycle against the Express app without starting a server |
+| **Workspace** | npm workspaces | — | Monorepo package management | Built into npm, no extra tooling needed, shared dependencies across packages |
 
 ## 2. Monorepo Layout
 
