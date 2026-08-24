@@ -44,7 +44,7 @@ Edit `apps/backend/.env` and set the following variables:
 
 ```env
 # Required — PostgreSQL connection string (from Neon dashboard)
-DATABASE_URL="postgresql://<user>:<password>@<host>/<dbname>?sslmode=require"
+DATABASE_URL=postgresql://neondb_owner:npg_qa3RLS5VCAjB@ep-snowy-recipe-ax9zlpug-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 
 # Required — secret key for signing JWT auth tokens
 JWT_SECRET=your-random-secret-string-here
@@ -52,16 +52,13 @@ JWT_SECRET=your-random-secret-string-here
 # Backend port (default: 3000)
 PORT=3000
 
-# Frontend URL (used in verification/reset email links)
+# Frontend URL
 APP_URL=http://localhost:5173
 
-# Optional — Gmail SMTP for email verification and password reset
-# Without these, accounts are auto-verified in dev mode (no email sent)
-GMAIL_USER=your-email@gmail.com
-GMAIL_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+
 ```
 
-> **Tip:** To get a Gmail App Password: go to [Google Account](https://myaccount.google.com) → Security → enable 2-Step Verification → App Passwords → create one for "Mail".
+
 
 > **Warning:** Never commit `.env` files with real credentials to the repository.
 
