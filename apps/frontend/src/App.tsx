@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { startOfflineSync } from "./lib/offlineEntries";
 
 // Auth pages (Athandwa)
 import LandingPage from "./components/LandingPage";
@@ -19,6 +21,8 @@ import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 
 export default function App() {
+  useEffect(() => startOfflineSync(), []);
+
   return (
     <BrowserRouter>
       <Routes>

@@ -4,7 +4,7 @@ import {
   Check, Sun, Moon, Monitor, Shield, ShieldCheck, X,
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
-import { fetchProjects, type Project } from "../api";
+import { exportLogbook, fetchProjects, importLogbook, type Project } from "../api";
 import { api } from "../api/client";
 
 // -- types --
@@ -136,6 +136,8 @@ export default function SettingsPage() {
 
   // Data
   const importRef = useRef<HTMLInputElement>(null);
+  const [dataMessage, setDataMessage] = useState("");
+  const [importing, setImporting] = useState(false);
 
   // 2FA state
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
@@ -201,18 +203,11 @@ export default function SettingsPage() {
 
   const handleExportJSON = async () => {
     try {
-      const data: Record<string, unknown> = { exportedAt: new Date().toISOString() };
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k?.startsWith("logbook-")) {
-          try { data[k] = JSON.parse(localStorage.getItem(k) || "null"); } catch { data[k] = localStorage.getItem(k); }
-        }
-      }
-      const projs = await fetchProjects();
-      data._serverProjects = projs;
-      downloadFile("logbook-export.json", JSON.stringify(data, null, 2), "application/json");
+      const backup = await exportLogbook();
+      downloadFile("digital-logbook-backup.json", JSON.stringify(backup, null, 2), "application/json");
+      setDataMessage(`Exported ${backup.projects.length} project${backup.projects.length === 1 ? "" : "s"}.`);
     } catch {
-      alert("Export failed. Check that the backend is running.");
+      setDataMessage("Export failed. Check your connection and try again.");
     }
   };
 
@@ -232,20 +227,24 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target?.result as string);
-        let imported = 0;
+        setImporting(true);
+        let preferences = 0;
         for (const [key, value] of Object.entries(data)) {
           if (key.startsWith("logbook-") && key !== "logbook-avatar") {
             localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
-            imported++;
+            preferences++;
           }
         }
-        alert(`Imported ${imported} settings. Refresh to apply.`);
-        window.location.reload();
-      } catch {
-        alert("Invalid JSON file.");
+        const result = await importLogbook(data);
+        setDataMessage(`Imported ${result.projects} project${result.projects === 1 ? "" : "s"} and ${result.entries} entr${result.entries === 1 ? "y" : "ies"}${preferences ? `, plus ${preferences} preference${preferences === 1 ? "" : "s"}` : ""}.`);
+        fetchProjects().then(setProjects).catch(() => {});
+      } catch (error) {
+        setDataMessage(error instanceof Error ? error.message : "The selected file could not be imported.");
+      } finally {
+        setImporting(false);
       }
     };
     reader.readAsText(file);
@@ -640,7 +639,7 @@ export default function SettingsPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-slate-800">Export logbook</p>
-            <p className="text-xs text-slate-500 mt-0.5">Download your data as JSON (full) or CSV (projects table).</p>
+            <p className="text-xs text-slate-500 mt-0.5">JSON includes projects, fields, and entries; CSV is a project summary.</p>
           </div>
           <div className="flex gap-2 shrink-0">
             <button onClick={handleExportJSON} className="flex items-center gap-1.5 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
@@ -654,13 +653,14 @@ export default function SettingsPage() {
         <div className="border-t border-slate-100 pt-4 flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-slate-800">Import / restore backup</p>
-            <p className="text-xs text-slate-500 mt-0.5">Restore settings from a previously exported JSON file.</p>
+            <p className="text-xs text-slate-500 mt-0.5">Restore projects, custom fields, and entries from a Digital Logbook JSON backup.</p>
           </div>
-          <button onClick={() => importRef.current?.click()} className="shrink-0 flex items-center gap-1.5 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
-            <Upload className="h-3.5 w-3.5" /> Import
+          <button disabled={importing} onClick={() => importRef.current?.click()} className="shrink-0 flex items-center gap-1.5 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-50">
+            <Upload className="h-3.5 w-3.5" /> {importing ? "Importing..." : "Import"}
           </button>
           <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
         </div>
+        {dataMessage && <p className="text-xs text-slate-600 bg-slate-50 rounded-md px-3 py-2">{dataMessage}</p>}
         <div className="border-t border-slate-100 pt-4 flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-slate-800">Clear local data</p>
