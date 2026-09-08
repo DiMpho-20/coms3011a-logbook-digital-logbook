@@ -176,10 +176,10 @@
 
 | **#** | **Given**                                  | **When**                        | **Then**                                                 | **Status**  |
 | ----- | ------------------------------------------ | ------------------------------- | -------------------------------------------------------- | ----------- |
-| 1     | I have a project                           | I edit its entry format         | I can select from additional field types                 | Not Started |
-| 2     | I am adding a field                        | I select a tag field type       | The field accepts tag values                             | Not Started |
-| 3     | I am adding a field                        | I select a checklist field type | The field allows checklist items to be recorded          | Not Started |
-| 4     | I am adding a field                        | I select a link field type      | The field allows a link to be recorded                   | Not Started |
+| 1     | I have a project                           | I edit its entry format         | I can select from additional field types                 | Pass        |
+| 2     | I am adding a field                        | I select a tag field type       | The field accepts tag values                             | Pass        |
+| 3     | I am adding a field                        | I select a checklist field type | The field allows checklist items to be recorded          | Pass        |
+| 4     | I am adding a field                        | I select a link field type      | The field allows a link to be recorded                   | Pass        |
 | 5     | I am adding a field                        | I select a reference field type | The field allows a reference to another entry or project | Not Started |
 | 6     | I have created an entry using a rich field | I view the entry                | The rich field values are displayed correctly            | Not Started |
 
