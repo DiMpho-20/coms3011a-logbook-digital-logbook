@@ -9,6 +9,8 @@ import {
   updateProject,
   toggleProjectStatus,
   createEntryField,
+  updateEntryField,
+  deleteEntryField,
   type Project,
   type EntryField as BaseEntryField,
   type TimeSummary,
@@ -43,6 +45,7 @@ export default function ProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [formData, setFormData] = useState({ name: "", description: "" });
   const [entryFields, setEntryFields] = useState<EntryField[]>([]);
+  const [removedFieldIds, setRemovedFieldIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -96,6 +99,7 @@ export default function ProjectsPage() {
     setEditingProject(null);
     setFormData({ name: "", description: "" });
     setEntryFields([]);
+    setRemovedFieldIds([]);
     setFormError(null);
     setModalOpen(true);
   };
@@ -107,6 +111,7 @@ export default function ProjectsPage() {
     try {
       const fields = await fetchEntryFields(project.id);
       setEntryFields(fields);
+      setRemovedFieldIds([]);
     } catch {
       setEntryFields([]);
     }
@@ -125,6 +130,7 @@ export default function ProjectsPage() {
   };
 
   const handleRemoveField = (id: string) => {
+    if (!id.startsWith("new-")) setRemovedFieldIds((previous) => [...previous, id]);
     setEntryFields((prev) => prev.filter((f) => f.id !== id));
   };
 
@@ -144,13 +150,13 @@ export default function ProjectsPage() {
         });
         for (const field of entryFields) {
           if (!field.name.trim()) continue;
-          if (field.isNew || !field.id.includes("-")) {
-            // Only create new fields
-            if (field.isNew) {
-              await createEntryField(editingProject.id, { name: field.name, type: field.type });
-            }
+          if (field.isNew) {
+            await createEntryField(editingProject.id, { name: field.name, type: field.type, required: field.required, formula: field.formula || undefined });
+          } else {
+            await updateEntryField(field.id, { name: field.name, required: field.required, formula: field.type === "COMPUTED" ? field.formula : undefined });
           }
         }
+        await Promise.all(removedFieldIds.map(deleteEntryField));
       } else {
         const newProject = await createProject({
           name: formData.name,
@@ -160,7 +166,7 @@ export default function ProjectsPage() {
         for (const field of entryFields) {
           if (!field.name.trim()) continue;
           if (field.isNew) {
-            await createEntryField(newProject.id, { name: field.name, type: field.type });
+            await createEntryField(newProject.id, { name: field.name, type: field.type, required: field.required, formula: field.formula || undefined });
           }
         }
       }
@@ -369,6 +375,11 @@ export default function ProjectsPage() {
                         <option value="NUMBER">Number</option>
                         <option value="DATE">Date</option>
                         <option value="BOOLEAN">Boolean</option>
+                        <option value="TAGS">Tags</option>
+                        <option value="CHECKLIST">Checklist</option>
+                        <option value="LINK">Link</option>
+                        <option value="REFERENCE">Reference</option>
+                        <option value="COMPUTED">Computed number</option>
                       </select>
                       <button
                         type="button"
@@ -379,6 +390,21 @@ export default function ProjectsPage() {
                         <X className="h-4 w-4" />
                       </button>
                     </div>
+                    {field.type === "COMPUTED" && (
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="Formula, e.g. {numeric-field-id} * 2"
+                          value={field.formula || ""}
+                          onChange={(e) => handleUpdateField(field.id, { formula: e.target.value })}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">Use numeric field IDs in braces, for example <code>{"{a-field-id} * 2"}</code>.</p>
+                      </div>
+                    )}
+                    {!field.isNew && field.type === "NUMBER" && (
+                      <p className="text-[10px] text-slate-400">Formula ID: <code>{field.id}</code></p>
+                    )}
                     <label className="flex items-center gap-2 text-xs text-slate-500">
                       <input
                         type="checkbox"
