@@ -162,7 +162,7 @@ git clone https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-
 cd coms3011a-logbook-digital-logbook
 npm install
 cp apps/backend/.env.example apps/backend/.env
-# Edit apps/backend/.env with your DATABASE_URL
+
 npx prisma db push --schema=apps/backend/prisma/schema.prisma
 npm run dev --workspace=backend   # Terminal 1
 npm run dev --workspace=frontend  # Terminal 2
@@ -214,12 +214,7 @@ docs: update setup guide
 test: add project creation tests
 ```
 
-## Team
 
-| Member | Role |
-|---|---|
-| Dineo Motloung | Frontend UI, Dashboard, Projects, Entries, Profile, Settings |
-| Athandwa Mathole | Authentication (register, login, email verification, password reset) |
 
 ## Project Status
 
