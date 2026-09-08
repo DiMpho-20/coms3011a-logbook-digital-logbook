@@ -1,8 +1,10 @@
 import axios from "axios";
 
 export const api = axios.create({
-  // Hardcoded for production to bypass Vite/Cloudflare root directory env loading issues
-  baseURL: "https://digital-logbook-backend-latest.onrender.com/api",
+  // Local Vite requests use the development proxy; deployed builds use Render.
+  baseURL: import.meta.env.DEV
+    ? "/api"
+    : "https://digital-logbook-backend-latest.onrender.com/api",
   headers: {
     "Content-Type": "application/json",
   },

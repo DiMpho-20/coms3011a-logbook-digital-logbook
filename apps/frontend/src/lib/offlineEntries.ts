@@ -44,6 +44,8 @@ export function queueEntry(projectId: string, payload: CreateEntryInput): Entry 
     entryDate: payload.entryDate ?? null,
     dueDate: payload.dueDate ?? null,
     values: payload.values,
+    // The server creates the immutable format snapshot once this entry syncs.
+    format: null,
     createdAt: timestamp,
     updatedAt: timestamp,
   };

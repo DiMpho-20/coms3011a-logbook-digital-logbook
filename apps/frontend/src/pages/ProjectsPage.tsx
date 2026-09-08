@@ -173,7 +173,8 @@ export default function ProjectsPage() {
       await loadProjects();
       setModalOpen(false);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Something went wrong while saving.";
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        || (err instanceof Error ? err.message : "Something went wrong while saving.");
       setFormError(msg);
     } finally {
       setSaving(false);
