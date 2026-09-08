@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const entryValuesSchema = z.record(
   z.string(),
-  z.union([z.string(), z.number(), z.boolean(), z.null()])
+  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(z.string()), z.array(z.object({ label: z.string(), checked: z.boolean() })), z.object({ id: z.string(), label: z.string().optional(), kind: z.enum(["project", "entry"]).optional() })])
 );
 
 const isoDateSchema = z

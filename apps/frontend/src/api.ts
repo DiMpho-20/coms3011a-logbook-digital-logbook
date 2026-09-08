@@ -11,6 +11,7 @@
   CreateEntryInput,
   UpdateEntryInput,
   CreateEntryFieldInput,
+  UpdateEntryFieldInput,
   EntryFieldType,
 } from "@logbook/shared";
 import { api } from "./api/client";
@@ -90,6 +91,20 @@ export async function createEntryField(
 
 export async function fetchEntryFields(projectId: string): Promise<EntryField[]> {
   const res = await api.get(`/projects/${projectId}/entry-fields`);
+  return res.data;
+}
+
+export async function updateEntryField(id: string, data: UpdateEntryFieldInput): Promise<EntryField> {
+  const res = await api.put(`/entry-fields/${id}`, data);
+  return res.data;
+}
+
+export async function deleteEntryField(id: string): Promise<void> {
+  await api.delete(`/entry-fields/${id}`);
+}
+
+export async function fetchEntryFormatVersions(projectId: string) {
+  const res = await api.get(`/projects/${projectId}/entry-format-versions`);
   return res.data;
 }
 

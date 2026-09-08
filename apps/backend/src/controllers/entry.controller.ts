@@ -2,20 +2,21 @@ import { Request, Response } from "express";
 import prisma from "../prisma.js";
 import { createEntrySchema, updateEntrySchema } from "../schemas/entry.schema.js";
 import type { Entry } from "@logbook/shared";
+import { calculateComputedValues } from "../utils/computedFields.js";
 
 /**
  * Convert an array of EntryValue records (with included field) into a
  * flat Record keyed by fieldId, casting values to their declared types.
  */
-function flattenValues(
-  values: { fieldId: string; value: string; field: { type: string } }[]
-): Record<string, string | number | boolean | null> {
-  const map: Record<string, string | number | boolean | null> = {};
+function flattenValues(values: { fieldId: string; value: string; field: { type: string } }[]): Record<string, any> {
+  const map: Record<string, any> = {};
   for (const ev of values) {
     if (ev.field.type === "NUMBER") {
       map[ev.fieldId] = Number(ev.value) || 0;
     } else if (ev.field.type === "BOOLEAN") {
       map[ev.fieldId] = ev.value === "true";
+    } else if (["TAGS", "CHECKLIST", "REFERENCE"].includes(ev.field.type)) {
+      try { map[ev.fieldId] = JSON.parse(ev.value); } catch { map[ev.fieldId] = ev.value; }
     } else {
       map[ev.fieldId] = ev.value;
     }
@@ -32,7 +33,8 @@ function formatEntry(entry: {
   dueDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
-  values: { fieldId: string; value: string; field: { type: string } }[];
+  values: { fieldId: string; value: string; field: any }[];
+  formatVersion?: { version: number; fields: unknown } | null;
 }): Entry {
   return {
     id: entry.id,
@@ -41,6 +43,13 @@ function formatEntry(entry: {
     entryDate: entry.entryDate?.toISOString() ?? null,
     dueDate: entry.dueDate?.toISOString() ?? null,
     values: flattenValues(entry.values),
+    // Legacy entries predate snapshots; derive their historical field list from
+    // the retained fields referenced by their values.
+    format: entry.formatVersion
+      ? { version: entry.formatVersion.version, fields: entry.formatVersion.fields as any }
+      : entry.values.length
+        ? { version: 0, fields: entry.values.map((value) => ({ ...value.field, createdAt: value.field.createdAt?.toISOString?.() ?? value.field.createdAt, updatedAt: value.field.updatedAt?.toISOString?.() ?? value.field.updatedAt, archivedAt: value.field.archivedAt?.toISOString?.() ?? value.field.archivedAt })) }
+        : null,
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString(),
   };
@@ -56,6 +65,7 @@ export const getEntries = async (req: Request, res: Response) => {
       where: { projectId },
       include: {
         values: { include: { field: true } },
+        formatVersion: true,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -79,21 +89,27 @@ export const createEntry = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Project not found" });
     }
 
+    const fields = await prisma.entryField.findMany({ where: { projectId, archivedAt: null } });
+    const suppliedValues = Object.fromEntries(Object.entries(validated.values).filter(([fieldId]) => fields.find((field) => field.id === fieldId && field.type !== "COMPUTED")));
+    const computedValues = calculateComputedValues(fields, suppliedValues);
+    const latestFormat = await prisma.entryFormatVersion.findFirst({ where: { projectId }, orderBy: { version: "desc" } });
     const entry = await prisma.logbookEntry.create({
       data: {
         projectId,
+        formatVersionId: latestFormat?.id,
         durationMinutes: validated.durationMinutes,
         entryDate: validated.entryDate,
         dueDate: validated.dueDate,
         values: {
-          create: Object.entries(validated.values).map(([fieldId, value]) => ({
+          create: Object.entries({ ...suppliedValues, ...computedValues }).map(([fieldId, value]) => ({
             fieldId,
-            value: String(value ?? ""),
+            value: typeof value === "object" ? JSON.stringify(value) : String(value ?? ""),
           })),
         },
       },
       include: {
         values: { include: { field: true } },
+        formatVersion: true,
       },
     });
 
@@ -134,18 +150,23 @@ export const updateEntry = async (req: Request, res: Response) => {
       }
 
       if (validated.values) {
-        for (const [fieldId, value] of Object.entries(validated.values)) {
+        const fields = await tx.entryField.findMany({ where: { projectId: existing.projectId, archivedAt: null } });
+        const existingValues = await tx.entryValue.findMany({ where: { entryId: id } });
+        const valueMap: Record<string, unknown> = Object.fromEntries(existingValues.map((value: any) => [value.fieldId, value.value]));
+        Object.assign(valueMap, validated.values);
+        const computedValues = calculateComputedValues(fields, valueMap);
+        for (const [fieldId, value] of Object.entries({ ...validated.values, ...computedValues })) {
           await tx.entryValue.upsert({
             where: { entryId_fieldId: { entryId: id, fieldId } },
-            create: { entryId: id, fieldId, value: String(value ?? "") },
-            update: { value: String(value ?? "") },
+            create: { entryId: id, fieldId, value: typeof value === "object" ? JSON.stringify(value) : String(value ?? "") },
+            update: { value: typeof value === "object" ? JSON.stringify(value) : String(value ?? "") },
           });
         }
       }
 
       return tx.logbookEntry.findUnique({
         where: { id },
-        include: { values: { include: { field: true } } },
+        include: { values: { include: { field: true } }, formatVersion: true },
       });
     });
 

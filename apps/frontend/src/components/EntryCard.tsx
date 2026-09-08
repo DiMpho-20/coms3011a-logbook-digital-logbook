@@ -24,6 +24,15 @@ export default function EntryCard({
   // Compute overdue: dueDate is in the past and entry exists
   const isOverdue = entry.dueDate ? new Date(entry.dueDate) < new Date(new Date().toDateString()) : false;
 
+  const displayFields = entry.format?.fields?.length ? entry.format.fields : fields;
+  const displayValue = (type: string, value: unknown) => {
+    if (type === "BOOLEAN") return value ? "Yes" : "No";
+    if (type === "TAGS") return Array.isArray(value) ? value.join(", ") : String(value);
+    if (type === "CHECKLIST") return Array.isArray(value) ? value.map((item: any) => `${item.checked ? "✓" : "○"} ${item.label}`).join(" · ") : String(value);
+    if (type === "REFERENCE" && value && typeof value === "object") return (value as any).label || (value as any).id;
+    return String(value);
+  };
+
   return (
     <div className={`border rounded-lg p-3 transition ${
       isOverdue
@@ -51,16 +60,16 @@ export default function EntryCard({
         <span className="text-[11px] text-slate-400 shrink-0">{timeStr}</span>
       </div>
 
-      {fields.length > 0 && (
+      {displayFields.length > 0 && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-          {fields.map((field) => {
+          {displayFields.map((field) => {
             const value = entry.values?.[field.id];
             if (isEmptyValue(value) && value !== false) return null;
             return (
               <span key={field.id} className="text-xs text-slate-600">
                 <span className="text-slate-400">{field.name}:</span>{" "}
                 <span className="font-medium text-slate-800">
-                  {field.type === "BOOLEAN" ? (value ? "Yes" : "No") : String(value)}
+                  {displayValue(field.type, value)}
                 </span>
               </span>
             );
