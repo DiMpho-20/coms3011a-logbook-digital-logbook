@@ -35,6 +35,8 @@ function formatEntry(entry: {
   updatedAt: Date;
   values: { fieldId: string; value: string; field: any }[];
   formatVersion?: { version: number; fields: unknown } | null;
+  status: string;
+  completedAt: Date | null;
 }): Entry {
   return {
     id: entry.id,
@@ -43,6 +45,8 @@ function formatEntry(entry: {
     entryDate: entry.entryDate?.toISOString() ?? null,
     dueDate: entry.dueDate?.toISOString() ?? null,
     values: flattenValues(entry.values),
+    status: entry.status as "OPEN" | "DONE",
+    completedAt: entry.completedAt?.toISOString() ?? null,
     // Legacy entries predate snapshots; derive their historical field list from
     // the retained fields referenced by their values.
     format: entry.formatVersion
@@ -60,9 +64,14 @@ function formatEntry(entry: {
 export const getEntries = async (req: Request, res: Response) => {
   try {
     const projectId = String(req.params.projectId);
+    const { status, dueBefore } = req.query;
+
+    const where: any = { projectId };
+    if (status === "OPEN" || status === "DONE") where.status = status;
+    if (dueBefore) where.dueDate = { lte: new Date(String(dueBefore)) };
 
     const entries = await prisma.logbookEntry.findMany({
-      where: { projectId },
+      where,
       include: {
         values: { include: { field: true } },
         formatVersion: true,
@@ -74,6 +83,37 @@ export const getEntries = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Failed to fetch entries:", error);
     return res.status(500).json({ error: "Failed to fetch entries" });
+  }
+};
+
+export const updateEntryStatus = async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id);
+    const { status } = req.body;
+
+    if (status !== "OPEN" && status !== "DONE") {
+      return res.status(400).json({ error: "status must be OPEN or DONE" });
+    }
+
+    const entry = await prisma.logbookEntry.update({
+      where: { id },
+      data: {
+        status,
+        completedAt: status === "DONE" ? new Date() : null,
+      },
+      include: {
+        values: { include: { field: true } },
+        formatVersion: true,
+      },
+    });
+
+    return res.status(200).json(formatEntry(entry));
+  } catch (error: any) {
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Entry not found" });
+    }
+    console.error("Failed to update entry status:", error);
+    return res.status(500).json({ error: "Failed to update entry status" });
   }
 };
 

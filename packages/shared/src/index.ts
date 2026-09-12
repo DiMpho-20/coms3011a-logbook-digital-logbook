@@ -68,6 +68,8 @@ export interface Entry {
   format: EntryFormatSnapshot | null;
   createdAt: string;
   updatedAt: string;
+  status: "OPEN" | "DONE";
+  completedAt: string | null;
 }
 
 export interface TimeSummary {
