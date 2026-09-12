@@ -4,6 +4,7 @@ import { startOfflineSync } from "./lib/offlineEntries";
 import OpenWorkPage from "./pages/OpenWorkPage";
 import StatsPage from "./pages/StatsPage";
 import CalendarPage from "./pages/CalendarPage";
+import BoardPage from "./pages/BoardPage";
 
 // Auth pages (Athandwa)
 import LandingPage from "./components/LandingPage";
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/open-work" element={<OpenWorkPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/board" element={<BoardPage />} />
           </Route>
         </Route>
 
