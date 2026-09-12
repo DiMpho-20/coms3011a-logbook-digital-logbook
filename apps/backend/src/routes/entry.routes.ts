@@ -4,6 +4,7 @@ import {
   createEntry,
   updateEntry,
   deleteEntry,
+  updateEntryStatus,
 } from "../controllers/entry.controller.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 
@@ -13,5 +14,6 @@ router.get("/projects/:projectId/entries", requireAuth, getEntries);
 router.post("/projects/:projectId/entries", requireAuth, createEntry);
 router.put("/entries/:id", requireAuth, updateEntry);
 router.delete("/entries/:id", requireAuth, deleteEntry);
+router.patch("/entries/:id/status", requireAuth, updateEntryStatus);
 
 export default router;
