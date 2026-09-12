@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { startOfflineSync } from "./lib/offlineEntries";
+import OpenWorkPage from "./pages/OpenWorkPage";
 
 // Auth pages (Athandwa)
 import LandingPage from "./components/LandingPage";
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="/entries" element={<EntriesPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/open-work" element={<OpenWorkPage />} />
           </Route>
         </Route>
 

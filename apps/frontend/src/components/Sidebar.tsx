@@ -10,6 +10,7 @@ import {
   User as UserIcon,
   ChevronUp,
   X,
+  Circle,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/projects", label: "Projects", icon: FolderKanban, end: false },
   { to: "/entries", label: "Entries", icon: ClipboardList, end: false },
+  { to: "/open-work", label: "Open Work", icon: Circle, end: false },
 ];
 
 const BOTTOM_ITEMS = [

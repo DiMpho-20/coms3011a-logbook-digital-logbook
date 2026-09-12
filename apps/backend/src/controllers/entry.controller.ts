@@ -71,7 +71,7 @@ export const getEntries = async (req: Request, res: Response) => {
     if (dueBefore) where.dueDate = { lte: new Date(String(dueBefore)) };
 
     const entries = await prisma.logbookEntry.findMany({
-      where: { projectId },
+      where,
       include: {
         values: { include: { field: true } },
         formatVersion: true,
