@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { startOfflineSync } from "./lib/offlineEntries";
 import OpenWorkPage from "./pages/OpenWorkPage";
 import StatsPage from "./pages/StatsPage";
+import CalendarPage from "./pages/CalendarPage";
 
 // Auth pages (Athandwa)
 import LandingPage from "./components/LandingPage";
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/open-work" element={<OpenWorkPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
           </Route>
         </Route>
 
