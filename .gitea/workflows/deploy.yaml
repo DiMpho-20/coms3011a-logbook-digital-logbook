@@ -2,7 +2,7 @@ name: Build and Push Backend Application
 
 on:
   push:
-    branches: [ "main", "master", "Alondwe" ]
+    branches: [ "main", "master", "Alondwe", "Dineo" ]
 
 jobs:
   build:
@@ -22,6 +22,12 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
 
+      - name: Typecheck backend
+        run: npm run typecheck --workspace=apps/backend
+
+      - name: Lint frontend
+        run: npm run lint --workspace=apps/frontend
+
       - name: Run backend tests
         run: npm test --workspace=apps/backend
 
@@ -30,3 +36,6 @@ jobs:
 
       - name: Build Backend
         run: npm run build --workspace=apps/backend
+
+      - name: Build Frontend
+        run: npm run build --workspace=apps/frontend
