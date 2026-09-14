@@ -3,6 +3,8 @@
 The REST API server for the Digital Logbook application. Built with Express 5, TypeScript, and Prisma ORM 7, backed by a PostgreSQL database hosted on [Neon](https://neon.tech).
 
 > For an in-depth guide to the authentication system (JWT, TOTP 2FA, password reset, security properties and known limitations), see **[AUTHENTICATION.md](AUTHENTICATION.md)**.
+>
+> For the full testing documentation (stack, coverage, policy, and proof of passing runs), see **[TESTING.md](TESTING.md)**.
 
 ## Tech Stack
 
@@ -17,7 +19,7 @@ The REST API server for the Digital Logbook application. Built with Express 5, T
 | nodemailer | Email verification and password reset (Gmail SMTP) |
 | otplib 13 | TOTP-based two-factor authentication |
 | qrcode | QR code generation for 2FA setup |
-| Vitest + Supertest | Integration testing (27 tests) |
+| Vitest + Supertest | Integration testing (78 tests) |
 
 ## Project Structure
 
@@ -33,7 +35,7 @@ apps/backend/
 │   ├── middleware/          # JWT auth middleware (requireAuth)
 │   ├── utils/               # Password hashing, email sender, token helpers
 │   ├── schemas/             # Zod validation schemas (project, entry)
-│   ├── __tests__/           # Vitest integration tests (27 tests)
+│   ├── __tests__/           # Vitest integration tests (api, auth, sprint2)
 │   ├── app.ts               # Express app setup (exported for testing)
 │   ├── index.ts             # Server startup
 │   └── prisma.ts            # Prisma client singleton (driver adapter)
@@ -153,7 +155,7 @@ All routes are prefixed with `/api`. Protected routes require a `Bearer <token>`
 
 ## Testing
 
-27 integration tests using Vitest and Supertest, exercising all API endpoints against the live Neon database:
+78 integration tests using Vitest and Supertest, exercising the API against the live Neon database — 27 core API tests, 29 authentication/2FA tests, and 22 Sprint 2 feature tests (entry status, stats, timeline). See **[TESTING.md](TESTING.md)** for full coverage details and proof of passing runs.
 
 ```bash
 # Run all tests
@@ -163,7 +165,7 @@ npm run test --workspace=backend
 npm run test:watch --workspace=backend
 ```
 
-Tests are located in `src/__tests__/api.test.ts`.
+Tests are located in `src/__tests__/` (`api.test.ts`, `auth.test.ts`, `sprint2.test.ts`).
 
 ## Scripts
 
