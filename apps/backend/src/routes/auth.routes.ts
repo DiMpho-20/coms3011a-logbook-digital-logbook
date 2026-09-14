@@ -54,8 +54,10 @@ router.post("/register", async (req: Request, res: Response) => {
       },
     });
 
-    // Check if email credentials are configured
-    const hasEmailConfig = process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD;
+    // Check if any email provider is configured (Resend > Gmail SMTP)
+    const hasEmailConfig =
+      process.env.RESEND_API_KEY ||
+      (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
 
     if (hasEmailConfig) {
       // Send verification email
