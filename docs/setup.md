@@ -43,19 +43,15 @@ cp apps/backend/.env.example apps/backend/.env
 Edit `apps/backend/.env` and set the following variables:
 
 ```env
-
-DATABASE_URL=postgresql://neondb_owner:npg_qa3RLS5VCAjB@ep-snowy-recipe-ax9zlpug-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-
+# Get your connection string from the Neon dashboard → Connection Details.
+# It contains your database password — treat it as a secret and never commit it.
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require
 
 PORT=3000
 APP_URL=http://localhost:5173
-
-
 ```
 
-
-
-> **Warning:** Never commit `.env` files with real credentials to the repository.
+> **Warning:** Never commit `.env` files with real credentials to the repository, and never paste real connection strings into documentation — the docs site is publicly accessible.
 
 ### 5. Set up the database schema
 
