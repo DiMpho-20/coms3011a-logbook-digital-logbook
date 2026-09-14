@@ -15,6 +15,11 @@ export const LoginPage: React.FC = () => {
   const [twoFactorEmail, setTwoFactorEmail] = useState("");
   const [twoFactorCode, setTwoFactorCode] = useState("");
 
+  // Shown when the API client redirected here after a 401 (expired session)
+  const [sessionExpired] = useState(() =>
+    new URLSearchParams(window.location.search).has("expired")
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -150,6 +155,24 @@ export const LoginPage: React.FC = () => {
             Sign in to access your dashboard
           </p>
         </div>
+
+        {/* Session Expired Banner */}
+        {sessionExpired && (
+          <div
+            style={{
+              backgroundColor: "rgba(0, 198, 255, 0.12)",
+              border: "1px solid rgba(0, 198, 255, 0.35)",
+              color: "#7dd3fc",
+              padding: "0.75rem 1rem",
+              borderRadius: "10px",
+              fontSize: "0.875rem",
+              marginBottom: "1.25rem",
+              textAlign: "center",
+            }}
+          >
+            Your session has expired. Please sign in again.
+          </div>
+        )}
 
         {/* Server Error Banner */}
         {serverError && (
