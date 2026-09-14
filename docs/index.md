@@ -9,6 +9,7 @@ Welcome to the technical documentation for the **COMS3011A Digital Logbook** pro
 * **[Project Methodology & Work Tracker](methodology.md):** Kanban workflow, user story assignments, and Sprint 1 retrospective.
 * **[Client Interaction Logs](client-interactions.md):** Requirements decisions and client meeting notes.
 * **[Testing](testing.md):** Automated test suite (stack, coverage, policy, proof of passing runs) and the formal user-feedback process.
+* **[User Feedback](user-feedback.md):** SUS questionnaire, observation sheet, scoring setup, and the feedback-to-commit integration trail.
 * **[Third-Party Code](third-party.md):** Every dependency and external service, with motivation for each choice.
 * **[Sprint 1 User Stories](user-stories/user-stories.md):** Acceptance criteria for all 10 user stories.
 * **[System Design](design/system-design.md):** High-level system design and component diagrams.

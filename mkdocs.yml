@@ -29,6 +29,7 @@ nav:
   - Methodology: methodology.md
   - Client Interactions: client-interactions.md
   - Testing: testing.md
+  - User Feedback: user-feedback.md
   - Third-Party Code: third-party.md
   - User Stories: user-stories/user-stories.md
   - Design: design/architecture.md
