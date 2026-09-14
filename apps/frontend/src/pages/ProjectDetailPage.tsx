@@ -21,6 +21,7 @@ import {
   fetchEntryFields,
   toggleProjectStatus,
   createEntry,
+  fetchEntryFormatVersions,
   type ProjectWithFields,
   type TimeSummary,
   type Entry,
@@ -67,6 +68,8 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [entryModalOpen, setEntryModalOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [formatHistoryOpen, setFormatHistoryOpen] = useState(false);
+  const [formatVersions, setFormatVersions] = useState<{ id: string; version: number; fields: EntryField[]; createdAt: string }[]>([]);
 
   // New entry form state
   const [entryDescription, setEntryDescription] = useState("");
@@ -143,6 +146,16 @@ export default function ProjectDetailPage() {
       console.error("Failed to update project status:", err);
     }
     setMoreOpen(false);
+  };
+
+  const openFormatHistory = async () => {
+    if (!id) return;
+    try {
+      setFormatVersions(await fetchEntryFormatVersions(id));
+      setFormatHistoryOpen(true);
+    } catch {
+      setEntryError("Couldn't load format history.");
+    }
   };
 
   const handleFieldChange = (fieldId: string, value: EntryFieldValue) => {
@@ -297,8 +310,9 @@ export default function ProjectDetailPage() {
       {/* Entry Format */}
       {fields.length > 0 && (
         <div className="bg-white rounded-lg border border-slate-200">
-          <div className="px-4 py-3 border-b border-slate-100">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">Entry Format</h2>
+            <button type="button" onClick={openFormatHistory} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Format history</button>
           </div>
           <div className="p-4 space-y-2">
             {fields.map((f) => (
@@ -360,6 +374,19 @@ export default function ProjectDetailPage() {
           )}
         </div>
       </div>
+
+      <Modal open={formatHistoryOpen} onClose={() => setFormatHistoryOpen(false)} title="Entry format history">
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+          {formatVersions.length === 0 ? <p className="text-sm text-slate-500">No saved format versions yet.</p> : formatVersions.map((version) => (
+            <div key={version.id} className="border border-slate-200 rounded-lg p-3">
+              <p className="text-sm font-semibold text-slate-800">Version {version.version} <span className="text-xs font-normal text-slate-400">· {new Date(version.createdAt).toLocaleString()}</span></p>
+              <ul className="mt-2 text-xs text-slate-600 space-y-1">
+                {version.fields.map((field) => <li key={field.id}>{field.name} <span className="text-slate-400">({field.type})</span>{field.formula ? ` — ${field.formula}` : ""}</li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Modal>
 
       {/* New Entry Modal */}
       <Modal
@@ -468,6 +495,25 @@ export default function ProjectDetailPage() {
                       />
                       <span className="text-sm text-slate-600">Yes</span>
                     </label>
+                  )}
+                  {field.type === "TAGS" && (
+                    <input type="text" placeholder="Comma-separated tags" value={Array.isArray(entryValues[field.id]) ? (entryValues[field.id] as string[]).join(", ") : ""}
+                      onChange={(e) => handleFieldChange(field.id, e.target.value.split(",").map((tag) => tag.trim()).filter(Boolean))}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                  )}
+                  {field.type === "CHECKLIST" && (
+                    <textarea rows={3} placeholder="One item per line" value={Array.isArray(entryValues[field.id]) ? (entryValues[field.id] as any[]).map((item) => item.label).join("\n") : ""}
+                      onChange={(e) => handleFieldChange(field.id, e.target.value.split("\n").filter(Boolean).map((label) => ({ label, checked: false })))}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                  )}
+                  {field.type === "LINK" && (
+                    <input type="url" placeholder="https://…" value={(entryValues[field.id] as string) || ""} onChange={(e) => handleFieldChange(field.id, e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                  )}
+                  {field.type === "REFERENCE" && (
+                    <input type="text" placeholder="Project or entry ID" value={(entryValues[field.id] as any)?.id || ""} onChange={(e) => handleFieldChange(field.id, { id: e.target.value, label: e.target.value, kind: "project" })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                  )}
+                  {field.type === "COMPUTED" && (
+                    <p className="h-[38px] px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-500">Calculated automatically: {field.formula}</p>
                   )}
                 </div>
               ))}

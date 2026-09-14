@@ -10,6 +10,14 @@ The Digital Logbook interface is designed to be:
 - Consistent across all pages.
 - Focused on quickly recording and reviewing logbook entries.
 
+## Design Artifacts
+
+The interface was designed using low-fidelity wireframes followed by a
+higher-fidelity mockup:
+
+- 📄 [Wireframe](../Logbook%20wireframe.pdf) — initial layout and navigation structure for each screen.
+- 📄 [Mockup](DigitalLogbook%20mockup.pdf) — refined visual design based on the wireframe.
+
 ## Application Navigation
 
 Authenticated users will have access to the following main areas:
@@ -47,13 +55,19 @@ The landing page introduces the Digital Logbook and provides options to:
 - Sign in
 - Create an account
 
+*See the [mockup](DigitalLogbook%20mockup.pdf) for the landing page layout.*
+
 ### 2. Sign In
 
 Allows an existing student to authenticate using their account credentials.
 
+*See the [mockup](DigitalLogbook%20mockup.pdf) for the sign-in screen.*
+
 ### 3. Registration
 
 Allows a new student to create an account.
+
+*See the [mockup](DigitalLogbook%20mockup.pdf) for the registration screen.*
 
 ### 4. Dashboard
 
@@ -66,6 +80,10 @@ It will include:
 - Time recorded
 - Quick actions for creating projects and entries
 
+*The dashboard surfaces active projects and recent entries first, in
+line with the goal of quick entry review. See the
+[mockup](DigitalLogbook%20mockup.pdf) for the full layout.*
+
 ### 5. Projects
 
 The Projects page displays the student's projects.
@@ -76,6 +94,8 @@ Students can:
 - View a project
 - Archive a project
 - Open project details
+
+*See the [mockup](DigitalLogbook%20mockup.pdf) for the projects list layout.*
 
 ### 6. Project Detail
 
@@ -89,6 +109,8 @@ It will include:
 - Recorded time
 - Option to add an entry
 
+*See the [mockup](DigitalLogbook%20mockup.pdf) for the project detail layout.*
+
 ### 7. Entry Creation
 
 The entry form dynamically displays the fields defined by the selected
@@ -100,6 +122,9 @@ The student can enter:
 - Date
 - Time spent
 
+*See the [wireframe](../Logbook%20wireframe.pdf) and
+[mockup](DigitalLogbook%20mockup.pdf) for the entry form layout.*
+
 ### 8. Entries
 
 The Entries page allows students to browse their recorded work.
@@ -110,10 +135,14 @@ Students can:
 - Filter entries by project
 - Open an entry to view its details
 
+*See the [mockup](DigitalLogbook%20mockup.pdf) for the entries list layout.*
+
 ### 9. Profile and Settings
 
 The profile/settings area allows students to manage their account and
 application preferences.
+
+*See the [mockup](DigitalLogbook%20mockup.pdf) for the profile and settings layout.*
 
 ## Responsive Design
 

@@ -55,6 +55,8 @@ export function defaultValuesForFields(
   fields.forEach((f) => {
     if (f.type === "DATE") values[f.id] = todayISO();
     else if (f.type === "BOOLEAN") values[f.id] = false;
+    else if (f.type === "TAGS" || f.type === "CHECKLIST") values[f.id] = [];
+    else if (f.type === "REFERENCE") values[f.id] = null;
     else values[f.id] = "";
   });
   return values;
@@ -62,7 +64,7 @@ export function defaultValuesForFields(
 
 /** Check if an entry field value is empty. */
 export function isEmptyValue(v: EntryFieldValue): boolean {
-  return v === "" || v === undefined || v === null;
+  return v === "" || v === undefined || v === null || (Array.isArray(v) && v.length === 0);
 }
 
 /** Time-aware greeting. */

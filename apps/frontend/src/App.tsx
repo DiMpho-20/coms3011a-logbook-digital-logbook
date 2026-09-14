@@ -1,4 +1,10 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { startOfflineSync } from "./lib/offlineEntries";
+import OpenWorkPage from "./pages/OpenWorkPage";
+import StatsPage from "./pages/StatsPage";
+import CalendarPage from "./pages/CalendarPage";
+import BoardPage from "./pages/BoardPage";
 
 // Auth pages (Athandwa)
 import LandingPage from "./components/LandingPage";
@@ -19,6 +25,8 @@ import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 
 export default function App() {
+  useEffect(() => startOfflineSync(), []);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -37,8 +45,12 @@ export default function App() {
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:id" element={<ProjectDetailPage />} />
             <Route path="/entries" element={<EntriesPage />} />
+            <Route path="/stats" element={<StatsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/open-work" element={<OpenWorkPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/board" element={<BoardPage />} />
           </Route>
         </Route>
 

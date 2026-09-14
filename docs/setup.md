@@ -43,16 +43,11 @@ cp apps/backend/.env.example apps/backend/.env
 Edit `apps/backend/.env` and set the following variables:
 
 ```env
-# Required — PostgreSQL connection string (from Neon dashboard)
+
 DATABASE_URL=postgresql://neondb_owner:npg_qa3RLS5VCAjB@ep-snowy-recipe-ax9zlpug-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 
-# Required — secret key for signing JWT auth tokens
-JWT_SECRET=your-random-secret-string-here
 
-# Backend port (default: 3000)
 PORT=3000
-
-# Frontend URL
 APP_URL=http://localhost:5173
 
 

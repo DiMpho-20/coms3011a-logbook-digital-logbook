@@ -1,7 +1,10 @@
 import axios from "axios";
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3000/api",
+  // Local Vite requests use the development proxy; deployed builds use Render.
+  baseURL: import.meta.env.DEV
+    ? "/api"
+    : "https://digital-logbook-backend-latest.onrender.com/api",
   headers: {
     "Content-Type": "application/json",
   },
