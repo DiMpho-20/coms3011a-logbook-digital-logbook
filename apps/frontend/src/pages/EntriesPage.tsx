@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Flame, ListChecks, Clock, CalendarDays, FolderKanban, AlertTriangle, ArrowUpDown } from "lucide-react";
+import { Search, Flame, ListChecks, Clock, CalendarDays, FolderKanban, AlertTriangle, ArrowUpDown, BookmarkPlus, X } from "lucide-react";
 
 import {
   fetchProjects,
@@ -14,6 +14,12 @@ import {
   formatDateHeading,
   computeStreak,
 } from "../lib/utils";
+import {
+  loadSavedFilters,
+  saveFilter,
+  deleteFilter,
+  type SavedFilter,
+} from "../lib/savedFilters";
 import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import LoadingState from "../components/LoadingState";
@@ -30,6 +36,12 @@ export default function EntriesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "week" | "overdue">("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+
+  // Saved filters (persisted to localStorage)
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
+  const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [filterName, setFilterName] = useState("");
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -66,6 +78,47 @@ export default function EntriesPage() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // Load saved filters once on mount
+  useEffect(() => {
+    setSavedFilters(loadSavedFilters());
+  }, []);
+
+  // True when the current filter state differs from the defaults
+  const filtersActive =
+    searchQuery.trim() !== "" || filterProjectId !== "all" || filterTab !== "all";
+
+  // Applying a saved filter restores every dimension of the saved view
+  const applySavedFilter = (f: SavedFilter) => {
+    setSearchQuery(f.searchQuery);
+    setFilterProjectId(f.filterProjectId);
+    setFilterTab(f.filterTab);
+    setSortOrder(f.sortOrder);
+    setActiveFilterId(f.id);
+    setShowSaveInput(false);
+  };
+
+  // Manual filter changes deselect the active chip — the view is no longer the saved one
+  const markManualChange = () => setActiveFilterId(null);
+
+  const handleSaveFilter = () => {
+    if (!filterName.trim()) return;
+    setSavedFilters(
+      saveFilter(filterName, {
+        searchQuery,
+        filterProjectId,
+        filterTab,
+        sortOrder,
+      })
+    );
+    setFilterName("");
+    setShowSaveInput(false);
+  };
+
+  const handleDeleteFilter = (id: string) => {
+    setSavedFilters(deleteFilter(id));
+    if (activeFilterId === id) setActiveFilterId(null);
+  };
 
   // Derived data
   const projectName = useCallback(
@@ -170,13 +223,19 @@ export default function EntriesPage() {
                 type="text"
                 placeholder="Search entries..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  markManualChange();
+                  setSearchQuery(e.target.value);
+                }}
                 className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             <select
               value={filterProjectId}
-              onChange={(e) => setFilterProjectId(e.target.value)}
+              onChange={(e) => {
+                markManualChange();
+                setFilterProjectId(e.target.value);
+              }}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">All Projects</option>
@@ -188,7 +247,10 @@ export default function EntriesPage() {
             </select>
             <select
               value={filterTab}
-              onChange={(e) => setFilterTab(e.target.value as "all" | "week" | "overdue")}
+              onChange={(e) => {
+                markManualChange();
+                setFilterTab(e.target.value as "all" | "week" | "overdue");
+              }}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">All Entries</option>
@@ -198,14 +260,99 @@ export default function EntriesPage() {
               </option>
             </select>
             <button
-              onClick={() => setSortOrder((s) => (s === "newest" ? "oldest" : "newest"))}
+              onClick={() => {
+                markManualChange();
+                setSortOrder((s) => (s === "newest" ? "oldest" : "newest"));
+              }}
               className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white hover:bg-slate-50 transition"
               title={sortOrder === "newest" ? "Newest first" : "Oldest first"}
             >
               <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
               {sortOrder === "newest" ? "Newest" : "Oldest"}
             </button>
+            {filtersActive && (
+              <button
+                onClick={() => setShowSaveInput((v) => !v)}
+                className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 transition"
+                title="Save the current filter combination"
+              >
+                <BookmarkPlus className="h-3.5 w-3.5" />
+                Save
+              </button>
+            )}
           </div>
+
+          {/* Save-filter name input */}
+          {showSaveInput && filtersActive && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <input
+                type="text"
+                autoFocus
+                placeholder="Name this filter (e.g. Lab work, overdue)"
+                value={filterName}
+                onChange={(e) => setFilterName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveFilter();
+                  if (e.key === "Escape") setShowSaveInput(false);
+                }}
+                className="flex-1 min-w-[200px] max-w-sm border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <button
+                onClick={handleSaveFilter}
+                disabled={!filterName.trim()}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                Save filter
+              </button>
+              <button
+                onClick={() => {
+                  setShowSaveInput(false);
+                  setFilterName("");
+                }}
+                className="px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-slate-100 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {/* Saved filter chips */}
+          {savedFilters.length > 0 && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Saved
+              </span>
+              {savedFilters.map((f) => {
+                const isActive = activeFilterId === f.id;
+                return (
+                  <span
+                    key={f.id}
+                    className={`group inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium border transition cursor-pointer ${
+                      isActive
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-700"
+                    }`}
+                    title={`Apply "${f.name}"`}
+                  >
+                    <button onClick={() => applySavedFilter(f)}>
+                      {f.name}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteFilter(f.id)}
+                      className={`p-0.5 rounded-full transition ${
+                        isActive
+                          ? "hover:bg-blue-500"
+                          : "hover:bg-slate-100 text-slate-400 hover:text-red-500"
+                      }`}
+                      title={`Delete "${f.name}"`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
 
           {/* Timeline */}
           <div className="bg-white rounded-lg border border-slate-200">
@@ -223,11 +370,13 @@ export default function EntriesPage() {
                   ) : (
                     <>
                       <p className="text-sm text-slate-400">No entries match.</p>
-                      {(searchQuery || filterProjectId !== "all") && (
+                      {(searchQuery || filterProjectId !== "all" || filterTab !== "all") && (
                         <button
                           onClick={() => {
                             setSearchQuery("");
                             setFilterProjectId("all");
+                            setFilterTab("all");
+                            setActiveFilterId(null);
                           }}
                           className="text-xs text-blue-600 font-medium hover:underline mt-2"
                         >
