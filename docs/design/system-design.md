@@ -6,7 +6,7 @@ The Digital Logbook is designed as a non-monolithic web application.
 The system separates the user interface from the backend API and
 database.
 
-![High-Level System Architecture](images/high-level-architecture(1).png)
+![High-Level System Architecture](images/high-level-architecture.png)
 
 ### Architecture Overview
 
