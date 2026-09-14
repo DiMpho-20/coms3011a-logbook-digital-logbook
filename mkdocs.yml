@@ -28,9 +28,10 @@ nav:
   - System Architecture: architecture.md
   - Methodology: methodology.md
   - Client Interactions: client-interactions.md
+  - Testing: testing.md
+  - Third-Party Code: third-party.md
   - User Stories: user-stories/user-stories.md
   - Design: design/architecture.md
-  - System Architecture: architecture.md
   - Database design: design/database-erd.md
   - UI Design: design/ui-design.md
   - Development Plan: design/development-plan.md

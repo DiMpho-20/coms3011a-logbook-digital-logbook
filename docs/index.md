@@ -8,6 +8,8 @@ Welcome to the technical documentation for the **COMS3011A Digital Logbook** pro
 * **[System Architecture](architecture.md):** Tech stack, monorepo layout, database ERD, API reference, component architecture, and 2FA.
 * **[Project Methodology & Work Tracker](methodology.md):** Kanban workflow, user story assignments, and Sprint 1 retrospective.
 * **[Client Interaction Logs](client-interactions.md):** Requirements decisions and client meeting notes.
+* **[Testing](testing.md):** Automated test suite (stack, coverage, policy, proof of passing runs) and the formal user-feedback process.
+* **[Third-Party Code](third-party.md):** Every dependency and external service, with motivation for each choice.
 * **[Sprint 1 User Stories](user-stories/user-stories.md):** Acceptance criteria for all 10 user stories.
 * **[System Design](design/system-design.md):** High-level system design and component diagrams.
 * **[Development Plan](design/development-plan.md):** Sprint planning, task breakdown, and delivery timeline.
@@ -23,7 +25,7 @@ Welcome to the technical documentation for the **COMS3011A Digital Logbook** pro
 | **Auth** | JWT + email verification + optional TOTP 2FA (`otplib` + `qrcode`) |
 | **Email** | Gmail SMTP (`nodemailer`) / Resend (alternative provider) |
 | **Shared** | `@logbook/shared` — TypeScript interfaces and Zod schemas consumed by both frontend and backend |
-| **Testing** | Vitest + Supertest (27 integration tests) |
+| **Testing** | Vitest + Supertest (78 integration tests) |
 | **Linting** | oxlint (frontend) / TypeScript type checker (backend) |
 | **Workspace** | Monorepo using npm workspaces |
 
