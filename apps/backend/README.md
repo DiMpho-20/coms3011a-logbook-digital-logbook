@@ -2,6 +2,8 @@
 
 The REST API server for the Digital Logbook application. Built with Express 5, TypeScript, and Prisma ORM 7, backed by a PostgreSQL database hosted on [Neon](https://neon.tech).
 
+> For an in-depth guide to the authentication system (JWT, TOTP 2FA, password reset, security properties and known limitations), see **[AUTHENTICATION.md](AUTHENTICATION.md)**.
+
 ## Tech Stack
 
 | Technology | Purpose |
@@ -105,9 +107,14 @@ All routes are prefixed with `/api`. Protected routes require a `Bearer <token>`
 |---|---|---|---|
 | `POST` | `/api/auth/register` | No | Register a new user |
 | `POST` | `/api/auth/login` | No | Log in and receive a JWT token |
+| `POST` | `/api/auth/login/2fa` | No | Complete login with a TOTP code (2FA users) |
 | `POST` | `/api/auth/verify-email` | No | Verify email with token |
 | `POST` | `/api/auth/forgot-password` | No | Request a password reset email |
 | `POST` | `/api/auth/reset-password` | No | Reset password with token |
+| `POST` | `/api/auth/2fa/setup` | Yes | Generate TOTP secret + QR code |
+| `POST` | `/api/auth/2fa/verify-setup` | Yes | Verify code and enable 2FA |
+| `POST` | `/api/auth/2fa/disable` | Yes | Disable 2FA (requires password) |
+| `GET` | `/api/auth/2fa/status` | Yes | Check whether 2FA is enabled |
 | `DELETE` | `/api/auth/account` | Yes | Delete account |
 
 ### Projects
