@@ -1,10 +1,10 @@
 import axios from "axios";
 
 export const api = axios.create({
-  // Local Vite requests use the development proxy; deployed builds use Render.
-  baseURL: import.meta.env.DEV
-    ? "/api"
-    : "https://digital-logbook-backend-latest.onrender.com/api",
+  // Always point to the production Render backend.
+  // The Vite dev proxy is NOT used — this avoids localhost:3000 errors
+  // when the build is served by Cloudflare Pages or any static host.
+  baseURL: "https://digital-logbook-backend-latest.onrender.com/api",
   headers: {
     "Content-Type": "application/json",
   },
