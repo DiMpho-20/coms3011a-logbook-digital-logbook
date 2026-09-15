@@ -174,14 +174,14 @@
 
 ### Acceptance Tests
 
-| **#** | **Given**                                  | **When**                        | **Then**                                                 | **Status**  |
-| ----- | ------------------------------------------ | ------------------------------- | -------------------------------------------------------- | ----------- |
-| 1     | I have a project                           | I edit its entry format         | I can select from additional field types                 | Pass        |
-| 2     | I am adding a field                        | I select a tag field type       | The field accepts tag values                             | Pass        |
-| 3     | I am adding a field                        | I select a checklist field type | The field allows checklist items to be recorded          | Pass        |
-| 4     | I am adding a field                        | I select a link field type      | The field allows a link to be recorded                   | Pass        |
-| 5     | I am adding a field                        | I select a reference field type | The field allows a reference to another entry or project | Not Started |
-| 6     | I have created an entry using a rich field | I view the entry                | The rich field values are displayed correctly            | Not Started |
+| **#** | **Given**                                  | **When**                        | **Then**                                                 | **Status** |
+| ----- | ------------------------------------------ | ------------------------------- | -------------------------------------------------------- | ---------- |
+| 1     | I have a project                           | I edit its entry format         | I can select from additional field types                 | Pass       |
+| 2     | I am adding a field                        | I select a tag field type       | The field accepts tag values                             | Pass       |
+| 3     | I am adding a field                        | I select a checklist field type | The field allows checklist items to be recorded          | Pass       |
+| 4     | I am adding a field                        | I select a link field type      | The field allows a link to be recorded                   | Pass       |
+| 5     | I am adding a field                        | I select a reference field type | The field allows a reference to another entry or project | Pass       |
+| 6     | I have created an entry using a rich field | I view the entry                | The rich field values are displayed correctly            | Pass       |
 
 ---
 
@@ -191,13 +191,13 @@
 
 ### Acceptance Tests
 
-| **#** | **Given**                                      | **When**                  | **Then**                                     | **Status**  |
-| ----- | ---------------------------------------------- | ------------------------- | -------------------------------------------- | ----------- |
-| 1     | I have a project with an existing entry format | I edit the format         | I can add a new field                        | Not Started |
-| 2     | I have an existing field                       | I rename the field        | The field has the new name                   | Not Started |
-| 3     | I have an existing field                       | I remove the field        | The field is removed from the current format | Not Started |
-| 4     | I have existing entries                        | I change the entry format | The existing entries are not deleted         | Not Started |
-| 5     | I have changed an entry format                 | I view an existing entry  | The entry remains readable                   | Not Started |
+| **#** | **Given**                                      | **When**                  | **Then**                                     | **Status** |
+| ----- | ---------------------------------------------- | ------------------------- | -------------------------------------------- | ---------- |
+| 1     | I have a project with an existing entry format | I edit the format         | I can add a new field                        | Pass       |
+| 2     | I have an existing field                       | I rename the field        | The field has the new name                   | Pass       |
+| 3     | I have an existing field                       | I remove the field        | The field is removed from the current format | Pass       |
+| 4     | I have existing entries                        | I change the entry format | The existing entries are not deleted         | Pass       |
+| 5     | I have changed an entry format                 | I view an existing entry  | The entry remains readable                   | Pass       |
 
 ---
 
@@ -207,12 +207,12 @@
 
 ### Acceptance Tests
 
-| **#** | **Given**                                    | **When**                      | **Then**                                     | **Status**  |
-| ----- | -------------------------------------------- | ----------------------------- | -------------------------------------------- | ----------- |
-| 1     | I have an existing entry format              | I make a change to the format | A new version of the format is created       | Not Started |
-| 2     | I have multiple format versions              | I view the format history     | I can see the previous versions              | Not Started |
-| 3     | I have entries created using an older format | I view those entries          | The entries remain readable                  | Not Started |
-| 4     | I have changed my entry format               | I create a new entry          | The new entry uses the latest format version | Not Started |
+| **#** | **Given**                                    | **When**                      | **Then**                                     | **Status** |
+| ----- | -------------------------------------------- | ----------------------------- | -------------------------------------------- | ---------- |
+| 1     | I have an existing entry format              | I make a change to the format | A new version of the format is created       | Pass       |
+| 2     | I have multiple format versions              | I view the format history     | I can see the previous versions              | Pass       |
+| 3     | I have entries created using an older format | I view those entries          | The entries remain readable                  | Pass       |
+| 4     | I have changed my entry format               | I create a new entry          | The new entry uses the latest format version | Pass       |
 
 ---
 
@@ -222,12 +222,12 @@
 
 ### Acceptance Tests
 
-| **#** | **Given**                                   | **When**                  | **Then**                                                     | **Status**  |
-| ----- | ------------------------------------------- | ------------------------- | ------------------------------------------------------------ | ----------- |
-| 1     | I am defining an entry format               | I create a computed field | I can specify that the field is calculated from other fields | Not Started |
-| 2     | I have defined a computed field             | I create an entry         | The system calculates the field's value automatically        | Not Started |
-| 3     | A computed field depends on other fields    | I change the input values | The computed value is updated                                | Not Started |
-| 4     | I view an entry containing a computed field | I open the entry          | The calculated value is displayed                            | Not Started |
+| **#** | **Given**                                   | **When**                  | **Then**                                                     | **Status** |
+| ----- | ------------------------------------------- | ------------------------- | ------------------------------------------------------------ | ---------- |
+| 1     | I am defining an entry format               | I create a computed field | I can specify that the field is calculated from other fields | Pass       |
+| 2     | I have defined a computed field             | I create an entry         | The system calculates the field's value automatically        | Pass       |
+| 3     | A computed field depends on other fields    | I change the input values | The computed value is updated                                | Pass       |
+| 4     | I view an entry containing a computed field | I open the entry          | The calculated value is displayed                            | Pass       |
 
 ---
 
@@ -237,13 +237,13 @@
 
 ### Acceptance Tests
 
-| **#** | **Given**                                        | **When**                      | **Then**                                                                             | **Status**  |
-| ----- | ------------------------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------ | ----------- |
-| 1     | I have entries containing a numeric custom field | I request a total             | The system calculates the total value                                                | Not Started |
-| 2     | I have entries containing a custom field         | I group entries by that field | The entries are grouped according to its values                                      | Not Started |
-| 3     | I have entries containing a comparable field     | I compare the values          | The system displays the values in a way that allows comparison                       | Not Started |
-| 4     | I have custom field data over time               | I request a time-based view   | The system displays the values over time                                             | Not Started |
-| 5     | I define a new custom field                      | I analyse the field           | The system can use the field without requiring a predefined field in the application | Not Started |
+| **#** | **Given**                                        | **When**                      | **Then**                                                                             | **Status** |
+| ----- | ------------------------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------ | ---------- |
+| 1     | I have entries containing a numeric custom field | I request a total             | The system calculates the total value                                                | Pass       |
+| 2     | I have entries containing a custom field         | I group entries by that field | The entries are grouped according to its values                                      | Pass       |
+| 3     | I have entries containing a comparable field     | I compare the values          | The system displays the values in a way that allows comparison                       | Pass       |
+| 4     | I have custom field data over time               | I request a time-based view   | The system displays the values over time                                             | Pass       |
+| 5     | I define a new custom field                      | I analyse the field           | The system can use the field without requiring a predefined field in the application | Pass       |
 
 ---
 
@@ -253,12 +253,12 @@
 
 ### Acceptance Tests
 
-| **#** | **Given**               | **When**                     | **Then**                                        | **Status**  |
-| ----- | ----------------------- | ---------------------------- | ----------------------------------------------- | ----------- |
-| 1     | I have logbook entries  | I select the calendar view   | My entries are displayed in a calendar          | Not Started |
-| 2     | I have logbook entries  | I select the board view      | My entries are displayed on a board             | Not Started |
-| 3     | I am viewing the board  | I select a field to group by | The entries are grouped according to that field | Not Started |
-| 4     | I am viewing my entries | I switch between views       | The same underlying entries remain available    | Not Started |
+| **#** | **Given**               | **When**                     | **Then**                                        | **Status** |
+| ----- | ----------------------- | ---------------------------- | ----------------------------------------------- | ---------- |
+| 1     | I have logbook entries  | I select the calendar view   | My entries are displayed in a calendar          | Pass       |
+| 2     | I have logbook entries  | I select the board view      | My entries are displayed on a board             | Pass       |
+| 3     | I am viewing the board  | I select a field to group by | The entries are grouped according to that field | Pass       |
+| 4     | I am viewing my entries | I switch between views       | The same underlying entries remain available    | Pass       |
 
 ---
 
@@ -268,13 +268,13 @@
 
 ### Acceptance Tests
 
-| **#** | **Given**                            | **When**                    | **Then**                                   | **Status**  |
-| ----- | ------------------------------------ | --------------------------- | ------------------------------------------ | ----------- |
-| 1     | I am creating or editing an entry    | I provide a due date        | The due date is stored with the entry      | Not Started |
-| 2     | I have an entry that is not complete | I view my unfinished work   | The entry is shown as unfinished           | Not Started |
-| 3     | I have an unfinished entry           | I mark the work as complete | The entry is no longer shown as unfinished | Not Started |
-| 4     | I have multiple unfinished entries   | I view my unfinished work   | The due dates are displayed                | Not Started |
-| 5     | I have an entry with a due date      | I view the entry            | The due date is clearly displayed          | Not Started |
+| **#** | **Given**                            | **When**                    | **Then**                                   | **Status** |
+| ----- | ------------------------------------ | --------------------------- | ------------------------------------------ | ---------- |
+| 1     | I am creating or editing an entry    | I provide a due date        | The due date is stored with the entry      | Pass       |
+| 2     | I have an entry that is not complete | I view my unfinished work   | The entry is shown as unfinished           | Pass       |
+| 3     | I have an unfinished entry           | I mark the work as complete | The entry is no longer shown as unfinished | Pass       |
+| 4     | I have multiple unfinished entries   | I view my unfinished work   | The due dates are displayed                | Pass       |
+| 5     | I have an entry with a due date      | I view the entry            | The due date is clearly displayed          | Pass       |
 
 ---
 
@@ -284,13 +284,13 @@
 
 ### Acceptance Tests
 
-| **#** | **Given**                                     | **When**                                     | **Then**                                                   | **Status**  |
-| ----- | --------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------- | ----------- |
-| 1     | I have no internet connection                 | I open my logbook                            | I can access the functionality required to create an entry | Not Started |
-| 2     | I am offline                                  | I create an entry                            | The entry is stored locally                                | Not Started |
-| 3     | I have created entries while offline          | My device reconnects to the internet         | The offline entries are synchronised                       | Not Started |
-| 4     | I have offline entries waiting to synchronise | Synchronisation occurs                       | The entries are available in the online logbook            | Not Started |
-| 5     | I create an entry while offline               | The device loses connectivity during capture | The entry is not lost                                      | Not Started |
+| **#** | **Given**                                     | **When**                                     | **Then**                                                   | **Status** |
+| ----- | --------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------- | ---------- |
+| 1     | I have no internet connection                 | I open my logbook                            | I can access the functionality required to create an entry | Pass       |
+| 2     | I am offline                                  | I create an entry                            | The entry is stored locally                                | Pass       |
+| 3     | I have created entries while offline          | My device reconnects to the internet         | The offline entries are synchronised                       | Pass       |
+| 4     | I have offline entries waiting to synchronise | Synchronisation occurs                       | The entries are available in the online logbook            | Pass       |
+| 5     | I create an entry while offline               | The device loses connectivity during capture | The entry is not lost                                      | Pass       |
 
 ---
 
@@ -300,10 +300,10 @@
 
 ### Acceptance Tests
 
-| **#** | **Given**                               | **When**                        | **Then**                                                      | **Status**  |
-| ----- | --------------------------------------- | ------------------------------- | ------------------------------------------------------------- | ----------- |
-| 1     | I have logbook entries                  | I choose to export my data      | The system generates an export file                           | Not Started |
-| 2     | I export my logbook                     | I open the exported file        | The data is stored in a readable format                       | Not Started |
-| 3     | I have previously exported logbook data | I choose to import the data     | The system accepts the exported file                          | Not Started |
-| 4     | I import valid logbook data             | The import completes            | The imported projects and entries are available in my logbook | Not Started |
-| 5     | I attempt to import invalid data        | The system processes the import | The system informs me that the data cannot be imported        | Not Started |
+| **#** | **Given**                               | **When**                        | **Then**                                                      | **Status** |
+| ----- | --------------------------------------- | ------------------------------- | ------------------------------------------------------------- | ---------- |
+| 1     | I have logbook entries                  | I choose to export my data      | The system generates an export file                           | Pass       |
+| 2     | I export my logbook                     | I open the exported file        | The data is stored in a readable format                       | Pass       |
+| 3     | I have previously exported logbook data | I choose to import the data     | The system accepts the exported file                          | Pass       |
+| 4     | I import valid logbook data             | The import completes            | The imported projects and entries are available in my logbook | Pass       |
+| 5     | I attempt to import invalid data        | The system processes the import | The system informs me that the data cannot be imported        | Pass       |
