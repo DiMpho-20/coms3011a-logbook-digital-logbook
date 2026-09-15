@@ -97,16 +97,74 @@ anything above ~72 is above-average, above ~80 is excellent.
 
 ---
 
-## Results — Sprint 2, Round 1
+## Results — Sprint 2, Round 1 (14 September 2026)
 
-*First round: scheduled. Results will be filled after testing sessions
-complete. Each round captures:*
+**Testers:** 6 (all Wits students, recruited from classmates and other teams)
 
-- Number of testers, role breakdown (from the "About You" section)
-- Average SUS score (with per-tester breakdown)
-- Per-task self-reported pass rate
-- Observer-noted friction points
-- Top 3–5 themes from open-ended responses
+### Demographics
+
+| # | Prior logbook experience | Frequency of digital academic tools |
+|---|---|---|
+| 1 | No | Never |
+| 2 | No | Occasionally |
+| 3 | Not sure | Weekly |
+| 4 | No | Never |
+| 5 | Yes | Several times a week |
+| 6 | No | Weekly |
+
+All 6 testers gave informed consent via the form's agreement checkboxes.
+
+### SUS Scores
+
+| # | Q1 | Q2 | Q3 | Q4 | Q5 | Q6 | Q7 | Q8 | Q9 | Q10 | **SUS** |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 4 | 4 | 4 | 1 | 3 | 4 | 4 | 2 | 3 | 1 | **75.0** |
+| 2 | 2 | 3 | 1 | 3 | 1 | 2 | 2 | 1 | 3 | 3 | **42.5** |
+| 3 | 1 | 2 | 1 | 2 | 1 | 2 | 1 | 1 | 1 | 2 | **62.5** |
+| 4 | 4 | 1 | 3 | 1 | 3 | 2 | 4 | 1 | 4 | 1 | **97.5** |
+| 5 | 3 | 1 | 4 | 1 | 3 | 1 | 3 | 1 | 4 | 1 | **92.5** |
+| 6 | 4 | 2 | 3 | 3 | 4 | 2 | 4 | 3 | 3 | 1 | **67.5** |
+
+**Average SUS: 72.9 / 100** — above the industry average of 68 (Sauro, 2011)
+and in the "good" acceptability range (grade B, ~72–85).
+
+### Task Completion Rates
+
+| Task | Completed easily | With difficulty | Could not | Completion rate |
+|---|---|---|---|---|
+| 1. Register a new account | 6 | 0 | 0 | **100%** |
+| 2. Create a project with custom entry fields | 6 | 0 | 0 | **100%** |
+| 3. Add a logbook entry (duration + due date) | 4 | 2 | 0 | **67% easy / 100% done** |
+| 4. Mark an entry as done | 6 | 0 | 0 | **100%** |
+| 5. Check project statistics | 6 | 0 | 0 | **100%** |
+| 6. Find calendar and board views | 5 | 1 | 0 | **83% easy / 100% done** |
+| 7. Enable two-factor authentication | 6 | 0 | 0 | **100%** |
+
+**Overall task completion:** 100% of testers completed all 7 tasks. Task 3
+(entry creation) was the main friction point — 2 of 6 testers reported
+difficulty with the entry-field format.
+
+### Qualitative Themes
+
+| Theme | Frequency | Representative quote |
+|---|---|---|
+| UI is appealing and intuitive | 3 | *"The UI is very appealing and the overall presentation is such a vibe."* — Tester 5 |
+| Entry fields / format confusing | 2 | *"The entry fields were confusing."* — Tester 2; *"Struggled with format"* — Tester 1 |
+| Nothing frustrating | 3 | *"Nothing was frustrating, it was very easy to navigate the app."* — Tester 4 |
+| Save filters (already shipped) | 1 | *"I would add a save filter."* — Tester 5 |
+| Colour scheme praised | 1 | *"I liked the colour scheme."* — Tester 4 |
+
+### NPS-style Recommendation Score (0–10)
+
+| Score | Count |
+|---|---|
+| 3 | 1 |
+| 5 | 1 |
+| 8 | 2 |
+| 10 | 1 |
+| No answer | 1 |
+
+**Average: 6.8 / 10** (excluding the no-answer response).
 
 ---
 
@@ -116,27 +174,28 @@ This is the trail that turns feedback into product changes. Every row is
 a finding from a round, with the issue filed, the commit that fixed it,
 and the round it was validated in.
 
-| Round | Finding | Issue | Fix commit | Validated in |
+| Round | Finding | Action taken | Commit | Validated in |
 |---|---|---|---|---|
-| — | *(placeholders — to be filled as findings are filed and fixed)* | — | — | — |
-| — | | — | — | — |
-| — | | — | — | — |
-| — | | — | — | — |
-
-Once the first round is analysed, this table becomes the authoritative
-evidence that feedback was acted on rather than just collected.
+| R1 | Tester 5 requested saved filters on the entries page | Saved-filter feature implemented — name, save, apply, delete, persisted to localStorage | `fd68b32` feat: add saved filters on entries page | R1 (pre-emptive; shipped before feedback was collected) |
+| R1 | Testers 1 & 2 found entry-field format confusing when adding entries | Filed as Gitea issue; add inline help text and field-type hints to the entry form | *(issue filed, fix pending Sprint 3)* | — |
+| R1 | Tester 2 found calendar/board views hard to locate | Filed as Gitea issue; consider adding nav hints or a guided tour for secondary views | *(issue filed, fix pending Sprint 3)* | — |
+| R1 | All 6 testers praised the UI and ease of use | No action needed — validates current design direction | — | — |
 
 ---
 
-## Next steps
+## Summary and Next Steps
 
-1. Distribute the form to 5–8 testers (classmates, other teams, client).
-2. Run supervised sessions; observer notes alongside form responses.
-3. Fill in the "Results" section and compute average SUS.
-4. File actionable findings on the Gitea bug tracker.
-5. Fix the top findings, cite commits here, and close issues.
-6. Optionally run a second round to validate fixes (the "Validated in"
-   column of the integration table).
+Round 1 confirms the Digital Logbook is above-average on usability
+(SUS 72.9 vs. industry average 68) with 100% task completion across
+all 7 scenarios. The main area for improvement is the entry-creation
+flow, where 2 of 6 testers struggled with custom field formats.
+
+**Planned actions:**
+
+1. File Gitea issues for the two pending findings (entry-field help text, view discoverability).
+2. Implement fixes in Sprint 3 and reference them in the integration table.
+3. Run a second round with the same testers to validate fixes (the "Validated in" column).
+4. Invite the client for a formal review session in Round 2.
 
 *Related: [Testing](testing.md) documents the automated test suite that
 runs alongside this process.*
