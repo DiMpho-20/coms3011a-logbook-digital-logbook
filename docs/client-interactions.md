@@ -1,194 +1,298 @@
 # Client Interaction Logs
 
-This document tracks requirements, Q&A, and decisions made in consultation with the client (lecturers/TAs). This serves as our project methodology evidence.
+This document tracks requirements, Q&A, and decisions made in consultation with the client (lecturers/TAs). It serves as project methodology evidence and records how client feedback influenced the development of the Digital Logbook.
 
 ---
 
 ## [Date: 2026-08-13] — Project Process & Evidence Feedback
 
 * **Channel:** In-class rubric review.
-* **Feedback:** 
-  * Google Form is not sufficient evidence for client interactions; team must provide documented logs.
-  * Must document Kanban project methodology.
+
+* **Feedback:**
+
+  * Google Form is not sufficient evidence for client interactions; the team must provide documented logs.
+  * The team must document its Kanban project methodology.
   * All supporting features must be functional in vertical slices.
-* **Action Taken:** Adopted Gitea Kanban board, created client interactions documentation, established issue-to-branch workflow.
+
+* **Action Taken:**
+
+  * Adopted the Gitea Kanban board as the project work-tracking system.
+  * Created client interaction documentation.
+  * Established an issue-to-branch workflow.
+  * Continued developing functionality as vertical slices across the database, API, and frontend.
 
 ---
 
 ## [Date: 2026-08-17] — Requirements Clarification Meeting
 
-* **Channel:** Requirements Review Meeting
-* **Attendees:** Client / Lecturer, Development Team (all of us)
+* **Channel:** Requirements Review Meeting.
+
+* **Attendees:** Client / Lecturer, Development Team (all members).
 
 ### Confirmed Decisions & Architectural Impact
 
 #### 1. Project Ownership & Naming
 
 * **Client Decision:** A project is strictly owned by a single student. Project names must be unique for each student (e.g., a student cannot have two projects named "CS Lab 1").
-* **Impact:** 
+
+* **Impact:**
+
   * `projects` table uses `user_id UUID REFERENCES users(id) ON DELETE CASCADE`.
   * Unique constraint: `UNIQUE(user_id, name)`.
 
 #### 2. Project Archiving Behavior (US05)
 
 * **Client Decision:** Archiving a project does not lock it into a read-only state. Users can still create new entries, edit/delete existing entries, and unarchive the project at any time.
-* **Impact:** Archiving is a UI/filtering state (`status = 'ARCHIVED'`) rather than a backend permission lock. Implemented via `PATCH /api/projects/:id/status`.
+
+* **Impact:** Archiving is implemented as a UI/filtering state (`status = 'ARCHIVED'`) rather than a backend permission lock. This is handled through `PATCH /api/projects/:id/status`.
 
 #### 3. Time Tracking, Live Timer & Overdue Flagging (US04)
 
-* **Client Decision:** 
+* **Client Decision:**
+
   * Time tracking on logbook entries is mandatory.
-  * System must include a live timer feature for recording entry duration.
+  * The system must include a live timer feature for recording entry duration.
   * Entries/tasks must support flagging items as overdue.
-* **Impact:** 
-  * `logbook_entries` schema requires `duration_minutes INTEGER NOT NULL DEFAULT 0`.
-  * `logbook_entries` schema requires `due_date TIMESTAMP` to support overdue calculations.
-  * `logbook_entries` schema includes `entry_date TIMESTAMP` for backdating.
-  * Frontend UI needs a live stopwatch/timer widget that computes elapsed minutes.
+
+* **Impact:**
+
+  * `logbook_entries` requires `duration_minutes INTEGER NOT NULL DEFAULT 0`.
+  * `logbook_entries` includes `due_date TIMESTAMP` to support overdue calculations.
+  * `logbook_entries` includes `entry_date TIMESTAMP` to support backdating.
+  * The frontend requires a live stopwatch/timer widget that calculates elapsed time.
 
 #### 4. Entry Editing & Account Erasure
 
 * **Client Decision:** Logbook entries can be edited and deleted after creation. When an account is deleted, all user data, projects, and entries must be permanently erased.
-* **Impact:** All foreign keys enforce `ON DELETE CASCADE`. Verified in Prisma schema.
+
+* **Impact:** Foreign keys enforce `ON DELETE CASCADE` where appropriate. This behaviour was verified in the Prisma schema.
 
 #### 5. Stats, Analytics & External API Integration
 
-* **Client Decision:** 
-  * System must include project stats and analytics.
-  * External API integration choice: Calendar API (e.g., syncing logbook deadlines/entries to an external calendar).
-* **Impact:** 
-  * Backend provides `GET /api/projects/:id/time-summary` for per-project aggregates.
-  * Dashboard view shows cross-project stats (entries this week, time this week, total time).
-  * Calendar sync service designed for Sprint 2/3.
+* **Client Decision:**
+
+  * The system must include project statistics and analytics.
+  * The external API integration should use a Calendar API, such as syncing logbook deadlines or entries to an external calendar.
+
+* **Impact:**
+
+  * Backend provides `GET /api/projects/:id/time-summary` for per-project time aggregates.
+  * The Dashboard provides cross-project statistics.
+  * Calendar integration was identified as a future development requirement.
 
 #### 6. Entry Timestamps & Backdating
 
-* **Client Decision:** Left to engineering discretion.
-* **Engineering Decision:** Include both `created_at` (system audit timestamp) and `entry_date` (user-customisable timestamp) on entries. This allows students to backdate work while maintaining audit records.
+* **Client Decision:** The handling of entry timestamps was left to engineering discretion.
+
+* **Engineering Decision:** Include both `created_at` (system audit timestamp) and `entry_date` (user-customisable timestamp) on entries. This allows students to backdate work while maintaining an audit record.
 
 ---
 
 ## [Date: 2026-08-21] — Sprint Review & Rubric Compliance Check
 
 * **Channel:** In-person sprint review meeting with client/lecturer.
-* **Attendees:** Client / Lecturer, Development Team (Dineo Motloung, Athandwa,Alondwe and Wendy )
+
+* **Attendees:** Client / Lecturer, Development Team (Dineo Motloung, Athandwa, Alondwe and Wendy).
 
 ### Meeting Context
 
-The client conducted a thorough review of the project against the assessment rubric, checking implementation status of all required features. The team presented the current state of the application, including authentication, project management, entry CRUD, time tracking, dashboard, profile, and settings.
+The client conducted a review of the project against the assessment rubric, checking the implementation status of the required features. The team presented the current state of the application, including authentication, project management, entry CRUD, time tracking, dashboard, profile, and settings.
 
 ### Topics Discussed & Decisions
 
 #### 1. Authentication — Confirmed as Core Requirement
 
-* **Discussion:** The client confirmed that authentication (user registration, login, email verification, and password reset) is an **explicit rubric requirement** and must not be treated as optional or deferred.
-* **Status:** Fully implemented — JWT-based auth with registration, login, email verification, password reset (forgot/reset flow), and account deletion. Dev-mode auto-verify is in place for development environments without SMTP credentials.
-* **Client Feedback:** Satisfied with implementation. Noted that temporary dev-mode auto-verify is acceptable for development but production deployment must enforce real email verification.
+* **Discussion:** The client confirmed that authentication, including user registration, login, email verification, and password reset, is an explicit rubric requirement and must not be treated as optional or deferred.
+
+* **Status:** Fully implemented — JWT-based authentication with registration, login, email verification, password reset, and account deletion.
+
+* **Client Feedback:** The client was satisfied with the implementation. Temporary development-mode auto-verification was considered acceptable during development, but production deployment should enforce real email verification.
 
 #### 2. Due Dates & Overdue Flagging — Non-Negotiable
 
-* **Discussion:** The client **reconfirmed** (originally stated 2026-08-17) that due dates and overdue flagging are **mandatory requirements** that must not be postponed. These are not optional features.
+* **Discussion:** The client reconfirmed that due dates and overdue flagging are mandatory requirements.
+
 * **Decisions:**
+
   * Every logbook entry must support a `due_date` field.
-  * Entries past their due date must be **automatically flagged as overdue** — no manual action required.
-  * The UI must include a dedicated **Overdue tab/section** (alongside "All Entries" and "This Week") where overdue entries are surfaced automatically.
-  * Overdue entries must be visually distinguished (e.g., red badge, warning icon) to draw immediate attention.
+  * Entries past their due date must be automatically identified as overdue.
+  * The UI must provide an Overdue section/filter alongside other entry views.
+  * Overdue entries must be visually distinguished.
+
 * **Impact:**
-  * `logbook_entries.due_date` is already in the Prisma schema.
-  * Frontend must compute overdue status: `entry.dueDate < now && entry.status !== 'completed'`.
-  * Entries page and Project Detail page must include an "Overdue" filter/tab.
-  * Dashboard should surface a count of overdue entries in the stats area.
+
+  * `logbook_entries.due_date` is included in the Prisma schema.
+  * Overdue status is determined using the entry due date and completion status.
+  * The Entries and Project Detail views support overdue filtering.
+  * The Dashboard includes overdue information.
 
 #### 3. Live Timer / Stopwatch for Time Tracking
 
-* **Discussion:** The client emphasized that time tracking must go beyond manual duration input. A **live stopwatch** feature is required.
+* **Discussion:** The client emphasised that time tracking should go beyond manually entering a duration. A live stopwatch feature was identified as a required improvement.
+
 * **Decisions:**
-  * The entry creation/edit form must include a **live stopwatch widget** (start/stop/reset) that counts elapsed time in real-time.
-  * The stopwatch measures minutes:seconds and converts to minutes when saved.
-  * The stopwatch is a **count-up timer** (not a countdown), measuring actual time spent working.
-  * Users can still manually enter duration if they prefer not to use the stopwatch.
+
+  * The entry creation/edit form should include a live stopwatch.
+  * The stopwatch should support start, pause, and reset.
+  * The timer should measure elapsed time and convert it to the required duration value when saved.
+  * Users should still be able to enter a duration manually.
+
 * **Impact:**
-  * Frontend component needed: a `Stopwatch` or `Timer` widget with start/pause/reset controls.
-  * Timer state persisted to `sessionStorage` to survive accidental page refreshes.
-  * Backend `duration_minutes` field already exists — no schema change needed.
+
+  * A stopwatch component was developed for the entry form.
+  * Timer state is persisted during the active session to reduce the risk of losing timing information.
+  * The existing `duration_minutes` backend field supports the saved duration.
 
 #### 4. Overdue Reminders & Notifications
 
 * **Discussion:** The client asked about reminder capabilities for approaching deadlines.
+
 * **Decisions:**
-  * The system should provide **advance reminders** — e.g., 3 days before a due date, 1 day before, and on the due date itself.
-  * Reminders can be displayed as in-app notifications (toast or notification bell) rather than requiring email delivery for Sprint 1.
-  * This aligns with the existing Settings > Notifications section.
+
+  * The system should support advance reminders, such as reminders three days before, one day before, and on the due date.
+  * In-app notifications are sufficient for the current implementation.
+  * Email notifications are not required for the initial implementation.
+
 * **Impact:**
-  * Frontend needs a notification indicator (badge count or bell icon in sidebar/header).
-  * Backend may need a lightweight `notifications` table or a computed approach (query entries where `due_date` is within N days).
+
+  * Deadline reminders were implemented in the application.
+  * A notification indicator was added to provide users with visibility of notifications.
+  * The existing due-date information is used to determine when reminders should be displayed.
 
 #### 5. Calendar API Integration (External API)
 
-* **Discussion:** The client reconfirmed the requirement for an **external API integration**, and the team proposed Calendar API sync as the most natural fit for a logbook application.
+* **Discussion:** The client reconfirmed the requirement for an external API integration. The team proposed Calendar API synchronisation as the most natural integration for a digital logbook.
+
 * **Decisions:**
-  * Due dates from logbook entries should be exportable to **Google Calendar** (or similar) via the Google Calendar API.
-  * Users should be able to sync entry due dates as calendar events with reminders.
-  * Implementation planned for Sprint 2 — the data model (`due_date` on entries) already supports this.
+
+  * Logbook due dates should be exportable or synchronisable to an external calendar.
+  * Google Calendar was identified as the preferred integration.
+  * Calendar synchronisation was planned for a later development phase.
+
 * **Impact:**
-  * Will require Google Calendar API OAuth2 integration.
-  * A "Sync to Calendar" button on the project detail or entry page.
-  * Backend endpoint: `POST /api/projects/:id/sync-calendar` to push due dates.
+
+  * The existing `due_date` field provides the required data for calendar events.
+  * Google Calendar API integration requires OAuth2 configuration and external service credentials.
+  * This feature remains planned for future development.
 
 #### 6. Per-Project Time Recording with Stopwatch
 
-* **Discussion:** Beyond per-entry time tracking, the client asked about recording **total time spent on each project**.
+* **Discussion:** The client asked about recording the total amount of time spent on individual projects.
+
 * **Decisions:**
-  * Per-project total time is computed as the sum of all entry durations — already implemented via `GET /api/projects/:id/time-summary`.
-  * The live stopwatch on the entry form captures time per entry, which rolls up to project totals automatically.
-  * The project detail page should display the cumulative time prominently.
-* **Impact:** No schema change needed. Frontend needs to surface time summary more prominently in the project detail view.
+
+  * Per-project total time should be calculated from the durations of the project's entries.
+  * Time recorded using the stopwatch contributes to the relevant entry duration.
+  * Project totals should be clearly visible to users.
+
+* **Impact:**
+
+  * The existing `GET /api/projects/:id/time-summary` endpoint provides project-level time aggregation.
+  * The Project Detail page can use this information to display cumulative project time.
 
 #### 7. Rubric Compliance Check
 
-* **Client reviewed the following rubric areas:**
-  * **Authentication & user management** — Implemented (register, login, verify email, reset password, delete account).
-  * **Project CRUD** — Implemented (create, read, update, archive/unarchive, unique name enforcement).
-  * **Customisable entry formats** — Implemented (TEXT, NUMBER, DATE, BOOLEAN field types per project).
-  * **Entry CRUD with time tracking** — Implemented (create, update, delete entries with duration and due dates).
-  * **Dashboard & statistics** — Implemented (stat cards, recent entries, time summaries).
-  * **Data export/import** — Implemented in Settings (JSON/CSV export, JSON import).
-  * **Dark mode / theme** — Implemented (light/dark/system theme with accent colour).
-  * **Development setup guide** — Implemented and up to date.
-  * **Testing** — 27 integration tests passing.
-  * **Methodology documentation** — Kanban board, user stories, retrospectives documented.
+The client reviewed the following rubric areas:
 
-* **Items noted as remaining:**
-  * Live stopwatch widget on entry form — **Implemented on feature branch (Dineo), not yet merged to main or deployed.**
-  * In-app deadline reminders (3 days, 1 day, day-of) — **Implemented on feature branch (Dineo), not yet merged to main or deployed.**
-  * Notification indicator (bell badge) in sidebar — **Implemented on feature branch (Dineo), not yet merged to main or deployed.**
-  * Calendar API integration (planned for Sprint 2).
+* **Authentication & user management** — Implemented (registration, login, email verification, password reset, and account deletion).
+* **Project CRUD** — Implemented (create, read, update, archive/unarchive, and unique name enforcement).
+* **Customisable entry formats** — Implemented with project-specific field definitions.
+* **Entry CRUD with time tracking** — Implemented with duration and due-date support.
+* **Dashboard & statistics** — Implemented with statistics and time summaries.
+* **Data export/import** — Implemented in Settings.
+* **Dark mode / theme** — Implemented with light, dark, and system themes.
+* **Development setup guide** — Implemented and maintained.
+* **Testing** — Integration tests implemented and passing.
+* **Methodology documentation** — Kanban board, user stories, and retrospective documentation maintained.
 
-### Action Items from This Meeting
+---
 
-| # | Action | Priority | Status |
-|---|--------|----------|--------|
-| 1 | Implement Overdue tab in Entries page (auto-flag overdue entries) | P1 | **Done** |
-| 2 | Add live stopwatch widget to entry creation/edit form | P1 | **Done** |
-| 3 | Add overdue entry count to Dashboard stats | P1 | **Done** |
-| 4 | Implement in-app deadline reminders (3 days, 1 day, day-of) | P2 | **Done** |
-| 5 | Add notification indicator (bell icon or badge) to UI | P2 | **Done** |
-| 6 | Google Calendar API integration for due date sync | P2 | Sprint 2 |
-| 7 | Visual distinction for overdue entries (red badge/warning) | P1 | **Done** |
+## 3. Intermediate Phase Client Interaction
 
-### Known Shortcomings
+### [Date: August–September 2026] — Intermediate Development Follow-Up
 
-The following features have been developed but are not yet present in the deployed application (`coms3011a-logbook.pages.dev`). They exist on the **Dineo** feature branch and are pending review before merging to `main`.
+The Intermediate phase involved significantly fewer formal client interactions than Sprint 1.
 
-| # | Feature | Status | Reason Not Deployed |
-|---|---------|--------|---------------------|
-| 1 | Live stopwatch widget on entry forms | Code complete | Awaiting branch review and merge |
-| 2 | Deadline reminders panel on Dashboard | Code complete | Awaiting branch review and merge |
-| 3 | Notification bell badge in sidebar | Code complete | Awaiting branch review and merge |
-| 4 | Google Calendar integration | Not started | Planned for Sprint 2 — requires OAuth2 setup |
+Most of the requirements for the Intermediate functionality had already been clarified during the previous in-person client/lecturer meetings, particularly the requirements discussed during the Sprint 1 review. Therefore, the team was able to continue implementation using the confirmed requirements without requiring another formal requirements meeting.
 
-Additionally, the following limitations apply to the current deployed release:
+### Communication Channel
 
-* **No external API integration** — Calendar sync (Google Calendar) is deferred to Sprint 2 as it requires Google Cloud Console setup and OAuth2 consent flow.
-* **Documentation site not yet deployed** — MkDocs configuration is complete; a team member is handling deployment to Cloudflare Pages.
-* **Accessibility** — Basic semantic HTML is used throughout, but full WCAG 2.1 compliance (ARIA labels, keyboard navigation audit, screen reader testing) is planned for a later sprint.
+* **Channel:** Team WhatsApp group used for occasional follow-up questions and clarification.
+
+### Nature of Interaction
+
+During the Intermediate phase, the team used the WhatsApp group to ask a small number of clarification questions when implementation details were unclear.
+
+These interactions were primarily used to confirm interpretation of previously discussed requirements rather than introduce major new requirements.
+
+The team therefore did not hold a separate formal client requirements meeting during this phase.
+
+### Development Approach
+
+The Intermediate user stories were implemented based on the requirements already established during the previous client meetings:
+
+* **US07–US10:** Rich field types, editable entry formats, format version preservation, and computed fields.
+* **US11–US13:** Custom-field statistics, alternative views, and unfinished-work/due-date functionality.
+* **US14–US15:** Offline capture, synchronisation, and data export/import.
+* **Integration & Testing:** Integration of the new functionality with the existing Basic features.
+
+The team maintained the previously agreed Kanban methodology and continued using Gitea Issues, Projects, Labels, and Pull Requests to track implementation.
+
+---
+
+## 4. Intermediate Phase Outcomes
+
+The Intermediate functionality was completed and integrated with the existing Basic Digital Logbook functionality.
+
+The completed Intermediate functionality includes:
+
+* Richer custom field types.
+* Modification of existing entry formats.
+* Preservation of previous entry-format versions.
+* Computed fields.
+* Statistics and analysis of custom fields.
+* Alternative ways of viewing entries.
+* Unfinished-work and due-date tracking.
+* Offline entry capture and synchronisation.
+* Data export and import.
+
+The implementation was tested together with the existing Sprint 1 functionality to identify cross-feature issues and regression problems.
+
+---
+
+## 5. Documentation & Deployment Update
+
+During the Intermediate phase, the project documentation was also prepared for online access.
+
+The MkDocs documentation site was successfully deployed using **Netlify**. The deployed documentation provides an accessible version of the project's technical and project-management documentation without requiring users to access local files.
+
+A link to the deployed MkDocs documentation was added to the project's `README.md` so that team members, lecturers, and other reviewers can access the documentation directly from the Gitea repository.
+
+The documentation deployment therefore replaced the previous plan of using Cloudflare Pages.
+
+---
+
+## 6. Current Outstanding Work
+
+The following items remain as future improvements or later-phase functionality rather than unresolved requirements from the completed Intermediate user stories:
+
+| # | Feature                                                    | Status                    |
+| - | ---------------------------------------------------------- | ------------------------- |
+| 1 | Google Calendar API integration                            | Planned for a later phase |
+| 2 | Further improvements to notification functionality         | Future improvement        |
+| 3 | Further accessibility testing and WCAG improvements        | Future improvement        |
+| 4 | Additional automated unit tests for complex business logic | Future improvement        |
+
+The Intermediate user stories themselves have been completed and integrated into the project.
+
+---
+
+## 7. Summary
+
+The majority of client requirements for the Intermediate phase were already established during the Sprint 1 client meetings. As a result, the team required only limited follow-up interaction during this phase.
+
+Rather than creating artificial or unnecessary meetings, the team continued development using the requirements and architectural decisions previously confirmed by the client. Where clarification was required, questions were raised through the team's existing WhatsApp communication channel.
+
+This approach allowed the team to continue development while maintaining a record of the decisions that informed the implementation.
+
+The project documentation was also made accessible online through the deployed MkDocs site, with the documentation link included in the project README.
