@@ -75,26 +75,3 @@ Sprint 2 builds on the Sprint 1 foundation (authentication, project management, 
 | Offline & Data | Person 3 | US14 – Capture Entries Offline, US15 – Export & Import Logbook Data |
 | Integration & Testing | Person 4 | Integration of all features, cross-feature testing, bug fixing, regression testing against Sprint 1, floating support to whichever area needs it |
 
-## Sprint 2 User Stories
-
-### Person 1 – Entry Formats & Fields
-- **US07:** Add Rich Field Types — tags, checklists, links, references
-- **US08:** Modify an Existing Entry Format — add, remove and rename fields
-- **US09:** Preserve Previous Entry Format Versions
-- **US10:** Use Computed Fields — calculate fields from other fields
-
-### Person 2 – Statistics & Views
-- **US11:** Analyse Custom Fields — total, group, compare and plot data
-- **US12:** View Entries Using Alternative Views — calendar and boards
-- **US13:** Track Unfinished Work & Due Dates
-
-### Person 3 – Offline & Data
-- **US14:** Capture Entries Offline — save entries locally and sync later
-- **US15:** Export & Import Logbook Data
-
-### Person 4 – Integration & Testing
-- Integrating everyone's features
-- Testing the features together
-- Fixing cross-feature issues
-- Making sure the new functionality works with Sprint 1 features
-- Helping whichever of the other three areas needs extra work
