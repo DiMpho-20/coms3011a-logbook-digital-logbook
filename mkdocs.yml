@@ -28,6 +28,7 @@ nav:
   - System Architecture: architecture.md
   - Methodology: methodology.md
   - Client Interactions: client-interactions.md
+  - API Reference: api-reference.md
   - Testing: testing.md
   - User Feedback: user-feedback.md
   - Third-Party Code: third-party.md
