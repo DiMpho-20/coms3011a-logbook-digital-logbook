@@ -207,8 +207,11 @@ describe("createFormatVersion", () => {
     });
     expect(result.version).toBe(1);
     expect(result.projectId).toBe("p1");
+    expect(Array.isArray(result.fields)).toBe(true);
     expect(result.fields).toHaveLength(1);
-    expect(result.fields[0].name).toBe("Hours");
+    if (Array.isArray(result.fields)) {
+      expect(result.fields[0].name).toBe("Hours");
+    }
   });
 
   it("increments version from the latest", async () => {

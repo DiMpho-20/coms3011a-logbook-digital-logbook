@@ -5,6 +5,7 @@ import projectRoutes from "./routes/project.routes.js";
 import entryFieldRoutes from "./routes/entryField.routes.js";
 import entryRoutes from "./routes/entry.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import googleCalendarRoutes from "./routes/googleCalendarRoutes.js";
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use("/api", projectRoutes);
 app.use("/api", entryFieldRoutes);
 app.use("/api", entryRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/google-calendar", googleCalendarRoutes);
 
 // ── Utility routes ────────────────────────────────────────────────────
 app.get("/", (_req, res) => {

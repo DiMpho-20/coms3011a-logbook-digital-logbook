@@ -6,6 +6,32 @@ import type { Entry } from "@logbook/shared";
 
 type Bucket = "overdue" | "today" | "soon" | "noDueDate";
 
+function getEntrySummary(entry: Entry): string {
+  const textValue = Object.entries(entry.values ?? {}).find(([, value]) => typeof value === "string" && value.trim());
+  return textValue ? String(textValue[1]).trim() : `Logbook entry ${entry.id}`;
+}
+
+function buildGoogleCalendarUrl(entry: Entry, projectName: string): string | null {
+  if (!entry.dueDate) return null;
+
+  const start = new Date(entry.dueDate);
+  const end = new Date(start);
+  end.setHours(end.getHours() + 1);
+
+  const formatDate = (date: Date) =>
+    date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: `${projectName} — ${getEntrySummary(entry)}`,
+    details: `Open work item from the Digital Logbook.\nProject: ${projectName}`,
+    location: "",
+    dates: `${formatDate(start)}/${formatDate(end)}`,
+  });
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 function bucketFor(entry: Entry): Bucket {
   if (!entry.dueDate) return "noDueDate";
 
@@ -126,13 +152,28 @@ export default function OpenWorkPage() {
                       {entry.dueDate && ` · due ${new Date(entry.dueDate).toLocaleDateString()}`}
                     </p>
                   </div>
-                  <button
-                    onClick={() => markDone(entry.id)}
-                    className="flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Mark done
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {entry.dueDate && (() => {
+                      const calendarUrl = buildGoogleCalendarUrl(entry, (entry as any).projectName ?? "Project");
+                      return calendarUrl ? (
+                        <a
+                          href={calendarUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition"
+                        >
+                          Add to Google Calendar
+                        </a>
+                      ) : null;
+                    })()}
+                    <button
+                      onClick={() => markDone(entry.id)}
+                      className="flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Mark done
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
