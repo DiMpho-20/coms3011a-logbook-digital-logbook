@@ -1,0 +1,1463 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Technical documentation and architecture for the Digital Logbook project.">
+      
+      
+      
+        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/design/roadmap/">
+      
+      
+        <link rel="prev" href="../development-plan/">
+      
+      
+        <link rel="next" href="../system-design/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Roadmap - Digital Logbook Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#digital-logbook-roadmap" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Digital Logbook Documentation" class="md-header__button md-logo" aria-label="Digital Logbook Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Digital Logbook Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Roadmap
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Digital Logbook Documentation" class="md-nav__button md-logo" aria-label="Digital Logbook Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Digital Logbook Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methodology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../client-interactions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client Interactions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-feedback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Feedback
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../third-party/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Third-Party Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-stories/user-stories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Stories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database-erd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ui-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UI Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose-and-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose and scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#delivery-at-a-glance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delivery at a glance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#milestones-and-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones and status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed plan
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed plan">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#m0-project-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M0 – Project foundation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m1-accounts-and-personal-data-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M1 – Accounts and personal data ownership
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m2-basic-digital-logbook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M2 – Basic digital logbook
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m3-rich-and-durable-entry-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M3 – Rich and durable entry formats
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m4-statistics-views-and-unfinished-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M4 – Statistics, views and unfinished work
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m5-offline-access-and-portable-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M5 – Offline access and portable records
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m6-integration-testing-and-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M6 – Integration, testing and quality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m7-release-and-demonstration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M7 – Release and demonstration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependency-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roadmap-completion-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roadmap completion criteria
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../system-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose-and-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose and scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#delivery-at-a-glance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delivery at a glance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#milestones-and-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones and status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed plan
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed plan">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#m0-project-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M0 – Project foundation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m1-accounts-and-personal-data-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M1 – Accounts and personal data ownership
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m2-basic-digital-logbook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M2 – Basic digital logbook
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m3-rich-and-durable-entry-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M3 – Rich and durable entry formats
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m4-statistics-views-and-unfinished-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M4 – Statistics, views and unfinished work
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m5-offline-access-and-portable-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M5 – Offline access and portable records
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m6-integration-testing-and-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M6 – Integration, testing and quality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m7-release-and-demonstration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M7 – Release and demonstration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependency-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roadmap-completion-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roadmap completion criteria
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="digital-logbook-roadmap">Digital Logbook Roadmap</h1>
+<h2 id="purpose-and-scope">Purpose and scope</h2>
+<p>This roadmap is the delivery plan for the Digital Logbook. It connects the
+product brief to the user stories, team work areas, dependencies, testing and
+release activities. A milestone is only complete when its acceptance tests pass
+in the integrated application.</p>
+<p>The agreed scope contains the Basic user stories (US00.1–US06) and
+Intermediate user stories (US07–US15). The brief names an <strong>Advanced</strong> section,
+but provides no Advanced user stories; that scope must be agreed before it is
+scheduled.</p>
+<h2 id="delivery-at-a-glance">Delivery at a glance</h2>
+<pre class="mermaid"><code>flowchart LR
+    F["Foundation&lt;br/&gt;repository, frontend, API, database"] --&gt; S1["Sprint 1: Core logbook&lt;br/&gt;US00.1–US06"]
+    S1 --&gt; P1["Sprint 2A: Rich formats&lt;br/&gt;US07–US10"]
+    S1 --&gt; P2["Sprint 2B: Statistics &amp; views&lt;br/&gt;US11–US13"]
+    S1 --&gt; P3["Sprint 2C: Offline &amp; data&lt;br/&gt;US14–US15"]
+    P1 --&gt; I["Integration &amp; acceptance testing"]
+    P2 --&gt; I
+    P3 --&gt; I
+    I --&gt; R["Release / demonstration"]
+    R --&gt; A["Advanced scope&lt;br/&gt;to be agreed"]</code></pre>
+<h2 id="milestones-and-status">Milestones and status</h2>
+<table>
+<thead>
+<tr>
+<th>Milestone</th>
+<th>Scope</th>
+<th>Owner / work area</th>
+<th>Status</th>
+<th>Completion evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M0 – Foundation</td>
+<td>Monorepo, React frontend, Express API, Prisma/Neon database, documentation and build tooling</td>
+<td>Whole team</td>
+<td>Complete</td>
+<td>Apps build and the local development environment runs</td>
+</tr>
+<tr>
+<td>M1 – Accounts</td>
+<td>US00.1–US00.4: register, sign in, reset password, delete account</td>
+<td>Whole team</td>
+<td>Complete</td>
+<td>Authentication acceptance tests pass</td>
+</tr>
+<tr>
+<td>M2 – Core logbook</td>
+<td>US01–US06: projects, formats, entries, time, archiving, browsing/filtering</td>
+<td>Whole team</td>
+<td>Complete, subject to regression testing</td>
+<td>Core acceptance tests pass</td>
+</tr>
+<tr>
+<td>M3 – Rich entry formats</td>
+<td>US07–US10: rich fields, editable/versioned formats, computed fields</td>
+<td>Person 1</td>
+<td>Implemented; acceptance testing in progress</td>
+<td>Rich-field, format-history and computed-field tests pass</td>
+</tr>
+<tr>
+<td>M4 – Statistics and views</td>
+<td>US11–US13: custom-field analysis, calendar/board views, due/unfinished work</td>
+<td>Person 2</td>
+<td>In progress</td>
+<td>Statistics, view and due-date acceptance tests pass</td>
+</tr>
+<tr>
+<td>M5 – Resilience and portability</td>
+<td>US14–US15: offline capture/sync, export/import</td>
+<td>Person 3</td>
+<td>In progress</td>
+<td>Offline/reconnect and backup/restore tests pass</td>
+</tr>
+<tr>
+<td>M6 – Integration and quality</td>
+<td>Cross-feature integration, regression, responsive and usability testing</td>
+<td>Person 4 with all members</td>
+<td>Planned / ongoing alongside M3–M5</td>
+<td>Test results, defect fixes and a clean build</td>
+</tr>
+<tr>
+<td>M7 – Release</td>
+<td>Deployment check, documentation, final demonstration and submission</td>
+<td>Whole team</td>
+<td>Planned</td>
+<td>All required acceptance tests pass and no critical defects remain</td>
+</tr>
+</tbody>
+</table>
+<h2 id="detailed-plan">Detailed plan</h2>
+<h3 id="m0-project-foundation">M0 – Project foundation</h3>
+<p><strong>Goal:</strong> establish a reliable technical base before feature work begins.</p>
+<ul>
+<li>Set up the monorepo and shared TypeScript types.</li>
+<li>Configure React/Vite, Express, Prisma and Neon PostgreSQL.</li>
+<li>Define database relationships for users, projects, fields and entries.</li>
+<li>Configure environment variables, local development, builds and API testing.</li>
+<li>Maintain technical documentation, system design and the database ERD.</li>
+</ul>
+<p><strong>Dependency:</strong> none. All later milestones use this foundation.</p>
+<hr />
+<h3 id="m1-accounts-and-personal-data-ownership">M1 – Accounts and personal data ownership</h3>
+<p><strong>User stories:</strong> US00.1 Create an Account, US00.2 Sign In, US00.3 Reset
+Password, US00.4 Delete Account.</p>
+<p><strong>Goal:</strong> ensure every logbook belongs to its authenticated student.</p>
+<ul>
+<li>Registration, validation and duplicate-account protection.</li>
+<li>JWT-protected access to projects and entries.</li>
+<li>Email verification and password reset.</li>
+<li>Account deletion and related data handling.</li>
+</ul>
+<p><strong>Dependency:</strong> M0. M2–M5 require authenticated ownership checks.</p>
+<hr />
+<h3 id="m2-basic-digital-logbook">M2 – Basic digital logbook</h3>
+<p><strong>User stories:</strong> US01–US06.</p>
+<p><strong>Goal:</strong> replace the paper logbook with a useful, project-based record of
+work.</p>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>User stories</th>
+<th>Planned outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Project management</td>
+<td>US01, US05</td>
+<td>Create, describe, edit, archive and recover projects without losing records</td>
+</tr>
+<tr>
+<td>Per-project entry formats</td>
+<td>US02</td>
+<td>Define Text, Number, Date and Boolean fields for each project</td>
+</tr>
+<tr>
+<td>Fast entry capture and time</td>
+<td>US03, US04</td>
+<td>Record work, dates, field values and duration against a project</td>
+</tr>
+<tr>
+<td>Review and retrieval</td>
+<td>US06</td>
+<td>Browse a chronological record, search, sort and narrow entries by project</td>
+</tr>
+<tr>
+<td>Core feedback</td>
+<td>Supports US04/US06</td>
+<td>Dashboard activity, project totals, weekly entries and time summaries</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Dependency:</strong> M1 for ownership; US01 before US02; US02 before US03; US03
+before US04 and US06.</p>
+<hr />
+<h3 id="m3-rich-and-durable-entry-formats">M3 – Rich and durable entry formats</h3>
+<p><strong>Owner:</strong> Person 1 – Entry Formats &amp; Fields
+<strong>User stories:</strong> US07–US10.</p>
+<table>
+<thead>
+<tr>
+<th>Story</th>
+<th>Planned capability</th>
+<th>Dependency</th>
+<th>Current status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>US07</td>
+<td>Tags, checklists, links and references</td>
+<td>M2 entry formats and entries</td>
+<td>Implemented; Tags, Checklist and Link checks have passed; Reference and rich-value-display checks remain</td>
+</tr>
+<tr>
+<td>US08</td>
+<td>Add, remove and rename fields in an existing format</td>
+<td>US02</td>
+<td>Implemented; acceptance testing remains</td>
+</tr>
+<tr>
+<td>US09</td>
+<td>Immutable format history; older entries stay readable</td>
+<td>US08 and existing entries</td>
+<td>Implemented; acceptance testing remains</td>
+</tr>
+<tr>
+<td>US10</td>
+<td>Computed number fields based on other numeric fields</td>
+<td>US02/US03</td>
+<td>Implemented; acceptance testing remains</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Implementation sequence:</strong></p>
+<ol>
+<li>Extend the shared field model and database schema.</li>
+<li>Add backend validation and field CRUD operations.</li>
+<li>Add safe format snapshots whenever a format changes.</li>
+<li>Build rich-field and computed-field controls in the project and entry UI.</li>
+<li>Test field creation, entry display, field edits, historical entries and
+   formula recalculation.</li>
+</ol>
+<p><strong>Definition of done:</strong> all US07–US10 acceptance tests pass against the
+integrated database, including changes to a format after entries already exist.</p>
+<hr />
+<h3 id="m4-statistics-views-and-unfinished-work">M4 – Statistics, views and unfinished work</h3>
+<p><strong>Owner:</strong> Person 2 – Statistics &amp; Views
+<strong>User stories:</strong> US11–US13.</p>
+<table>
+<thead>
+<tr>
+<th>Story</th>
+<th>Planned capability</th>
+<th>Dependency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>US11</td>
+<td>Total, group, compare and plot values from any user-defined field</td>
+<td>M2 entry values; M3 typed rich fields where relevant</td>
+</tr>
+<tr>
+<td>US12</td>
+<td>Calendar and board views; group board entries by a selected field</td>
+<td>M2 entry browsing; US11 grouping utilities can be shared</td>
+</tr>
+<tr>
+<td>US13</td>
+<td>Due dates, unfinished-work view and completed-work handling</td>
+<td>M2 entries and dates</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Implementation sequence:</strong></p>
+<ol>
+<li>Define reusable data queries and transformations for custom-field analysis.</li>
+<li>Add charts or comparison displays without hard-coded field names.</li>
+<li>Add calendar and board representations while retaining the same underlying
+   entries as the timeline.</li>
+<li>Add unfinished/completed state and due-date filtering.</li>
+<li>Test each view with multiple projects and field types.</li>
+</ol>
+<p><strong>Definition of done:</strong> US11–US13 pass without modifying or duplicating the
+underlying entry records.</p>
+<hr />
+<h3 id="m5-offline-access-and-portable-records">M5 – Offline access and portable records</h3>
+<p><strong>Owner:</strong> Person 3 – Offline &amp; Data
+<strong>User stories:</strong> US14–US15.</p>
+<table>
+<thead>
+<tr>
+<th>Story</th>
+<th>Planned capability</th>
+<th>Dependency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>US14</td>
+<td>Save entries locally while offline and synchronise on reconnection</td>
+<td>M2 entry creation; M3 entry-format data must remain compatible</td>
+</tr>
+<tr>
+<td>US15</td>
+<td>Export a readable backup and import valid data safely</td>
+<td>M2 projects, fields and entries; M3 versioned formats where included</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Implementation sequence:</strong></p>
+<ol>
+<li>Store pending entries locally with enough project/field information to
+   retry safely.</li>
+<li>Detect reconnection and synchronise without duplicating entries.</li>
+<li>Export projects, formats and entries in documented JSON/CSV forms.</li>
+<li>Validate imports and report invalid backup data clearly.</li>
+<li>Test offline creation, reconnection, duplicate protection, export and
+   restore using a separate test account or database branch.</li>
+</ol>
+<p><strong>Definition of done:</strong> no entry is lost across a connectivity interruption,
+and an exported logbook can be read and restored successfully.</p>
+<hr />
+<h3 id="m6-integration-testing-and-quality">M6 – Integration, testing and quality</h3>
+<p><strong>Owner:</strong> Person 4 – Integration &amp; Testing, with support from all members.</p>
+<p><strong>Goal:</strong> prove that independently developed features work together as one
+logbook.</p>
+<ul>
+<li>Apply tracked Prisma migrations to the target Neon database.</li>
+<li>Run backend/API tests, frontend production builds and linting.</li>
+<li>Test every user-story acceptance table in <code>docs/user-stories/user-stories.md</code>.</li>
+<li>Test cross-feature flows: rich/versioned formats with offline entries,
+  imported data with views/statistics, and due dates in all entry views.</li>
+<li>Test authorisation: one student must not access another student's projects,
+  entries or exports.</li>
+<li>Test error messages, empty states, responsive layouts and regression cases.</li>
+<li>Record defects, assign an owner, retest fixes and update acceptance status.</li>
+</ul>
+<p><strong>Definition of done:</strong> all required stories are marked Pass, migrations and
+deployment configuration are documented, and no known critical defect remains.</p>
+<hr />
+<h3 id="m7-release-and-demonstration">M7 – Release and demonstration</h3>
+<p><strong>Goal:</strong> deliver a stable, documented version of the agreed product.</p>
+<ol>
+<li>Merge approved feature branches into <code>main</code> through pull requests.</li>
+<li>Apply production migrations through the agreed integration process.</li>
+<li>Verify production configuration, database connectivity and authentication.</li>
+<li>Run a final demonstration: account → project → format → entry → review →
+   statistics/due work → offline/export where applicable.</li>
+<li>Finalise architecture, setup, roadmap, user-story and testing documentation.</li>
+<li>Tag or otherwise identify the submission/release commit.</li>
+</ol>
+<h2 id="dependency-map">Dependency map</h2>
+<pre class="mermaid"><code>flowchart TD
+    A["M0 Foundation"] --&gt; B["M1 Authentication"]
+    B --&gt; C["US01 Projects"]
+    C --&gt; D["US02 Entry formats"]
+    D --&gt; E["US03 Entries"]
+    E --&gt; F["US04 Time tracking"]
+    E --&gt; G["US06 Browse &amp; filter"]
+    D --&gt; H["US07–US10 Rich/versioned formats"]
+    E --&gt; I["US11 Statistics"]
+    G --&gt; J["US12 Calendar &amp; boards"]
+    E --&gt; K["US13 Due work"]
+    E --&gt; L["US14 Offline sync"]
+    H --&gt; L
+    E --&gt; M["US15 Export/import"]
+    H --&gt; M
+    H --&gt; N["M6 Integration &amp; testing"]
+    I --&gt; N
+    J --&gt; N
+    K --&gt; N
+    L --&gt; N
+    M --&gt; N
+    N --&gt; O["M7 Release"]</code></pre>
+<h2 id="advanced-scope">Advanced scope</h2>
+<p>The brief contains an <strong>Advanced</strong> heading but no Advanced user stories or
+acceptance criteria. Before development begins, the team will document each
+agreed enhancement with a user story, owner, dependency, acceptance tests and
+its impact on the release plan. This prevents unapproved features from being
+presented as committed scope.</p>
+<h2 id="roadmap-completion-criteria">Roadmap completion criteria</h2>
+<p>The roadmap is complete when:</p>
+<ul>
+<li>Every agreed user story, US00.1–US15, has passed its acceptance tests.</li>
+<li>Frontend, backend, database and migrations work together in the target
+  environment.</li>
+<li>The user can safely create, find, retain, export and restore their record of
+  work.</li>
+<li>Offline, rich-format, statistics/view and due-date features do not regress
+  Basic logbook behaviour.</li>
+<li>Documentation, deployment instructions and test evidence are ready for the
+  final demonstration or submission.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "search.suggest", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

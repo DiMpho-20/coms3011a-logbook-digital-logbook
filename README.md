@@ -10,7 +10,7 @@ A web-based digital logbook application designed to help university students kee
 |---|---|
 | **Live App** | <https://coms3011a-logbook.pages.dev> |
 | **API Server** | <https://coms3011a-logbook.pages.dev> |
-| **Documentation** | [Open project documentation](docs/index.md) |
+| **Documentation** | <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> |
 | **Gitea Repository** | <https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook> |
 
 
@@ -189,6 +189,10 @@ Additional project documentation is available in the `docs` directory:
 * `docs/client-interactions.md` — Client and API interactions.
 
 The project also includes an `mkdocs.yml` configuration file for the documentation site.
+
+### Live documentation
+
+* <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/>
 
 ## Development Workflow
 

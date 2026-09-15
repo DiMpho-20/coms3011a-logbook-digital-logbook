@@ -1,0 +1,1203 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Technical documentation and architecture for the Digital Logbook project.">
+      
+      
+      
+        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/user-feedback/">
+      
+      
+        <link rel="prev" href="../testing/">
+      
+      
+        <link rel="next" href="../third-party/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>User Feedback - Digital Logbook Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#user-feedback" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Digital Logbook Documentation" class="md-header__button md-logo" aria-label="Digital Logbook Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Digital Logbook Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              User Feedback
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Digital Logbook Documentation" class="md-nav__button md-logo" aria-label="Digital Logbook Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Digital Logbook Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methodology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../client-interactions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client Interactions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Feedback
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Feedback
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-we-collect-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why we collect feedback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-formal-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The formal process
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-feedback-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The feedback form
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observation-sheet-for-the-supervisor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation sheet (for the supervisor)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sus-scoring-in-the-linked-google-sheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SUS scoring (in the linked Google Sheet)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#results-sprint-2-round-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results — Sprint 2, Round 1
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-feedback-action-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration: Feedback → Action → Commit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../third-party/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Third-Party Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-stories/user-stories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Stories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/database-erd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/ui-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UI Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/development-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/system-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-we-collect-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why we collect feedback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-formal-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The formal process
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-feedback-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The feedback form
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observation-sheet-for-the-supervisor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation sheet (for the supervisor)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sus-scoring-in-the-linked-google-sheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SUS scoring (in the linked Google Sheet)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#results-sprint-2-round-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results — Sprint 2, Round 1
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-feedback-action-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration: Feedback → Action → Commit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="user-feedback">User Feedback</h1>
+<p>This page documents the formal user feedback process we use to improve
+the Digital Logbook. Feedback is collected through a standardised
+instrument — the <strong>System Usability Scale (SUS)</strong> — combined with
+task-scenario observations and open-ended responses. Findings are tracked
+and every actionable change is recorded in the integration table at the
+bottom of this page.</p>
+<hr />
+<h2 id="why-we-collect-feedback">Why we collect feedback</h2>
+<p>Automated tests verify that the code <em>does what we intend</em>; user
+feedback verifies that the product <em>works for the people it's for</em>. The
+feedback process is a required part of our methodology: every round of
+collection is followed by a round of integration, where each actionable
+finding becomes a tracked issue with an assigned fix.</p>
+<hr />
+<h2 id="the-formal-process">The formal process</h2>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Instrument</strong></td>
+<td>A Google Form with the 10 standard SUS items, 7 task-completion self-reports, and open-ended questions.</td>
+</tr>
+<tr>
+<td><strong>Testers</strong></td>
+<td>5–8 per round: classmates, members of other teams, and our client (where available). Demographics are captured in the form itself.</td>
+</tr>
+<tr>
+<td><strong>Session format</strong></td>
+<td>15–20 minutes, supervised. The tester works through the 7 task scenarios on the live app while an observer notes pass/fail and friction points on the observation sheet below.</td>
+</tr>
+<tr>
+<td><strong>Recording</strong></td>
+<td>Form responses land in a linked Google Sheet. An observer's written notes are kept alongside as a second data source.</td>
+</tr>
+<tr>
+<td><strong>Analysis</strong></td>
+<td>SUS scores per tester (0–100) and an average across the round; per-task pass/fail counts; open-ended responses grouped by theme.</td>
+</tr>
+<tr>
+<td><strong>Integration</strong></td>
+<td>Every actionable finding becomes an issue on the bug tracker with an owner and a fix commit. The integration table below records the full trail.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="the-feedback-form">The feedback form</h2>
+<p><strong>Link:</strong> <a href="https://forms.gle/g4gEzYtiFRSXCQ5CA">https://forms.gle/g4gEzYtiFRSXCQ5CA</a></p>
+<p>The form is structured in four sections:</p>
+<ol>
+<li><strong>Welcome &amp; About You</strong> — consent statement, role (Student / Lecturer or tutor / Working professional / Other), and prior experience with digital logbooks or work-tracking tools.</li>
+<li><strong>Task Feedback</strong> — for each of 7 tasks (register, create project, add entry, mark done, view stats, view calendar/board, enable 2FA), the tester self-reports <em>Completed easily / Completed with some difficulty / Could not complete</em>, plus an optional comment field per task.</li>
+<li><strong>System Usability Scale</strong> — the 10 standard SUS items on a 5-point Likert scale (Strongly disagree → Strongly agree). Worded verbatim; the SUS instrument is free to use and publicly cited across HCI research.</li>
+<li><strong>Open Feedback</strong> — most frustrating part (required), favourite feature, one-thing-to-change, and an NPS-style 0–10 recommend-likelihood scale.</li>
+</ol>
+<p>A screenshot of the published form is captured after each round.</p>
+<hr />
+<h2 id="observation-sheet-for-the-supervisor">Observation sheet (for the supervisor)</h2>
+<p>Self-reported answers are one half of the evidence; the other half is
+what the observer actually sees. For each session, fill in this table on
+paper alongside the tester:</p>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Completed</th>
+<th>Notes / friction points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Register a new account</td>
+<td>✅ / ⚠️ / ❌</td>
+<td></td>
+</tr>
+<tr>
+<td>2. Log in and create a project with custom fields</td>
+<td>✅ / ⚠️ / ❌</td>
+<td></td>
+</tr>
+<tr>
+<td>3. Add a logbook entry (with duration + due date)</td>
+<td>✅ / ⚠️ / ❌</td>
+<td></td>
+</tr>
+<tr>
+<td>4. Mark an entry as done</td>
+<td>✅ / ⚠️ / ❌</td>
+<td></td>
+</tr>
+<tr>
+<td>5. Check project statistics (totals, averages)</td>
+<td>✅ / ⚠️ / ❌</td>
+<td></td>
+</tr>
+<tr>
+<td>6. Find calendar and board views</td>
+<td>✅ / ⚠️ / ❌</td>
+<td></td>
+</tr>
+<tr>
+<td>7. Enable two-factor authentication</td>
+<td>✅ / ⚠️ / ❌</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>✅ = completed easily · ⚠️ = completed with difficulty · ❌ = could not complete.</p>
+<hr />
+<h2 id="sus-scoring-in-the-linked-google-sheet">SUS scoring (in the linked Google Sheet)</h2>
+<p>When the form is linked to a Google Sheet (Responses → create
+spreadsheet), add these helper columns to auto-score each row:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Header</th>
+<th>Formula</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SUS_1</code></td>
+<td><code>q1_adj</code></td>
+<td><code>=B2-1</code> (odd item: subtract 1)</td>
+</tr>
+<tr>
+<td><code>SUS_2</code></td>
+<td><code>q2_adj</code></td>
+<td><code>=5-C2</code> (even item: 5 − answer)</td>
+</tr>
+<tr>
+<td><code>SUS_3</code></td>
+<td><code>q3_adj</code></td>
+<td><code>=D2-1</code></td>
+</tr>
+<tr>
+<td><code>SUS_4</code></td>
+<td><code>q4_adj</code></td>
+<td><code>=5-E2</code></td>
+</tr>
+<tr>
+<td><code>SUS_5</code></td>
+<td><code>q5_adj</code></td>
+<td><code>=F2-1</code></td>
+</tr>
+<tr>
+<td><code>SUS_6</code></td>
+<td><code>q6_adj</code></td>
+<td><code>=5-G2</code></td>
+</tr>
+<tr>
+<td><code>SUS_7</code></td>
+<td><code>q7_adj</code></td>
+<td><code>=H2-1</code></td>
+</tr>
+<tr>
+<td><code>SUS_8</code></td>
+<td><code>q8_adj</code></td>
+<td><code>=5-I2</code></td>
+</tr>
+<tr>
+<td><code>SUS_9</code></td>
+<td><code>q9_adj</code></td>
+<td><code>=J2-1</code></td>
+</tr>
+<tr>
+<td><code>SUS_10</code></td>
+<td><code>q10_adj</code></td>
+<td><code>=5-K2</code></td>
+</tr>
+<tr>
+<td></td>
+<td><strong>SUS score</strong></td>
+<td><code>=SUM(q1_adj:q10_adj) * 2.5</code> (yields 0–100)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Adjust column letters</strong> to match the actual sheet columns produced by
+the grid question. The pattern — odd items score <code>answer − 1</code>, even
+items score <code>5 − answer</code>, then sum and multiply by 2.5 — is the
+canonical SUS calculation from Brooke (1996).</p>
+</blockquote>
+<p>Average SUS across the round: <code>=AVERAGE(SUS_score_range)</code>.
+Industry benchmarks (Sauro, 2011) place the average SUS at <strong>68/100</strong>;
+anything above ~72 is above-average, above ~80 is excellent.</p>
+<hr />
+<h2 id="results-sprint-2-round-1">Results — Sprint 2, Round 1</h2>
+<p><em>First round: scheduled. Results will be filled after testing sessions
+complete. Each round captures:</em></p>
+<ul>
+<li>Number of testers, role breakdown (from the "About You" section)</li>
+<li>Average SUS score (with per-tester breakdown)</li>
+<li>Per-task self-reported pass rate</li>
+<li>Observer-noted friction points</li>
+<li>Top 3–5 themes from open-ended responses</li>
+</ul>
+<hr />
+<h2 id="integration-feedback-action-commit">Integration: Feedback → Action → Commit</h2>
+<p>This is the trail that turns feedback into product changes. Every row is
+a finding from a round, with the issue filed, the commit that fixed it,
+and the round it was validated in.</p>
+<table>
+<thead>
+<tr>
+<th>Round</th>
+<th>Finding</th>
+<th>Issue</th>
+<th>Fix commit</th>
+<th>Validated in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>—</td>
+<td><em>(placeholders — to be filled as findings are filed and fixed)</em></td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>—</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>—</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>—</td>
+<td></td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>Once the first round is analysed, this table becomes the authoritative
+evidence that feedback was acted on rather than just collected.</p>
+<hr />
+<h2 id="next-steps">Next steps</h2>
+<ol>
+<li>Distribute the form to 5–8 testers (classmates, other teams, client).</li>
+<li>Run supervised sessions; observer notes alongside form responses.</li>
+<li>Fill in the "Results" section and compute average SUS.</li>
+<li>File actionable findings on the Gitea bug tracker.</li>
+<li>Fix the top findings, cite commits here, and close issues.</li>
+<li>Optionally run a second round to validate fixes (the "Validated in"
+   column of the integration table).</li>
+</ol>
+<p><em>Related: <a href="../testing/">Testing</a> documents the automated test suite that
+runs alongside this process.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "search.suggest", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

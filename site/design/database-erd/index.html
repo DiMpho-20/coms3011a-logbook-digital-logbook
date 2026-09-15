@@ -1,0 +1,1437 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Technical documentation and architecture for the Digital Logbook project.">
+      
+      
+      
+        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/design/database-erd/">
+      
+      
+        <link rel="prev" href="../architecture/">
+      
+      
+        <link rel="next" href="../ui-design/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Database design - Digital Logbook Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#database-design" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Digital Logbook Documentation" class="md-header__button md-logo" aria-label="Digital Logbook Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Digital Logbook Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Database design
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Digital Logbook Documentation" class="md-nav__button md-logo" aria-label="Digital Logbook Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Digital Logbook Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methodology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../client-interactions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client Interactions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-feedback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Feedback
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../third-party/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Third-Party Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-stories/user-stories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Stories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database design
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#entity-relationship-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity Relationship Diagram
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Entity Relationship Diagram">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#enums" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enums
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constraints
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#main-entities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Main Entities
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Main Entities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#user" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#entry-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entry Field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#entry-format-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entry Format Version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logbook-entry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logbook Entry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#entry-value" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entry Value
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#password-reset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Password Reset
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-changes-over-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema Changes Over Time
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Schema Changes Over Time">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-changes-are-applied" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How changes are applied
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#change-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Change history
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ui-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UI Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../system-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#entity-relationship-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity Relationship Diagram
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Entity Relationship Diagram">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#enums" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enums
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constraints
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#main-entities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Main Entities
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Main Entities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#user" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#entry-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entry Field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#entry-format-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entry Format Version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logbook-entry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logbook Entry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#entry-value" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entry Value
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#password-reset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Password Reset
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-changes-over-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema Changes Over Time
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Schema Changes Over Time">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-changes-are-applied" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How changes are applied
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#change-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Change history
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="database-design">Database Design</h1>
+<h2 id="overview">Overview</h2>
+<p>The Digital Logbook uses a PostgreSQL database to store users, projects,
+project entry formats, and logbook entries.</p>
+<p>A key design goal was that different projects need different logbook
+entry structures (e.g. one project may track "hours worked" and "task
+completed", while another tracks "description" and "outcome"). Rather
+than hardcoding a fixed set of columns for logbook entries, we adopted
+an <strong>Entity-Attribute-Value (EAV)</strong> pattern using <code>ENTRY_FIELD</code> and
+<code>ENTRY_VALUE</code>. This trades some query simplicity for the flexibility of
+letting each project define its own entry format without requiring
+schema changes.</p>
+<p>We use <strong>UUIDs</strong> rather than auto-incrementing integers as primary keys
+to avoid exposing sequential, guessable IDs and to make it easier to
+merge or migrate data across environments without ID collisions.</p>
+<h2 id="entity-relationship-diagram">Entity Relationship Diagram</h2>
+<pre class="mermaid"><code>erDiagram
+    USER ||--o{ PROJECT : owns
+    USER ||--o{ PASSWORD_RESET : requests
+    PROJECT ||--o{ ENTRY_FIELD : defines
+    PROJECT ||--o{ ENTRY_FORMAT_VERSION : snapshots
+    PROJECT ||--o{ LOGBOOK_ENTRY : contains
+    LOGBOOK_ENTRY }o--o| ENTRY_FORMAT_VERSION : "pinned to"
+    LOGBOOK_ENTRY ||--o{ ENTRY_VALUE : has
+    ENTRY_FIELD ||--o{ ENTRY_VALUE : defines
+
+    USER {
+        uuid id PK
+        string full_name
+        string email UK
+        string password_hash
+        boolean is_email_verified
+        string email_verification_token "nullable"
+        datetime email_verification_expiry "nullable"
+        string two_factor_secret "nullable — TOTP secret"
+        boolean is_two_factor_enabled "default false"
+        datetime scheduled_deletion_at "nullable"
+        datetime created_at
+        datetime updated_at
+    }
+
+    PROJECT {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string description
+        enum status "ACTIVE, ARCHIVED"
+        datetime created_at
+        datetime updated_at
+    }
+
+    ENTRY_FIELD {
+        uuid id PK
+        uuid project_id FK
+        string name
+        enum type "TEXT, NUMBER, DATE, BOOLEAN, TAGS, CHECKLIST, LINK, REFERENCE, COMPUTED"
+        boolean required
+        text formula "COMPUTED fields only"
+        datetime archived_at "nullable — soft retire"
+        datetime created_at
+        datetime updated_at
+    }
+
+    ENTRY_FORMAT_VERSION {
+        uuid id PK
+        uuid project_id FK
+        int version
+        jsonb fields "immutable field snapshot"
+        datetime created_at
+    }
+
+    LOGBOOK_ENTRY {
+        uuid id PK
+        uuid project_id FK
+        int duration_minutes
+        date entry_date
+        date due_date
+        enum status "OPEN, DONE"
+        datetime completed_at "nullable"
+        uuid format_version_id FK "nullable"
+        datetime created_at
+        datetime updated_at
+    }
+
+    ENTRY_VALUE {
+        uuid id PK
+        uuid entry_id FK
+        uuid field_id FK
+        text value
+    }
+
+    PASSWORD_RESET {
+        uuid id PK
+        uuid user_id FK
+        string token_hash UK
+        datetime expires_at
+        datetime created_at
+    }</code></pre>
+<h3 id="enums">Enums</h3>
+<table>
+<thead>
+<tr>
+<th>Enum</th>
+<th>Values</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ProjectStatus</code></td>
+<td><code>ACTIVE</code>, <code>ARCHIVED</code></td>
+<td><code>projects.status</code></td>
+</tr>
+<tr>
+<td><code>EntryFieldType</code></td>
+<td><code>TEXT</code>, <code>NUMBER</code>, <code>DATE</code>, <code>BOOLEAN</code>, <code>TAGS</code>, <code>CHECKLIST</code>, <code>LINK</code>, <code>REFERENCE</code>, <code>COMPUTED</code></td>
+<td><code>entry_fields.type</code></td>
+</tr>
+<tr>
+<td><code>EntryStatus</code></td>
+<td><code>OPEN</code>, <code>DONE</code></td>
+<td><code>logbook_entries.status</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="constraints">Constraints</h3>
+<ul>
+<li><code>USER.email</code> — Unique. Each email can only register once.</li>
+<li><code>PROJECT(user_id, name)</code> — Unique. A student cannot have two projects with the same name.</li>
+<li><code>ENTRY_VALUE(entry_id, field_id)</code> — Unique. One value per field per entry.</li>
+<li><code>ENTRY_FORMAT_VERSION(project_id, version)</code> — Unique. Version numbers increment per project.</li>
+<li>All foreign keys use <code>ON DELETE CASCADE</code> for full account erasure, except <code>logbook_entries.format_version_id</code>, which uses <code>ON DELETE SET NULL</code> — deleting a snapshot must not destroy entries.</li>
+</ul>
+<h2 id="main-entities">Main Entities</h2>
+<h3 id="user">User</h3>
+<p>Represents a student using the Digital Logbook.</p>
+<p>A user can have multiple projects and can request multiple password
+resets over time.</p>
+<p>Passwords are stored as a salted hash (<code>password_hash</code>), never as
+plain text.</p>
+<p>Authentication-related columns:</p>
+<ul>
+<li><code>is_email_verified</code>, <code>email_verification_token</code>, <code>email_verification_expiry</code> — email ownership is proven before login is allowed. The token is 32 random bytes and expires after one hour.</li>
+<li><code>two_factor_secret</code>, <code>is_two_factor_enabled</code> — optional TOTP two-factor authentication. The secret is staged at setup time and only becomes active (<code>is_two_factor_enabled = true</code>) after the user proves their authenticator works. Both columns are nullable / default-false, so they are fully backward compatible.</li>
+<li><code>scheduled_deletion_at</code> — reserved for delayed account-deletion jobs.</li>
+</ul>
+<p>See <code>apps/backend/AUTHENTICATION.md</code> in the repository for the full
+authentication design.</p>
+<h3 id="project">Project</h3>
+<p>Represents a separate project belonging to a student.</p>
+<p>A project can contain multiple entry fields, format versions, and
+logbook entries. Archiving sets <code>status = ARCHIVED</code>; entries stay
+editable either way.</p>
+<h3 id="entry-field">Entry Field</h3>
+<p>Defines the structure of a project's logbook entries.</p>
+<p>For example, a project could define fields such as:</p>
+<ul>
+<li>Description (TEXT)</li>
+<li>Date (DATE)</li>
+<li>Hours worked (NUMBER)</li>
+<li>Task completed (BOOLEAN)</li>
+</ul>
+<p><code>type</code> is enforced at the application layer when validating
+<code>ENTRY_VALUE.value</code>, since the value itself is stored as a string to
+support different field types.</p>
+<p>Sprint 2 extended the field types beyond the basic four:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TAGS</code></td>
+<td>A list of short labels</td>
+</tr>
+<tr>
+<td><code>CHECKLIST</code></td>
+<td>A list of checkable items</td>
+</tr>
+<tr>
+<td><code>LINK</code></td>
+<td>A reference to another entry in the same project</td>
+</tr>
+<tr>
+<td><code>REFERENCE</code></td>
+<td>A reference to an entry in a different project</td>
+</tr>
+<tr>
+<td><code>COMPUTED</code></td>
+<td>A value derived from other fields via <code>formula</code> rather than typed in</td>
+</tr>
+</tbody>
+</table>
+<p><code>archived_at</code> implements <strong>soft retirement</strong>: a field dropped from the
+format stops appearing on new entry forms, but existing values remain
+readable in old entries. <code>formula</code> is only populated for <code>COMPUTED</code>
+fields and stores the expression the server evaluates on save.</p>
+<h3 id="entry-format-version">Entry Format Version</h3>
+<p>An <strong>immutable snapshot</strong> of a project's entry format, taken whenever
+the format changes (field added, dropped, renamed, or re-typed).</p>
+<p>This is what keeps historical entries readable: each entry pins the
+format version that was current when it was created
+(<code>format_version_id</code>), so later format changes never break old entries.
+Changing a format creates a new snapshot and carries existing entries
+forward — filling in what it reasonably can — rather than abandoning
+them.</p>
+<p>The snapshot itself is stored as <code>JSONB</code> (<code>fields</code>), which keeps the
+whole field definition set together and queryable.</p>
+<h3 id="logbook-entry">Logbook Entry</h3>
+<p>Represents a recorded activity within a project.</p>
+<p>An entry stores the date it was recorded (<code>entry_date</code>, user-editable
+for backdating), the amount of time spent (<code>duration_minutes</code>), an
+optional deadline (<code>due_date</code>), and its completion state:</p>
+<ul>
+<li><code>status</code> — <code>OPEN</code> (work still to do) or <code>DONE</code>.</li>
+<li><code>completed_at</code> — timestamp set when the entry is marked done.</li>
+</ul>
+<p>Open entries with past due dates surface automatically in the Overdue
+view and the Open Work page's due-date buckets.</p>
+<h3 id="entry-value">Entry Value</h3>
+<p>Stores the value entered for a particular field of a particular
+logbook entry.</p>
+<p>This allows different projects to have different entry structures.</p>
+<h3 id="password-reset">Password Reset</h3>
+<p>Stores a password-reset request for a user. Each record contains a
+unique, time-limited token sent to the user's email, and an
+<code>expires_at</code> timestamp so that reset links become invalid after a
+short period. Tokens are single-use: all of a user's reset records are
+deleted in the same transaction that updates the password. This
+supports the <strong>US00.3 – Reset Password</strong> user story defined in the
+Development Plan.</p>
+<h2 id="schema-changes-over-time">Schema Changes Over Time</h2>
+<h3 id="how-changes-are-applied">How changes are applied</h3>
+<p>During development the schema is managed with <strong><code>npx prisma db push</code></strong>
+(schema → database, no migration history). The single committed SQL
+migration, <code>prisma/migrations/20260908000000_entry_format_versions.sql</code>,
+documents the Sprint 2 schema change that introduced rich field types,
+soft-retired fields, and entry-format snapshots; it is written
+idempotently (<code>IF NOT EXISTS</code>) so it can be re-run safely.</p>
+<h3 id="deployment">Deployment</h3>
+<p>The database is a managed <strong>PostgreSQL instance hosted on <a href="https://neon.tech">Neon</a></strong>
+(serverless, autoscaling). The backend connects with Prisma's driver
+adapter using the <code>DATABASE_URL</code> environment variable; connection
+strings never leave the environment configuration.</p>
+<h3 id="change-history">Change history</h3>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Sprint</th>
+<th>Tables affected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Initial schema (users, projects, entry fields, entries, entry values, password resets)</td>
+<td>1</td>
+<td>all</td>
+</tr>
+<tr>
+<td>Email verification + 2FA columns</td>
+<td>1</td>
+<td><code>users</code></td>
+</tr>
+<tr>
+<td>Rich field types, <code>formula</code>, <code>archived_at</code></td>
+<td>2</td>
+<td><code>entry_fields</code></td>
+</tr>
+<tr>
+<td>Entry format versioning (<code>entry_format_versions</code>, <code>format_version_id</code>)</td>
+<td>2</td>
+<td>new table + <code>logbook_entries</code></td>
+</tr>
+<tr>
+<td>Entry status tracking (<code>status</code>, <code>completed_at</code>)</td>
+<td>2</td>
+<td><code>logbook_entries</code></td>
+</tr>
+</tbody>
+</table>
+<p>The authoritative source for the current schema is
+<code>apps/backend/prisma/schema.prisma</code> in the repository.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "search.suggest", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,1291 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Technical documentation and architecture for the Digital Logbook project.">
+      
+      
+      
+        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/testing/">
+      
+      
+        <link rel="prev" href="../client-interactions/">
+      
+      
+        <link rel="next" href="../user-feedback/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Testing - Digital Logbook Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#testing" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Digital Logbook Documentation" class="md-header__button md-logo" aria-label="Digital Logbook Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Digital Logbook Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Testing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Digital Logbook Documentation" class="md-nav__button md-logo" aria-label="Digital Logbook Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Digital Logbook Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methodology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../client-interactions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client Interactions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#test-stack-why-we-chose-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Stack &amp; Why We Chose It
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-we-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What We Test
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What We Test">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-core-api-apitestts-27-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Core API (api.test.ts — 27 tests)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-authentication-security-authtestts-29-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Authentication &amp; Security (auth.test.ts — 29 tests)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-sprint-2-features-sprint2testts-22-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Sprint 2 Features (sprint2.test.ts — 22 tests)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-tests-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the Tests Work
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-run-them" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Run Them
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#user-feedback-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User Feedback Process
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proof-of-passing-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proof of Passing Runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bugs-found-by-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bugs Found By Testing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Future Work
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-feedback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Feedback
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../third-party/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Third-Party Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-stories/user-stories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Stories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/database-erd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/ui-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UI Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/development-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/system-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#test-stack-why-we-chose-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Stack &amp; Why We Chose It
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-we-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What We Test
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What We Test">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-core-api-apitestts-27-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Core API (api.test.ts — 27 tests)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-authentication-security-authtestts-29-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Authentication &amp; Security (auth.test.ts — 29 tests)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-sprint-2-features-sprint2testts-22-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Sprint 2 Features (sprint2.test.ts — 22 tests)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-tests-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the Tests Work
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-run-them" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Run Them
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#user-feedback-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User Feedback Process
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proof-of-passing-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proof of Passing Runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bugs-found-by-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bugs Found By Testing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Future Work
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="testing">Testing</h1>
+<p>This page documents how the Digital Logbook is tested: our test stack and
+why we chose it, what is covered by automated tests, the formal user
+feedback process, our testing policy, and proof of passing runs.</p>
+<hr />
+<h2 id="test-stack-why-we-chose-it">Test Stack &amp; Why We Chose It</h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Role</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Vitest 4</strong></td>
+<td>Test runner and assertion framework</td>
+<td>Same engine that powers our frontend build tooling (Vite), so one dependency ecosystem covers the whole monorepo. Fast, ESM-native, and watch-mode works out of the box with TypeScript — no extra transpile config.</td>
+</tr>
+<tr>
+<td><strong>Supertest</strong></td>
+<td>HTTP-level request helper</td>
+<td>Lets tests call the Express app directly (<code>request(app).post(...)</code>) without starting a real server or opening a port. We test the real HTTP layer — routing, middleware, validation, status codes, JSON bodies — not just functions.</td>
+</tr>
+<tr>
+<td><strong>The real Express app</strong> (<code>src/app.ts</code>)</td>
+<td>System under test</td>
+<td>The app module is exported separately from the server entry point (<code>src/index.ts</code>) precisely so tests can import it without binding port 3000.</td>
+</tr>
+<tr>
+<td><strong>Live PostgreSQL (Neon)</strong></td>
+<td>Real database</td>
+<td>Integration tests run against the actual database the app uses, exercising real Prisma queries, real constraints (unique, cascade deletes), and real SQL aggregation. Mocking Prisma would test our mocks, not our app.</td>
+</tr>
+<tr>
+<td><strong>otplib</strong></td>
+<td>TOTP code generation in tests</td>
+<td>The 2FA tests generate <em>genuinely valid</em> time-based codes with the same library the server uses to verify them, so the full TOTP round-trip is tested end-to-end.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Testing pyramid position:</strong> these are <strong>integration tests</strong> (API tests).
+Each test makes a real HTTP request to the real app backed by the real
+database, and asserts on the HTTP response. UI-level testing is planned
+(see <a href="#future-work">Future Work</a>).</p>
+<hr />
+<h2 id="what-we-test">What We Test</h2>
+<h3 id="1-core-api-apitestts-27-tests">1. Core API (<code>api.test.ts</code> — 27 tests)</h3>
+<ul>
+<li>Health and database connectivity</li>
+<li>Project CRUD: create, list, read, update, archive/unarchive, 404/409/400 error paths</li>
+<li>Entry fields: creation per type, listing, inclusion in project reads</li>
+<li>Entries: creation with/without dates, update, delete, time-summary aggregation</li>
+</ul>
+<h3 id="2-authentication-security-authtestts-29-tests">2. Authentication &amp; Security (<code>auth.test.ts</code> — 29 tests)</h3>
+<ul>
+<li><strong>Registration:</strong> happy path, duplicate email (409), weak password (400), invalid email (400)</li>
+<li><strong>Login:</strong> valid credentials return a JWT; wrong password and unknown email both return the <em>identical</em> error (no account enumeration); unverified accounts blocked with 403</li>
+<li><strong>Route protection:</strong> missing token → 401, invalid token → 401</li>
+<li><strong>2FA full lifecycle, in order:</strong> status check → setup (secret + QR data URL) → wrong code rejected → valid code enables → login now returns <code>requiresTwoFactor</code> with <em>no</em> token → <code>/login/2fa</code> rejects bad code, accepts valid code and issues JWT → disable rejects wrong password → disable with correct password → login back to normal</li>
+<li><strong>Password reset:</strong> anti-enumeration behaviour, invalid token rejected (400), full end-to-end reset (old password stops working, new one works, all reset tokens consumed)</li>
+<li><strong>Account deletion:</strong> wrong password rejected; correct password permanently erases the user</li>
+</ul>
+<h3 id="3-sprint-2-features-sprint2testts-22-tests">3. Sprint 2 Features (<code>sprint2.test.ts</code> — 22 tests)</h3>
+<ul>
+<li><strong>Entry status tracking (US13):</strong> default <code>OPEN</code>, mark <code>DONE</code> sets <code>completedAt</code>, reopening clears it, invalid status → 400, unknown entry → 404, <code>?status=</code> filter (Open Work view), <code>?dueBefore=</code> filter (overdue buckets)</li>
+<li><strong>Field statistics (US11):</strong> <code>sum</code>, <code>avg</code>, and <code>count</code> aggregations with <em>verified arithmetic</em> (60 + 45 + 90 = 195, avg = 65), group-by with per-group values and descending order, all validation errors (missing field, bad operation, non-NUMBER metric, unknown fields)</li>
+<li><strong>Timeline statistics (US11/US12):</strong> day and month bucketing with verified counts, ascending date order, invalid bucket / non-DATE field / unknown field errors</li>
+</ul>
+<p>Test files live in <code>apps/backend/src/__tests__/</code> in the repository.</p>
+<hr />
+<h2 id="how-the-tests-work">How the Tests Work</h2>
+<p>A typical test:</p>
+<div class="highlight"><pre><span></span><code><span class="nx">it</span><span class="p">(</span><span class="s2">"PATCH /entries/:id/status marks entry DONE and sets completedAt"</span><span class="p">,</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">request</span><span class="p">(</span><span class="nx">app</span><span class="p">)</span><span class="w">          </span><span class="c1">// real Express app, no port</span>
+<span class="w">    </span><span class="p">.</span><span class="nx">patch</span><span class="p">(</span><span class="sb">`/api/entries/</span><span class="si">${</span><span class="nx">statusEntryId</span><span class="si">}</span><span class="sb">/status`</span><span class="p">)</span>
+<span class="w">    </span><span class="p">.</span><span class="nx">set</span><span class="p">(</span><span class="nx">H</span><span class="p">)</span><span class="w">                                </span><span class="c1">// Authorization: Bearer &lt;real JWT&gt;</span>
+<span class="w">    </span><span class="p">.</span><span class="nx">send</span><span class="p">({</span><span class="w"> </span><span class="nx">status</span><span class="o">:</span><span class="w"> </span><span class="s2">"DONE"</span><span class="w"> </span><span class="p">});</span><span class="w">             </span><span class="c1">// real request body</span>
+
+<span class="w">  </span><span class="nx">expect</span><span class="p">(</span><span class="nx">res</span><span class="p">.</span><span class="nx">status</span><span class="p">).</span><span class="nx">toBe</span><span class="p">(</span><span class="mf">200</span><span class="p">);</span><span class="w">            </span><span class="c1">// real status code</span>
+<span class="w">  </span><span class="nx">expect</span><span class="p">(</span><span class="nx">res</span><span class="p">.</span><span class="nx">body</span><span class="p">.</span><span class="nx">status</span><span class="p">).</span><span class="nx">toBe</span><span class="p">(</span><span class="s2">"DONE"</span><span class="p">);</span><span class="w">    </span><span class="c1">// real JSON response</span>
+<span class="w">  </span><span class="nx">expect</span><span class="p">(</span><span class="nx">res</span><span class="p">.</span><span class="nx">body</span><span class="p">.</span><span class="nx">completedAt</span><span class="p">).</span><span class="nx">not</span><span class="p">.</span><span class="nx">toBeNull</span><span class="p">();</span>
+<span class="p">});</span>
+</code></pre></div>
+<p>The JWT in <code>H</code> is generated by the same <code>generateToken</code> helper the login
+endpoint uses, so protected routes are exercised through the real
+<code>requireAuth</code> middleware.</p>
+<p>For 2FA, tests produce genuine TOTP codes:</p>
+<div class="highlight"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">code</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">generateSync</span><span class="p">({</span><span class="w"> </span><span class="nx">secret</span><span class="w"> </span><span class="p">});</span><span class="w">   </span><span class="c1">// same library the server verifies with</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">request</span><span class="p">(</span><span class="nx">app</span><span class="p">).</span><span class="nx">post</span><span class="p">(</span><span class="s2">"/api/auth/login/2fa"</span><span class="p">).</span><span class="nx">send</span><span class="p">({</span>
+<span class="w">  </span><span class="nx">email</span><span class="o">:</span><span class="w"> </span><span class="kt">TFA_EMAIL</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">token</span><span class="o">:</span><span class="w"> </span><span class="kt">code</span><span class="p">,</span>
+<span class="p">});</span>
+<span class="nx">expect</span><span class="p">(</span><span class="nx">res</span><span class="p">.</span><span class="nx">body</span><span class="p">.</span><span class="nx">token</span><span class="p">).</span><span class="nx">toBeTruthy</span><span class="p">();</span><span class="w">      </span><span class="c1">// real JWT issued</span>
+</code></pre></div>
+<p><strong>Shared conventions across test files:</strong></p>
+<ul>
+<li><strong>Own user per file.</strong> Each suite creates its own test user (unique UUID + timestamped email), so suites never collide even though Vitest runs test files in parallel.</li>
+<li><strong>Setup in <code>beforeAll</code>, cleanup via cascade.</strong> Fixed data is created once; <code>afterAll</code> deletes the test user and every foreign key is <code>ON DELETE CASCADE</code>, so all test data disappears with it.</li>
+<li><strong>Sequential within a suite</strong> where one test's output feeds the next (the 2FA lifecycle).</li>
+<li><strong>15s per-test timeout, 60s for data-heavy setup hooks</strong> — the database is remote (Neon), so round-trips cost ~500ms each.</li>
+</ul>
+<hr />
+<h2 id="how-to-run-them">How to Run Them</h2>
+<div class="highlight"><pre><span></span><code><span class="c1"># From the repository root</span>
+npm<span class="w"> </span>run<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--workspace<span class="o">=</span>backend
+
+<span class="c1"># Watch mode (re-runs on file changes)</span>
+npm<span class="w"> </span>run<span class="w"> </span>test:watch<span class="w"> </span>--workspace<span class="o">=</span>backend
+</code></pre></div>
+<p>Prerequisites: a reachable <code>DATABASE_URL</code> in <code>apps/backend/.env</code> and a
+regenerated Prisma client (<code>npx prisma generate</code> in <code>apps/backend</code> — see
+<a href="#bugs-found-by-testing">Bugs Found By Testing</a>).</p>
+<blockquote>
+<p><strong>Email behaviour in tests:</strong> with no SMTP credentials configured,
+registration auto-verifies (dev mode) and password-reset emails fail
+silently — both are caught and logged, and the endpoints still behave
+correctly. The tests assert the HTTP contract, never the email delivery.</p>
+</blockquote>
+<hr />
+<h2 id="testing-policy">Testing Policy</h2>
+<ol>
+<li><strong>Every API endpoint gets tests for the happy path <em>and</em> its error paths</strong> (400 validation, 401 auth, 404 missing, 409 conflict). If an endpoint has no error-path test, it isn't done.</li>
+<li><strong>Never mock what we're testing.</strong> No Prisma mocks, no stub auth. The database is real; failures must be real failures.</li>
+<li><strong>Security behaviour is tested as behaviour, not implementation</strong> — e.g. we assert that unknown-email and wrong-password logins return byte-identical errors, not that some flag was set.</li>
+<li><strong>Tests must clean up after themselves</strong> via user-cascade deletion, so the shared database stays usable.</li>
+<li><strong>Regression rule:</strong> any bug found (see below) gets a test that would have caught it before the fix is considered done.</li>
+<li><strong>Tests run before every merge to main</strong> — a red suite blocks the merge.</li>
+</ol>
+<hr />
+<h2 id="user-feedback-process">User Feedback Process</h2>
+<p>Automated testing checks what the code <em>does</em>; user feedback checks
+whether it <em>works for real users</em>. Our formal process:</p>
+<ol>
+<li><strong>Instrument:</strong> a standard <strong>SUS (System Usability Scale)</strong> questionnaire
+   — 10 fixed Likert items, scored 0–100 — so results are quantifiable and
+   comparable across rounds.</li>
+<li><strong>Scenario-based sessions:</strong> each tester gets the same set of task
+   scenarios (register → create project → add entry → mark done → view
+   stats/calendar → enable 2FA). We record pass/fail per task and where
+   testers hesitate.</li>
+<li><strong>Recruitment:</strong> 5–8 testers per round — classmates, other teams, and
+   our client.</li>
+<li><strong>Analysis &amp; integration:</strong> SUS scores and task failures are reviewed as
+   a team; each actionable finding becomes an issue on the tracker with an
+   assigned fix, and fixed items are reported back in the next round.</li>
+<li><strong>Records:</strong> each round is logged in <code>docs/user-feedback.md</code> with the
+   raw scores, findings, and the feedback → action → commit trail.</li>
+</ol>
+<p>The first formal round is scheduled for Sprint 2; results will be
+published on this site.</p>
+<hr />
+<h2 id="proof-of-passing-runs">Proof of Passing Runs</h2>
+<p><strong>Run date: 2026-09-14 · 78 / 78 tests passing · 3 / 3 test files passing</strong></p>
+<p>Captured verbatim from <code>npm run test --workspace=backend</code>:</p>
+<div class="highlight"><pre><span></span><code> ✓ src/__tests__/api.test.ts (27 tests) 29991ms
+     ✓ POST /api/projects creates a project 533ms
+     ✓ POST /api/projects rejects duplicate name → 409 1796ms
+     ✓ GET /api/projects/:id returns 404 for unknown id 512ms
+     ✓ PUT /api/projects/:id rejects rename to duplicate → 409 1796ms
+     ✓ PATCH /api/projects/:id/status toggles to ARCHIVED 519ms
+     ✓ POST /api/projects/:id/entry-fields creates a field 1535ms
+     ✓ POST /api/projects/:id/entries creates an entry with values 2829ms
+     ✓ PUT /api/entries/:id updates duration and values 2817ms
+     ✓ GET /api/projects/:id/time-summary reflects entries 516ms
+     ✓ DELETE /api/entries/:id deletes the entry 517ms
+     ✓ deletes test project and cascades all related data 1304ms
+     ... (27/27 ✓)
+
+ ✓ src/__tests__/auth.test.ts (29 tests) 15893ms
+     ✓ POST /auth/register creates a user → 201 879ms
+     ✓ POST /auth/register rejects duplicate email → 409
+     ✓ POST /auth/register rejects a weak password → 400
+     ✓ POST /auth/login returns a JWT for valid credentials 335ms
+     ✓ POST /auth/login rejects a wrong password → 401 339ms
+     ✓ POST /auth/login rejects an unknown email → 401 (same message)
+     ✓ POST /auth/login blocks unverified accounts → 403 638ms
+     ✓ POST /2fa/setup returns a secret and QR code 539ms
+     ✓ POST /2fa/verify-setup rejects an incorrect code → 400
+     ✓ POST /2fa/verify-setup accepts a valid code and enables 2FA 516ms
+     ✓ login with 2FA enabled returns requiresTwoFactor and no token 348ms
+     ✓ POST /login/2fa rejects an invalid code → 401
+     ✓ POST /login/2fa accepts a valid code and issues a JWT
+     ✓ POST /2fa/disable rejects a wrong password → 401 329ms
+     ✓ POST /2fa/disable with correct password disables 2FA 581ms
+     ✓ login works normally again after 2FA is disabled 331ms
+     ✓ POST /forgot-password returns the same message for real emails 1232ms
+     ✓ resets the password end-to-end with a valid token 3238ms
+     ✓ DELETE /auth/account rejects a wrong password → 401 324ms
+     ✓ DELETE /auth/account with correct password erases the account 839ms
+     ... (29/29 ✓)
+
+ ✓ src/__tests__/sprint2.test.ts (22 tests) 33061ms
+     ✓ creates an entry with default OPEN status 2555ms
+     ✓ PATCH /entries/:id/status marks entry DONE and sets completedAt 1788ms
+     ✓ PATCH /entries/:id/status back to OPEN clears completedAt 1774ms
+     ✓ PATCH /entries/:id/status returns 404 for unknown id 767ms
+     ✓ GET entries supports ?status= filter (open work view) 3302ms
+     ✓ GET entries supports ?dueBefore= filter (overdue buckets) 3579ms
+     ✓ sums a NUMBER field across entries 513ms
+     ✓ averages a NUMBER field 515ms
+     ✓ counts entries with a TEXT metric field 525ms
+     ✓ groups a NUMBER metric by a TEXT field 761ms
+     ✓ returns 404 for an unknown group-by field 508ms
+     ✓ buckets entry counts by day using a DATE field 509ms
+     ✓ supports month bucketing 509ms
+     ... (22/22 ✓)
+
+ Test Files  3 passed (3)
+      Tests  78 passed (78)
+   Duration  34.17s
+</code></pre></div>
+<p>Full per-test timings are reproducible by running the suite; the summary
+above is the actual output of the run (abridged only to fit the page —
+every listed test shows <code>✓</code>).</p>
+<hr />
+<h2 id="bugs-found-by-testing">Bugs Found By Testing</h2>
+<p>Writing these tests surfaced two real issues — this is the regression rule
+in action:</p>
+<ol>
+<li>
+<p><strong>Stale Prisma client broke every entry-creation test (11 pre-existing
+   failures).</strong> The generated client predated the Sprint 2 schema, so any
+   query touching <code>entry_fields.archived_at</code> threw
+   <code>PrismaClientValidationError: Unknown argument archivedAt</code>. Fix: run
+   <code>npx prisma generate</code> after pulling schema changes. <em>Lesson:
+   <code>prisma generate</code> belongs in postinstall/CI.</em></p>
+</li>
+<li>
+<p><strong>Concurrent entry-field creation can race on format versioning.</strong>
+   Each field create does read-latest-version → insert latest+1. Two
+   parallel creates both read version <em>N</em> and both try to insert <em>N+1</em>;
+   the unique <code>(project_id, version)</code> constraint rejects one, so one field
+   creation fails with 400. Tests create fields sequentially (matching
+   real UI usage). <em>Fix candidate: wrap version bump in a transaction
+   with a retry, or use <code>MAX(version)+1</code> inside a serializable
+   transaction.</em> Both are filed on the issue tracker.</p>
+</li>
+</ol>
+<hr />
+<h2 id="future-work">Future Work</h2>
+<ul>
+<li><strong>CI gate:</strong> run the suite automatically in the Gitea workflow on every push to a PR branch (currently the workflow only builds).</li>
+<li><strong>UI tests:</strong> add Vitest Browser Mode / Playwright component tests for the frontend (saved filters, entry form stopwatch, offline queue).</li>
+<li><strong>Test isolation:</strong> move to a per-run schema or transaction-rollback strategy so suites can't observe each other's data at all.</li>
+<li><strong>Rate-limiting tests</strong> once auth rate limiting is implemented.</li>
+</ul>
+<hr />
+<p><em>Related: <a href="../third-party/">Third-Party Code</a> documents the testing
+libraries and their licences, and <a href="../design/database-erd/">Database Design</a>
+describes the schema the integration tests run against.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "search.suggest", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
