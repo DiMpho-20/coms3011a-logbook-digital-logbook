@@ -44,6 +44,8 @@ The form is structured in four sections:
 4. **Open Feedback** — most frustrating part (required), favourite feature, one-thing-to-change, and an NPS-style 0–10 recommend-likelihood scale.
 
 A screenshot of the published form is captured after each round.
+The raw response data for each round is stored as a CSV file in this
+repository (e.g. `docs/user-feedback-round1.csv`).
 
 ---
 
