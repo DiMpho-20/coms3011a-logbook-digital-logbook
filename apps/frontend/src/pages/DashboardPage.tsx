@@ -21,6 +21,7 @@ import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import DeadlineReminders from "../components/DeadlineReminders";
 import LoadingState from "../components/LoadingState";
+import TagList from "../components/TagList";
 
 // ── SVG Sparkline ────────────────────────────────────────────────────────
 function ActivityChart({ data }: { data: { label: string; value: number }[] }) {
@@ -230,6 +231,7 @@ export default function DashboardPage() {
       .map((p) => ({
         id: p.id,
         name: p.name,
+        tags: p.tags,
         minutes: timeMap[p.id] || 0,
       }))
       .sort((a, b) => b.minutes - a.minutes);
@@ -248,6 +250,16 @@ export default function DashboardPage() {
     });
     return map;
   }, [projects]);
+
+  // Tag usage across every project and entry, most-used first.
+  const tagStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+    projects.forEach((p) => (p.tags || []).forEach((t) => { counts[t] = (counts[t] || 0) + 1; }));
+    allEntries.forEach((e) => (e.tags || []).forEach((t) => { counts[t] = (counts[t] || 0) + 1; }));
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [projects, allEntries]);
 
   if (loading) return <LoadingState message="Loading dashboard..." />;
 
@@ -320,6 +332,7 @@ export default function DashboardPage() {
                       <p className="text-sm font-medium text-slate-800 truncate group-hover:text-blue-600 transition">
                         {p.name}
                       </p>
+                      <TagList tags={p.tags} className="mt-1" />
                     </div>
                     <span className="text-xs font-medium text-slate-500 shrink-0">
                       {formatDuration(p.minutes)}
@@ -332,7 +345,41 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── 4. Recent Entries ───────────────────────────────────────────── */}
+      {/* ── 4. Tags ──────────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-lg border border-slate-200">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">Tags</h2>
+          <button
+            onClick={() => navigate("/entries")}
+            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+          >
+            Browse entries
+          </button>
+        </div>
+        <div className="p-4">
+          {tagStats.length === 0 ? (
+            <p className="text-sm text-slate-400">
+              No tags yet. Add a tag to a project or entry to see it here.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {tagStats.map((t) => (
+                <span
+                  key={t.name}
+                  className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100"
+                >
+                  {t.name}
+                  <span className="px-1.5 py-0.5 rounded-full bg-white/70 text-[10px] font-semibold text-blue-600">
+                    {t.count}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── 5. Recent Entries ───────────────────────────────────────────── */}
       <div className="bg-white rounded-lg border border-slate-200">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">Recent Entries</h2>
@@ -352,20 +399,23 @@ export default function DashboardPage() {
             {recentEntries.map((entry) => (
               <div
                 key={entry.id}
-                className="flex items-center gap-4 px-4 py-3 hover:bg-slate-50/50 transition"
+                className="px-4 py-3 hover:bg-slate-50/50 transition"
               >
-                <span className="text-[11px] font-medium text-slate-400 w-16 shrink-0">
-                  {relativeDay(entry.entryDate || entry.createdAt)}
-                </span>
-                <span className="text-sm text-slate-800 flex-1 min-w-0 truncate">
-                  {entrySummary(entry, fieldsByProject[entry.projectId] || [])}
-                </span>
-                <span className="text-xs font-medium text-slate-600 shrink-0 w-16 text-right">
-                  {formatDuration(entry.durationMinutes)}
-                </span>
-                <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 shrink-0">
-                  {projectNames[entry.projectId] || "Unknown"}
-                </span>
+                <div className="flex items-center gap-4">
+                  <span className="text-[11px] font-medium text-slate-400 w-16 shrink-0">
+                    {relativeDay(entry.entryDate || entry.createdAt)}
+                  </span>
+                  <span className="text-sm text-slate-800 flex-1 min-w-0 truncate">
+                    {entrySummary(entry, fieldsByProject[entry.projectId] || [])}
+                  </span>
+                  <span className="text-xs font-medium text-slate-600 shrink-0 w-16 text-right">
+                    {formatDuration(entry.durationMinutes)}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 shrink-0">
+                    {projectNames[entry.projectId] || "Unknown"}
+                  </span>
+                </div>
+                <TagList tags={entry.tags} className="mt-1.5 ml-[72px]" />
               </div>
             ))}
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -37,7 +37,7 @@ import Stopwatch from "../components/Stopwatch";
 import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 import TagList from "../components/TagList";
-import TagInput from "../components/TagInput";
+import TagInput, { type TagInputHandle } from "../components/TagInput";
 
 function relativeDay(dateStr: string): string {
   const date = new Date(dateStr);
@@ -81,6 +81,7 @@ export default function ProjectDetailPage() {
   const [entryDueDate, setEntryDueDate] = useState("");
   const [entryValues, setEntryValues] = useState<Record<string, EntryFieldValue>>({});
   const [entryTags, setEntryTags] = useState<string[]>([]);
+  const entryTagInputRef = useRef<TagInputHandle>(null);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [entryError, setEntryError] = useState<string | null>(null);
   const [entrySubmitting, setEntrySubmitting] = useState(false);
@@ -196,6 +197,10 @@ export default function ProjectDetailPage() {
     setEntryError(null);
     setEntrySubmitting(true);
     try {
+      // Read the tags input directly rather than the `entryTags` state:
+      // clicking Save blurs the tags input in the same tick, and that
+      // blur's commit hasn't reached `entryTags` yet when this runs.
+      const finalTags = entryTagInputRef.current?.getValue() ?? entryTags;
       const entryData: {
         durationMinutes: number;
         values: Record<string, EntryFieldValue>;
@@ -205,7 +210,7 @@ export default function ProjectDetailPage() {
       } = {
         durationMinutes: minutes,
         values: mergedValues,
-        tags: entryTags,
+        tags: finalTags,
       };
       if (entryDueDate) entryData.dueDate = entryDueDate;
       if (entryDate && entryDate !== todayISO()) entryData.entryDate = entryDate;
@@ -536,7 +541,7 @@ export default function ProjectDetailPage() {
           {/* Tags */}
           <div>
             <label className="block text-[11px] font-medium text-slate-500 mb-1">Tags</label>
-            <TagInput value={entryTags} onChange={setEntryTags} suggestions={tagSuggestions} placeholder="e.g. urgent, research" />
+            <TagInput ref={entryTagInputRef} value={entryTags} onChange={setEntryTags} suggestions={tagSuggestions} placeholder="e.g. urgent, research" />
           </div>
 
           {/* Due date */}
