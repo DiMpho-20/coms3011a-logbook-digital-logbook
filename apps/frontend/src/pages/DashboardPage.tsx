@@ -11,7 +11,7 @@ import {
 import {
   fetchProjects,
   fetchEntryFields,
-  fetchEntries,
+  fetchAllEntries,
   type Project,
   type Entry,
   type EntryField,
@@ -147,6 +147,7 @@ export default function DashboardPage() {
   // holding the whole page on a spinner.
   const [entriesLoading, setEntriesLoading] = useState(true);
   const [loadFailures, setLoadFailures] = useState(0);
+  const [truncated, setTruncated] = useState(false);
   const [displayName] = useState(
     () => (typeof window !== "undefined" ? localStorage.getItem("logbook-name") : null) || "Student"
   );
@@ -156,40 +157,42 @@ export default function DashboardPage() {
     (async () => {
       try {
         const data = await fetchProjects();
-        const active = data.filter((p) => p.status === "ACTIVE");
         if (cancelled) return;
         setProjects(data);
         // The greeting, the project list and the active-project count only
         // need this much. Release the page here.
         setLoading(false);
 
-        // Accumulate locally so a re-run of this effect can never append to
-        // a previous run's results.
-        const fMap: Record<string, EntryField[]> = {};
-        const combined: Entry[] = [];
-
-        const settled = await Promise.allSettled(
-          active.map(async (p) => {
-            const [fields, entries] = await Promise.all([
-              fetchEntryFields(p.id),
-              fetchEntries(p.id),
-            ]);
-            if (cancelled) return;
-            // Publish each project as it lands so the list fills in
-            // progressively instead of all at once at the end.
-            fMap[p.id] = fields;
-            combined.push(...entries);
-            setFieldsByProject({ ...fMap });
-            setAllEntries([...combined]);
-          })
+        // One request for every active project's entries, rather than two
+        // per project. 500 is the endpoint's cap.
+        const listing = await fetchAllEntries(
+          { projectStatus: "ACTIVE", limit: 500 },
+          { pendingProjectIds: data.filter((p) => p.status === "ACTIVE").map((p) => p.id) }
         );
-
         if (cancelled) return;
-        // allSettled, not all: one unreachable project used to reject the
-        // whole batch and leave the dashboard empty.
-        const failed = settled.filter((r) => r.status === "rejected");
-        failed.forEach((r) => console.error("Failed to load a project:", (r as PromiseRejectedResult).reason));
-        setLoadFailures(failed.length);
+        setAllEntries(listing.entries);
+        setFieldsByProject(listing.fieldsByProject);
+        setTruncated(listing.truncated);
+
+        // Most entries carry their own format snapshot, which is all
+        // EntryCard needs. Only projects with an entry that has none —
+        // legacy entries, and anything still queued offline — need the
+        // live field list as a fallback, so only those are fetched.
+        if (listing.projectsNeedingFields.length > 0) {
+          const settled = await Promise.allSettled(
+            listing.projectsNeedingFields.map(async (id) => ({ id, fields: await fetchEntryFields(id) }))
+          );
+          if (cancelled) return;
+          const extra: Record<string, EntryField[]> = {};
+          settled.forEach((r) => {
+            if (r.status === "fulfilled") extra[r.value.id] = r.value.fields;
+          });
+          const failed = settled.filter((r) => r.status === "rejected");
+          failed.forEach((r) => console.error("Failed to load a project's fields:", (r as PromiseRejectedResult).reason));
+          setLoadFailures(failed.length);
+          // Live fields beat an older snapshot for the fallback case.
+          setFieldsByProject((prev) => ({ ...prev, ...extra }));
+        }
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
       } finally {
@@ -316,11 +319,17 @@ export default function DashboardPage() {
         <DeadlineReminders entries={allEntries} projectNames={projectNames} />
       )}
 
+      {truncated && (
+        <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Showing your most recent 500 entries. The totals above cover those, not your whole logbook.
+        </p>
+      )}
+
       {loadFailures > 0 && (
         <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
           {loadFailures === 1
-            ? "One project's entries couldn't be loaded, so the totals above are incomplete."
-            : `${loadFailures} projects' entries couldn't be loaded, so the totals above are incomplete.`}
+            ? "One project's field list couldn't be loaded, so some older entries may show fewer details."
+            : `${loadFailures} projects' field lists couldn't be loaded, so some older entries may show fewer details.`}
         </p>
       )}
 

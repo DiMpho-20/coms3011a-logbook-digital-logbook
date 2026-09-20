@@ -4,7 +4,7 @@ import { Search, Flame, ListChecks, Clock, CalendarDays, FolderKanban, AlertTria
 import {
   fetchProjects,
   fetchEntryFields,
-  fetchEntries,
+  fetchAllEntries,
   fetchTags,
   type Project,
   type EntryField,
@@ -39,6 +39,7 @@ export default function EntriesPage() {
   // them, so they render first and the list fills in.
   const [entriesLoading, setEntriesLoading] = useState(true);
   const [loadFailures, setLoadFailures] = useState(0);
+  const [truncated, setTruncated] = useState(false);
 
   // Browse state
   const [filterProjectId, setFilterProjectId] = useState("all");
@@ -69,30 +70,35 @@ export default function EntriesPage() {
       // Header, stat shells and the filter bar need nothing more.
       setLoading(false);
 
-      // Accumulate locally so a re-run can never append to a previous run.
-      const fMap: Record<string, EntryField[]> = {};
-      const combined: Entry[] = [];
-
-      const settled = await Promise.allSettled(
-        active.map(async (p) => {
-          const [fields, entries] = await Promise.all([
-            fetchEntryFields(p.id),
-            fetchEntries(p.id),
-          ]);
-          if (run !== loadRunRef.current) return;
-          fMap[p.id] = fields;
-          combined.push(...entries);
-          setFieldsByProject({ ...fMap });
-          setAllEntries([...combined]);
-        })
+      // One request across every active project, rather than two per
+      // project. 500 is the endpoint's cap.
+      const listing = await fetchAllEntries(
+        { projectStatus: "ACTIVE", limit: 500 },
+        { pendingProjectIds: active.map((p) => p.id) }
       );
-
       if (run !== loadRunRef.current) return;
-      // allSettled, not all: one unreachable project used to reject the
-      // whole batch and leave the page with no entries at all.
-      const failed = settled.filter((r) => r.status === "rejected");
-      failed.forEach((r) => console.error("Failed to load a project:", (r as PromiseRejectedResult).reason));
-      setLoadFailures(failed.length);
+      setAllEntries(listing.entries);
+      setFieldsByProject(listing.fieldsByProject);
+      setTruncated(listing.truncated);
+
+      // Entries carry their own format snapshot, which is what the card
+      // renders from. Only projects holding an entry without one — legacy
+      // entries, and anything still queued offline — need the live field
+      // list as a fallback.
+      if (listing.projectsNeedingFields.length > 0) {
+        const settled = await Promise.allSettled(
+          listing.projectsNeedingFields.map(async (id) => ({ id, fields: await fetchEntryFields(id) }))
+        );
+        if (run !== loadRunRef.current) return;
+        const extra: Record<string, EntryField[]> = {};
+        settled.forEach((r) => {
+          if (r.status === "fulfilled") extra[r.value.id] = r.value.fields;
+        });
+        const failed = settled.filter((r) => r.status === "rejected");
+        failed.forEach((r) => console.error("Failed to load a project's fields:", (r as PromiseRejectedResult).reason));
+        setLoadFailures(failed.length);
+        setFieldsByProject((prev) => ({ ...prev, ...extra }));
+      }
     } catch (err) {
       console.error("Failed to load entries:", err);
     } finally {
@@ -246,11 +252,17 @@ export default function EntriesPage() {
         <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdueCount} color="red" loading={entriesLoading} />
       </div>
 
+      {truncated && (
+        <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Showing your most recent 500 entries. Older ones are not in this list or the figures above.
+        </p>
+      )}
+
       {loadFailures > 0 && (
         <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
           {loadFailures === 1
-            ? "One project's entries couldn't be loaded, so this list is incomplete."
-            : `${loadFailures} projects' entries couldn't be loaded, so this list is incomplete.`}
+            ? "One project's field list couldn't be loaded, so some older entries may show fewer details."
+            : `${loadFailures} projects' field lists couldn't be loaded, so some older entries may show fewer details.`}
         </p>
       )}
 
