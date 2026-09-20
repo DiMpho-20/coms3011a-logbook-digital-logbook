@@ -1,7 +1,7 @@
 # BUG-014: List Views Fan Out One Request Per Project and Block on All of Them
 
 **Severity:** Medium (Performance)
-**Status:** Open
+**Status:** Fixed
 **Component:** Frontend — `apps/frontend/src/pages/ProjectsPage.tsx`, `DashboardPage.tsx`, `EntriesPage.tsx`
 **Labels:** bug, performance, frontend
 
@@ -46,3 +46,23 @@ An earlier draft of the audit claimed the app issues *duplicated* requests (`/ap
 ## Related
 - Client feedback, 2026-09-18: "the app is slow"
 - Recorded in `docs/feature-audit-2026-09.md` §6
+
+## Resolution
+Fixed in two steps. First, progressive rendering (commits `624e1de`,
+`b11c254`): the Projects, Dashboard and Entries pages now render as soon as
+the project list returns, with per-project summaries and entries filling in
+independently, so the slowest secondary request no longer gates the page.
+
+Second, the fan-out was removed (commits `1f1261e`, `4a6b473`): a new
+user-scoped `GET /api/entries` endpoint returns the caller's entries in one
+request with format snapshots deduplicated on the wire, and Dashboard and
+Entries now load from it instead of issuing two requests per project. Field
+definitions are fetched only for projects whose entries lack a format
+snapshot. The endpoint caps at 500 rows, and both pages disclose a
+truncated response rather than presenting a partial total as a complete one.
+
+Verified by the frontend build, lint, the 65-test frontend suite, and a live
+check that the endpoint is mounted and returns 401 to unauthenticated calls.
+Weekly figures now count backdated entries in the week they visibly sit in;
+see the body of `4a6b473`.
+

@@ -1,7 +1,7 @@
 # FEAT-007: Rate Limiting on Auth Endpoints
 
 **Priority:** High
-**Status:** Open
+**Status:** Duplicate (tracked in BUG-003)
 **Component:** Backend — `apps/backend/src/app.ts`
 **Labels:** feature, security
 
@@ -38,3 +38,8 @@ const loginLimiter = rateLimit({
 ## Related
 - BUG-003: No rate limiting on auth endpoints
 - `apps/backend/AUTHENTICATION.md` — documented as a known limitation
+
+## Resolution
+Closed as a duplicate of BUG-003, which tracks the same rate-limiting work
+against the same endpoints. Progress on the acceptance criteria above happens
+under BUG-003.

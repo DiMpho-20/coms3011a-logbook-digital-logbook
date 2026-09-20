@@ -19,20 +19,20 @@ This directory contains all known bugs and feature requests for the Digital Logb
 | BUG-011 | [No Ownership Checks on the Entry and Statistics APIs](BUG-011-missing-ownership-checks.md) | High | Fixed |
 | BUG-012 | [Blank Numeric Field Breaks Every Aggregation](BUG-012-blank-numeric-breaks-stats.md) | High | Open |
 | BUG-013 | [Duplicate React Keys in the Project Field Editor](BUG-013-duplicate-react-keys-field-editor.md) | Medium | Open |
-| BUG-014 | [List Views Fan Out One Request Per Project](BUG-014-n-plus-one-list-views.md) | Medium | Open |
+| BUG-014 | [List Views Fan Out One Request Per Project](BUG-014-n-plus-one-list-views.md) | Medium | Fixed |
 | BUG-015 | [No Delete-Project Endpoint](BUG-015-no-delete-project-endpoint.md) | Low | Open |
 
 ## Feature Requests (8)
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
-| FEAT-001 | [Google Calendar API Integration](FEAT-001-google-calendar-integration.md) | Medium | Planned |
+| FEAT-001 | [Google Calendar API Integration](FEAT-001-google-calendar-integration.md) | Medium | Partial |
 | FEAT-002 | [Entry-Field Help Text](FEAT-002-entry-field-help-text.md) | High | Open |
 | FEAT-003 | [View Discoverability](FEAT-003-view-discoverability.md) | Medium | Open |
 | FEAT-004 | [API Pagination](FEAT-004-api-pagination.md) | Medium | Open |
 | FEAT-005 | [Advanced Notifications](FEAT-005-advanced-notifications.md) | Low | Planned |
 | FEAT-006 | [Accessibility (WCAG)](FEAT-006-accessibility-wcag.md) | Medium | Open |
-| FEAT-007 | [Rate Limiting](FEAT-007-rate-limiting.md) | High | Open |
+| FEAT-007 | [Rate Limiting](FEAT-007-rate-limiting.md) | High | Duplicate (BUG-003) |
 | FEAT-008 | [Responsive Design Testing](FEAT-008-responsive-design.md) | Low | Open |
 
 ## Sources
