@@ -97,13 +97,20 @@ describe("BUG-012: a blank numeric field is not stored", () => {
   });
 
   it("still refuses to leave a required field empty", async () => {
+    // Runs on its own project: a required field left behind on the shared
+    // one would reject every later entry that omits it, silently starving
+    // the aggregation cases below of the rows they intend to create.
+    const scratch = await request(app)
+      .post("/api/projects")
+      .set(H)
+      .send({ name: `__blank_required_${ts}` });
     const required = await request(app)
-      .post(`/api/projects/${projectId}/entry-fields`)
+      .post(`/api/projects/${scratch.body.id}/entry-fields`)
       .set(H)
       .send({ name: "Summary", type: "TEXT", required: true });
 
     const res = await request(app)
-      .post(`/api/projects/${projectId}/entries`)
+      .post(`/api/projects/${scratch.body.id}/entries`)
       .set(H)
       .send({ durationMinutes: 1, values: { [required.body.id]: "" } });
 
@@ -147,7 +154,7 @@ describe("BUG-012: aggregations survive a non-numeric row", () => {
       .send({ metricFieldId: hoursFieldId, operation: "sum" });
 
     expect(sum.status).toBe(200);
-    expect(sum.body.groups[0].value).toBe(11); // 7 was cleared; 4 remains, plus nothing
+    expect(sum.body.groups[0].value).toBe(4); // the "7" was cleared; the "4" remains, and nothing from the empty row
 
     const counted = await request(app)
       .post(`/api/projects/${projectId}/stats/group`)
