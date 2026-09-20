@@ -16,7 +16,7 @@ import {
   type Entry,
   type EntryField,
 } from "../api";
-import { formatDuration, getGreeting } from "../lib/utils";
+import { formatDuration, getGreeting, localDateKey, entryDateKey } from "../lib/utils";
 import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import DeadlineReminders from "../components/DeadlineReminders";
@@ -208,12 +208,12 @@ export default function DashboardPage() {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = localDateKey(d);
       const label = d.toLocaleDateString(undefined, { weekday: "short" });
       days.push({ label, dateKey: key, value: 0 });
     }
     allEntries.forEach((e) => {
-      const key = (e.entryDate || e.createdAt).slice(0, 10);
+      const key = entryDateKey(e);
       const day = days.find((d) => d.dateKey === key);
       if (day) day.value += e.durationMinutes || 0;
     });

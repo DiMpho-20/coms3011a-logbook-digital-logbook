@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { api } from "../api/client";
 import Modal from "../components/Modal";
+import { entryDateKey } from "../lib/utils";
 
 type Entry = {
   id: string;
@@ -72,7 +73,7 @@ export default function CalendarPage() {
   const entriesByDate = useMemo(() => {
     const map: Record<string, Entry[]> = {};
     for (const e of entries) {
-      const key = (e.entryDate ?? e.createdAt).slice(0, 10);
+      const key = entryDateKey(e);
       if (!map[key]) map[key] = [];
       map[key].push(e);
     }

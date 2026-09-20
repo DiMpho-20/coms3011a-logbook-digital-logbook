@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Kanban, Loader2 } from "lucide-react";
 import { api } from "../api/client";
+import { entryDateKey } from "../lib/utils";
 
 type Entry = {
   id: string;
@@ -44,7 +45,7 @@ export default function BoardPage() {
     if (!selectedProjectId) return;
     setLoading(true);
     Promise.all([
-      api.get(`/projects/${selectedProjectId}/fields`),
+      api.get(`/projects/${selectedProjectId}/entry-fields`),
       api.get(`/projects/${selectedProjectId}/entries`),
     ])
       .then(([fieldsRes, entriesRes]) => {
@@ -139,7 +140,7 @@ export default function BoardPage() {
                       {e.durationMinutes} min
                     </p>
                     <p className="text-[10px] text-slate-500 mt-0.5">
-                      {(e.entryDate ?? e.createdAt).slice(0, 10)}
+                      {entryDateKey(e)}
                     </p>
                   </Link>
                 ))}

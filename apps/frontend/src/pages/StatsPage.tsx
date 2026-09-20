@@ -39,13 +39,13 @@ export default function StatsPage() {
 
   useEffect(() => {
     if (!selectedProjectId) return;
-    api.get(`/projects/${selectedProjectId}/fields`).then((res) => {
+    api.get(`/projects/${selectedProjectId}/entry-fields`).then((res) => {
       setFields(res.data);
       setMetricFieldId("");
       setGroupByFieldId("");
       setResult(null);
       setTimeline(null);
-    });
+    }).catch(() => setFields([]));
   }, [selectedProjectId]);
 
   const numericFields = useMemo(() => fields.filter((f) => f.type === "NUMBER"), [fields]);

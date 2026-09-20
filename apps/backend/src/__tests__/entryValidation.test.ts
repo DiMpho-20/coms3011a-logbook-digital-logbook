@@ -120,7 +120,7 @@ describe("Server-side entry value validation", () => {
 });
 
 describe("Format migration: adding a field backfills existing entries", () => {
-  it("gives existing entries a default value for a newly added NUMBER field, and includes them in stats", async () => {
+  it("leaves an existing entry without a newly added NUMBER field, rather than fabricating a value", async () => {
     const projectId = await createProject(`__migrate_number_${ts}`);
 
     const entryRes = await request(app)
@@ -133,29 +133,51 @@ describe("Format migration: adding a field backfills existing entries", () => {
 
     const getRes = await request(app).get(`/api/projects/${projectId}/entries`).set(H);
     const entry = getRes.body.find((e: any) => e.id === entryId);
-    expect(entry.values[hoursId]).toBe(0);
+    // No fabricated "0" — the field genuinely doesn't exist for this entry
+    // until someone edits it in.
+    expect(entry.values[hoursId]).toBeUndefined();
+  }, 30_000);
 
-    // A second, later entry with a real value.
+  it("does not let a pre-existing entry dilute the average or corrupt the min of a newly added field", async () => {
+    const projectId = await createProject(`__migrate_avg_${ts}`);
+
+    // This entry predates "Hours" and never recorded any.
     await request(app)
       .post(`/api/projects/${projectId}/entries`)
       .set(H)
-      .send({ durationMinutes: 30, values: { [hoursId]: 5 } });
+      .send({ durationMinutes: 30, values: {} });
+
+    const hoursId = await createField(projectId, { name: "Hours", type: "NUMBER" });
+
+    // Only entries logged after the field existed have real values.
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 30, values: { [hoursId]: 10 } });
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 30, values: { [hoursId]: 20 } });
+
+    const avgRes = await request(app)
+      .post(`/api/projects/${projectId}/stats/group`)
+      .set(H)
+      .send({ metricFieldId: hoursId, operation: "avg" });
+    // A fabricated 0 for the pre-existing entry would make this (0+10+20)/3 = 10.
+    expect(avgRes.body.groups[0].value).toBe(15);
+
+    const minRes = await request(app)
+      .post(`/api/projects/${projectId}/stats/group`)
+      .set(H)
+      .send({ metricFieldId: hoursId, operation: "min" });
+    // A fabricated 0 would report a minimum nobody actually logged.
+    expect(minRes.body.groups[0].value).toBe(10);
 
     const countRes = await request(app)
       .post(`/api/projects/${projectId}/stats/group`)
       .set(H)
       .send({ metricFieldId: hoursId, operation: "count" });
-
-    // The stats query inner-joins on entry_values for this field, so without
-    // the backfill the pre-existing entry (no row for `hoursId`) would be
-    // silently dropped from the count entirely — this would read 1, not 2.
     expect(countRes.body.groups[0].value).toBe(2);
-
-    const sumRes = await request(app)
-      .post(`/api/projects/${projectId}/stats/group`)
-      .set(H)
-      .send({ metricFieldId: hoursId, operation: "sum" });
-    expect(sumRes.body.groups[0].value).toBe(5);
   }, 30_000);
 
   it("computes a value from existing numbers for a newly added COMPUTED field", async () => {
