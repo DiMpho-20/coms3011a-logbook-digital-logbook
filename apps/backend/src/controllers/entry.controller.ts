@@ -8,6 +8,23 @@ import { calculateComputedValues } from "../utils/computedFields.js";
 import { cleanTagNames, resolveTagIds } from "../utils/tags.js";
 import { validateEntryValues, findMissingRequiredField } from "../utils/entryValues.js";
 
+/**
+ * Resolve a project the caller actually owns. requireAuth proves the caller
+ * holds a valid token; it says nothing about whose project this is, so every
+ * handler below must ask separately.
+ *
+ * Returns 404 rather than 403 for someone else's project, matching
+ * project.controller.ts and declining to confirm that the id exists.
+ */
+async function ownedProject(projectId: string, userId: string) {
+  return prisma.project.findFirst({ where: { id: projectId, userId } });
+}
+
+/** Resolve an entry the caller owns, reached through the owning project. */
+async function ownedEntry(entryId: string, userId: string) {
+  return prisma.logbookEntry.findFirst({ where: { id: entryId, project: { userId } } });
+}
+
 const ENTRY_INCLUDE = {
   values: { include: { field: true } },
   formatVersion: true,
@@ -73,9 +90,12 @@ function formatEntry(entry: {
 
 // ── GET /projects/:projectId/entries ─────────────────────────────────────
 
-export const getEntries = async (req: Request, res: Response) => {
+export const getEntries = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const projectId = String(req.params.projectId);
+    if (!(await ownedProject(projectId, req.userId!))) {
+      return res.status(404).json({ error: "Project not found" });
+    }
     const { status, dueBefore } = req.query;
 
     const where: any = { projectId };
@@ -95,13 +115,17 @@ export const getEntries = async (req: Request, res: Response) => {
   }
 };
 
-export const updateEntryStatus = async (req: Request, res: Response) => {
+export const updateEntryStatus = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const id = String(req.params.id);
     const { status } = req.body;
 
     if (status !== "OPEN" && status !== "DONE") {
       return res.status(400).json({ error: "status must be OPEN or DONE" });
+    }
+
+    if (!(await ownedEntry(id, req.userId!))) {
+      return res.status(404).json({ error: "Entry not found" });
     }
 
     const entry = await prisma.logbookEntry.update({
@@ -125,12 +149,12 @@ export const updateEntryStatus = async (req: Request, res: Response) => {
 
 // ── POST /projects/:projectId/entries ────────────────────────────────────
 
-export const createEntry = async (req: Request, res: Response) => {
+export const createEntry = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const projectId = String(req.params.projectId);
     const validated = createEntrySchema.parse(req.body);
 
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    const project = await ownedProject(projectId, req.userId!);
     if (!project) {
       return res.status(404).json({ error: "Project not found" });
     }
@@ -176,13 +200,13 @@ export const createEntry = async (req: Request, res: Response) => {
 
 // ── PUT /entries/:id ─────────────────────────────────────────────────────
 
-export const updateEntry = async (req: Request, res: Response) => {
+export const updateEntry = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const id = String(req.params.id);
     const validated = updateEntrySchema.parse(req.body);
 
-    const existing = await prisma.logbookEntry.findUnique({
-      where: { id },
+    const existing = await prisma.logbookEntry.findFirst({
+      where: { id, project: { userId: req.userId! } },
       include: { project: { select: { userId: true } } },
     });
     if (!existing) {
@@ -262,11 +286,11 @@ export const updateEntry = async (req: Request, res: Response) => {
 
 // ── DELETE /entries/:id ──────────────────────────────────────────────────
 
-export const deleteEntry = async (req: Request, res: Response) => {
+export const deleteEntry = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const id = String(req.params.id);
 
-    const existing = await prisma.logbookEntry.findUnique({ where: { id } });
+    const existing = await ownedEntry(id, req.userId!);
     if (!existing) {
       return res.status(404).json({ error: "Entry not found" });
     }

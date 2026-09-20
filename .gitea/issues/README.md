@@ -16,7 +16,7 @@ This directory contains all known bugs and feature requests for the Digital Logb
 | BUG-008 | [Stale Prisma Client Breaks Tests](BUG-008-stale-prisma-client.md) | Medium | Fixed |
 | BUG-009 | [Dashboard "New Entry" Button](BUG-009-dashboard-new-entry-button.md) | Medium | Fixed |
 | BUG-010 | [Session Token Expiry Redirect](BUG-010-session-expiry-redirect.md) | Medium | Fixed |
-| BUG-011 | [No Ownership Checks on the Entry and Statistics APIs](BUG-011-missing-ownership-checks.md) | High | Open |
+| BUG-011 | [No Ownership Checks on the Entry and Statistics APIs](BUG-011-missing-ownership-checks.md) | High | Fixed |
 | BUG-012 | [Blank Numeric Field Breaks Every Aggregation](BUG-012-blank-numeric-breaks-stats.md) | High | Open |
 | BUG-013 | [Duplicate React Keys in the Project Field Editor](BUG-013-duplicate-react-keys-field-editor.md) | Medium | Open |
 | BUG-014 | [List Views Fan Out One Request Per Project](BUG-014-n-plus-one-list-views.md) | Medium | Open |

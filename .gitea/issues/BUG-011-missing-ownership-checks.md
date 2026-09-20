@@ -1,7 +1,7 @@
 # BUG-011: No Ownership Checks on the Entry and Statistics APIs
 
 **Severity:** High (Security — broken access control)
-**Status:** Open
+**Status:** Fixed
 **Component:** Backend — `apps/backend/src/controllers/entry.controller.ts`, `apps/backend/src/controllers/stats.controller.ts`
 **Labels:** bug, security, api
 
@@ -59,3 +59,15 @@ Add a regression test per handler asserting that a second user receives 404.
 ## Related
 - Not detected by the original backlog scan: an absent check leaves no pattern to grep for and no comment to read
 - Recorded in `docs/feature-audit-2026-09.md` §3
+
+## Resolution
+Fixed. All five entry handlers and both statistics handlers are now typed
+`AuthenticatedRequest` and resolve through `ownedProject()` / `ownedEntry()`,
+which scope by `req.userId` and join entries through their owning project.
+Someone else's record returns 404 rather than 403, matching
+`project.controller.ts` and declining to confirm the id exists.
+
+Regression coverage is in `apps/backend/src/__tests__/entryOwnership.test.ts`:
+a second user is refused on all seven routes, and the tests assert the target
+entry is still present and unmodified afterwards, so a refused delete or edit
+cannot pass silently. A companion block asserts the owner is unaffected.

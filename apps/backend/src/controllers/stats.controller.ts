@@ -1,11 +1,23 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import prisma from "../prisma.js";
+import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
+
+/**
+ * These handlers aggregate an owner's data, so they must establish who the
+ * owner is. Typed as plain Request they could not read req.userId at all.
+ */
+async function ownedProject(projectId: string, userId: string) {
+  return prisma.project.findFirst({ where: { id: projectId, userId } });
+}
 
 // POST /projects/:projectId/stats/group
 // Body: { metricFieldId, operation, groupByFieldId? }
-export const groupStats = async (req: Request, res: Response) => {
+export const groupStats = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const projectId = String(req.params.projectId);
+    if (!(await ownedProject(projectId, req.userId!))) {
+      return res.status(404).json({ error: "Project not found" });
+    }
     const { metricFieldId, operation, groupByFieldId } = req.body;
 
     if (!metricFieldId || !operation) {
@@ -88,9 +100,12 @@ export const groupStats = async (req: Request, res: Response) => {
 // Body: { dateFieldId, bucket: "day" | "week" | "month", operation?: "count" | "sum", metricFieldId? }
 // Plots either how many entries fall in each bucket (default), or the total
 // of a NUMBER/COMPUTED field across the entries in each bucket.
-export const timelineStats = async (req: Request, res: Response) => {
+export const timelineStats = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const projectId = String(req.params.projectId);
+    if (!(await ownedProject(projectId, req.userId!))) {
+      return res.status(404).json({ error: "Project not found" });
+    }
     const { dateFieldId, bucket = "day", operation = "count", metricFieldId } = req.body;
 
     if (!dateFieldId) {
