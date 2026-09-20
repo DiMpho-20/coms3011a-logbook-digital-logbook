@@ -258,23 +258,12 @@ export default function DashboardPage() {
         title={`${getGreeting()}, ${displayName} \u{1F44B}`}
         subtitle="Here's what you've been working on."
         action={
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                const firstActive = projects.find((p) => p.status === "ACTIVE");
-                navigate(firstActive ? `/projects/${firstActive.id}` : "/projects");
-              }}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-            >
-              <Plus className="h-4 w-4" /> New Entry
-            </button>
-            <button
-              onClick={() => navigate("/projects")}
-              className="flex items-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition"
-            >
-              <Plus className="h-4 w-4" /> New Project
-            </button>
-          </div>
+          <button
+            onClick={() => navigate("/projects")}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+          >
+            <Plus className="h-4 w-4" /> New Project
+          </button>
         }
       />
 
