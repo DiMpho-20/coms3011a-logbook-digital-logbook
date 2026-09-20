@@ -28,5 +28,21 @@ export default defineConfig({
     setupFiles: ['./src/test-setup.ts'],
     css: false,
     include: ['src/**/__tests__/**/*.{test,spec}.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      // text for the CI log, lcov for the uploaded artifact.
+      reporter: ['text', 'lcov'],
+      reportsDirectory: 'coverage',
+      // Vitest 4 removed coverage.all, so the sources are named explicitly:
+      // without this an untested file is simply missing from the report
+      // rather than counted as 0%.
+      include: ['src/**'],
+      exclude: [
+        'src/**/__tests__/**',
+        'src/test-setup.ts',
+        'src/main.tsx',
+        'src/**/*.d.ts',
+      ],
+    },
   },
 })
