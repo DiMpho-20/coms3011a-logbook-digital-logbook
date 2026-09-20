@@ -8,7 +8,7 @@ This directory contains all known bugs and feature requests for the Digital Logb
 |---|---|---|---|
 | BUG-001 | [Concurrent Entry-Field Creation Race Condition](BUG-001-concurrent-entry-field-race.md) | High | Open |
 | BUG-002 | [Hardcoded JWT Secret Fallback](BUG-002-hardcoded-jwt-secret.md) | Critical | Fixed |
-| BUG-003 | [No Rate Limiting on Auth Endpoints](BUG-003-no-rate-limiting.md) | High | Open |
+| BUG-003 | [No Rate Limiting on Auth Endpoints](BUG-003-no-rate-limiting.md) | High | Fixed |
 | BUG-004 | [TOTP Secrets Stored Unencrypted](BUG-004-unencrypted-totp-secrets.md) | High | Open |
 | BUG-005 | [No 2FA Recovery/Backup Codes](BUG-005-no-2fa-recovery-codes.md) | High | Open |
 | BUG-006 | [2FA Login Steps Not Cryptographically Linked](BUG-006-2fa-steps-not-linked.md) | Medium | Open |

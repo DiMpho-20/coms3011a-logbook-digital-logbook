@@ -1,7 +1,7 @@
 # BUG-003: No Rate Limiting on Auth Endpoints
 
 **Severity:** High (Security)
-**Status:** Open
+**Status:** Fixed
 **Component:** Backend — `apps/backend/src/app.ts`, `apps/backend/src/routes/auth.routes.ts`
 **Labels:** bug, security, authentication
 
@@ -43,3 +43,35 @@ app.use('/api/auth', authLimiter);
 ## Related
 - `apps/backend/AUTHENTICATION.md` — explicitly documented as a known limitation
 - Especially critical combined with BUG-005 (no 2FA recovery codes) and BUG-006 (sequential 2FA steps)
+
+## Resolution
+Fixed with `express-rate-limit`, to FEAT-007's acceptance criteria.
+
+A generous limiter (100 per 15 minutes) is mounted on the whole `/api/auth`
+router so rate-limit headers appear on every auth response, with tighter limits
+on the three routes worth attacking: login at 20 per 15 minutes, `login/2fa` at
+10 per 15 minutes because a six-digit code is only a million guesses, and
+register at 5 per hour. Every window and limit is an environment variable,
+documented in `.env.example`.
+
+Both header families are sent. FEAT-007 asks for `X-RateLimit-Limit` and
+`X-RateLimit-Remaining` — the legacy names — while its own code sample sets
+`legacyHeaders: false`, which suppresses exactly those. Enabling both satisfies
+the criteria without pinning clients to the older form. `Retry-After` comes from
+the library on a 429.
+
+`app.set("trust proxy", …)` was necessary rather than incidental: Render
+terminates TLS at its own proxy, so without it `req.ip` is the proxy's address
+and every visitor in the world shares one bucket. It defaults to 1 hop in
+production and 0 elsewhere, since locally a forwarded header would only be a way
+to spoof an address.
+
+Limits are off under `NODE_ENV=test`, because `auth.test.ts` registers and signs
+in far more often than any of these windows allow and would otherwise fail for
+reasons unrelated to what it tests. An explicit `RATE_LIMIT_DISABLED` overrides
+that either way, which is how the regression suite switches limiting back on.
+
+Verified against the running backend: an auth response carries
+`x-ratelimit-limit: 100`, `x-ratelimit-remaining: 99` and the standard
+`ratelimit-*` family. Regression coverage is in
+`apps/backend/src/__tests__/rateLimit.test.ts`.

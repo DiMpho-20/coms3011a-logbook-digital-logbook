@@ -15,6 +15,7 @@ import {
 } from "@logbook/shared";
 import { hashPassword, comparePassword, generateToken } from "../utils/auth.js";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth.middleware.js";
+import { loginLimiter, twoFactorLimiter, registerLimiter } from "../middleware/rateLimit.middleware.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/email.js";
 import prisma from "../prisma.js";
 
@@ -23,7 +24,7 @@ const router = Router();
 // ---------------------------------------------------------
 // US00.1: POST /api/auth/register
 // ---------------------------------------------------------
-router.post("/register", async (req: Request, res: Response) => {
+router.post("/register", registerLimiter, async (req: Request, res: Response) => {
   try {
     const parseResult = registerSchema.safeParse(req.body);
     if (!parseResult.success) {
@@ -137,7 +138,7 @@ router.post("/verify-email", async (req: Request, res: Response) => {
 // ---------------------------------------------------------
 // US00.2: POST /api/auth/login
 // ---------------------------------------------------------
-router.post("/login", async (req: Request, res: Response) => {
+router.post("/login", loginLimiter, async (req: Request, res: Response) => {
   const parseResult = loginSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ errors: parseResult.error.flatten().fieldErrors });
@@ -181,7 +182,7 @@ router.post("/login", async (req: Request, res: Response) => {
 // ---------------------------------------------------------
 // POST /api/auth/login/2fa — Complete login with TOTP code
 // ---------------------------------------------------------
-router.post("/login/2fa", async (req: Request, res: Response) => {
+router.post("/login/2fa", twoFactorLimiter, async (req: Request, res: Response) => {
   const parseResult = twoFactorLoginSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ errors: parseResult.error.flatten().fieldErrors });
