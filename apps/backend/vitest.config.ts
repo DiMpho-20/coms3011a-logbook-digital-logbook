@@ -11,7 +11,9 @@ export default defineConfig({
       // text prints the summary table straight into the CI log, which is the
       // evidence a marker or the client can see without downloading anything.
       // lcov is the machine-readable form, uploaded as a workflow artifact.
-      reporter: ["text", "lcov"],
+      // json-summary is what the CI step reads to publish a commit status;
+      // text is for the log, lcov for the artifact.
+      reporter: ["text", "lcov", "json-summary"],
       reportsDirectory: "coverage",
       // Vitest 4 removed coverage.all, so naming the sources here is what
       // makes an untested file report 0% instead of being absent from the

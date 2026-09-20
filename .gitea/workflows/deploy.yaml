@@ -37,6 +37,15 @@ jobs:
       - name: Run frontend tests with coverage
         run: npm run test:coverage --workspace=apps/frontend
 
+      # Gitea has no built-in coverage display, so the number is pushed to
+      # the commit itself as a status. Never allowed to fail the build:
+      # publishing a figure is not worth turning a green run red.
+      - name: Report coverage to Gitea
+        continue-on-error: true
+        env:
+          GITEA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .gitea/scripts/report-coverage.mjs
+
       # Pinned to v3: v4 of this action needs an artifact backend that Gitea
       # runners do not all provide. continue-on-error keeps a runner without
       # artifact storage from failing an otherwise green build — the numbers

@@ -31,7 +31,9 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       // text for the CI log, lcov for the uploaded artifact.
-      reporter: ['text', 'lcov'],
+      // json-summary feeds the Gitea commit status; text the log, lcov the
+      // artifact.
+      reporter: ['text', 'lcov', 'json-summary'],
       reportsDirectory: 'coverage',
       // Vitest 4 removed coverage.all, so the sources are named explicitly:
       // without this an untested file is simply missing from the report

@@ -224,6 +224,34 @@ that not every Gitea runner provides, and a runner without artifact storage
 should not fail an otherwise green build — the coverage table is in the log
 regardless.
 
+### Coverage on the commit
+
+Gitea 1.24 has no built-in coverage display of the kind GitLab offers, so the
+workflow publishes the figure itself. `.gitea/scripts/report-coverage.mjs`
+reads the `coverage-summary.json` each workspace writes and posts three commit
+statuses through the Gitea API: `coverage/backend`, `coverage/frontend` and
+`coverage/combined`, each described as a line percentage and linking back to
+the run that produced it. They appear on the commit in the Gitea UI, so the
+number is visible per commit with no manual step.
+
+The combined status is the one the marking rubric is judged on, which is why it
+is published rather than left for a reader to work out from the other two.
+
+The script is Node rather than shell because `jq` and `curl` are not guaranteed
+on a self-hosted runner while Node is, `setup-node` having already run. It
+never fails the build: a missing summary, a missing token, a rejected request
+and an unreachable host are all logged and exited cleanly, and the step is
+additionally marked `continue-on-error`. Publishing a number is not worth
+turning a green run red.
+
+It also appends the same table to `$GITHUB_STEP_SUMMARY`, which renders on the
+run page for runners that support summaries and is ignored by those that do not.
+
+If the statuses do not appear, the log will say why — the likeliest cause is
+the runner's injected token lacking permission to write statuses, in which case
+a repository secret holding a token with write access can be passed to the step
+instead.
+
 No coverage thresholds are enforced yet. The purpose at this stage is to publish
 the numbers and watch them move; a threshold set before anyone has seen a
 baseline is an arbitrary number that either passes trivially or blocks work for
