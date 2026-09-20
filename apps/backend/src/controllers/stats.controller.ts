@@ -23,13 +23,15 @@ export const groupStats = async (req: Request, res: Response) => {
     if (!metricField) {
       return res.status(404).json({ error: "Metric field not found" });
     }
-    if (!["NUMBER", "BOOLEAN", "TEXT", "TAGS"].includes(metricField.type)) {
+    if (!["NUMBER", "COMPUTED", "BOOLEAN", "TEXT", "TAGS"].includes(metricField.type)) {
       return res.status(400).json({ error: `Cannot aggregate field type ${metricField.type}` });
     }
 
-    // Count doesn't need a numeric cast; everything else does
+    // Count doesn't need a numeric cast; everything else does. COMPUTED
+    // fields always hold a number (that's what makes them computed), so
+    // they aggregate the same way NUMBER fields do.
     const isCount = operation === "count";
-    const isNumber = metricField.type === "NUMBER";
+    const isNumber = metricField.type === "NUMBER" || metricField.type === "COMPUTED";
 
     if (!isCount && !isNumber) {
       return res.status(400).json({ error: `${operation} requires a NUMBER field` });

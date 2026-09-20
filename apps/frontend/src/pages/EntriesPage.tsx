@@ -14,6 +14,7 @@ import {
   formatDuration,
   formatDateHeading,
   computeStreak,
+  entryDateKey,
 } from "../lib/utils";
 import {
   loadSavedFilters,
@@ -144,7 +145,7 @@ export default function EntriesPage() {
     weekAgo.setDate(now.getDate() - 7);
     const weekEntries = allEntries.filter((e) => new Date(e.createdAt) >= weekAgo);
     const weekMinutes = weekEntries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
-    const dateKeys = new Set(allEntries.map((e) => e.createdAt.slice(0, 10)));
+    const dateKeys = new Set(allEntries.map((e) => entryDateKey(e)));
     const streak = computeStreak(dateKeys);
 
     // Overdue: dueDate is before today (start of day)
@@ -198,7 +199,7 @@ export default function EntriesPage() {
   const groupedByDate = useMemo(() => {
     const groups: Record<string, Entry[]> = {};
     filteredEntries.forEach((e) => {
-      const key = e.entryDate || e.createdAt.slice(0, 10);
+      const key = entryDateKey(e);
       if (!groups[key]) groups[key] = [];
       groups[key].push(e);
     });

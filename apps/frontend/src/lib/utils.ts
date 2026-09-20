@@ -10,9 +10,33 @@ export function formatDuration(minutes: number): string {
   return `${h}h ${m}m`;
 }
 
-/** ISO date string for today (YYYY-MM-DD). */
+/**
+ * YYYY-MM-DD for a Date, in the viewer's local time — not UTC. Statistics
+ * like streaks and weekly counts are inherently about the user's own
+ * calendar day; slicing `toISOString()` instead reads UTC's day, which
+ * silently shifts entries logged near local midnight onto the wrong day
+ * for anyone not in UTC+0.
+ */
+export function localDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** ISO date string for today (YYYY-MM-DD), in local time. */
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateKey(new Date());
+}
+
+/**
+ * The calendar day an entry falls under, in local time: its own `entryDate`
+ * if set (already a plain calendar day, safe to slice regardless of time
+ * zone), otherwise the local day it was created on.
+ */
+export function entryDateKey(entry: { entryDate?: string | null; createdAt: string }): string {
+  if (entry.entryDate) return entry.entryDate.slice(0, 10);
+  return localDateKey(new Date(entry.createdAt));
 }
 
 /** Format a date key into a human-friendly heading (Today / Yesterday / "Wed, Aug 21"). */
@@ -21,7 +45,7 @@ export function formatDateHeading(dateKey: string): string {
   const today = todayISO();
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = yesterday.toISOString().slice(0, 10);
+  const yesterdayKey = localDateKey(yesterday);
 
   if (dateKey === today) return "Today";
   if (dateKey === yesterdayKey) return "Yesterday";
@@ -36,11 +60,10 @@ export function formatDateHeading(dateKey: string): string {
 export function computeStreak(dateKeys: Set<string>): number {
   let streak = 0;
   const cursor = new Date();
-  const todayKey = cursor.toISOString().slice(0, 10);
-  if (!dateKeys.has(todayKey)) {
+  if (!dateKeys.has(localDateKey(cursor))) {
     cursor.setDate(cursor.getDate() - 1);
   }
-  while (dateKeys.has(cursor.toISOString().slice(0, 10))) {
+  while (dateKeys.has(localDateKey(cursor))) {
     streak++;
     cursor.setDate(cursor.getDate() - 1);
   }

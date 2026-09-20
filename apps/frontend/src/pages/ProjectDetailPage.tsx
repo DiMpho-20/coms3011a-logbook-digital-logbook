@@ -33,7 +33,7 @@ import {
   type EntryField,
   type EntryFieldValue,
 } from "../api";
-import { formatDuration, todayISO, defaultValuesForFields, isEmptyValue } from "../lib/utils";
+import { formatDuration, todayISO, defaultValuesForFields, isEmptyValue, entryDateKey } from "../lib/utils";
 import StatCard from "../components/StatCard";
 import EntryCard from "../components/EntryCard";
 import Modal from "../components/Modal";
@@ -162,7 +162,7 @@ export default function ProjectDetailPage() {
   const groupedEntries = useMemo(() => {
     const groups: Record<string, Entry[]> = {};
     sortedEntries.forEach((e) => {
-      const key = e.entryDate || e.createdAt.slice(0, 10);
+      const key = entryDateKey(e);
       if (!groups[key]) groups[key] = [];
       groups[key].push(e);
     });
