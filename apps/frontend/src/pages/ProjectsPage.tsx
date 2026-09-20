@@ -23,6 +23,7 @@ import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
+import TagFilterBar from "../components/TagFilterBar";
 import { FolderKanban } from "lucide-react";
 
 type EntryField = Partial<BaseEntryField> &
@@ -40,6 +41,7 @@ export default function ProjectsPage() {
 
   const [filter, setFilter] = useState<FilterTab>("ACTIVE");
   const [searchQuery, setSearchQuery] = useState("");
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Modal state
@@ -99,9 +101,11 @@ export default function ProjectsPage() {
       const matchesSearch =
         (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (p.description || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesFilter && matchesSearch;
+      const matchesTags =
+        tagFilters.length === 0 || (p.tags || []).some((t) => tagFilters.includes(t));
+      return matchesFilter && matchesSearch && matchesTags;
     });
-  }, [projects, filter, searchQuery]);
+  }, [projects, filter, searchQuery, tagFilters]);
 
   // Modal handlers
   const openCreateModal = () => {
@@ -275,18 +279,20 @@ export default function ProjectsPage() {
         </div>
       </div>
 
+      <TagFilterBar tags={tagSuggestions} selected={tagFilters} onChange={setTagFilters} />
+
       {/* Project grid */}
       {filteredProjects.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
-          title={searchQuery || filter !== "ALL" ? "No matching projects" : "No projects yet"}
+          title={searchQuery || filter !== "ALL" || tagFilters.length > 0 ? "No matching projects" : "No projects yet"}
           description={
-            searchQuery || filter !== "ALL"
+            searchQuery || filter !== "ALL" || tagFilters.length > 0
               ? "Try adjusting your search or filters."
               : "Create your first project to start logging entries."
           }
           action={
-            !searchQuery && filter === "ALL" ? (
+            !searchQuery && filter === "ALL" && tagFilters.length === 0 ? (
               <button
                 onClick={openCreateModal}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
