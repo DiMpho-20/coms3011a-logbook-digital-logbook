@@ -188,17 +188,44 @@ describe("syncPendingEntries", () => {
 });
 
 describe("startOfflineSync", () => {
-  it("syncs on start and again when the connection returns, then detaches", async () => {
+  it("syncs whatever is already queued when it starts", async () => {
     vi.mocked(api.post).mockResolvedValue({ data: {} } as never);
+    queueEntry("p1", { durationMinutes: 1, values: {} });
+
+    const stop = startOfflineSync();
+    await vi.waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    stop();
+  });
+
+  it("syncs again when the connection comes back", async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: {} } as never);
+    const stop = startOfflineSync();
+
+    // Settle the start-up sync before queueing anything. syncPendingEntries
+    // returns the in-flight promise when one exists, so awaiting it here also
+    // waits for that one to finish and clear itself.
+    //
+    // This matters beyond the test: an entry queued while a sync is already
+    // running is not picked up by that run, because the guard hands back the
+    // promise already in flight. Nothing is lost — the entry stays queued and
+    // goes out on the next trigger — but it does not sync immediately.
+    await syncPendingEntries();
+    vi.mocked(api.post).mockClear();
+
+    queueEntry("p1", { durationMinutes: 1, values: {} });
+    window.dispatchEvent(new Event("online"));
+
+    await vi.waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    expect(api.post).toHaveBeenCalledWith("/projects/p1/entries", expect.objectContaining({ durationMinutes: 1 }));
+    stop();
+  });
+
+  it("detaches its listener when stopped", async () => {
     const addSpy = vi.spyOn(window, "addEventListener");
     const removeSpy = vi.spyOn(window, "removeEventListener");
 
     const stop = startOfflineSync();
     expect(addSpy).toHaveBeenCalledWith("online", expect.any(Function));
-
-    queueEntry("p1", { durationMinutes: 1, values: {} });
-    window.dispatchEvent(new Event("online"));
-    await vi.waitFor(() => expect(api.post).toHaveBeenCalled());
 
     stop();
     expect(removeSpy).toHaveBeenCalledWith("online", expect.any(Function));
