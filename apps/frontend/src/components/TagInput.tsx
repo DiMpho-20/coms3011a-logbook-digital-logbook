@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useState } from "react";
 import { X } from "lucide-react";
 
 interface TagInputProps {
@@ -9,10 +9,36 @@ interface TagInputProps {
   placeholder?: string;
 }
 
+export interface TagInputHandle {
+  /**
+   * The committed tags plus whatever's still typed but not yet submitted.
+   * Call this at submit time instead of reading `value` directly — clicking
+   * a submit button blurs this input in the same tick, and that blur's
+   * commit hasn't reached `value` yet when the form's submit handler runs.
+   */
+  getValue: () => string[];
+}
+
 /** Chip-style tag editor: type + Enter/comma to add, click × or Backspace to remove. */
-export default function TagInput({ value, onChange, suggestions = [], placeholder }: TagInputProps) {
+const TagInput = forwardRef<TagInputHandle, TagInputProps>(function TagInput(
+  { value, onChange, suggestions = [], placeholder },
+  ref
+) {
   const [draft, setDraft] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getValue: () => {
+        const pending = draft.trim();
+        if (!pending) return value;
+        const exists = value.some((t) => t.toLowerCase() === pending.toLowerCase());
+        return exists ? value : [...value, pending];
+      },
+    }),
+    [value, draft]
+  );
 
   const addTag = (raw: string) => {
     const name = raw.trim();
@@ -95,4 +121,6 @@ export default function TagInput({ value, onChange, suggestions = [], placeholde
       )}
     </div>
   );
-}
+});
+
+export default TagInput;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Plus, Search, X, LayoutGrid, List } from "lucide-react";
 
 import {
@@ -22,7 +22,7 @@ import Modal from "../components/Modal";
 import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
-import TagInput from "../components/TagInput";
+import TagInput, { type TagInputHandle } from "../components/TagInput";
 import { FolderKanban } from "lucide-react";
 
 type EntryField = Partial<BaseEntryField> &
@@ -48,6 +48,7 @@ export default function ProjectsPage() {
   const [formData, setFormData] = useState({ name: "", description: "" });
   const [tags, setTags] = useState<string[]>([]);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const tagInputRef = useRef<TagInputHandle>(null);
   const [entryFields, setEntryFields] = useState<EntryField[]>([]);
   const [removedFieldIds, setRemovedFieldIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -152,12 +153,16 @@ export default function ProjectsPage() {
     }
     setSaving(true);
     setFormError(null);
+    // Read the tags input directly rather than the `tags` state: clicking
+    // this submit button blurs the tags input in the same tick, and that
+    // blur's commit hasn't reached `tags` yet when this handler runs.
+    const finalTags = tagInputRef.current?.getValue() ?? tags;
     try {
       if (editingProject) {
         await updateProject(editingProject.id, {
           name: formData.name,
           description: formData.description || undefined,
-          tags,
+          tags: finalTags,
         });
         for (const field of entryFields) {
           if (!field.name.trim()) continue;
@@ -173,7 +178,7 @@ export default function ProjectsPage() {
           name: formData.name,
           description: formData.description || undefined,
           status: "ACTIVE",
-          tags,
+          tags: finalTags,
         });
         for (const field of entryFields) {
           if (!field.name.trim()) continue;
@@ -345,7 +350,7 @@ export default function ProjectsPage() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Tags</label>
-            <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="e.g. coursework, urgent" />
+            <TagInput ref={tagInputRef} value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="e.g. coursework, urgent" />
           </div>
 
           {/* Entry fields builder */}
