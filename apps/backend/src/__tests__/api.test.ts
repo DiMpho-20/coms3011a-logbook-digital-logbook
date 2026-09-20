@@ -263,7 +263,8 @@ describe("Entries CRUD", () => {
       .set(H)
       .send({
         durationMinutes: 15,
-        values: {},
+        // "Notes" is required — omitting it entirely would 400.
+        values: { [fieldId]: "Second entry" },
       });
 
     expect(res.status).toBe(201);

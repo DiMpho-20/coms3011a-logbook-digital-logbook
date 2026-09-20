@@ -16,14 +16,17 @@ import {
 
 import {
   fetchProject,
+  fetchProjects,
   fetchProjectTimeSummary,
   fetchEntries,
   fetchEntryFields,
   toggleProjectStatus,
   createEntry,
   updateEntry,
+  deleteEntry,
   fetchEntryFormatVersions,
   fetchTags,
+  type Project,
   type ProjectWithFields,
   type TimeSummary,
   type Entry,
@@ -39,6 +42,7 @@ import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 import TagList from "../components/TagList";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
+import ChecklistInput from "../components/ChecklistInput";
 
 function relativeDay(dateStr: string): string {
   const date = new Date(dateStr);
@@ -85,12 +89,20 @@ export default function ProjectDetailPage() {
   const [entryTags, setEntryTags] = useState<string[]>([]);
   const entryTagInputRef = useRef<TagInputHandle>(null);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [entryError, setEntryError] = useState<string | null>(null);
   const [entrySubmitting, setEntrySubmitting] = useState(false);
 
   useEffect(() => {
     fetchTags().then((t) => setTagSuggestions(t.map((tag) => tag.name))).catch(() => {});
+    fetchProjects().then(setAllProjects).catch(() => {});
   }, []);
+
+  // Candidates for a REFERENCE field: every other project, for linking one to another.
+  const otherProjects = useMemo(
+    () => allProjects.filter((p) => p.id !== id),
+    [allProjects, id]
+  );
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -194,6 +206,17 @@ export default function ProjectDetailPage() {
     setEntryModalOpen(true);
   };
 
+  const handleDeleteEntry = async (entry: Entry) => {
+    if (!confirm("Delete this entry? This can't be undone.")) return;
+    try {
+      await deleteEntry(entry.id);
+      setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+      if (id) fetchProjectTimeSummary(id).then(setSummary).catch(() => {});
+    } catch {
+      alert("Couldn't delete that entry. Try again.");
+    }
+  };
+
   const closeEntryModal = () => {
     setEntryModalOpen(false);
     setEditingEntry(null);
@@ -201,9 +224,10 @@ export default function ProjectDetailPage() {
 
   const handleEntrySubmit = async () => {
     if (!id) return;
-    const minutes = parseInt(entryDuration, 10);
-    if (!minutes || minutes <= 0) {
-      setEntryError("Enter how long this took, in minutes.");
+    // Blank means "haven't spent any time on this yet" — not an error.
+    const minutes = entryDuration.trim() === "" ? 0 : parseInt(entryDuration, 10);
+    if (Number.isNaN(minutes) || minutes < 0) {
+      setEntryError("Time spent must be a number, 0 or more.");
       return;
     }
 
@@ -422,7 +446,7 @@ export default function ProjectDetailPage() {
                   </p>
                   <div className="space-y-2">
                     {dayEntries.map((entry) => (
-                      <EntryCard key={entry.id} entry={entry} fields={fields} onEdit={openEditEntryModal} />
+                      <EntryCard key={entry.id} entry={entry} fields={fields} onEdit={openEditEntryModal} onDelete={handleDeleteEntry} />
                     ))}
                   </div>
                 </div>
@@ -486,11 +510,11 @@ export default function ProjectDetailPage() {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-500 mb-1">Time spent (minutes)</label>
+              <label className="block text-[11px] font-medium text-slate-500 mb-1">Time spent (minutes, optional)</label>
               <input
                 type="number"
-                min={1}
-                placeholder="e.g. 120"
+                min={0}
+                placeholder="Leave blank if not started"
                 value={entryDuration}
                 onChange={(e) => setEntryDuration(e.target.value)}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -559,15 +583,28 @@ export default function ProjectDetailPage() {
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                   )}
                   {field.type === "CHECKLIST" && (
-                    <textarea rows={3} placeholder="One item per line" value={Array.isArray(entryValues[field.id]) ? (entryValues[field.id] as any[]).map((item) => item.label).join("\n") : ""}
-                      onChange={(e) => handleFieldChange(field.id, e.target.value.split("\n").filter(Boolean).map((label) => ({ label, checked: false })))}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                    <ChecklistInput
+                      value={Array.isArray(entryValues[field.id]) ? (entryValues[field.id] as { label: string; checked: boolean }[]) : []}
+                      onChange={(items) => handleFieldChange(field.id, items)}
+                    />
                   )}
                   {field.type === "LINK" && (
                     <input type="url" placeholder="https://…" value={(entryValues[field.id] as string) || ""} onChange={(e) => handleFieldChange(field.id, e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                   )}
                   {field.type === "REFERENCE" && (
-                    <input type="text" placeholder="Project or entry ID" value={(entryValues[field.id] as any)?.id || ""} onChange={(e) => handleFieldChange(field.id, { id: e.target.value, label: e.target.value, kind: "project" })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                    <select
+                      value={(entryValues[field.id] as { id?: string } | null)?.id || ""}
+                      onChange={(e) => {
+                        const target = otherProjects.find((p) => p.id === e.target.value);
+                        handleFieldChange(field.id, target ? { id: target.id, label: target.name, kind: "project" } : null);
+                      }}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white"
+                    >
+                      <option value="">— No project —</option>
+                      {otherProjects.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
                   )}
                   {field.type === "COMPUTED" && (
                     <p className="h-[38px] px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-500">Calculated automatically: {field.formula}</p>

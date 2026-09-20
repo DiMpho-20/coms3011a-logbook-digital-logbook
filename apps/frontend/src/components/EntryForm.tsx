@@ -50,9 +50,10 @@ export default function EntryForm({
       const pid = projectId || selectedProjectId;
       if (!pid) return;
 
-      const minutes = parseInt(duration, 10);
-      if (!minutes || minutes <= 0) {
-        setError("Enter how long this took, in minutes.");
+      // Blank means "haven't spent any time on this yet" — not an error.
+      const minutes = duration.trim() === "" ? 0 : parseInt(duration, 10);
+      if (Number.isNaN(minutes) || minutes < 0) {
+        setError("Time spent must be a number, 0 or more.");
         durationRef.current?.focus();
         return;
       }
@@ -134,8 +135,8 @@ export default function EntryForm({
           <input
             ref={durationRef}
             type="number"
-            min={1}
-            placeholder="e.g. 45"
+            min={0}
+            placeholder="0 if not started"
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

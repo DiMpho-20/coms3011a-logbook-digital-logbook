@@ -1,6 +1,6 @@
 import { Response } from "express";
 import prisma from "../prisma.js";
-import { createFormatVersion } from "../utils/entryFormat.js";
+import { createFormatVersion, backfillNewField } from "../utils/entryFormat.js";
 import { validateFormula } from "../utils/computedFields.js";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 
@@ -20,6 +20,7 @@ export const createEntryField = async (req: AuthenticatedRequest, res: Response)
     const existing = await prisma.entryField.findMany({ where: { projectId, archivedAt: null } });
     if (type === "COMPUTED") validateFormula(formula, existing);
     const field = await prisma.entryField.create({ data: { projectId, name: name.trim(), type, required: type === "COMPUTED" ? false : Boolean(required), formula: type === "COMPUTED" ? formula.trim() : null } });
+    await backfillNewField(prisma, projectId, field);
     await createFormatVersion(prisma, projectId);
     return res.status(201).json(field);
   } catch (error: any) { return res.status(400).json({ error: error.message || "Failed to create entry field" }); }
