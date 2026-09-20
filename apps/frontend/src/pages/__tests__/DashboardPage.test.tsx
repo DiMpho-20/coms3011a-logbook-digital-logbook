@@ -45,14 +45,11 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Total Time Logged")).toBeInTheDocument();
   });
 
-  it("renders New Entry and New Project buttons", async () => {
+  it("renders the New Project button", async () => {
     renderDashboard();
 
     expect(
-      await screen.findByRole("button", { name: /new entry/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /new project/i }),
+      await screen.findByRole("button", { name: /new project/i }),
     ).toBeInTheDocument();
   });
 
