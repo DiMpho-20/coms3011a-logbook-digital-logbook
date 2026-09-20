@@ -8,6 +8,15 @@ import {
 } from "../schemas/project.schema.js";
 import type { TimeSummary } from "@logbook/shared";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
+import { cleanTagNames, resolveTagIds } from "../utils/tags.js";
+
+const TAGS_INCLUDE = { tags: { include: { tag: true } } } as const;
+
+/** Shape a Prisma Project (with included tag join rows) into the API response. */
+function formatProject<T extends { tags?: { tag: { name: string } }[] }>(project: T) {
+  const { tags, ...rest } = project;
+  return { ...rest, tags: (tags ?? []).map((t) => t.tag.name).sort() };
+}
 
 /** Extract the authenticated user's ID from req.userId (set by requireAuth middleware). */
 function getUserId(req: AuthenticatedRequest): string {
@@ -48,16 +57,21 @@ export const createProject = async (req: AuthenticatedRequest, res: Response) =>
       });
     }
 
+    const tagNames = cleanTagNames(validatedData.tags);
+    const tagIds = await resolveTagIds(prisma, userId, tagNames);
+
     const project = await prisma.project.create({
       data: {
         userId,
         name: validatedData.name,
         description: validatedData.description,
         status: validatedData.status ?? "ACTIVE",
+        tags: { create: tagIds.map((tagId) => ({ tagId })) },
       },
+      include: TAGS_INCLUDE,
     });
 
-    return res.status(201).json(project);
+    return res.status(201).json(formatProject(project));
   } catch (error: any) {
     if (isUniqueViolation(error)) {
       return res.status(409).json({
@@ -76,9 +90,10 @@ export const getProjects = async (req: AuthenticatedRequest, res: Response) => {
     const projects = await prisma.project.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
+      include: TAGS_INCLUDE,
     });
 
-    return res.status(200).json(projects);
+    return res.status(200).json(projects.map(formatProject));
   } catch (error: any) {
     return res.status(500).json({ error: "Failed to fetch projects" });
   }
@@ -97,6 +112,7 @@ export const getProject = async (req: AuthenticatedRequest, res: Response) => {
         entryFields: {
           orderBy: { createdAt: "asc" },
         },
+        ...TAGS_INCLUDE,
       },
     });
 
@@ -104,7 +120,7 @@ export const getProject = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: "Project not found" });
     }
 
-    return res.status(200).json(project);
+    return res.status(200).json(formatProject(project));
   } catch (error: any) {
     return res.status(500).json({ error: "Failed to fetch project" });
   }
@@ -177,16 +193,33 @@ export const updateProject = async (req: AuthenticatedRequest, res: Response) =>
       }
     }
 
-    const updated = await prisma.project.update({
-      where: { id },
-      data: {
-        ...(validatedData.name !== undefined && { name: validatedData.name }),
-        ...(validatedData.description !== undefined && { description: validatedData.description }),
-        ...(validatedData.status !== undefined && { status: validatedData.status }),
-      },
+    const tagNames = validatedData.tags !== undefined ? cleanTagNames(validatedData.tags) : undefined;
+    const tagIds = tagNames !== undefined ? await resolveTagIds(prisma, userId, tagNames) : undefined;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.project.update({
+        where: { id },
+        data: {
+          ...(validatedData.name !== undefined && { name: validatedData.name }),
+          ...(validatedData.description !== undefined && { description: validatedData.description }),
+          ...(validatedData.status !== undefined && { status: validatedData.status }),
+        },
+      });
+
+      // Replace the tag set wholesale when tags are provided.
+      if (tagIds !== undefined) {
+        await tx.projectTag.deleteMany({ where: { projectId: id } });
+        if (tagIds.length > 0) {
+          await tx.projectTag.createMany({
+            data: tagIds.map((tagId) => ({ projectId: id, tagId })),
+          });
+        }
+      }
+
+      return tx.project.findUniqueOrThrow({ where: { id }, include: TAGS_INCLUDE });
     });
 
-    return res.status(200).json(updated);
+    return res.status(200).json(formatProject(updated));
   } catch (error: any) {
     if (isUniqueViolation(error)) {
       return res.status(409).json({
@@ -215,9 +248,10 @@ export const updateProjectStatus = async (req: AuthenticatedRequest, res: Respon
     const updatedProject = await prisma.project.update({
       where: { id },
       data: { status },
+      include: TAGS_INCLUDE,
     });
 
-    return res.status(200).json(updatedProject);
+    return res.status(200).json(formatProject(updatedProject));
   } catch (error: any) {
     return res.status(400).json({ error: error.errors || error.message });
   }

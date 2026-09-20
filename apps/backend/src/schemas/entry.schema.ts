@@ -15,6 +15,7 @@ export const createEntrySchema = z.object({
   values: entryValuesSchema,
   entryDate: isoDateSchema.optional(),
   dueDate: isoDateSchema.optional(),
+  tags: z.array(z.string()).optional(),
 });
 
 export const updateEntrySchema = z.object({
@@ -22,6 +23,7 @@ export const updateEntrySchema = z.object({
   values: entryValuesSchema.optional(),
   entryDate: isoDateSchema.optional().nullable(),
   dueDate: isoDateSchema.optional().nullable(),
+  tags: z.array(z.string()).optional(),
 });
 
 export type CreateEntryInput = z.infer<typeof createEntrySchema>;

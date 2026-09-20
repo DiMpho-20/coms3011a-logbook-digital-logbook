@@ -22,6 +22,7 @@ import {
   toggleProjectStatus,
   createEntry,
   fetchEntryFormatVersions,
+  fetchTags,
   type ProjectWithFields,
   type TimeSummary,
   type Entry,
@@ -35,6 +36,8 @@ import Modal from "../components/Modal";
 import Stopwatch from "../components/Stopwatch";
 import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
+import TagList from "../components/TagList";
+import TagInput from "../components/TagInput";
 
 function relativeDay(dateStr: string): string {
   const date = new Date(dateStr);
@@ -77,8 +80,14 @@ export default function ProjectDetailPage() {
   const [entryDuration, setEntryDuration] = useState("");
   const [entryDueDate, setEntryDueDate] = useState("");
   const [entryValues, setEntryValues] = useState<Record<string, EntryFieldValue>>({});
+  const [entryTags, setEntryTags] = useState<string[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [entryError, setEntryError] = useState<string | null>(null);
   const [entrySubmitting, setEntrySubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchTags().then((t) => setTagSuggestions(t.map((tag) => tag.name))).catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -115,6 +124,7 @@ export default function ProjectDetailPage() {
       setEntryDate(todayISO());
       setEntryDuration("");
       setEntryDueDate("");
+      setEntryTags([]);
       setEntryError(null);
     }
   }, [entryModalOpen, fields]);
@@ -191,9 +201,11 @@ export default function ProjectDetailPage() {
         values: Record<string, EntryFieldValue>;
         dueDate?: string;
         entryDate?: string;
+        tags?: string[];
       } = {
         durationMinutes: minutes,
         values: mergedValues,
+        tags: entryTags,
       };
       if (entryDueDate) entryData.dueDate = entryDueDate;
       if (entryDate && entryDate !== todayISO()) entryData.entryDate = entryDate;
@@ -290,6 +302,7 @@ export default function ProjectDetailPage() {
           {project.description && (
             <p className="text-sm text-slate-500 mt-1">{project.description}</p>
           )}
+          <TagList tags={project.tags} className="mt-2" />
         </div>
       </div>
 
@@ -519,6 +532,12 @@ export default function ProjectDetailPage() {
               ))}
             </div>
           )}
+
+          {/* Tags */}
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">Tags</label>
+            <TagInput value={entryTags} onChange={setEntryTags} suggestions={tagSuggestions} placeholder="e.g. urgent, research" />
+          </div>
 
           {/* Due date */}
           <div>

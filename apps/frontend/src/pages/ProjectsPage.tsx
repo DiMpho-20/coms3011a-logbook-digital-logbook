@@ -11,6 +11,7 @@ import {
   createEntryField,
   updateEntryField,
   deleteEntryField,
+  fetchTags,
   type Project,
   type EntryField as BaseEntryField,
   type TimeSummary,
@@ -21,6 +22,7 @@ import Modal from "../components/Modal";
 import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
+import TagInput from "../components/TagInput";
 import { FolderKanban } from "lucide-react";
 
 type EntryField = Partial<BaseEntryField> &
@@ -44,10 +46,16 @@ export default function ProjectsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [formData, setFormData] = useState({ name: "", description: "" });
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [entryFields, setEntryFields] = useState<EntryField[]>([]);
   const [removedFieldIds, setRemovedFieldIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchTags().then((t) => setTagSuggestions(t.map((tag) => tag.name))).catch(() => {});
+  }, []);
 
   const loadProjects = async () => {
     try {
@@ -98,6 +106,7 @@ export default function ProjectsPage() {
   const openCreateModal = () => {
     setEditingProject(null);
     setFormData({ name: "", description: "" });
+    setTags([]);
     setEntryFields([]);
     setRemovedFieldIds([]);
     setFormError(null);
@@ -107,6 +116,7 @@ export default function ProjectsPage() {
   const openEditModal = async (project: Project) => {
     setEditingProject(project);
     setFormData({ name: project.name, description: project.description || "" });
+    setTags(project.tags ?? []);
     setFormError(null);
     try {
       const fields = await fetchEntryFields(project.id);
@@ -147,6 +157,7 @@ export default function ProjectsPage() {
         await updateProject(editingProject.id, {
           name: formData.name,
           description: formData.description || undefined,
+          tags,
         });
         for (const field of entryFields) {
           if (!field.name.trim()) continue;
@@ -162,6 +173,7 @@ export default function ProjectsPage() {
           name: formData.name,
           description: formData.description || undefined,
           status: "ACTIVE",
+          tags,
         });
         for (const field of entryFields) {
           if (!field.name.trim()) continue;
@@ -329,6 +341,11 @@ export default function ProjectsPage() {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Tags</label>
+            <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="e.g. coursework, urgent" />
           </div>
 
           {/* Entry fields builder */}

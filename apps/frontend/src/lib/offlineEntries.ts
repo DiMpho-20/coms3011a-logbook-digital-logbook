@@ -46,6 +46,7 @@ export function queueEntry(projectId: string, payload: CreateEntryInput): Entry 
     values: payload.values,
     // The server creates the immutable format snapshot once this entry syncs.
     format: null,
+    tags: payload.tags ?? [],
     // Offline entries start as OPEN; the server assigns the real status on sync.
     status: "OPEN",
     completedAt: null,
