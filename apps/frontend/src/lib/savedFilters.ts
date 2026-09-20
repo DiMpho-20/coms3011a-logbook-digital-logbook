@@ -6,6 +6,8 @@ export interface SavedFilter {
   filterProjectId: string;
   filterTab: "all" | "week" | "overdue";
   sortOrder: "newest" | "oldest";
+  /** Optional so older saved filters (from before tag filtering existed) still load fine. */
+  selectedTags?: string[];
   createdAt: string;
 }
 

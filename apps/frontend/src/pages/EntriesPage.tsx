@@ -5,6 +5,7 @@ import {
   fetchProjects,
   fetchEntryFields,
   fetchEntries,
+  fetchTags,
   type Project,
   type EntryField,
   type Entry,
@@ -25,6 +26,7 @@ import StatCard from "../components/StatCard";
 import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
 import TagList from "../components/TagList";
+import TagFilterBar from "../components/TagFilterBar";
 
 export default function EntriesPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -37,6 +39,8 @@ export default function EntriesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "week" | "overdue">("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   // Saved filters (persisted to localStorage)
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
@@ -85,9 +89,14 @@ export default function EntriesPage() {
     setSavedFilters(loadSavedFilters());
   }, []);
 
+  // Tags available to filter by
+  useEffect(() => {
+    fetchTags().then((t) => setAvailableTags(t.map((tag) => tag.name))).catch(() => {});
+  }, []);
+
   // True when the current filter state differs from the defaults
   const filtersActive =
-    searchQuery.trim() !== "" || filterProjectId !== "all" || filterTab !== "all";
+    searchQuery.trim() !== "" || filterProjectId !== "all" || filterTab !== "all" || tagFilters.length > 0;
 
   // Applying a saved filter restores every dimension of the saved view
   const applySavedFilter = (f: SavedFilter) => {
@@ -95,6 +104,7 @@ export default function EntriesPage() {
     setFilterProjectId(f.filterProjectId);
     setFilterTab(f.filterTab);
     setSortOrder(f.sortOrder);
+    setTagFilters(f.selectedTags ?? []);
     setActiveFilterId(f.id);
     setShowSaveInput(false);
   };
@@ -110,6 +120,7 @@ export default function EntriesPage() {
         filterProjectId,
         filterTab,
         sortOrder,
+        selectedTags: tagFilters,
       })
     );
     setFilterName("");
@@ -161,6 +172,9 @@ export default function EntriesPage() {
     if (filterProjectId !== "all") {
       list = list.filter((e) => e.projectId === filterProjectId);
     }
+    if (tagFilters.length > 0) {
+      list = list.filter((e) => (e.tags || []).some((t) => tagFilters.includes(t)));
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter((e) => {
@@ -179,7 +193,7 @@ export default function EntriesPage() {
       list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
     return list;
-  }, [allEntries, filterTab, filterProjectId, searchQuery, projectName, sortOrder]);
+  }, [allEntries, filterTab, filterProjectId, tagFilters, searchQuery, projectName, sortOrder]);
 
   const groupedByDate = useMemo(() => {
     const groups: Record<string, Entry[]> = {};
@@ -284,6 +298,15 @@ export default function EntriesPage() {
             )}
           </div>
 
+          <TagFilterBar
+            tags={availableTags}
+            selected={tagFilters}
+            onChange={(tags) => {
+              markManualChange();
+              setTagFilters(tags);
+            }}
+          />
+
           {/* Save-filter name input */}
           {showSaveInput && filtersActive && (
             <div className="flex flex-wrap gap-2 items-center">
@@ -372,12 +395,13 @@ export default function EntriesPage() {
                   ) : (
                     <>
                       <p className="text-sm text-slate-400">No entries match.</p>
-                      {(searchQuery || filterProjectId !== "all" || filterTab !== "all") && (
+                      {filtersActive && (
                         <button
                           onClick={() => {
                             setSearchQuery("");
                             setFilterProjectId("all");
                             setFilterTab("all");
+                            setTagFilters([]);
                             setActiveFilterId(null);
                           }}
                           className="text-xs text-blue-600 font-medium hover:underline mt-2"

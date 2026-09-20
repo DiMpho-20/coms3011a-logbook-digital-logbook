@@ -70,6 +70,25 @@ describe("saveFilter", () => {
     expect(result[0].createdAt).toBeTruthy();
   });
 
+  it("saves and reloads selected tags", () => {
+    const result = saveFilter("Tagged", {
+      searchQuery: "",
+      filterProjectId: "",
+      filterTab: "all",
+      sortOrder: "newest",
+      selectedTags: ["urgent", "reading"],
+    });
+
+    expect(result[0].selectedTags).toEqual(["urgent", "reading"]);
+    expect(loadSavedFilters()[0].selectedTags).toEqual(["urgent", "reading"]);
+  });
+
+  it("loads an older saved filter with no selectedTags field without error", () => {
+    persistSavedFilters([seedFilter()]); // seedFilter predates tag filtering
+    const [loaded] = loadSavedFilters();
+    expect(loaded.selectedTags).toBeUndefined();
+  });
+
   it("trims the filter name", () => {
     const result = saveFilter("  padded  ", {
       searchQuery: "",
