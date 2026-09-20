@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 // Mock the API module so no network calls happen
@@ -10,6 +10,15 @@ vi.mock("../../api", () => ({
   ]),
   fetchEntryFields: vi.fn().mockResolvedValue([]),
   fetchEntries: vi.fn().mockResolvedValue([]),
+  // The dashboard moved to the user-scoped listing endpoint. Without this
+  // entry the page's loader threw on every render and the catch block
+  // swallowed it, so these tests passed while the data path was broken.
+  fetchAllEntries: vi.fn().mockResolvedValue({
+    entries: [],
+    truncated: false,
+    fieldsByProject: {},
+    projectsNeedingFields: [],
+  }),
 }));
 
 import DashboardPage from "../../pages/DashboardPage";
@@ -65,6 +74,22 @@ describe("DashboardPage", () => {
     expect(
       await screen.findByText("Current Projects"),
     ).toBeInTheDocument();
+  });
+
+  // Every other assertion here checks a static label, which renders whether
+  // or not the data arrived — which is exactly how a broken mock went
+  // unnoticed. This one fails if the loader stops reaching the endpoint.
+  it("loads entries through the user-scoped listing endpoint", async () => {
+    const { fetchAllEntries } = await import("../../api");
+    renderDashboard();
+
+    await screen.findByText("Active Projects");
+    await waitFor(() => expect(fetchAllEntries).toHaveBeenCalled());
+
+    expect(vi.mocked(fetchAllEntries).mock.calls[0][0]).toMatchObject({
+      projectStatus: "ACTIVE",
+      limit: 500,
+    });
   });
 
   it("shows 'No active projects' when all projects are archived", async () => {
