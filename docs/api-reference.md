@@ -328,6 +328,73 @@ values; the field is hidden from new entry forms.
 
 ## Entries (`/api/...`) 🔒
 
+### `GET /api/entries`
+
+List entries across every project belonging to the authenticated user, so a
+page showing several projects needs one request rather than one per project.
+
+Scoped to the caller: entries are reached by joining through the owning
+project, so an id belonging to another account returns nothing rather than
+that account's data.
+
+| Query param | Type | Default | Notes |
+|---|---|---|---|
+| `projectId` | string | — | Restrict to one project. A project the caller does not own yields an empty list, not a 404 |
+| `projectStatus` | string | `ALL` | `ACTIVE`, `ARCHIVED` or `ALL` |
+| `from` | string | — | ISO date or datetime, inclusive lower bound |
+| `to` | string | — | ISO date or datetime, inclusive upper bound |
+| `limit` | number | `200` | Capped at `500` |
+
+`from` and `to` filter on `COALESCE(entryDate, createdAt)` — the date the
+interface shows. An entry backdated to March counts as March, not as the day
+it was typed, which is what the timeline and calendar already display.
+
+Results are ordered newest first by that same date, with the entry id as a
+tiebreaker so the order is stable between identical dates.
+
+**Response `200`:**
+
+```json
+{
+  "entries": [
+    {
+      "id": "…",
+      "projectId": "…",
+      "durationMinutes": 45,
+      "entryDate": null,
+      "dueDate": null,
+      "values": { "<fieldId>": "…" },
+      "status": "OPEN",
+      "completedAt": null,
+      "tags": ["coursework"],
+      "formatVersionId": "…",
+      "createdAt": "…",
+      "updatedAt": "…"
+    }
+  ],
+  "formats": {
+    "<formatVersionId>": { "version": 3, "fields": [ … ] }
+  },
+  "limit": 200,
+  "truncated": false
+}
+```
+
+Unlike `GET /api/projects/:projectId/entries`, an entry does not carry its
+own `format`. Each entry names its `formatVersionId` and the snapshots are
+returned once in the shared `formats` map — a term of entries on a nine-field
+project would otherwise be mostly repeated schema. An entry predating format
+versioning has `formatVersionId: null`.
+
+`truncated` is `true` when exactly `limit` rows were returned, meaning there
+may be more. A cursor can be added to this object later without breaking
+callers.
+
+**Errors:** `400` for an unknown `projectStatus`, a non-positive `limit`, or
+an unparseable `from`/`to`. `401` when the token is missing or invalid.
+
+---
+
 ### `POST /api/projects/:projectId/entries`
 
 Create a new logbook entry.

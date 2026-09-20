@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
+import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
+import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import { createEntrySchema, updateEntrySchema } from "../schemas/entry.schema.js";
 import type { Entry } from "@logbook/shared";
 import { calculateComputedValues } from "../utils/computedFields.js";
@@ -275,5 +277,111 @@ export const deleteEntry = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Failed to delete entry:", error);
     return res.status(500).json({ error: "Failed to delete entry" });
+  }
+};
+
+// ── GET /entries ─────────────────────────────────────────────────────────
+// A user-scoped listing across every project, so a page showing entries
+// from many projects needs one request rather than one per project.
+//
+// Scoped to req.userId from the first line and joined through the owning
+// project: this endpoint never resolves an entry by id alone.
+
+const DEFAULT_ENTRY_LIMIT = 200;
+const MAX_ENTRY_LIMIT = 500;
+const PROJECT_STATUSES = ["ACTIVE", "ARCHIVED", "ALL"];
+
+/** Parse a YYYY-MM-DD or ISO date query param. Returns undefined when absent. */
+function parseDateParam(value: unknown, label: string): Date | undefined {
+  if (value === undefined || value === "") return undefined;
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) throw new Error(`${label} must be a valid date`);
+  return parsed;
+}
+
+export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+
+    const projectStatus = String(req.query.projectStatus ?? "ALL").toUpperCase();
+    if (!PROJECT_STATUSES.includes(projectStatus)) {
+      return res.status(400).json({ error: `projectStatus must be one of ${PROJECT_STATUSES.join(", ")}` });
+    }
+
+    const rawLimit = req.query.limit === undefined ? DEFAULT_ENTRY_LIMIT : Number(req.query.limit);
+    if (!Number.isInteger(rawLimit) || rawLimit < 1) {
+      return res.status(400).json({ error: "limit must be a positive integer" });
+    }
+    const limit = Math.min(rawLimit, MAX_ENTRY_LIMIT);
+
+    let from: Date | undefined;
+    let to: Date | undefined;
+    try {
+      from = parseDateParam(req.query.from, "from");
+      to = parseDateParam(req.query.to, "to");
+    } catch (error: any) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
+
+    // Ordered and limited in SQL, because COALESCE(entry_date, created_at) is
+    // the date the interface actually shows — a backdated entry belongs in the
+    // week it visibly sits in, not the week it was typed. Prisma's orderBy
+    // cannot express that, so the ids are selected here and hydrated below.
+    const conditions: Prisma.Sql[] = [Prisma.sql`p.user_id = ${userId}::uuid`];
+    if (projectId) conditions.push(Prisma.sql`le.project_id = ${projectId}::uuid`);
+    if (projectStatus !== "ALL") conditions.push(Prisma.sql`p.status::text = ${projectStatus}`);
+    if (from) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) >= ${from}`);
+    if (to) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) <= ${to}`);
+
+    const rows = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT le.id
+      FROM logbook_entries le
+      JOIN projects p ON p.id = le.project_id
+      WHERE ${Prisma.join(conditions, " AND ")}
+      ORDER BY COALESCE(le.entry_date, le.created_at) DESC, le.id DESC
+      LIMIT ${limit}
+    `;
+
+    const ids = rows.map((r) => r.id);
+    if (ids.length === 0) {
+      return res.status(200).json({ entries: [], formats: {}, limit, truncated: false });
+    }
+
+    const found = await prisma.logbookEntry.findMany({
+      where: { id: { in: ids } },
+      include: ENTRY_INCLUDE,
+    });
+    // findMany does not preserve the order of an `in` list.
+    const byId = new Map(found.map((e) => [e.id, e]));
+    const ordered = ids.map((id) => byId.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
+
+    // One shared map rather than the same format snapshot repeated on every
+    // entry — a term of entries on a nine-field project would otherwise be
+    // mostly duplicated schema.
+    const formats: Record<string, { version: number; fields: unknown }> = {};
+    const entries = ordered.map((entry) => {
+      // The embedded per-entry format is dropped in favour of the shared map.
+      const { format, ...rest } = formatEntry(entry);
+      void format;
+      if (entry.formatVersionId && entry.formatVersion) {
+        formats[entry.formatVersionId] = {
+          version: entry.formatVersion.version,
+          fields: entry.formatVersion.fields,
+        };
+      }
+      return { ...rest, formatVersionId: entry.formatVersionId };
+    });
+
+    return res.status(200).json({
+      entries,
+      formats,
+      limit,
+      truncated: ids.length === limit,
+    });
+  } catch (error) {
+    console.error("Failed to list entries:", error);
+    return res.status(500).json({ error: "Failed to list entries" });
   }
 };
