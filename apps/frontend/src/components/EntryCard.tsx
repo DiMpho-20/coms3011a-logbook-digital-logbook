@@ -1,5 +1,6 @@
 import { Clock, AlertTriangle } from "lucide-react";
 import { formatDuration, isEmptyValue } from "../lib/utils";
+import TagList from "./TagList";
 import type { Entry, EntryField } from "../api";
 
 interface EntryCardProps {
@@ -76,6 +77,8 @@ export default function EntryCard({
           })}
         </div>
       )}
+
+      <TagList tags={entry.tags} className="mt-2" />
 
       {entry.dueDate && (
         <p className={`mt-1.5 text-[11px] font-medium ${

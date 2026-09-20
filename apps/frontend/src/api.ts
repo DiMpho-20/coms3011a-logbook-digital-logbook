@@ -13,6 +13,7 @@
   CreateEntryFieldInput,
   UpdateEntryFieldInput,
   EntryFieldType,
+  Tag,
 } from "@logbook/shared";
 import { api } from "./api/client";
 import { getPendingEntries, isOfflineRequest, queueEntry } from "./lib/offlineEntries";
@@ -27,6 +28,7 @@ export type {
   TimeSummary,
   ProjectStatus,
   EntryFieldType,
+  Tag,
 };
 
 export interface LogbookBackupProject {
@@ -106,6 +108,19 @@ export async function deleteEntryField(id: string): Promise<void> {
 export async function fetchEntryFormatVersions(projectId: string) {
   const res = await api.get(`/projects/${projectId}/entry-format-versions`);
   return res.data;
+}
+
+// ── Tags ─────────────────────────────────────────────────────────────────
+
+/** The caller's own tag vocabulary, for suggestions when tagging a project or entry. */
+export async function fetchTags(): Promise<Tag[]> {
+  const res = await api.get("/tags");
+  return res.data;
+}
+
+/** Remove a tag from the vocabulary entirely, detaching it everywhere it was used. */
+export async function deleteTag(id: string): Promise<void> {
+  await api.delete(`/tags/${id}`);
 }
 
 // ── Entries ──────────────────────────────────────────────────────────────

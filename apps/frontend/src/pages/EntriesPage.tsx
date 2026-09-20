@@ -24,6 +24,7 @@ import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
+import TagList from "../components/TagList";
 
 export default function EntriesPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -165,7 +166,8 @@ export default function EntriesPage() {
       list = list.filter((e) => {
         const name = projectName(e.projectId).toLowerCase();
         const vals = Object.values(e.values || {}).map((v) => String(v)).join(" ").toLowerCase();
-        return name.includes(q) || vals.includes(q);
+        const tagText = (e.tags || []).join(" ").toLowerCase();
+        return name.includes(q) || vals.includes(q) || tagText.includes(q);
       });
     }
     // Overdue entries sort by most overdue first; otherwise use sortOrder
@@ -413,8 +415,8 @@ export default function EntriesPage() {
                             entry.dueDate &&
                             new Date(entry.dueDate) < new Date(new Date().toDateString());
 
-                          // Collect non-empty field values as tags
-                          const tags = fields
+                          // Collect non-empty field values as chips (distinct from entry.tags below)
+                          const fieldChips = fields
                             .filter((f) => {
                               const v = entry.values?.[f.id];
                               return v != null && v !== "" && v !== false;
@@ -462,18 +464,20 @@ export default function EntriesPage() {
                                   {projectName(entry.projectId)}
                                 </p>
 
-                                {tags.length > 0 && (
+                                {fieldChips.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-1">
-                                    {tags.map((tag, i) => (
+                                    {fieldChips.map((chip, i) => (
                                       <span
                                         key={i}
                                         className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
                                       >
-                                        {tag}
+                                        {chip}
                                       </span>
                                     ))}
                                   </div>
                                 )}
+
+                                <TagList tags={entry.tags} className="mt-1" />
 
                                 {isOverdue && (
                                   <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-red-100 text-red-700 border border-red-200">

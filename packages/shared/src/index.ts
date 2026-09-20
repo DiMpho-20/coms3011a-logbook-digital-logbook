@@ -20,8 +20,15 @@ export interface Project {
   name: string;
   description: string | null;
   status: ProjectStatus;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** A user's own tag, as returned by GET /tags for autocomplete/management. */
+export interface Tag {
+  id: string;
+  name: string;
 }
 
 export interface ProjectWithFields extends Project {
@@ -66,6 +73,7 @@ export interface Entry {
   dueDate: string | null;
   values: Record<string, EntryFieldValue>;
   format: EntryFormatSnapshot | null;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
   status: "OPEN" | "DONE";
@@ -86,12 +94,14 @@ export interface CreateProjectInput {
   name: string;
   description?: string;
   status?: ProjectStatus;
+  tags?: string[];
 }
 
 export interface UpdateProjectInput {
   name?: string;
   description?: string;
   status?: ProjectStatus;
+  tags?: string[];
 }
 
 export interface CreateEntryInput {
@@ -99,6 +109,7 @@ export interface CreateEntryInput {
   values: Record<string, EntryFieldValue>;
   entryDate?: string;
   dueDate?: string;
+  tags?: string[];
 }
 
 export interface UpdateEntryInput {
@@ -106,6 +117,7 @@ export interface UpdateEntryInput {
   values?: Record<string, EntryFieldValue>;
   entryDate?: string | null;
   dueDate?: string | null;
+  tags?: string[];
 }
 
 export interface CreateEntryFieldInput {

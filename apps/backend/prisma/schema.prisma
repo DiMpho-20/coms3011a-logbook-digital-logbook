@@ -49,6 +49,7 @@ model User {
   // Relations
   passwordResets          PasswordReset[]
   projects                Project[]
+  tags                    Tag[]
   googleCalendarConnection GoogleCalendarConnection?
 
   @@map("users")
@@ -84,6 +85,7 @@ model Project {
   entryFields EntryField[]
   formatVersions EntryFormatVersion[]
   entries     LogbookEntry[]
+  tags        ProjectTag[]
 
   @@unique([userId, name])
   @@map("projects")
@@ -127,6 +129,7 @@ model LogbookEntry {
   project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   values  EntryValue[]
   formatVersion EntryFormatVersion? @relation(fields: [formatVersionId], references: [id], onDelete: SetNull)
+  tags    EntryTag[]
 
   @@map("logbook_entries")
 }
@@ -160,6 +163,47 @@ model EntryValue {
 
   @@unique([entryId, fieldId])
   @@map("entry_values")
+}
+
+// --- TAGS ---
+// A lightweight, user-scoped label that can be attached to any number of the
+// user's own projects and entries. Independent of the per-project custom
+// entry-field system: tags apply uniformly, with no format to define first.
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String   @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects ProjectTag[]
+  entries  EntryTag[]
+
+  @@unique([userId, name])
+  @@map("tags")
+}
+
+model ProjectTag {
+  projectId String @map("project_id") @db.Uuid
+  tagId     String @map("tag_id") @db.Uuid
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, tagId])
+  @@map("project_tags")
+}
+
+model EntryTag {
+  entryId String @map("entry_id") @db.Uuid
+  tagId   String @map("tag_id") @db.Uuid
+
+  entry LogbookEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  tag   Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, tagId])
+  @@map("entry_tags")
 }
 
 model GoogleCalendarConnection {

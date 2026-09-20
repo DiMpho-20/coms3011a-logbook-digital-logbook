@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Archive, ArchiveRestore, Edit2 } from "lucide-react";
 import { formatDuration } from "../lib/utils";
+import TagList from "./TagList";
 import type { Project, TimeSummary } from "../api";
 
 interface ProjectCardProps {
@@ -55,7 +56,7 @@ export default function ProjectCard({
       )}
 
       {/* Status badge */}
-      <div className="mb-4">
+      <div className="mb-3">
         <span className="inline-flex items-center gap-1.5 text-xs font-medium">
           <span
             className={`w-2 h-2 rounded-full ${
@@ -65,6 +66,11 @@ export default function ProjectCard({
           {isActive ? "Active" : "Archived"}
         </span>
       </div>
+
+      {/* Tags */}
+      {project.tags && project.tags.length > 0 && (
+        <TagList tags={project.tags} className="mb-4" />
+      )}
 
       {/* Divider */}
       <div className="border-t border-slate-100 my-3" />

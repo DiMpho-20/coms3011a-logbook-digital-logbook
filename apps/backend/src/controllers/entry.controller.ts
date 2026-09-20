@@ -3,6 +3,13 @@ import prisma from "../prisma.js";
 import { createEntrySchema, updateEntrySchema } from "../schemas/entry.schema.js";
 import type { Entry } from "@logbook/shared";
 import { calculateComputedValues } from "../utils/computedFields.js";
+import { cleanTagNames, resolveTagIds } from "../utils/tags.js";
+
+const ENTRY_INCLUDE = {
+  values: { include: { field: true } },
+  formatVersion: true,
+  tags: { include: { tag: true } },
+} as const;
 
 /**
  * Convert an array of EntryValue records (with included field) into a
@@ -37,6 +44,7 @@ function formatEntry(entry: {
   formatVersion?: { version: number; fields: unknown } | null;
   status: string;
   completedAt: Date | null;
+  tags?: { tag: { name: string } }[];
 }): Entry {
   return {
     id: entry.id,
@@ -47,6 +55,7 @@ function formatEntry(entry: {
     values: flattenValues(entry.values),
     status: entry.status as "OPEN" | "DONE",
     completedAt: entry.completedAt?.toISOString() ?? null,
+    tags: (entry.tags ?? []).map((t) => t.tag.name).sort(),
     // Legacy entries predate snapshots; derive their historical field list from
     // the retained fields referenced by their values.
     format: entry.formatVersion
@@ -72,10 +81,7 @@ export const getEntries = async (req: Request, res: Response) => {
 
     const entries = await prisma.logbookEntry.findMany({
       where,
-      include: {
-        values: { include: { field: true } },
-        formatVersion: true,
-      },
+      include: ENTRY_INCLUDE,
       orderBy: { createdAt: "desc" },
     });
 
@@ -101,10 +107,7 @@ export const updateEntryStatus = async (req: Request, res: Response) => {
         status,
         completedAt: status === "DONE" ? new Date() : null,
       },
-      include: {
-        values: { include: { field: true } },
-        formatVersion: true,
-      },
+      include: ENTRY_INCLUDE,
     });
 
     return res.status(200).json(formatEntry(entry));
@@ -133,6 +136,8 @@ export const createEntry = async (req: Request, res: Response) => {
     const suppliedValues = Object.fromEntries(Object.entries(validated.values).filter(([fieldId]) => fields.find((field) => field.id === fieldId && field.type !== "COMPUTED")));
     const computedValues = calculateComputedValues(fields, suppliedValues);
     const latestFormat = await prisma.entryFormatVersion.findFirst({ where: { projectId }, orderBy: { version: "desc" } });
+    const tagNames = cleanTagNames(validated.tags);
+    const tagIds = await resolveTagIds(prisma, project.userId, tagNames);
     const entry = await prisma.logbookEntry.create({
       data: {
         projectId,
@@ -146,11 +151,9 @@ export const createEntry = async (req: Request, res: Response) => {
             value: typeof value === "object" ? JSON.stringify(value) : String(value ?? ""),
           })),
         },
+        tags: { create: tagIds.map((tagId) => ({ tagId })) },
       },
-      include: {
-        values: { include: { field: true } },
-        formatVersion: true,
-      },
+      include: ENTRY_INCLUDE,
     });
 
     return res.status(201).json(formatEntry(entry));
@@ -167,10 +170,17 @@ export const updateEntry = async (req: Request, res: Response) => {
     const id = String(req.params.id);
     const validated = updateEntrySchema.parse(req.body);
 
-    const existing = await prisma.logbookEntry.findUnique({ where: { id } });
+    const existing = await prisma.logbookEntry.findUnique({
+      where: { id },
+      include: { project: { select: { userId: true } } },
+    });
     if (!existing) {
       return res.status(404).json({ error: "Entry not found" });
     }
+
+    const tagNames = validated.tags !== undefined ? cleanTagNames(validated.tags) : undefined;
+    const tagIds =
+      tagNames !== undefined ? await resolveTagIds(prisma, existing.project.userId, tagNames) : undefined;
 
     const entry = await prisma.$transaction(async (tx: any) => {
       // Build the data object for fields that were provided
@@ -204,9 +214,19 @@ export const updateEntry = async (req: Request, res: Response) => {
         }
       }
 
+      // Replace the tag set wholesale when tags are provided.
+      if (tagIds !== undefined) {
+        await tx.entryTag.deleteMany({ where: { entryId: id } });
+        if (tagIds.length > 0) {
+          await tx.entryTag.createMany({
+            data: tagIds.map((tagId: string) => ({ entryId: id, tagId })),
+          });
+        }
+      }
+
       return tx.logbookEntry.findUnique({
         where: { id },
-        include: { values: { include: { field: true } }, formatVersion: true },
+        include: ENTRY_INCLUDE,
       });
     });
 
