@@ -1,4 +1,4 @@
-import { Clock, AlertTriangle } from "lucide-react";
+import { Clock, AlertTriangle, Pencil } from "lucide-react";
 import { formatDuration, isEmptyValue } from "../lib/utils";
 import TagList from "./TagList";
 import type { Entry, EntryField } from "../api";
@@ -8,6 +8,8 @@ interface EntryCardProps {
   projectName?: string;
   fields?: EntryField[];
   showProject?: boolean;
+  /** When provided, shows an edit button that calls back with this entry. */
+  onEdit?: (entry: Entry) => void;
 }
 
 export default function EntryCard({
@@ -15,6 +17,7 @@ export default function EntryCard({
   projectName,
   fields = [],
   showProject = false,
+  onEdit,
 }: EntryCardProps) {
   const entryDate = new Date(entry.createdAt);
   const timeStr = entryDate.toLocaleTimeString(undefined, {
@@ -58,7 +61,20 @@ export default function EntryCard({
             </span>
           )}
         </div>
-        <span className="text-[11px] text-slate-400 shrink-0">{timeStr}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[11px] text-slate-400">{timeStr}</span>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(entry)}
+              className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
+              aria-label="Edit entry"
+              title="Edit entry"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {displayFields.length > 0 && (

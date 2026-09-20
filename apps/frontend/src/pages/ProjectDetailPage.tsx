@@ -21,6 +21,7 @@ import {
   fetchEntryFields,
   toggleProjectStatus,
   createEntry,
+  updateEntry,
   fetchEntryFormatVersions,
   fetchTags,
   type ProjectWithFields,
@@ -70,6 +71,7 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [entryModalOpen, setEntryModalOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [formatHistoryOpen, setFormatHistoryOpen] = useState(false);
   const [formatVersions, setFormatVersions] = useState<{ id: string; version: number; fields: EntryField[]; createdAt: string }[]>([]);
@@ -117,18 +119,27 @@ export default function ProjectDetailPage() {
     load();
   }, [load]);
 
-  // Reset form fields when modal opens
+  // Populate (or reset) form fields whenever the modal opens
   useEffect(() => {
-    if (entryModalOpen) {
+    if (!entryModalOpen) return;
+    if (editingEntry) {
+      const textField = fields.find((f) => f.type === "TEXT");
+      setEntryValues({ ...editingEntry.values });
+      setEntryDescription(textField ? String(editingEntry.values[textField.id] ?? "") : "");
+      setEntryDate(editingEntry.entryDate ? editingEntry.entryDate.slice(0, 10) : todayISO());
+      setEntryDuration(String(editingEntry.durationMinutes || ""));
+      setEntryDueDate(editingEntry.dueDate ? editingEntry.dueDate.slice(0, 10) : "");
+      setEntryTags(editingEntry.tags ?? []);
+    } else {
       setEntryValues(defaultValuesForFields(fields));
       setEntryDescription("");
       setEntryDate(todayISO());
       setEntryDuration("");
       setEntryDueDate("");
       setEntryTags([]);
-      setEntryError(null);
     }
-  }, [entryModalOpen, fields]);
+    setEntryError(null);
+  }, [entryModalOpen, editingEntry, fields]);
 
   const sortedEntries = useMemo(
     () => [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -173,6 +184,21 @@ export default function ProjectDetailPage() {
     setEntryValues((prev) => ({ ...prev, [fieldId]: value }));
   };
 
+  const openNewEntryModal = () => {
+    setEditingEntry(null);
+    setEntryModalOpen(true);
+  };
+
+  const openEditEntryModal = (entry: Entry) => {
+    setEditingEntry(entry);
+    setEntryModalOpen(true);
+  };
+
+  const closeEntryModal = () => {
+    setEntryModalOpen(false);
+    setEditingEntry(null);
+  };
+
   const handleEntrySubmit = async () => {
     if (!id) return;
     const minutes = parseInt(entryDuration, 10);
@@ -201,28 +227,41 @@ export default function ProjectDetailPage() {
       // clicking Save blurs the tags input in the same tick, and that
       // blur's commit hasn't reached `entryTags` yet when this runs.
       const finalTags = entryTagInputRef.current?.getValue() ?? entryTags;
-      const entryData: {
-        durationMinutes: number;
-        values: Record<string, EntryFieldValue>;
-        dueDate?: string;
-        entryDate?: string;
-        tags?: string[];
-      } = {
-        durationMinutes: minutes,
-        values: mergedValues,
-        tags: finalTags,
-      };
-      if (entryDueDate) entryData.dueDate = entryDueDate;
-      if (entryDate && entryDate !== todayISO()) entryData.entryDate = entryDate;
 
-      const newEntry = await createEntry(id, entryData);
-      setEntries((prev) => [newEntry, ...prev]);
-      setEntryModalOpen(false);
+      if (editingEntry) {
+        const updated = await updateEntry(editingEntry.id, {
+          durationMinutes: minutes,
+          values: mergedValues,
+          tags: finalTags,
+          dueDate: entryDueDate || null,
+          entryDate: entryDate || null,
+        });
+        setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      } else {
+        const entryData: {
+          durationMinutes: number;
+          values: Record<string, EntryFieldValue>;
+          dueDate?: string;
+          entryDate?: string;
+          tags?: string[];
+        } = {
+          durationMinutes: minutes,
+          values: mergedValues,
+          tags: finalTags,
+        };
+        if (entryDueDate) entryData.dueDate = entryDueDate;
+        if (entryDate && entryDate !== todayISO()) entryData.entryDate = entryDate;
+
+        const newEntry = await createEntry(id, entryData);
+        setEntries((prev) => [newEntry, ...prev]);
+      }
+
+      closeEntryModal();
       if (id) {
         fetchProjectTimeSummary(id).then(setSummary).catch(() => {});
       }
     } catch {
-      setEntryError("Couldn't save that entry. Try again.");
+      setEntryError(editingEntry ? "Couldn't update that entry. Try again." : "Couldn't save that entry. Try again.");
     } finally {
       setEntrySubmitting(false);
     }
@@ -357,7 +396,7 @@ export default function ProjectDetailPage() {
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">Entries</h2>
           <button
-            onClick={() => setEntryModalOpen(true)}
+            onClick={openNewEntryModal}
             className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
           >
             <Plus className="h-3.5 w-3.5" /> New Entry
@@ -368,7 +407,7 @@ export default function ProjectDetailPage() {
             <div className="text-center py-12">
               <p className="text-sm text-slate-400 mb-3">No entries logged for this project yet.</p>
               <button
-                onClick={() => setEntryModalOpen(true)}
+                onClick={openNewEntryModal}
                 className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
               >
                 <Plus className="h-4 w-4" /> Add First Entry
@@ -383,7 +422,7 @@ export default function ProjectDetailPage() {
                   </p>
                   <div className="space-y-2">
                     {dayEntries.map((entry) => (
-                      <EntryCard key={entry.id} entry={entry} fields={fields} />
+                      <EntryCard key={entry.id} entry={entry} fields={fields} onEdit={openEditEntryModal} />
                     ))}
                   </div>
                 </div>
@@ -406,11 +445,11 @@ export default function ProjectDetailPage() {
         </div>
       </Modal>
 
-      {/* New Entry Modal */}
+      {/* New / Edit Entry Modal */}
       <Modal
         open={entryModalOpen}
-        onClose={() => setEntryModalOpen(false)}
-        title="New Entry"
+        onClose={closeEntryModal}
+        title={editingEntry ? "Edit Entry" : "New Entry"}
       >
         <div className="space-y-4">
           {entryError && (
@@ -559,7 +598,7 @@ export default function ProjectDetailPage() {
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => setEntryModalOpen(false)}
+              onClick={closeEntryModal}
               className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
             >
               Cancel
@@ -571,7 +610,7 @@ export default function ProjectDetailPage() {
               className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition flex items-center gap-2"
             >
               {entrySubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Save
+              {editingEntry ? "Update" : "Save"}
             </button>
           </div>
         </div>
