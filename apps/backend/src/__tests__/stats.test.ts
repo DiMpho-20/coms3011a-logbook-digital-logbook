@@ -170,8 +170,43 @@ describe("Stats: timeline bucketing", () => {
       .set(H)
       .send({ dateFieldId: dateId, bucket: "day" });
 
-    const byDate = Object.fromEntries(res.body.points.map((p: any) => [p.date, p.count]));
+    const byDate = Object.fromEntries(res.body.points.map((p: any) => [p.date, p.value]));
     expect(byDate["2026-01-05"]).toBe(2);
     expect(byDate["2026-01-20"]).toBe(1);
   }, 30_000);
+
+  it("plots the sum of a NUMBER field per bucket instead of a plain entry count", async () => {
+    const projectId = await createProject(`__stats_timeline_sum_${ts}`);
+    const dateId = await createField(projectId, { name: "WorkDate", type: "DATE" });
+    const hoursId = await createField(projectId, { name: "Hours", type: "NUMBER" });
+
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [dateId]: "2026-02-01", [hoursId]: 3 } });
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [dateId]: "2026-02-01", [hoursId]: 4 } });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/stats/timeline`)
+      .set(H)
+      .send({ dateFieldId: dateId, bucket: "day", operation: "sum", metricFieldId: hoursId });
+
+    expect(res.status).toBe(200);
+    expect(res.body.points[0].value).toBe(7); // 3 + 4, not a count of 2
+  }, 30_000);
+
+  it("rejects sum without a metricFieldId", async () => {
+    const projectId = await createProject(`__stats_timeline_sum_missing_${ts}`);
+    const dateId = await createField(projectId, { name: "WorkDate", type: "DATE" });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/stats/timeline`)
+      .set(H)
+      .send({ dateFieldId: dateId, bucket: "day", operation: "sum" });
+
+    expect(res.status).toBe(400);
+  });
 });

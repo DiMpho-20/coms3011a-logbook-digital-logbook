@@ -318,8 +318,8 @@ describe("Stats timeline (POST /projects/:id/stats/timeline)", () => {
       .send({ dateFieldId: workDateFieldId, bucket: "day" });
 
     expect(res.status).toBe(200);
-    const points = res.body.points as { date: string; count: number }[];
-    const byDate = Object.fromEntries(points.map((p) => [p.date, p.count]));
+    const points = res.body.points as { date: string; value: number }[];
+    const byDate = Object.fromEntries(points.map((p) => [p.date, p.value]));
     expect(byDate["2026-09-01"]).toBe(2);
     expect(byDate["2026-09-10"]).toBe(1);
     // Sorted ascending
@@ -335,7 +335,7 @@ describe("Stats timeline (POST /projects/:id/stats/timeline)", () => {
     expect(res.status).toBe(200);
     expect(res.body.points).toHaveLength(1); // both dates fall in 2026-09
     expect(res.body.points[0].date).toBe("2026-09-01");
-    expect(res.body.points[0].count).toBeGreaterThanOrEqual(3);
+    expect(res.body.points[0].value).toBeGreaterThanOrEqual(3);
   });
 
   it("rejects an invalid bucket → 400", async () => {

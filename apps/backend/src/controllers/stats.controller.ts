@@ -85,17 +85,22 @@ export const groupStats = async (req: Request, res: Response) => {
 };
 
 // POST /projects/:projectId/stats/timeline
-// Body: { dateFieldId, bucket: "day" | "week" | "month" }
+// Body: { dateFieldId, bucket: "day" | "week" | "month", operation?: "count" | "sum", metricFieldId? }
+// Plots either how many entries fall in each bucket (default), or the total
+// of a NUMBER/COMPUTED field across the entries in each bucket.
 export const timelineStats = async (req: Request, res: Response) => {
   try {
     const projectId = String(req.params.projectId);
-    const { dateFieldId, bucket = "day" } = req.body;
+    const { dateFieldId, bucket = "day", operation = "count", metricFieldId } = req.body;
 
     if (!dateFieldId) {
       return res.status(400).json({ error: "dateFieldId is required" });
     }
     if (!["day", "week", "month"].includes(bucket)) {
       return res.status(400).json({ error: "bucket must be day, week, or month" });
+    }
+    if (!["count", "sum"].includes(operation)) {
+      return res.status(400).json({ error: "operation must be count or sum" });
     }
 
     const dateField = await prisma.entryField.findFirst({
@@ -108,20 +113,39 @@ export const timelineStats = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "dateFieldId must point to a DATE field" });
     }
 
+    let metricJoin = "";
+    const params: unknown[] = [dateFieldId, projectId];
+    if (operation === "sum") {
+      if (!metricFieldId) {
+        return res.status(400).json({ error: "metricFieldId is required for sum" });
+      }
+      const metricField = await prisma.entryField.findFirst({ where: { id: metricFieldId, projectId } });
+      if (!metricField) {
+        return res.status(404).json({ error: "Metric field not found" });
+      }
+      if (!["NUMBER", "COMPUTED"].includes(metricField.type)) {
+        return res.status(400).json({ error: "sum requires a NUMBER or COMPUTED field" });
+      }
+      metricJoin = "JOIN entry_values mv ON mv.entry_id = le.id AND mv.field_id = $3";
+      params.push(metricFieldId);
+    }
+
     const truncUnit = bucket; // 'day' | 'week' | 'month' maps directly to date_trunc
+    const metricExpr = operation === "sum" ? "SUM((mv.value)::numeric)" : "COUNT(*)";
     const rows: any[] = await prisma.$queryRawUnsafe(`
-      SELECT date_trunc('${truncUnit}', ev.value::date)::date AS date, COUNT(*) AS count
+      SELECT date_trunc('${truncUnit}', ev.value::date)::date AS date, ${metricExpr} AS value
       FROM logbook_entries le
       JOIN entry_values ev ON ev.entry_id = le.id AND ev.field_id = $1
+      ${metricJoin}
       WHERE le.project_id = $2
       GROUP BY date_trunc('${truncUnit}', ev.value::date)
       ORDER BY date ASC
-    `, dateFieldId, projectId);
+    `, ...params);
 
     return res.json({
       points: rows.map((r) => ({
         date: r.date instanceof Date ? r.date.toISOString().split("T")[0] : String(r.date),
-        count: Number(r.count),
+        value: Number(r.value),
       })),
     });
   } catch (error: any) {
