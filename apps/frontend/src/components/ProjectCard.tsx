@@ -78,10 +78,12 @@ export default function ProjectCard({
       {/* Stats */}
       <div className="space-y-1">
         <p className="text-sm font-semibold text-slate-800">
-          {summary?.entryCount ?? 0} {summary?.entryCount === 1 ? "entry" : "entries"}
+          {summary
+            ? `${summary.entryCount} ${summary.entryCount === 1 ? "entry" : "entries"}`
+            : "\u2014"}
         </p>
         <p className="text-sm font-semibold text-slate-800">
-          {formatDuration(summary?.totalMinutes ?? 0)}
+          {summary ? formatDuration(summary.totalMinutes) : "\u2014"}
         </p>
       </div>
 
@@ -94,9 +96,11 @@ export default function ProjectCard({
           Last activity
         </p>
         <p className="text-sm font-medium text-slate-700 mt-0.5">
-          {summary?.lastEntryAt
-            ? relativeDay(summary.lastEntryAt)
-            : "No entries yet"}
+          {!summary
+            ? "\u2014"
+            : summary.lastEntryAt
+              ? relativeDay(summary.lastEntryAt)
+              : "No entries yet"}
         </p>
       </div>
 

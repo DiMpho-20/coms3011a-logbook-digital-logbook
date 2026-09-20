@@ -60,15 +60,24 @@ export default function ProjectsPage() {
     fetchTags().then((t) => setTagSuggestions(t.map((tag) => tag.name))).catch(() => {});
   }, []);
 
+  // Guards against an older load overwriting a newer one's results.
+  const loadRunRef = useRef(0);
+
   const loadProjects = async () => {
+    const run = ++loadRunRef.current;
     try {
       setLoadError(null);
       setLoading(true);
       const data = await fetchProjects();
+      if (run !== loadRunRef.current) return;
       setProjects(data);
 
-      // Fetch time summaries in background
-      const summaryResults = await Promise.all(
+      // Render the list now. Time summaries are one request per project,
+      // so awaiting all of them here held the whole page on a spinner
+      // until the slowest one returned.
+      setLoading(false);
+
+      void Promise.all(
         data.map(async (p) => {
           try {
             const sum = await fetchProjectTimeSummary(p.id);
@@ -77,17 +86,19 @@ export default function ProjectsPage() {
             return { id: p.id, summary: null };
           }
         })
-      );
-      const sMap: Record<string, TimeSummary> = {};
-      summaryResults.forEach((r) => {
-        if (r.summary) sMap[r.id] = r.summary;
+      ).then((summaryResults) => {
+        if (run !== loadRunRef.current) return;
+        const sMap: Record<string, TimeSummary> = {};
+        summaryResults.forEach((r) => {
+          if (r.summary) sMap[r.id] = r.summary;
+        });
+        setSummaries(sMap);
       });
-      setSummaries(sMap);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load projects.";
-      setLoadError(msg);
+      if (run === loadRunRef.current) setLoadError(msg);
     } finally {
-      setLoading(false);
+      if (run === loadRunRef.current) setLoading(false);
     }
   };
 
