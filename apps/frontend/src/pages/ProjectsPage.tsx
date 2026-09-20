@@ -147,7 +147,12 @@ export default function ProjectsPage() {
   const handleAddField = () => {
     setEntryFields((prev) => [
       ...prev,
-      { id: `new-${Date.now()}`, name: "", type: "TEXT", required: false, isNew: true },
+      // crypto.randomUUID rather than Date.now: two clicks inside the same
+      // millisecond produced identical ids, and the rows are keyed on them,
+      // so React saw duplicate keys and duplicated or dropped rows (BUG-013).
+      // The "new-" prefix is load-bearing — removeField tests it to decide
+      // whether a row needs a DELETE call.
+      { id: `new-${crypto.randomUUID()}`, name: "", type: "TEXT", required: false, isNew: true },
     ]);
   };
 
