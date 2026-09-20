@@ -35,6 +35,9 @@ export default defineConfig({
       // artifact.
       reporter: ['text', 'lcov', 'json-summary'],
       reportsDirectory: 'coverage',
+      // A failing run should still produce numbers; otherwise one broken test
+      // means no coverage report at all.
+      reportOnFailure: true,
       // Vitest 4 removed coverage.all, so the sources are named explicitly:
       // without this an untested file is simply missing from the report
       // rather than counted as 0%.

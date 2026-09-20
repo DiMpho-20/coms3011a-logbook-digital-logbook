@@ -15,6 +15,10 @@ export default defineConfig({
       // text is for the log, lcov for the artifact.
       reporter: ["text", "lcov", "json-summary"],
       reportsDirectory: "coverage",
+      // Write the report even when a test fails. A red run is exactly when
+      // you want to know whether coverage moved, and without this a single
+      // failure produces no numbers at all.
+      reportOnFailure: true,
       // Vitest 4 removed coverage.all, so naming the sources here is what
       // makes an untested file report 0% instead of being absent from the
       // report entirely — the difference between an honest number and a
