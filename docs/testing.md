@@ -183,6 +183,56 @@ regenerated Prisma client (`npx prisma generate` in `apps/backend` — see
 
 ---
 
+## Coverage
+
+Coverage is measured with Vitest's V8 provider, configured in
+`apps/backend/vitest.config.ts` and in the `test.coverage` block of
+`apps/frontend/vite.config.ts`.
+
+```bash
+# Backend coverage (needs the same DATABASE_URL as the ordinary run)
+npm run test:coverage --workspace=apps/backend
+
+# Frontend coverage
+npm run test:coverage --workspace=apps/frontend
+```
+
+Each run prints a summary table to the terminal and writes
+`lcov.info` to `<workspace>/coverage/`, which most editors and coverage
+viewers read directly. The `coverage/` directories are gitignored; the
+numbers belong in CI output and in this document, not in the repository.
+
+Both suites are configured with `include: ["src/**"]`. Vitest 4 removed the
+older `coverage.all` option, and without naming the sources explicitly a file
+that no test touches is simply absent from the report rather than counted as
+zero. Listing them keeps the percentage honest: it is coverage of the codebase,
+not coverage of the files that happen to have tests. Test files and the
+frontend's `test-setup.ts` and `main.tsx` are excluded, since measuring the
+tests against themselves says nothing.
+
+### In CI
+
+`.gitea/workflows/deploy.yaml` runs `test:coverage` rather than `test` for both
+workspaces on every push to `main`, `master`, `Alondwe` and `Dineo`. The text
+reporter puts the coverage table directly into the Actions log, so the numbers
+can be read from a run without downloading anything, and the two `lcov.info`
+files are uploaded as a `coverage-lcov` artifact.
+
+The upload step is pinned to `actions/upload-artifact@v3` and marked
+`continue-on-error`. Version 4 of that action depends on an artifact backend
+that not every Gitea runner provides, and a runner without artifact storage
+should not fail an otherwise green build — the coverage table is in the log
+regardless.
+
+No coverage thresholds are enforced yet. The purpose at this stage is to publish
+the numbers and watch them move; a threshold set before anyone has seen a
+baseline is an arbitrary number that either passes trivially or blocks work for
+no reason. Once a few runs have established where the project actually sits, a
+floor at or slightly below the current figure is worth adding, so coverage can
+only go up.
+
+---
+
 ## Testing Policy
 
 1. **Every API endpoint gets tests for the happy path *and* its error paths** (400 validation, 401 auth, 404 missing, 409 conflict). If an endpoint has no error-path test, it isn't done.
