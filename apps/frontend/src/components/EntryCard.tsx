@@ -1,4 +1,4 @@
-import { Clock, AlertTriangle, Pencil } from "lucide-react";
+import { Clock, AlertTriangle, Pencil, Trash2 } from "lucide-react";
 import { formatDuration, isEmptyValue } from "../lib/utils";
 import TagList from "./TagList";
 import type { Entry, EntryField } from "../api";
@@ -10,6 +10,8 @@ interface EntryCardProps {
   showProject?: boolean;
   /** When provided, shows an edit button that calls back with this entry. */
   onEdit?: (entry: Entry) => void;
+  /** When provided, shows a delete button that calls back with this entry. */
+  onDelete?: (entry: Entry) => void;
 }
 
 export default function EntryCard({
@@ -18,6 +20,7 @@ export default function EntryCard({
   fields = [],
   showProject = false,
   onEdit,
+  onDelete,
 }: EntryCardProps) {
   const entryDate = new Date(entry.createdAt);
   const timeStr = entryDate.toLocaleTimeString(undefined, {
@@ -72,6 +75,17 @@ export default function EntryCard({
               title="Edit entry"
             >
               <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(entry)}
+              className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+              aria-label="Delete entry"
+              title="Delete entry"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
           )}
         </div>

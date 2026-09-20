@@ -4,6 +4,7 @@ import { createEntrySchema, updateEntrySchema } from "../schemas/entry.schema.js
 import type { Entry } from "@logbook/shared";
 import { calculateComputedValues } from "../utils/computedFields.js";
 import { cleanTagNames, resolveTagIds } from "../utils/tags.js";
+import { validateEntryValues, findMissingRequiredField } from "../utils/entryValues.js";
 
 const ENTRY_INCLUDE = {
   values: { include: { field: true } },
@@ -18,7 +19,7 @@ const ENTRY_INCLUDE = {
 function flattenValues(values: { fieldId: string; value: string; field: { type: string } }[]): Record<string, any> {
   const map: Record<string, any> = {};
   for (const ev of values) {
-    if (ev.field.type === "NUMBER") {
+    if (ev.field.type === "NUMBER" || ev.field.type === "COMPUTED") {
       map[ev.fieldId] = Number(ev.value) || 0;
     } else if (ev.field.type === "BOOLEAN") {
       map[ev.fieldId] = ev.value === "true";
@@ -134,7 +135,15 @@ export const createEntry = async (req: Request, res: Response) => {
 
     const fields = await prisma.entryField.findMany({ where: { projectId, archivedAt: null } });
     const suppliedValues = Object.fromEntries(Object.entries(validated.values).filter(([fieldId]) => fields.find((field) => field.id === fieldId && field.type !== "COMPUTED")));
+
+    const shapeError = validateEntryValues(fields, suppliedValues);
+    if (shapeError) return res.status(400).json({ error: shapeError });
+
     const computedValues = calculateComputedValues(fields, suppliedValues);
+
+    const missing = findMissingRequiredField(fields, { ...suppliedValues, ...computedValues });
+    if (missing) return res.status(400).json({ error: `"${missing.name}" is required.` });
+
     const latestFormat = await prisma.entryFormatVersion.findFirst({ where: { projectId }, orderBy: { version: "desc" } });
     const tagNames = cleanTagNames(validated.tags);
     const tagIds = await resolveTagIds(prisma, project.userId, tagNames);
@@ -201,10 +210,18 @@ export const updateEntry = async (req: Request, res: Response) => {
 
       if (validated.values) {
         const fields = await tx.entryField.findMany({ where: { projectId: existing.projectId, archivedAt: null } });
+
+        const shapeError = validateEntryValues(fields, validated.values);
+        if (shapeError) throw new Error(shapeError);
+
         const existingValues = await tx.entryValue.findMany({ where: { entryId: id } });
         const valueMap: Record<string, unknown> = Object.fromEntries(existingValues.map((value: any) => [value.fieldId, value.value]));
         Object.assign(valueMap, validated.values);
         const computedValues = calculateComputedValues(fields, valueMap);
+
+        const missing = findMissingRequiredField(fields, { ...valueMap, ...computedValues });
+        if (missing) throw new Error(`"${missing.name}" is required.`);
+
         for (const [fieldId, value] of Object.entries({ ...validated.values, ...computedValues })) {
           await tx.entryValue.upsert({
             where: { entryId_fieldId: { entryId: id, fieldId } },

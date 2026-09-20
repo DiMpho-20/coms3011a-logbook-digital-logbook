@@ -57,7 +57,7 @@ describe("EntryForm", () => {
 
   it("renders the duration input and submit button", () => {
     renderForm();
-    expect(screen.getByPlaceholderText(/e\.g\. 45/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/0 if not started/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /save entry/i }),
     ).toBeInTheDocument();
@@ -81,21 +81,38 @@ describe("EntryForm", () => {
     expect(screen.getByText("Hours")).toBeInTheDocument();
   });
 
-  it("shows an error when duration is missing or zero", async () => {
-    renderForm();
+  it("treats a blank duration as 0 (work that hasn't started yet) rather than an error", async () => {
+    mockCreateEntry.mockResolvedValueOnce({ id: "e3", durationMinutes: 0 });
+    renderForm({ projectId: "p1" });
 
     fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
 
-    expect(
-      await screen.findByText(/enter how long/i),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockCreateEntry).toHaveBeenCalledWith("p1", expect.objectContaining({
+        durationMinutes: 0,
+      }));
+    });
+  });
+
+  it("accepts a duration of 0 for work that hasn't started yet", async () => {
+    mockCreateEntry.mockResolvedValueOnce({ id: "e2", durationMinutes: 0 });
+    renderForm({ projectId: "p1" });
+
+    setNativeValue(screen.getByPlaceholderText(/0 if not started/i), "0");
+    fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
+
+    await waitFor(() => {
+      expect(mockCreateEntry).toHaveBeenCalledWith("p1", expect.objectContaining({
+        durationMinutes: 0,
+      }));
+    });
   });
 
   it("shows an error when a required field is empty", async () => {
     renderForm({ fields: FIELDS });
 
     // Set duration but leave required Description empty
-    setNativeValue(screen.getByPlaceholderText(/e\.g\. 45/i), "60");
+    setNativeValue(screen.getByPlaceholderText(/0 if not started/i), "60");
     fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
 
     expect(
@@ -108,7 +125,7 @@ describe("EntryForm", () => {
     const { onSave } = renderForm({ fields: FIELDS, projectId: "p1" });
 
     // Fill duration and required text field
-    setNativeValue(screen.getByPlaceholderText(/e\.g\. 45/i), "60");
+    setNativeValue(screen.getByPlaceholderText(/0 if not started/i), "60");
     const textInputs = screen.getAllByRole("textbox");
     setNativeValue(textInputs[0], "Worked on testing");
 
