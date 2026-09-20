@@ -143,8 +143,11 @@ function TagHarness({ initial = [], suggestions = [] }: { initial?: string[]; su
 }
 
 describe("TagInput", () => {
+  // By role, not by placeholder: TagInput blanks its placeholder as soon as
+  // there is at least one tag, so any harness starting with tags has no
+  // placeholder to query by.
   const typeInto = (text: string) => {
-    const input = screen.getByPlaceholderText("Add a tag…");
+    const input = screen.getByRole("textbox");
     fireEvent.change(input, { target: { value: text } });
     return input;
   };
@@ -185,7 +188,6 @@ describe("TagInput", () => {
 
   it("removes the last tag on Backspace when the draft is empty", () => {
     render(<TagHarness initial={["one", "two"]} />);
-    // With tags present the placeholder is blank, so query by role instead.
     fireEvent.keyDown(screen.getByRole("textbox"), { key: "Backspace" });
 
     expect(screen.getByTestId("committed")).toHaveTextContent("one");
