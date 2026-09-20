@@ -10,6 +10,24 @@ async function ownedProject(projectId: string, userId: string) {
   return prisma.project.findFirst({ where: { id: projectId, userId } });
 }
 
+/**
+ * Entry values are stored as text, so a row that does not look like a number
+ * must be excluded before it reaches ::numeric — one bad row otherwise fails
+ * the whole aggregation with 22P02 and takes the statistics page down
+ * (BUG-012). Entries no longer write empty values, but rows written before
+ * that fix are still in the database and must not break anything.
+ *
+ * Both constants are fixed literals, never built from user input.
+ */
+const NUMERIC_VALUES = `~ '^-?[0-9]+([.][0-9]+)?$'`;
+/**
+ * count does not cast, so it needs no numeric test — but an empty row still
+ * means "this entry never recorded a value", and counting it would report
+ * more entries as having filled the field in than actually did.
+ */
+const NON_EMPTY_VALUES = `<> ''`;
+const DATE_VALUES = `~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'`;
+
 // POST /projects/:projectId/stats/group
 // Body: { metricFieldId, operation, groupByFieldId? }
 export const groupStats = async (req: AuthenticatedRequest, res: Response) => {
@@ -61,10 +79,11 @@ export const groupStats = async (req: AuthenticatedRequest, res: Response) => {
         return res.status(404).json({ error: "Group-by field not found" });
       }
 
+      const metricGuard = `AND mv.value ${isCount ? NON_EMPTY_VALUES : NUMERIC_VALUES}`;
       const rows: any[] = await prisma.$queryRawUnsafe(`
         SELECT gv.value AS key, ${metricExpr} AS value
         FROM logbook_entries le
-        JOIN entry_values mv ON mv.entry_id = le.id AND mv.field_id = $1
+        JOIN entry_values mv ON mv.entry_id = le.id AND mv.field_id = $1 ${metricGuard}
         JOIN entry_values gv ON gv.entry_id = le.id AND gv.field_id = $2
         WHERE le.project_id = $3
         GROUP BY gv.value
@@ -80,10 +99,11 @@ export const groupStats = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     // No grouping — single total
+    const totalGuard = `AND mv.value ${isCount ? NON_EMPTY_VALUES : NUMERIC_VALUES}`;
     const rows: any[] = await prisma.$queryRawUnsafe(`
       SELECT ${metricExpr} AS value
       FROM logbook_entries le
-      JOIN entry_values mv ON mv.entry_id = le.id AND mv.field_id = $1
+      JOIN entry_values mv ON mv.entry_id = le.id AND mv.field_id = $1 ${totalGuard}
       WHERE le.project_id = $2
     `, metricFieldId, projectId);
 
@@ -141,7 +161,7 @@ export const timelineStats = async (req: AuthenticatedRequest, res: Response) =>
       if (!["NUMBER", "COMPUTED"].includes(metricField.type)) {
         return res.status(400).json({ error: "sum requires a NUMBER or COMPUTED field" });
       }
-      metricJoin = "JOIN entry_values mv ON mv.entry_id = le.id AND mv.field_id = $3";
+      metricJoin = `JOIN entry_values mv ON mv.entry_id = le.id AND mv.field_id = $3 AND mv.value ${NUMERIC_VALUES}`;
       params.push(metricFieldId);
     }
 
@@ -150,7 +170,7 @@ export const timelineStats = async (req: AuthenticatedRequest, res: Response) =>
     const rows: any[] = await prisma.$queryRawUnsafe(`
       SELECT date_trunc('${truncUnit}', ev.value::date)::date AS date, ${metricExpr} AS value
       FROM logbook_entries le
-      JOIN entry_values ev ON ev.entry_id = le.id AND ev.field_id = $1
+      JOIN entry_values ev ON ev.entry_id = le.id AND ev.field_id = $1 AND ev.value ${DATE_VALUES}
       ${metricJoin}
       WHERE le.project_id = $2
       GROUP BY date_trunc('${truncUnit}', ev.value::date)

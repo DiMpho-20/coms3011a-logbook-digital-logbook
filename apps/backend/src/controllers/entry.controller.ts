@@ -6,7 +6,7 @@ import { createEntrySchema, updateEntrySchema } from "../schemas/entry.schema.js
 import type { Entry } from "@logbook/shared";
 import { calculateComputedValues } from "../utils/computedFields.js";
 import { cleanTagNames, resolveTagIds } from "../utils/tags.js";
-import { validateEntryValues, findMissingRequiredField } from "../utils/entryValues.js";
+import { validateEntryValues, findMissingRequiredField, isEmptyValue } from "../utils/entryValues.js";
 
 /**
  * Resolve a project the caller actually owns. requireAuth proves the caller
@@ -181,10 +181,17 @@ export const createEntry = async (req: AuthenticatedRequest, res: Response) => {
         entryDate: validated.entryDate,
         dueDate: validated.dueDate,
         values: {
-          create: Object.entries({ ...suppliedValues, ...computedValues }).map(([fieldId, value]) => ({
-            fieldId,
-            value: typeof value === "object" ? JSON.stringify(value) : String(value ?? ""),
-          })),
+          // A field the user did not fill in gets no row at all. Writing ""
+          // for it used to reach (mv.value)::numeric in the statistics
+          // queries and fail the whole aggregation with 22P02 (BUG-012), and
+          // it contradicted backfillNewField, which deliberately refuses to
+          // fabricate a value for a field an entry never recorded.
+          create: Object.entries({ ...suppliedValues, ...computedValues })
+            .filter(([, value]) => !isEmptyValue(value))
+            .map(([fieldId, value]) => ({
+              fieldId,
+              value: typeof value === "object" ? JSON.stringify(value) : String(value),
+            })),
         },
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
       },
@@ -249,10 +256,18 @@ export const updateEntry = async (req: AuthenticatedRequest, res: Response) => {
         if (missing) throw new Error(`"${missing.name}" is required.`);
 
         for (const [fieldId, value] of Object.entries({ ...validated.values, ...computedValues })) {
+          // Clearing a field removes its row rather than storing "". The
+          // required-field check above already ran against the full value
+          // map, so a required field cannot be emptied this way.
+          if (isEmptyValue(value)) {
+            await tx.entryValue.deleteMany({ where: { entryId: id, fieldId } });
+            continue;
+          }
+          const stored = typeof value === "object" ? JSON.stringify(value) : String(value);
           await tx.entryValue.upsert({
             where: { entryId_fieldId: { entryId: id, fieldId } },
-            create: { entryId: id, fieldId, value: typeof value === "object" ? JSON.stringify(value) : String(value ?? "") },
-            update: { value: typeof value === "object" ? JSON.stringify(value) : String(value ?? "") },
+            create: { entryId: id, fieldId, value: stored },
+            update: { value: stored },
           });
         }
       }
