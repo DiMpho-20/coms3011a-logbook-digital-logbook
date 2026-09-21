@@ -3,8 +3,13 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globals: true,
-    testTimeout: 15_000,
-    hookTimeout: 15_000,
+    // These suites run against a live Neon database over the network, and CI
+    // executes twelve files against it concurrently. Locally a test takes a
+    // second or two; on a loaded runner one has been measured at 14.7s and a
+    // setup hook at 17s. A 15s ceiling was therefore failing runs for
+    // queueing rather than for anything wrong with the code.
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
     include: ["src/**/__tests__/**/*.test.ts"],
     coverage: {
       provider: "v8",
