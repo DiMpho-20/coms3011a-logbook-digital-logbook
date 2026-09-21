@@ -12,6 +12,7 @@ import * as api from "../../api";
 import EntriesPage from "../EntriesPage";
 
 const SUMMARY_FIELD = { id: "f-sum", name: "Summary", type: "TEXT", required: false };
+const MOOD_FIELD = { id: "f-mood", name: "Mood", type: "TEXT", required: false };
 
 const project = (over: Record<string, unknown> = {}) => ({
   id: "p1",
@@ -71,9 +72,11 @@ describe("EntriesPage — shell and loading", () => {
     vi.mocked(api.fetchAllEntries).mockReturnValue(new Promise(() => {}) as never);
     render(<EntriesPage />);
 
-    // The header and the stat labels do not need entries.
+    // The header and the stat labels do not need entries. ("This Week" is
+    // deliberately not used here — it is also a filter option, so it matches
+    // twice; "Total Entries" and "Day Streak" are stat labels only.)
     expect(await screen.findByText("Entries")).toBeInTheDocument();
-    expect(screen.getByText("This Week")).toBeInTheDocument();
+    expect(screen.getByText("Total Entries")).toBeInTheDocument();
     expect(screen.getByText("Day Streak")).toBeInTheDocument();
     // And the list shows a busy placeholder rather than an empty state.
     expect(document.querySelector('[aria-busy="true"]')).toBeTruthy();
@@ -137,7 +140,25 @@ describe("EntriesPage — the timeline", () => {
 
     expect(await screen.findByText("Wrote the report")).toBeInTheDocument();
     expect(screen.getAllByText("Campus Marketplace").length).toBeGreaterThan(0);
-    expect(screen.getByText("45m")).toBeInTheDocument();
+    // "45m" renders twice: the entry's own duration, and the "Time This Week"
+    // total — which is the same figure when this is the only entry.
+    expect(screen.getAllByText("45m")).toHaveLength(2);
+  });
+
+  it("chips the other fields but not the one already shown as the description", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
+    vi.mocked(api.fetchAllEntries).mockResolvedValue(
+      listing(
+        [entry({ values: { "f-sum": "Wrote the report", "f-mood": "Focused" } })],
+        { fieldsByProject: { p1: [SUMMARY_FIELD, MOOD_FIELD] } }
+      ) as never
+    );
+    render(<EntriesPage />);
+
+    // The second field earns a chip...
+    expect(await screen.findByText("Focused")).toBeInTheDocument();
+    // ...while the description is not repeated as one underneath itself.
+    expect(screen.getAllByText("Wrote the report")).toHaveLength(1);
   });
 
   it("counts the entries into the stat cards", async () => {
@@ -150,7 +171,11 @@ describe("EntriesPage — the timeline", () => {
   it("marks an overdue entry and counts it", async () => {
     await setup([entry({ dueDate: daysAgo(2) })]);
 
-    expect(await screen.findByText("Overdue")).toBeInTheDocument();
+    // "Overdue" renders twice: the stat-card label, and the badge on the entry
+    // itself. Both are expected — the badge is what marks the entry.
+    expect(await screen.findAllByText("Overdue")).toHaveLength(2);
+    // The filter option carries the count, so it reads "Overdue (1)".
+    expect(screen.getByText("Overdue (1)")).toBeInTheDocument();
   });
 
   it("filters by the search box across project name and values", async () => {
