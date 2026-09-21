@@ -89,23 +89,38 @@ const covered = measured.reduce((sum, w) => sum + w.lines.covered, 0);
 const total = measured.reduce((sum, w) => sum + w.lines.total, 0);
 const combined = total === 0 ? 0 : Number(((covered / total) * 100).toFixed(2));
 
+// A "combined" figure is only honest when both workspaces reported: with a
+// single summary it would silently repeat that workspace's number (a red
+// backend run once published ~78% as "combined"), so it is withheld unless
+// the set is complete.
+const complete = measured.length === WORKSPACES.length;
+
 // The run summary renders on runners that support it and is ignored by those
 // that do not, so it costs nothing to write.
 if (process.env.GITHUB_STEP_SUMMARY) {
   const rows = measured
     .map((w) => `| ${w.label} | ${w.lines.covered} / ${w.lines.total} | ${w.lines.pct}% |`)
     .join("\n");
+  const combinedRow = complete
+    ? `\n| **Combined** | **${covered} / ${total}** | **${combined}%** |`
+    : "";
   try {
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      `## Coverage (lines)\n\n| Workspace | Covered | % |\n|---|---|---|\n${rows}\n| **Combined** | **${covered} / ${total}** | **${combined}%** |\n\n`
+      `## Coverage (lines)\n\n| Workspace | Covered | % |\n|---|---|---|\n${rows}${combinedRow}\n\n`
     );
   } catch (error) {
     console.log(`Could not write the run summary: ${error.message}`);
   }
 }
 
-console.log(`Combined: ${covered}/${total} lines = ${combined}%`);
+if (complete) {
+  console.log(`Combined: ${covered}/${total} lines = ${combined}%`);
+} else {
+  console.log(
+    `Combined not published: only ${measured.length} of ${WORKSPACES.length} workspaces reported.`
+  );
+}
 
 if (!server || !repo || !sha) {
   console.log("Not running under Gitea Actions (server, repository or SHA missing); skipping statuses.");
@@ -121,5 +136,9 @@ for (const w of measured) {
   await postStatus(w.context, `${w.lines.pct}% lines`);
 }
 // Combined is the figure the rubric is judged on, so it gets its own status
-// rather than being left for a reader to work out from the other two.
-await postStatus("coverage/combined", `${combined}% lines`);
+// rather than being left for a reader to work out from the other two — but
+// only when both summaries are present, so the number on the commit always
+// means what its name says.
+if (complete) {
+  await postStatus("coverage/combined", `${combined}% lines`);
+}
