@@ -259,6 +259,40 @@ no reason. Once a few runs have established where the project actually sits, a
 floor at or slightly below the current figure is worth adding, so coverage can
 only go up.
 
+### A known limitation of the CI database link
+
+The backend suites run against the hosted Neon database over the public
+internet. From the CI runner that link is not perfectly reliable: on several
+runs a single fixture's first write has failed with `ETIMEDOUT` — a transport
+error, raised before the statement ever reaches Postgres — while every other
+suite in the same run read and wrote to that same database without trouble.
+
+It is not an application defect and not a failing assertion. The same file
+passes consistently on a developer machine; only the runner sees it. Two
+explanations were tested and ruled out by measurement rather than argument:
+capping the worker count cut peak concurrency threefold and the failure did
+not move, which rules out connection-pool pressure; and other suites complete
+database writes seconds *before* the failure in the same run, which rules out
+a cold start of the serverless compute.
+
+What the suite does about it: `entriesListing.test.ts` retries its setup
+writes when — and only when — they fail with a transport-level code
+(`ETIMEDOUT`, `ECONNRESET`, `ECONNREFUSED`, `EPIPE`, or Prisma's `P1001`,
+`P1002`, `P1017`). Every other error, a constraint violation included, is
+rethrown on the first attempt, so the retry cannot disguise a real bug. The
+retried writes are idempotent by construction: the user fixture upserts
+rather than creates, because a write that times out at the transport may
+still have landed, and the entry seed is guarded by a row count, because
+inserting those rows twice would corrupt the counts the suite asserts.
+
+If it recurs despite the retries, treat it as infrastructure rather than
+code. The durable fix is to run CI against a database reachable on the
+runner's own network instead of across the public internet; that is an
+infrastructure decision, not a change to this repository. A run affected by
+it still publishes honest numbers — the backend figure simply excludes the
+38 lines that file uniquely covers, and `coverage/combined` is withheld
+entirely unless both workspaces reported.
+
 ---
 
 ## Testing Policy
