@@ -30,16 +30,49 @@ const BACKDATED = new Date("2026-03-01T09:00:00.000Z");
 let fixtureHash: Promise<string> | null = null;
 const fixturePasswordHash = () => (fixtureHash ??= hashPassword("Password123"));
 
+// Transport-level failures, raised before a statement ever reaches Postgres.
+// On the CI runner this fixture's first write has repeatedly died with
+// ETIMEDOUT while every other suite in the same run wrote to the same
+// database without trouble, so the link — not the query — is what fails.
+const TRANSIENT = new Set([
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "EPIPE",
+  "P1001", // cannot reach the database server
+  "P1002", // the server was reached but timed out
+  "P1017", // the server closed the connection
+]);
+
+/**
+ * Retry `run` only when it fails at the transport. Anything else — a
+ * constraint violation, a validation error, a genuine bug — is rethrown on
+ * the first attempt, so this cannot hide a real failure.
+ */
+async function throughFlakyLink<T>(what: string, run: () => Promise<T>, attempts = 4): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await run();
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code;
+      if (attempt === attempts || !code || !TRANSIENT.has(code)) throw error;
+      console.warn(`[entriesListing] ${what}: ${code}, retrying (${attempt}/${attempts - 1})`);
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1_000));
+    }
+  }
+}
+
 async function makeUser(id: string, email: string, name: string) {
-  await prisma.user.create({
-    data: {
-      id,
-      email,
-      passwordHash: await fixturePasswordHash(),
-      fullName: name,
-      isEmailVerified: true,
-    },
-  });
+  const passwordHash = await fixturePasswordHash();
+  // upsert rather than create: a write that times out at the transport may
+  // still have landed, so a retry has to tolerate finding its own row.
+  await throughFlakyLink(`create ${name}`, () =>
+    prisma.user.upsert({
+      where: { id },
+      update: {},
+      create: { id, email, passwordHash, fullName: name, isEmailVerified: true },
+    })
+  );
   return { Authorization: `Bearer ${generateToken(id)}` };
 }
 
@@ -70,21 +103,31 @@ beforeAll(async () => {
     .set(HA)
     .send({ name: "Summary", type: "TEXT", required: false });
 
-  const version = await prisma.entryFormatVersion.findFirst({
-    where: { projectId: activeProjectId },
-    orderBy: { version: "desc" },
-  });
+  const version = await throughFlakyLink("read the format version", () =>
+    prisma.entryFormatVersion.findFirst({
+      where: { projectId: activeProjectId },
+      orderBy: { version: "desc" },
+    })
+  );
 
   // Entries are created through Prisma rather than the API so that
   // entry_date and created_at can be set precisely — the ordering and the
   // from/to filter are the whole point of this endpoint.
-  await prisma.logbookEntry.createMany({
-    data: [
-      { projectId: activeProjectId, durationMinutes: 30, entryDate: BACKDATED, formatVersionId: version?.id },
-      { projectId: activeProjectId, durationMinutes: 45, entryDate: null, formatVersionId: version?.id },
-      { projectId: archivedProjectId, durationMinutes: 60, entryDate: null },
-      { projectId: otherUsersProjectId, durationMinutes: 90, entryDate: null },
-    ],
+  //
+  // Guarded by a count rather than retried blindly: a createMany that timed
+  // out at the transport may still have landed, and inserting the four rows
+  // twice would quietly corrupt every count this suite asserts.
+  await throughFlakyLink("seed the entries", async () => {
+    const already = await prisma.logbookEntry.count({ where: { projectId: activeProjectId } });
+    if (already > 0) return;
+    await prisma.logbookEntry.createMany({
+      data: [
+        { projectId: activeProjectId, durationMinutes: 30, entryDate: BACKDATED, formatVersionId: version?.id },
+        { projectId: activeProjectId, durationMinutes: 45, entryDate: null, formatVersionId: version?.id },
+        { projectId: archivedProjectId, durationMinutes: 60, entryDate: null },
+        { projectId: otherUsersProjectId, durationMinutes: 90, entryDate: null },
+      ],
+    });
   });
 });
 
