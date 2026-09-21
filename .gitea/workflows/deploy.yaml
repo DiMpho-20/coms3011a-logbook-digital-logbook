@@ -33,12 +33,18 @@ jobs:
       # client asked for. The plain test scripts are unchanged for local use.
       # The suite runs against a live Neon database, so the connection string
       # comes from the repository secret of the same name.
+      # if: always() — coverage must reach the commit on every push, even one
+      # whose earlier step failed; the report below needs both summaries.
       - name: Run backend tests with coverage
+        if: always()
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run test:coverage --workspace=apps/backend
 
+      # Same reasoning as the backend step: run regardless of earlier
+      # failures so this summary exists for the combined figure.
       - name: Run frontend tests with coverage
+        if: always()
         run: npm run test:coverage --workspace=apps/frontend
 
       # Gitea has no built-in coverage display, so the number is pushed to
