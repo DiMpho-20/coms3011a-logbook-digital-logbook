@@ -494,9 +494,20 @@ export default function EntriesPage() {
                             entry.dueDate &&
                             new Date(entry.dueDate) < new Date(new Date().toDateString());
 
-                          // Collect non-empty field values as chips (distinct from entry.tags below)
+                          // The description is the first TEXT field's value; it is
+                          // rendered below as the entry's headline.
+                          const descField = fields.find((f) => f.type === "TEXT");
+                          const description = descField
+                            ? (entry.values?.[descField.id] as string) || ""
+                            : "";
+
+                          // Collect non-empty field values as chips (distinct from
+                          // entry.tags below). The description field is skipped while
+                          // it is showing as the headline — repeating the same text
+                          // directly underneath it adds nothing.
                           const fieldChips = fields
                             .filter((f) => {
+                              if (description && f.id === descField?.id) return false;
                               const v = entry.values?.[f.id];
                               return v != null && v !== "" && v !== false;
                             })
@@ -504,12 +515,6 @@ export default function EntriesPage() {
                               const v = entry.values?.[f.id];
                               return f.type === "BOOLEAN" ? f.name : String(v);
                             });
-
-                          // Try to get a description from first TEXT field
-                          const descField = fields.find((f) => f.type === "TEXT");
-                          const description = descField
-                            ? (entry.values?.[descField.id] as string) || ""
-                            : "";
 
                           return (
                             <div key={entry.id} className="relative pl-8 pb-6 last:pb-0">
