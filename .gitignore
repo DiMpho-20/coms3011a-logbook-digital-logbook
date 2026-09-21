@@ -10,3 +10,6 @@ build/
 
 # Coverage reports
 coverage/
+
+# Scratch files from the local AI verification relay
+.qoder-tmp-*
