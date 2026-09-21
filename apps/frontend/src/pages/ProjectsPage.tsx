@@ -118,6 +118,13 @@ export default function ProjectsPage() {
     });
   }, [projects, filter, searchQuery, tagFilters]);
 
+  // "You have nothing yet" and "nothing matches your filters" are different
+  // states and deserve different copy. The filter defaults to ACTIVE, so
+  // inferring the first from the filter told every brand-new user to adjust
+  // filters they had never set — and withheld the one button they needed.
+  // Whether the unfiltered list is empty is what actually decides it.
+  const hasNoProjects = projects.length === 0;
+
   // Modal handlers
   const openCreateModal = () => {
     setEditingProject(null);
@@ -301,14 +308,14 @@ export default function ProjectsPage() {
       {filteredProjects.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
-          title={searchQuery || filter !== "ALL" || tagFilters.length > 0 ? "No matching projects" : "No projects yet"}
+          title={hasNoProjects ? "No projects yet" : "No matching projects"}
           description={
-            searchQuery || filter !== "ALL" || tagFilters.length > 0
-              ? "Try adjusting your search or filters."
-              : "Create your first project to start logging entries."
+            hasNoProjects
+              ? "Create your first project to start logging entries."
+              : "Try adjusting your search or filters."
           }
           action={
-            !searchQuery && filter === "ALL" && tagFilters.length === 0 ? (
+            hasNoProjects ? (
               <button
                 onClick={openCreateModal}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
