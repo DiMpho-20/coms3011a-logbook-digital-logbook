@@ -10,6 +10,14 @@ export default defineConfig({
     // queueing rather than for anything wrong with the code.
     testTimeout: 60_000,
     hookTimeout: 60_000,
+
+    // Every suite shares one Neon database across the network. One worker
+    // per file means twelve Prisma clients connecting at once, and during
+    // that startup burst a fixture insert has failed outright with
+    // ETIMEDOUT. Capping the workers costs little wall clock — the run is
+    // bound by database latency rather than CPU — in exchange for a third
+    // of the peak connection pressure.
+    maxWorkers: 4,
     include: ["src/**/__tests__/**/*.test.ts"],
     coverage: {
       provider: "v8",
