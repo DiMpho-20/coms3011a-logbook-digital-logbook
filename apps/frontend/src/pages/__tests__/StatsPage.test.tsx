@@ -144,6 +144,12 @@ describe("StatsPage — loading and empty states", () => {
   it("shows a placeholder in both panels while the fields load", async () => {
     vi.mocked(api.fetchEntryFields).mockReturnValue(new Promise(() => {}) as never);
     await renderAndWait();
+    // renderAndWait only gets as far as the heading, which commits on the
+    // urgent render. Picking the first project is a router transition that
+    // commits after it, so waiting on the fields request is what proves the
+    // selection landed and these panels are genuinely mid-load rather than
+    // still showing their no-fields empty state.
+    await waitFor(() => expect(api.fetchEntryFields).toHaveBeenCalledWith("p1"));
 
     expect(within(sectionFor(GROUP)).getByText("Loading fields…")).toBeInTheDocument();
     expect(within(sectionFor(TIMELINE)).getByText("Loading fields…")).toBeInTheDocument();
