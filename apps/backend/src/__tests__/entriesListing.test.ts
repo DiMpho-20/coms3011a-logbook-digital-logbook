@@ -24,12 +24,18 @@ let otherUsersProjectId: string;
 // A deliberately backdated entry: created now, but dated in March.
 const BACKDATED = new Date("2026-03-01T09:00:00.000Z");
 
+// bcrypt is deliberately slow and both fixture users share a password, so
+// the hash is computed once instead of per user. On a loaded CI runner a
+// single hash has been measured at well over a second.
+let fixtureHash: Promise<string> | null = null;
+const fixturePasswordHash = () => (fixtureHash ??= hashPassword("Password123"));
+
 async function makeUser(id: string, email: string, name: string) {
   await prisma.user.create({
     data: {
       id,
       email,
-      passwordHash: await hashPassword("Password123"),
+      passwordHash: await fixturePasswordHash(),
       fullName: name,
       isEmailVerified: true,
     },
@@ -38,18 +44,24 @@ async function makeUser(id: string, email: string, name: string) {
 }
 
 beforeAll(async () => {
-  HA = await makeUser(USER_A, `entries_a_${ts}@example.com`, "Entries User A");
-  HB = await makeUser(USER_B, `entries_b_${ts}@example.com`, "Entries User B");
+  // Independent of each other, so they are not queued one behind the other.
+  const [ha, hb] = await Promise.all([
+    makeUser(USER_A, `entries_a_${ts}@example.com`, "Entries User A"),
+    makeUser(USER_B, `entries_b_${ts}@example.com`, "Entries User B"),
+  ]);
+  HA = ha;
+  HB = hb;
 
-  const activeRes = await request(app).post("/api/projects").set(HA).send({ name: `__el_active_${ts}` });
+  const [activeRes, archivedRes, otherRes] = await Promise.all([
+    request(app).post("/api/projects").set(HA).send({ name: `__el_active_${ts}` }),
+    request(app).post("/api/projects").set(HA).send({ name: `__el_archived_${ts}` }),
+    request(app).post("/api/projects").set(HB).send({ name: `__el_other_${ts}` }),
+  ]);
   activeProjectId = activeRes.body.id;
-
-  const archivedRes = await request(app).post("/api/projects").set(HA).send({ name: `__el_archived_${ts}` });
   archivedProjectId = archivedRes.body.id;
-  await request(app).patch(`/api/projects/${archivedProjectId}/status`).set(HA).send({ status: "ARCHIVED" });
-
-  const otherRes = await request(app).post("/api/projects").set(HB).send({ name: `__el_other_${ts}` });
   otherUsersProjectId = otherRes.body.id;
+
+  await request(app).patch(`/api/projects/${archivedProjectId}/status`).set(HA).send({ status: "ARCHIVED" });
 
   // A field on the active project, which creates a format version the
   // entries below can be pinned to.
