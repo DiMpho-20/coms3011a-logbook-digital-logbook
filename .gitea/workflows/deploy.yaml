@@ -31,7 +31,11 @@ jobs:
       # test:coverage rather than test: the v8 text reporter prints the
       # coverage table into this log, which is the visible evidence the
       # client asked for. The plain test scripts are unchanged for local use.
+      # The suite runs against a live Neon database, so the connection string
+      # comes from the repository secret of the same name.
       - name: Run backend tests with coverage
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run test:coverage --workspace=apps/backend
 
       - name: Run frontend tests with coverage
@@ -40,7 +44,11 @@ jobs:
       # Gitea has no built-in coverage display, so the number is pushed to
       # the commit itself as a status. Never allowed to fail the build:
       # publishing a figure is not worth turning a green run red.
+      # if: always() — vitest writes its coverage files even when tests fail
+      # (reportOnFailure), so a red run still publishes the number instead of
+      # leaving the commit with no coverage status at all.
       - name: Report coverage to Gitea
+        if: always()
         continue-on-error: true
         env:
           GITEA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -49,9 +57,11 @@ jobs:
       # Pinned to v3: v4 of this action needs an artifact backend that Gitea
       # runners do not all provide. continue-on-error keeps a runner without
       # artifact storage from failing an otherwise green build — the numbers
-      # are already in the log above either way.
+      # are already in the log above either way. Also runs on red builds,
+      # where the lcov files are most useful for diagnosis.
       - name: Upload coverage reports
         uses: actions/upload-artifact@v3
+        if: always()
         continue-on-error: true
         with:
           name: coverage-lcov
