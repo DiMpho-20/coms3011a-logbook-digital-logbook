@@ -33,6 +33,14 @@ const project = (over: Record<string, unknown> = {}) => ({
 
 const renderPage = () => render(<MemoryRouter><ProjectsPage /></MemoryRouter>);
 
+/**
+ * With no projects yet the page offers "New Project" twice — once in the
+ * header, once as the empty state's call to action. Either opens the same
+ * modal, so these tests take the header's.
+ */
+const openNewProjectModal = async () =>
+  fireEvent.click((await screen.findAllByRole("button", { name: /new project/i }))[0]);
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.fetchTags).mockResolvedValue([{ id: "t1", name: "coursework" }] as never);
@@ -64,21 +72,28 @@ describe("ProjectsPage — loading and listing", () => {
     expect(await screen.findByText(/network is down/i)).toBeInTheDocument();
   });
 
-  it("says 'No projects yet' only once the filter is showing everything", async () => {
+  it("invites a brand-new account to create a project, not to adjust filters", async () => {
     vi.mocked(api.fetchProjects).mockResolvedValue([] as never);
     renderPage();
 
-    // The filter defaults to ACTIVE, and the empty state treats any filter
-    // other than ALL as "you have filtered everything out" — so a brand-new
-    // account with no projects is told its search matched nothing rather
-    // than being invited to create one. Asserted as it behaves today.
-    expect(await screen.findByText("No matching projects")).toBeInTheDocument();
-    expect(screen.getByText("Try adjusting your search or filters.")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "ALL" } });
-
+    // The filter defaults to ACTIVE, so emptiness has to be decided by the
+    // unfiltered list. Deciding it from the filter used to tell a new account
+    // its search matched nothing and withhold the button it needed.
     expect(await screen.findByText("No projects yet")).toBeInTheDocument();
     expect(screen.getByText("Create your first project to start logging entries.")).toBeInTheDocument();
+    // Two offers of it now: the header's, and the empty state's.
+    expect(screen.getAllByRole("button", { name: /new project/i })).toHaveLength(2);
+  });
+
+  it("says nothing matches when a filter hides every project", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([project({ status: "ARCHIVED" })] as never);
+    renderPage();
+
+    // A project exists; the default ACTIVE filter is what is hiding it.
+    expect(await screen.findByText("No matching projects")).toBeInTheDocument();
+    expect(screen.getByText("Try adjusting your search or filters.")).toBeInTheDocument();
+    // No call to action here — adjusting the filter is the way out.
+    expect(screen.getAllByRole("button", { name: /new project/i })).toHaveLength(1);
   });
 
   it("hides archived projects by default and reveals them on request", async () => {
@@ -129,7 +144,7 @@ describe("ProjectsPage — creating and editing", () => {
     vi.mocked(api.fetchProjects).mockResolvedValue([] as never);
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
+    await openNewProjectModal();
     expect(await screen.findByText("Create New Project")).toBeInTheDocument();
 
     // Submit the form directly; the required attribute would otherwise stop
@@ -144,7 +159,7 @@ describe("ProjectsPage — creating and editing", () => {
     vi.mocked(api.fetchProjects).mockResolvedValue([] as never);
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
+    await openNewProjectModal();
     fireEvent.change(screen.getByPlaceholderText("Enter project name..."), { target: { value: "New Project" } });
     fireEvent.change(screen.getByPlaceholderText("Brief description (optional)"), { target: { value: "A description" } });
 
@@ -166,7 +181,7 @@ describe("ProjectsPage — creating and editing", () => {
     vi.mocked(api.fetchProjects).mockResolvedValue([] as never);
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
+    await openNewProjectModal();
     fireEvent.change(screen.getByPlaceholderText("Enter project name..."), { target: { value: "P" } });
     fireEvent.click(screen.getByRole("button", { name: "+ Add Field" }));
 
@@ -183,7 +198,7 @@ describe("ProjectsPage — creating and editing", () => {
     });
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
+    await openNewProjectModal();
     fireEvent.change(screen.getByPlaceholderText("Enter project name..."), { target: { value: "Duplicate" } });
     fireEvent.submit(screen.getByPlaceholderText("Enter project name...").closest("form")!);
 
@@ -210,7 +225,7 @@ describe("ProjectsPage — creating and editing", () => {
     vi.mocked(api.fetchProjects).mockResolvedValue([] as never);
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
+    await openNewProjectModal();
     fireEvent.click(screen.getByRole("button", { name: "+ Add Field" }));
 
     expect(screen.queryByPlaceholderText(/^Formula/)).not.toBeInTheDocument();
@@ -227,7 +242,7 @@ describe("ProjectsPage — creating and editing", () => {
     vi.mocked(api.fetchProjects).mockResolvedValue([] as never);
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
+    await openNewProjectModal();
     fireEvent.click(screen.getByRole("button", { name: "+ Add Field" }));
     expect(screen.getByPlaceholderText("Field name...")).toBeInTheDocument();
 
