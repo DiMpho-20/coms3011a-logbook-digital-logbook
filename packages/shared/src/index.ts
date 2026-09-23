@@ -129,6 +129,7 @@ export interface CreateEntryFieldInput {
 
 export interface UpdateEntryFieldInput {
   name?: string;
+  type?: EntryFieldType;
   required?: boolean;
   formula?: string | null;
 }

@@ -237,10 +237,6 @@ export const updateEntry = async (req: AuthenticatedRequest, res: Response) => {
         entryData.dueDate = validated.dueDate;
       }
 
-      if (Object.keys(entryData).length > 0) {
-        await tx.logbookEntry.update({ where: { id }, data: entryData });
-      }
-
       if (validated.values) {
         const fields = await tx.entryField.findMany({ where: { projectId: existing.projectId, archivedAt: null } });
 
@@ -270,6 +266,18 @@ export const updateEntry = async (req: AuthenticatedRequest, res: Response) => {
             update: { value: stored },
           });
         }
+
+        // The entry's displayed field list is pinned to the format version
+        // active when it was created. A field added to the project later
+        // (e.g. LINK, REFERENCE) is absent from that old snapshot, so a value
+        // just saved for it would otherwise never render. Re-point the entry
+        // at the current format now that it's been edited against it.
+        const latestFormat = await tx.entryFormatVersion.findFirst({ where: { projectId: existing.projectId }, orderBy: { version: "desc" } });
+        if (latestFormat) entryData.formatVersionId = latestFormat.id;
+      }
+
+      if (Object.keys(entryData).length > 0) {
+        await tx.logbookEntry.update({ where: { id }, data: entryData });
       }
 
       // Replace the tag set wholesale when tags are provided.

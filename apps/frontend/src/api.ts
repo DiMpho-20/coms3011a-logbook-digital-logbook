@@ -13,6 +13,7 @@
   CreateEntryFieldInput,
   UpdateEntryFieldInput,
   EntryFieldType,
+  ChecklistItem,
   Tag,
 } from "@logbook/shared";
 import { api } from "./api/client";
@@ -28,6 +29,7 @@ export type {
   TimeSummary,
   ProjectStatus,
   EntryFieldType,
+  ChecklistItem,
   Tag,
 };
 

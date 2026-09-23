@@ -32,6 +32,7 @@ import {
   type Entry,
   type EntryField,
   type EntryFieldValue,
+  type ChecklistItem,
 } from "../api";
 import { formatDuration, todayISO, defaultValuesForFields, isEmptyValue, entryDateKey } from "../lib/utils";
 import StatCard from "../components/StatCard";
@@ -217,6 +218,23 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleToggleChecklistItem = async (entry: Entry, field: EntryField, itemIndex: number) => {
+    const current = Array.isArray(entry.values?.[field.id]) ? (entry.values[field.id] as ChecklistItem[]) : [];
+    const items = current.map((item, i) => (i === itemIndex ? { ...item, checked: !item.checked } : item));
+
+    // Optimistic update so the checkbox responds immediately; reload from the
+    // server if the save fails so the card doesn't drift from what's stored.
+    setEntries((prev) =>
+      prev.map((e) => (e.id === entry.id ? { ...e, values: { ...e.values, [field.id]: items } } : e))
+    );
+    try {
+      const updated = await updateEntry(entry.id, { values: { [field.id]: items } });
+      setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    } catch {
+      load();
+    }
+  };
+
   const closeEntryModal = () => {
     setEntryModalOpen(false);
     setEditingEntry(null);
@@ -284,8 +302,10 @@ export default function ProjectDetailPage() {
       if (id) {
         fetchProjectTimeSummary(id).then(setSummary).catch(() => {});
       }
-    } catch {
-      setEntryError(editingEntry ? "Couldn't update that entry. Try again." : "Couldn't save that entry. Try again.");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        || (editingEntry ? "Couldn't update that entry. Try again." : "Couldn't save that entry. Try again.");
+      setEntryError(msg);
     } finally {
       setEntrySubmitting(false);
     }
@@ -446,7 +466,14 @@ export default function ProjectDetailPage() {
                   </p>
                   <div className="space-y-2">
                     {dayEntries.map((entry) => (
-                      <EntryCard key={entry.id} entry={entry} fields={fields} onEdit={openEditEntryModal} onDelete={handleDeleteEntry} />
+                      <EntryCard
+                        key={entry.id}
+                        entry={entry}
+                        fields={fields}
+                        onEdit={openEditEntryModal}
+                        onDelete={handleDeleteEntry}
+                        onToggleChecklistItem={handleToggleChecklistItem}
+                      />
                     ))}
                   </div>
                 </div>
@@ -486,11 +513,12 @@ export default function ProjectDetailPage() {
           {firstTextField && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                What did you work on?
+                {firstTextField.name}
+                {firstTextField.required && <span className="text-red-500 ml-0.5">*</span>}
               </label>
               <textarea
                 rows={3}
-                placeholder={`Describe what you worked on...`}
+                placeholder={`Add ${firstTextField.name.toLowerCase()}...`}
                 value={entryDescription}
                 onChange={(e) => setEntryDescription(e.target.value)}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
