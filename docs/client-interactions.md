@@ -287,6 +287,33 @@ The Intermediate user stories themselves have been completed and integrated into
 
 ---
 
+## [Date: 2026-09-18] — Client Meeting & Technical Feedback
+
+* **Channel:** Client meeting.
+
+* **Feedback:**
+
+  * The application is currently slow, so the team should investigate changing the deployment platform and deploy the application using **Vercel**.
+  * The team should use **MantisBT** as the bug-tracking system to formally document and manage reported bugs.
+  * The dashboard currently contains statistics that may be unnecessary because the application already has a separate statistics feature accessible through the side navigation. The team should consider removing the statistics section from the dashboard to avoid duplication.
+  * The database was reviewed and it was identified that the **tags table is missing**. This is affecting the functionality of tags and preventing logbook entries from being updated correctly.
+  * The missing tags table may also be contributing to the application's performance issues. The team should investigate possible glitches or delays in communication between the frontend and backend.
+  * The team must properly **document the internal APIs**, including the available endpoints and their purpose, as required by the project.
+  * The team needs to set up **CI/CD** so that testing and code coverage can be automated rather than relying on manually running tests and checking the coverage results.
+
+* **Action Taken / Planned Actions:**
+
+  * Investigate and migrate the application deployment to **Vercel** to address the application's performance issues.
+  * Set up **MantisBT** and use it as the team's formal bug-tracking system.
+  * Remove the duplicated statistics section from the dashboard while keeping the dedicated statistics functionality accessible through the side navigation.
+  * Add the missing **tags table** to the database and ensure that tags are correctly integrated with logbook entries.
+  * Investigate and resolve possible frontend–backend communication glitches and performance issues.
+  * Document the project's **internal APIs**, including endpoints, requests, responses, and their purpose.
+  * Set up a **CI/CD pipeline** to automatically run tests and generate/check code coverage.
+  * Continue documenting technical decisions and client feedback as project evidence.
+
+---
+
 ## 7. Summary
 
 The majority of client requirements for the Intermediate phase were already established during the Sprint 1 client meetings. As a result, the team required only limited follow-up interaction during this phase.

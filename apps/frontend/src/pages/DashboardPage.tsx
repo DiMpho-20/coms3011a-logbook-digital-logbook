@@ -11,7 +11,7 @@ import {
 import {
   fetchProjects,
   fetchEntryFields,
-  fetchEntries,
+  fetchAllEntries,
   type Project,
   type Entry,
   type EntryField,
@@ -21,6 +21,7 @@ import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import DeadlineReminders from "../components/DeadlineReminders";
 import LoadingState from "../components/LoadingState";
+import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
 
 // ── SVG Sparkline ────────────────────────────────────────────────────────
@@ -141,6 +142,12 @@ export default function DashboardPage() {
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [fieldsByProject, setFieldsByProject] = useState<Record<string, EntryField[]>>({});
   const [loading, setLoading] = useState(true);
+  // Entries arrive one request per project, long after the projects
+  // themselves. Sections that need them show a placeholder rather than
+  // holding the whole page on a spinner.
+  const [entriesLoading, setEntriesLoading] = useState(true);
+  const [loadFailures, setLoadFailures] = useState(0);
+  const [truncated, setTruncated] = useState(false);
   const [displayName] = useState(
     () => (typeof window !== "undefined" ? localStorage.getItem("logbook-name") : null) || "Student"
   );
@@ -150,33 +157,49 @@ export default function DashboardPage() {
     (async () => {
       try {
         const data = await fetchProjects();
-        const active = data.filter((p) => p.status === "ACTIVE");
         if (cancelled) return;
         setProjects(data);
+        // The greeting, the project list and the active-project count only
+        // need this much. Release the page here.
+        setLoading(false);
 
-        const results = await Promise.all(
-          active.map(async (p) => {
-            const [fields, entries] = await Promise.all([
-              fetchEntryFields(p.id),
-              fetchEntries(p.id),
-            ]);
-            return { projectId: p.id, fields, entries };
-          })
+        // One request for every active project's entries, rather than two
+        // per project. 500 is the endpoint's cap.
+        const listing = await fetchAllEntries(
+          { projectStatus: "ACTIVE", limit: 500 },
+          { pendingProjectIds: data.filter((p) => p.status === "ACTIVE").map((p) => p.id) }
         );
-
         if (cancelled) return;
-        const fMap: Record<string, EntryField[]> = {};
-        let combined: Entry[] = [];
-        results.forEach((r) => {
-          fMap[r.projectId] = r.fields;
-          combined = combined.concat(r.entries);
-        });
-        setFieldsByProject(fMap);
-        setAllEntries(combined);
+        setAllEntries(listing.entries);
+        setFieldsByProject(listing.fieldsByProject);
+        setTruncated(listing.truncated);
+
+        // Most entries carry their own format snapshot, which is all
+        // EntryCard needs. Only projects with an entry that has none —
+        // legacy entries, and anything still queued offline — need the
+        // live field list as a fallback, so only those are fetched.
+        if (listing.projectsNeedingFields.length > 0) {
+          const settled = await Promise.allSettled(
+            listing.projectsNeedingFields.map(async (id) => ({ id, fields: await fetchEntryFields(id) }))
+          );
+          if (cancelled) return;
+          const extra: Record<string, EntryField[]> = {};
+          settled.forEach((r) => {
+            if (r.status === "fulfilled") extra[r.value.id] = r.value.fields;
+          });
+          const failed = settled.filter((r) => r.status === "rejected");
+          failed.forEach((r) => console.error("Failed to load a project's fields:", (r as PromiseRejectedResult).reason));
+          setLoadFailures(failed.length);
+          // Live fields beat an older snapshot for the fallback case.
+          setFieldsByProject((prev) => ({ ...prev, ...extra }));
+        }
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setEntriesLoading(false);
+        }
       }
     })();
     return () => {
@@ -282,12 +305,33 @@ export default function DashboardPage() {
       {/* ── 2. Key Statistics ───────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard icon={FolderKanban} label="Active Projects" value={stats.activeCount} color="blue" />
-        <StatCard icon={ListChecks} label="Entries This Week" value={stats.weekCount} color="emerald" />
-        <StatCard icon={Clock} label="Total Time Logged" value={formatDuration(stats.totalMinutes)} color="orange" />
+        <StatCard icon={ListChecks} label="Entries This Week" value={stats.weekCount} color="emerald" loading={entriesLoading} />
+        <StatCard icon={Clock} label="Total Time Logged" value={formatDuration(stats.totalMinutes)} color="orange" loading={entriesLoading} />
       </div>
 
       {/* ── Deadline Reminders ─────────────────────────────────────────── */}
-      <DeadlineReminders entries={allEntries} projectNames={projectNames} />
+      {entriesLoading ? (
+        <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3 w-56" />
+        </div>
+      ) : (
+        <DeadlineReminders entries={allEntries} projectNames={projectNames} />
+      )}
+
+      {truncated && (
+        <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Showing your most recent 500 entries. The totals above cover those, not your whole logbook.
+        </p>
+      )}
+
+      {loadFailures > 0 && (
+        <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          {loadFailures === 1
+            ? "One project's field list couldn't be loaded, so some older entries may show fewer details."
+            : `${loadFailures} projects' field lists couldn't be loaded, so some older entries may show fewer details.`}
+        </p>
+      )}
 
       {/* ── 3. Activity + Projects ──────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

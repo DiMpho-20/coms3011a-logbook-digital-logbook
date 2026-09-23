@@ -1,0 +1,228 @@
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import StatusBadge from "../StatusBadge";
+import TagList from "../TagList";
+import EntryCard from "../EntryCard";
+import ProjectCard from "../ProjectCard";
+import type { Entry, EntryField, Project, TimeSummary } from "../../api";
+
+const field = (id: string, name: string, type: string): EntryField =>
+  ({ id, name, type, required: false, projectId: "p1", formula: null }) as unknown as EntryField;
+
+function makeEntry(overrides: Partial<Entry> = {}): Entry {
+  return {
+    id: "e1",
+    projectId: "p1",
+    durationMinutes: 90,
+    entryDate: null,
+    dueDate: null,
+    values: {},
+    status: "OPEN",
+    completedAt: null,
+    tags: [],
+    format: null,
+    createdAt: "2026-09-01T10:30:00.000Z",
+    updatedAt: "2026-09-01T10:30:00.000Z",
+    ...overrides,
+  } as Entry;
+}
+
+const project = (overrides: Partial<Project> = {}): Project =>
+  ({
+    id: "p1",
+    name: "Campus Marketplace",
+    description: "A description",
+    status: "ACTIVE",
+    tags: [],
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  }) as Project;
+
+const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+
+describe("StatusBadge", () => {
+  it("names the status it is given", () => {
+    const { rerender } = render(<StatusBadge status="ACTIVE" />);
+    expect(screen.getByText("Active")).toBeInTheDocument();
+
+    rerender(<StatusBadge status="ARCHIVED" />);
+    expect(screen.getByText("Archived")).toBeInTheDocument();
+  });
+});
+
+describe("TagList", () => {
+  it("renders a chip per tag", () => {
+    render(<TagList tags={["coursework", "urgent"]} />);
+    expect(screen.getByText("coursework")).toBeInTheDocument();
+    expect(screen.getByText("urgent")).toBeInTheDocument();
+  });
+
+  it("renders nothing at all when there are no tags", () => {
+    const { container: empty } = render(<TagList tags={[]} />);
+    expect(empty).toBeEmptyDOMElement();
+
+    const { container: missing } = render(<TagList tags={undefined} />);
+    expect(missing).toBeEmptyDOMElement();
+  });
+});
+
+describe("EntryCard", () => {
+  it("shows the duration and the project chip when asked", () => {
+    render(<EntryCard entry={makeEntry()} projectName="Campus Marketplace" showProject />);
+
+    expect(screen.getByText("1h 30m")).toBeInTheDocument();
+    expect(screen.getByText("Campus Marketplace")).toBeInTheDocument();
+  });
+
+  it("omits the project chip unless showProject is set", () => {
+    render(<EntryCard entry={makeEntry()} projectName="Campus Marketplace" />);
+    expect(screen.queryByText("Campus Marketplace")).not.toBeInTheDocument();
+  });
+
+  it("marks an entry overdue only when its due date has passed", () => {
+    const { unmount } = render(<EntryCard entry={makeEntry({ dueDate: daysAgo(3) })} />);
+    expect(screen.getByText("Overdue")).toBeInTheDocument();
+    unmount();
+
+    render(<EntryCard entry={makeEntry({ dueDate: daysAgo(-3) })} />);
+    expect(screen.queryByText("Overdue")).not.toBeInTheDocument();
+  });
+
+  it("renders each field type the way a reader expects", () => {
+    const fields = [
+      field("f-bool", "Billable", "BOOLEAN"),
+      field("f-tags", "Topics", "TAGS"),
+      field("f-check", "Steps", "CHECKLIST"),
+      field("f-ref", "Related", "REFERENCE"),
+      field("f-text", "Summary", "TEXT"),
+    ];
+    const entry = makeEntry({
+      values: {
+        "f-bool": false,
+        "f-tags": ["audit", "phase-a"],
+        "f-check": [
+          { label: "Draft", checked: true },
+          { label: "Review", checked: false },
+        ],
+        "f-ref": { id: "p2", label: "Digital Logbook", kind: "project" },
+        "f-text": "wrote the audit",
+      } as Entry["values"],
+    });
+
+    render(<EntryCard entry={entry} fields={fields} />);
+
+    // false must render as "No" rather than being dropped as empty.
+    expect(screen.getByText("No")).toBeInTheDocument();
+    expect(screen.getByText("audit, phase-a")).toBeInTheDocument();
+    expect(screen.getByText("✓ Draft · ○ Review")).toBeInTheDocument();
+    expect(screen.getByText("Digital Logbook")).toBeInTheDocument();
+    expect(screen.getByText("wrote the audit")).toBeInTheDocument();
+  });
+
+  it("skips a field the entry never filled in", () => {
+    const fields = [field("f1", "Summary", "TEXT"), field("f2", "Notes", "TEXT")];
+    render(<EntryCard entry={makeEntry({ values: { f1: "only this one" } as Entry["values"] })} fields={fields} />);
+
+    expect(screen.getByText("only this one")).toBeInTheDocument();
+    // Field names render as "Name:", so match loosely.
+    expect(screen.getByText(/Summary/)).toBeInTheDocument();
+    expect(screen.queryByText(/Notes/)).not.toBeInTheDocument();
+  });
+
+  it("prefers the entry's own format snapshot over the project's current fields", () => {
+    const entry = makeEntry({
+      values: { "old-f": "recorded under the old format" } as Entry["values"],
+      format: { version: 2, fields: [field("old-f", "Historic field", "TEXT")] } as Entry["format"],
+    });
+
+    render(<EntryCard entry={entry} fields={[field("new-f", "Current field", "TEXT")]} />);
+
+    expect(screen.getByText(/Historic field/)).toBeInTheDocument();
+    expect(screen.queryByText(/Current field/)).not.toBeInTheDocument();
+  });
+
+  it("offers edit and delete only when a handler is supplied", () => {
+    const onEdit = vi.fn();
+    const onDelete = vi.fn();
+    const entry = makeEntry();
+
+    const { unmount } = render(<EntryCard entry={entry} />);
+    expect(screen.queryByLabelText("Edit entry")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Delete entry")).not.toBeInTheDocument();
+    unmount();
+
+    render(<EntryCard entry={entry} onEdit={onEdit} onDelete={onDelete} />);
+    fireEvent.click(screen.getByLabelText("Edit entry"));
+    fireEvent.click(screen.getByLabelText("Delete entry"));
+
+    expect(onEdit).toHaveBeenCalledWith(entry);
+    expect(onDelete).toHaveBeenCalledWith(entry);
+  });
+});
+
+describe("ProjectCard", () => {
+  const renderCard = (props: Partial<Parameters<typeof ProjectCard>[0]> = {}) =>
+    render(
+      <MemoryRouter>
+        <ProjectCard
+          project={project()}
+          onEdit={vi.fn()}
+          onToggleArchive={vi.fn()}
+          {...props}
+        />
+      </MemoryRouter>
+    );
+
+  it("shows an em dash rather than a zero while the summary is still loading", () => {
+    renderCard();
+    // "0 entries" and "0m" would be assertions of fact about data that has
+    // not arrived — BUG-014 made this deliberate.
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/0 entries/)).not.toBeInTheDocument();
+  });
+
+  it("shows the real figures once the summary arrives", () => {
+    const summary = { projectId: "p1", totalMinutes: 140, totalHours: 2.3, entryCount: 3, lastEntryAt: daysAgo(0) } as TimeSummary;
+    renderCard({ summary });
+
+    expect(screen.getByText("3 entries")).toBeInTheDocument();
+    expect(screen.getByText("2h 20m")).toBeInTheDocument();
+    expect(screen.getByText("Today")).toBeInTheDocument();
+  });
+
+  it("says 'entry' in the singular", () => {
+    renderCard({ summary: { projectId: "p1", totalMinutes: 10, totalHours: 0.2, entryCount: 1, lastEntryAt: daysAgo(1) } as TimeSummary });
+    expect(screen.getByText("1 entry")).toBeInTheDocument();
+    expect(screen.getByText("Yesterday")).toBeInTheDocument();
+  });
+
+  it("describes a project that has a summary but no entries yet", () => {
+    renderCard({ summary: { projectId: "p1", totalMinutes: 0, totalHours: 0, entryCount: 0, lastEntryAt: null } as TimeSummary });
+    expect(screen.getByText("No entries yet")).toBeInTheDocument();
+  });
+
+  it("dates older activity in days", () => {
+    renderCard({ summary: { projectId: "p1", totalMinutes: 5, totalHours: 0.1, entryCount: 1, lastEntryAt: daysAgo(3) } as TimeSummary });
+    expect(screen.getByText("3 days ago")).toBeInTheDocument();
+  });
+
+  it("calls back on edit and archive without navigating", () => {
+    const onEdit = vi.fn();
+    const onToggleArchive = vi.fn();
+    renderCard({ onEdit, onToggleArchive });
+
+    fireEvent.click(screen.getByTitle("Edit project"));
+    fireEvent.click(screen.getByTitle("Archive"));
+
+    expect(onEdit).toHaveBeenCalled();
+    expect(onToggleArchive).toHaveBeenCalled();
+  });
+
+  it("offers to unarchive an archived project", () => {
+    renderCard({ project: project({ status: "ARCHIVED" }) });
+    expect(screen.getByTitle("Unarchive")).toBeInTheDocument();
+    expect(screen.queryByTitle("Archive")).not.toBeInTheDocument();
+  });
+});

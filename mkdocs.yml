@@ -30,6 +30,7 @@ nav:
   - Client Interactions: client-interactions.md
   - API Reference: api-reference.md
   - Testing: testing.md
+  - Testing Quickstart: testing-quickstart.md
   - User Feedback: user-feedback.md
   - Third-Party Code: third-party.md
   - User Stories: user-stories/user-stories.md

@@ -137,6 +137,103 @@ export async function fetchEntries(projectId: string): Promise<Entry[]> {
   }
 }
 
+/** Query params for the user-scoped listing. */
+export interface EntriesQuery {
+  projectId?: string;
+  projectStatus?: "ACTIVE" | "ARCHIVED" | "ALL";
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+
+export interface EntriesListing {
+  entries: Entry[];
+  /** True when exactly `limit` rows came back, so there may be more. */
+  truncated: boolean;
+  /** Current fields per project, taken from the newest snapshot seen. */
+  fieldsByProject: Record<string, EntryField[]>;
+  /**
+   * Projects with at least one entry carrying no format snapshot — legacy
+   * entries predating format versioning, and entries still queued offline.
+   * Those need the project's live field list as a fallback, so the caller
+   * fetches fields for these projects only rather than for all of them.
+   */
+  projectsNeedingFields: string[];
+}
+
+/**
+ * One request for entries across every project, replacing one request per
+ * project. The wire format returns format snapshots once in a shared map;
+ * they are reattached to each entry here so callers keep working with plain
+ * Entry objects.
+ */
+export async function fetchAllEntries(
+  query: EntriesQuery = {},
+  options: { pendingProjectIds?: string[] } = {}
+): Promise<EntriesListing> {
+  // fetchEntries appended the pending entries for the one project it was
+  // asked about. A listing across projects has no such implicit scope, so
+  // the caller says which projects it is showing; without it, every queued
+  // entry is included.
+  const pendingFor = (): Entry[] => {
+    const all = getPendingEntries(query.projectId);
+    if (!options.pendingProjectIds) return all;
+    const allowed = new Set(options.pendingProjectIds);
+    return all.filter((e) => allowed.has(e.projectId));
+  };
+
+  const offlineFallback = (): EntriesListing => {
+    const pending = pendingFor();
+    return {
+      entries: pending,
+      truncated: false,
+      fieldsByProject: {},
+      projectsNeedingFields: [...new Set(pending.map((e) => e.projectId))],
+    };
+  };
+
+  try {
+    const res = await api.get("/entries", { params: query });
+    const raw = (res.data?.entries ?? []) as (Omit<Entry, "format"> & { formatVersionId: string | null })[];
+    const formats = (res.data?.formats ?? {}) as Record<string, { version: number; fields: EntryField[] }>;
+
+    const fieldsByProject: Record<string, EntryField[]> = {};
+    const newestSeen: Record<string, number> = {};
+    const needFields = new Set<string>();
+
+    const entries: Entry[] = raw.map((item) => {
+      const { formatVersionId, ...rest } = item;
+      const snapshot = formatVersionId ? formats[formatVersionId] : undefined;
+
+      if (snapshot) {
+        if ((newestSeen[item.projectId] ?? -1) < snapshot.version) {
+          newestSeen[item.projectId] = snapshot.version;
+          fieldsByProject[item.projectId] = snapshot.fields;
+        }
+      } else {
+        needFields.add(item.projectId);
+      }
+
+      return { ...rest, format: snapshot ? { version: snapshot.version, fields: snapshot.fields } : null } as Entry;
+    });
+
+    // Entries captured offline have not reached the server, so they are
+    // appended here exactly as fetchEntries does for a single project.
+    const pending = pendingFor();
+    pending.forEach((e) => needFields.add(e.projectId));
+
+    return {
+      entries: [...entries, ...pending],
+      truncated: Boolean(res.data?.truncated),
+      fieldsByProject,
+      projectsNeedingFields: [...needFields],
+    };
+  } catch (error) {
+    if (isOfflineRequest(error)) return offlineFallback();
+    throw error;
+  }
+}
+
 export async function createEntry(
   projectId: string,
   data: CreateEntryInput

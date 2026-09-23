@@ -183,6 +183,118 @@ regenerated Prisma client (`npx prisma generate` in `apps/backend` — see
 
 ---
 
+## Coverage
+
+Coverage is measured with Vitest's V8 provider, configured in
+`apps/backend/vitest.config.ts` and in the `test.coverage` block of
+`apps/frontend/vite.config.ts`.
+
+```bash
+# Backend coverage (needs the same DATABASE_URL as the ordinary run)
+npm run test:coverage --workspace=apps/backend
+
+# Frontend coverage
+npm run test:coverage --workspace=apps/frontend
+```
+
+Each run prints a summary table to the terminal and writes
+`lcov.info` to `<workspace>/coverage/`, which most editors and coverage
+viewers read directly. The `coverage/` directories are gitignored; the
+numbers belong in CI output and in this document, not in the repository.
+
+Both suites are configured with `include: ["src/**"]`. Vitest 4 removed the
+older `coverage.all` option, and without naming the sources explicitly a file
+that no test touches is simply absent from the report rather than counted as
+zero. Listing them keeps the percentage honest: it is coverage of the codebase,
+not coverage of the files that happen to have tests. Test files and the
+frontend's `test-setup.ts` and `main.tsx` are excluded, since measuring the
+tests against themselves says nothing.
+
+### In CI
+
+`.gitea/workflows/deploy.yaml` runs `test:coverage` rather than `test` for both
+workspaces on every push to `main`, `master`, `Alondwe` and `Dineo`. The text
+reporter puts the coverage table directly into the Actions log, so the numbers
+can be read from a run without downloading anything, and the two `lcov.info`
+files are uploaded as a `coverage-lcov` artifact.
+
+The upload step is pinned to `actions/upload-artifact@v3` and marked
+`continue-on-error`. Version 4 of that action depends on an artifact backend
+that not every Gitea runner provides, and a runner without artifact storage
+should not fail an otherwise green build — the coverage table is in the log
+regardless.
+
+### Coverage on the commit
+
+Gitea 1.24 has no built-in coverage display of the kind GitLab offers, so the
+workflow publishes the figure itself. `.gitea/scripts/report-coverage.mjs`
+reads the `coverage-summary.json` each workspace writes and posts three commit
+statuses through the Gitea API: `coverage/backend`, `coverage/frontend` and
+`coverage/combined`, each described as a line percentage and linking back to
+the run that produced it. They appear on the commit in the Gitea UI, so the
+number is visible per commit with no manual step.
+
+The combined status is the one the marking rubric is judged on, which is why it
+is published rather than left for a reader to work out from the other two.
+
+The script is Node rather than shell because `jq` and `curl` are not guaranteed
+on a self-hosted runner while Node is, `setup-node` having already run. It
+never fails the build: a missing summary, a missing token, a rejected request
+and an unreachable host are all logged and exited cleanly, and the step is
+additionally marked `continue-on-error`. Publishing a number is not worth
+turning a green run red.
+
+It also appends the same table to `$GITHUB_STEP_SUMMARY`, which renders on the
+run page for runners that support summaries and is ignored by those that do not.
+
+If the statuses do not appear, the log will say why — the likeliest cause is
+the runner's injected token lacking permission to write statuses, in which case
+a repository secret holding a token with write access can be passed to the step
+instead.
+
+No coverage thresholds are enforced yet. The purpose at this stage is to publish
+the numbers and watch them move; a threshold set before anyone has seen a
+baseline is an arbitrary number that either passes trivially or blocks work for
+no reason. Once a few runs have established where the project actually sits, a
+floor at or slightly below the current figure is worth adding, so coverage can
+only go up.
+
+### A known limitation of the CI database link
+
+The backend suites run against the hosted Neon database over the public
+internet. From the CI runner that link is not perfectly reliable: on several
+runs a single fixture's first write has failed with `ETIMEDOUT` — a transport
+error, raised before the statement ever reaches Postgres — while every other
+suite in the same run read and wrote to that same database without trouble.
+
+It is not an application defect and not a failing assertion. The same file
+passes consistently on a developer machine; only the runner sees it. Two
+explanations were tested and ruled out by measurement rather than argument:
+capping the worker count cut peak concurrency threefold and the failure did
+not move, which rules out connection-pool pressure; and other suites complete
+database writes seconds *before* the failure in the same run, which rules out
+a cold start of the serverless compute.
+
+What the suite does about it: `entriesListing.test.ts` retries its setup
+writes when — and only when — they fail with a transport-level code
+(`ETIMEDOUT`, `ECONNRESET`, `ECONNREFUSED`, `EPIPE`, or Prisma's `P1001`,
+`P1002`, `P1017`). Every other error, a constraint violation included, is
+rethrown on the first attempt, so the retry cannot disguise a real bug. The
+retried writes are idempotent by construction: the user fixture upserts
+rather than creates, because a write that times out at the transport may
+still have landed, and the entry seed is guarded by a row count, because
+inserting those rows twice would corrupt the counts the suite asserts.
+
+If it recurs despite the retries, treat it as infrastructure rather than
+code. The durable fix is to run CI against a database reachable on the
+runner's own network instead of across the public internet; that is an
+infrastructure decision, not a change to this repository. A run affected by
+it still publishes honest numbers — the backend figure simply excludes the
+38 lines that file uniquely covers, and `coverage/combined` is withheld
+entirely unless both workspaces reported.
+
+---
+
 ## Testing Policy
 
 1. **Every API endpoint gets tests for the happy path *and* its error paths** (400 validation, 401 auth, 404 missing, 409 conflict). If an endpoint has no error-path test, it isn't done.

@@ -1,7 +1,7 @@
 # BUG-002: Hardcoded JWT Secret Fallback
 
 **Severity:** Critical (Security)
-**Status:** Open
+**Status:** Fixed
 **Component:** Backend — `apps/backend/src/utils/auth.ts`
 **Labels:** bug, security, authentication
 
@@ -35,3 +35,28 @@ export const jwtSecret = JWT_SECRET || 'your-fallback-secret-key'; // dev only
 ## Related
 - Documented in `apps/backend/AUTHENTICATION.md` as a known limitation
 - The Render deployment should have `JWT_SECRET` set — verify in Render dashboard
+
+## Resolution
+Fixed, and deliberately not by the patch sketched above, which kept the
+hardcoded constant as a development fallback. The constant is gone entirely.
+
+In production a missing `JWT_SECRET` now throws at module load and the server
+refuses to start. Outside production it starts with a secret generated for that
+process, and warns that sessions will not survive a restart.
+
+The generated secret matters as much as the throw. `NODE_ENV` is not guaranteed
+to be `production` on every deployment, so the guard cannot be the only defence.
+With a per-process random secret, a deployment that both forgets `JWT_SECRET`
+and forgets `NODE_ENV` loses its sessions on restart rather than signing them
+with a key anyone can read in this repository — a bad outcome instead of a
+dangerous one.
+
+The secret is still read once at module load rather than per call, so tokens
+signed earlier in a process stay verifiable for its lifetime.
+
+`.env.example` now documents the variable as required in production and gives a
+command to generate one. No value was added to any real `.env`.
+
+Regression coverage is in `apps/backend/src/__tests__/jwtSecret.test.ts`,
+including an assertion that a token issued without `JWT_SECRET` does not verify
+against the removed constant.

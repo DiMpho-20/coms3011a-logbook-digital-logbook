@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Search, Flame, ListChecks, Clock, CalendarDays, FolderKanban, AlertTriangle, ArrowUpDown, BookmarkPlus, X } from "lucide-react";
 
 import {
   fetchProjects,
   fetchEntryFields,
-  fetchEntries,
+  fetchAllEntries,
   fetchTags,
   type Project,
   type EntryField,
@@ -26,6 +26,7 @@ import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
+import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
 import TagFilterBar from "../components/TagFilterBar";
 
@@ -34,6 +35,11 @@ export default function EntriesPage() {
   const [fieldsByProject, setFieldsByProject] = useState<Record<string, EntryField[]>>({});
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
+  // Entries are one request per project; the shell and filters do not need
+  // them, so they render first and the list fills in.
+  const [entriesLoading, setEntriesLoading] = useState(true);
+  const [loadFailures, setLoadFailures] = useState(0);
+  const [truncated, setTruncated] = useState(false);
 
   // Browse state
   const [filterProjectId, setFilterProjectId] = useState("all");
@@ -49,35 +55,57 @@ export default function EntriesPage() {
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [filterName, setFilterName] = useState("");
 
+  // Guards against an earlier load's results landing after a later one's.
+  const loadRunRef = useRef(0);
+
   const loadAll = useCallback(async () => {
+    const run = ++loadRunRef.current;
     setLoading(true);
+    setEntriesLoading(true);
     try {
       const all = await fetchProjects();
+      if (run !== loadRunRef.current) return;
       const active = all.filter((p) => p.status === "ACTIVE");
       setProjects(active);
+      // Header, stat shells and the filter bar need nothing more.
+      setLoading(false);
 
-      const results = await Promise.all(
-        active.map(async (p) => {
-          const [fields, entries] = await Promise.all([
-            fetchEntryFields(p.id),
-            fetchEntries(p.id),
-          ]);
-          return { projectId: p.id, fields, entries };
-        })
+      // One request across every active project, rather than two per
+      // project. 500 is the endpoint's cap.
+      const listing = await fetchAllEntries(
+        { projectStatus: "ACTIVE", limit: 500 },
+        { pendingProjectIds: active.map((p) => p.id) }
       );
+      if (run !== loadRunRef.current) return;
+      setAllEntries(listing.entries);
+      setFieldsByProject(listing.fieldsByProject);
+      setTruncated(listing.truncated);
 
-      const fMap: Record<string, EntryField[]> = {};
-      let combined: Entry[] = [];
-      results.forEach((r) => {
-        fMap[r.projectId] = r.fields;
-        combined = combined.concat(r.entries);
-      });
-      setFieldsByProject(fMap);
-      setAllEntries(combined);
+      // Entries carry their own format snapshot, which is what the card
+      // renders from. Only projects holding an entry without one — legacy
+      // entries, and anything still queued offline — need the live field
+      // list as a fallback.
+      if (listing.projectsNeedingFields.length > 0) {
+        const settled = await Promise.allSettled(
+          listing.projectsNeedingFields.map(async (id) => ({ id, fields: await fetchEntryFields(id) }))
+        );
+        if (run !== loadRunRef.current) return;
+        const extra: Record<string, EntryField[]> = {};
+        settled.forEach((r) => {
+          if (r.status === "fulfilled") extra[r.value.id] = r.value.fields;
+        });
+        const failed = settled.filter((r) => r.status === "rejected");
+        failed.forEach((r) => console.error("Failed to load a project's fields:", (r as PromiseRejectedResult).reason));
+        setLoadFailures(failed.length);
+        setFieldsByProject((prev) => ({ ...prev, ...extra }));
+      }
     } catch (err) {
       console.error("Failed to load entries:", err);
     } finally {
-      setLoading(false);
+      if (run === loadRunRef.current) {
+        setLoading(false);
+        setEntriesLoading(false);
+      }
     }
   }, []);
 
@@ -217,12 +245,26 @@ export default function EntriesPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard icon={ListChecks} label="This Week" value={stats.weekCount} color="blue" />
-        <StatCard icon={Clock} label="Time This Week" value={formatDuration(stats.weekMinutes)} color="emerald" />
-        <StatCard icon={Flame} label="Day Streak" value={stats.streak} color="orange" />
-        <StatCard icon={CalendarDays} label="Total Entries" value={stats.total} color="slate" />
-        <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdueCount} color="red" />
+        <StatCard icon={ListChecks} label="This Week" value={stats.weekCount} color="blue" loading={entriesLoading} />
+        <StatCard icon={Clock} label="Time This Week" value={formatDuration(stats.weekMinutes)} color="emerald" loading={entriesLoading} />
+        <StatCard icon={Flame} label="Day Streak" value={stats.streak} color="orange" loading={entriesLoading} />
+        <StatCard icon={CalendarDays} label="Total Entries" value={stats.total} color="slate" loading={entriesLoading} />
+        <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdueCount} color="red" loading={entriesLoading} />
       </div>
+
+      {truncated && (
+        <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Showing your most recent 500 entries. Older ones are not in this list or the figures above.
+        </p>
+      )}
+
+      {loadFailures > 0 && (
+        <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          {loadFailures === 1
+            ? "One project's field list couldn't be loaded, so some older entries may show fewer details."
+            : `${loadFailures} projects' field lists couldn't be loaded, so some older entries may show fewer details.`}
+        </p>
+      )}
 
       {projects.length === 0 ? (
         <EmptyState
@@ -383,7 +425,19 @@ export default function EntriesPage() {
           {/* Timeline */}
           <div className="bg-white rounded-lg border border-slate-200">
             <div className="p-6">
-              {groupedByDate.length === 0 ? (
+              {entriesLoading ? (
+                <div className="py-4 space-y-4" aria-busy="true">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-3 w-40" />
+                      <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/3" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : groupedByDate.length === 0 ? (
                 <div className="text-center py-12">
                   {filterTab === "overdue" ? (
                     <>
@@ -440,9 +494,20 @@ export default function EntriesPage() {
                             entry.dueDate &&
                             new Date(entry.dueDate) < new Date(new Date().toDateString());
 
-                          // Collect non-empty field values as chips (distinct from entry.tags below)
+                          // The description is the first TEXT field's value; it is
+                          // rendered below as the entry's headline.
+                          const descField = fields.find((f) => f.type === "TEXT");
+                          const description = descField
+                            ? (entry.values?.[descField.id] as string) || ""
+                            : "";
+
+                          // Collect non-empty field values as chips (distinct from
+                          // entry.tags below). The description field is skipped while
+                          // it is showing as the headline — repeating the same text
+                          // directly underneath it adds nothing.
                           const fieldChips = fields
                             .filter((f) => {
+                              if (description && f.id === descField?.id) return false;
                               const v = entry.values?.[f.id];
                               return v != null && v !== "" && v !== false;
                             })
@@ -450,12 +515,6 @@ export default function EntriesPage() {
                               const v = entry.values?.[f.id];
                               return f.type === "BOOLEAN" ? f.name : String(v);
                             });
-
-                          // Try to get a description from first TEXT field
-                          const descField = fields.find((f) => f.type === "TEXT");
-                          const description = descField
-                            ? (entry.values?.[descField.id] as string) || ""
-                            : "";
 
                           return (
                             <div key={entry.id} className="relative pl-8 pb-6 last:pb-0">

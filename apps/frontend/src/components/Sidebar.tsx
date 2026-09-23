@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -42,8 +42,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [deadlineCount, setDeadlineCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
-  const sidebarRef = useRef<HTMLElement>(null);
-  const glowRef = useRef<HTMLDivElement>(null);
 
   const displayName =
     typeof window !== "undefined"
@@ -97,15 +95,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
     return () => { cancelled = true; };
   }, []);
 
-  // Mouse-proximity glow effect
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!sidebarRef.current || !glowRef.current) return;
-    const rect = sidebarRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    glowRef.current.style.background = `radial-gradient(300px circle at ${x}px ${y}px, rgba(0, 198, 255, 0.06), transparent 70%)`;
-  }, []);
-
   const handleNav = (path: string) => {
     setMenuOpen(false);
     onClose?.();
@@ -114,27 +103,11 @@ export default function Sidebar({ onClose }: SidebarProps) {
 
   return (
     <aside
-      ref={sidebarRef}
-      onMouseMove={handleMouseMove}
       className="sidebar-root w-60 flex flex-col h-full shrink-0 relative overflow-hidden"
       style={{ background: "linear-gradient(180deg, #0a1628 0%, #0d1b3e 100%)" }}
     >
-      {/* Mouse-proximity glow layer */}
-      <div
-        ref={glowRef}
-        className="absolute inset-0 pointer-events-none z-0 transition-[background] duration-150"
-      />
-
-      {/* Brand area with glow */}
+      {/* Brand area */}
       <div className="relative z-10 flex items-center gap-2.5 px-5 h-16 shrink-0">
-        {/* Brand glow */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse 120px 60px at 28px 50%, rgba(0, 174, 255, 0.12), rgba(140, 60, 255, 0.06), transparent)",
-          }}
-        />
         <div className="relative p-1.5 rounded-lg" style={{ background: "linear-gradient(135deg, #0072ff, #7000ff)" }}>
           <BookOpen className="h-4 w-4 text-white" />
         </div>
@@ -231,15 +204,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
         ))}
       </div>
 
-      {/* Floating micro-particles */}
-      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-        <span className="sidebar-particle sidebar-particle-1" />
-        <span className="sidebar-particle sidebar-particle-2" />
-        <span className="sidebar-particle sidebar-particle-3" />
-        <span className="sidebar-particle sidebar-particle-4" />
-        <span className="sidebar-particle sidebar-particle-5" />
-      </div>
-
       {/* User area */}
       <div ref={menuRef} className="relative z-10 shrink-0 border-t border-white/[0.06]">
         {/* Dropdown menu */}
@@ -277,7 +241,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
           onClick={() => setMenuOpen((v) => !v)}
           className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-white/[0.04] transition text-left"
         >
-          <div className="sidebar-avatar-ring shrink-0 rounded-full p-[2px]">
+          <div className="shrink-0">
             {avatar ? (
               <img src={avatar} alt="" className="h-7 w-7 rounded-full object-cover" />
             ) : (

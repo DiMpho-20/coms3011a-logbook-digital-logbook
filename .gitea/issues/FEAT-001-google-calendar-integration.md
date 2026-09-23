@@ -1,7 +1,7 @@
 # FEAT-001: Google Calendar API Integration
 
 **Priority:** Medium
-**Status:** Planned (post-Sprint 2)
+**Status:** Partial (OAuth plumbing and a manual per-entry link only)
 **Component:** Frontend + Backend
 **Labels:** feature, integration, external-api
 
@@ -35,6 +35,19 @@ Entries have a `due_date` field but no external calendar sync. Users must manual
 ## Alternatives Considered
 - **iCal export** (.ics file download) — simpler but not real-time
 - **CalDAV** — more universal but more complex to implement
+
+## Status Notes (2026-09-20)
+Partial — do not close. The OAuth2 plumbing exists: `/api/google-calendar`
+exposes `connect` (OAuth2 consent for the `calendar.events` scope),
+`callback`, `status` and `disconnect` routes, backed by the
+`GoogleCalendarConnection` model in `schema.prisma`. Separately,
+OpenWorkPage offers a per-entry "Add to Google Calendar" link built
+client-side, which is a workable manual path.
+
+However, `POST /api/google-calendar/sync` is a stub: it lists the connected
+calendars and returns a count, but never creates, updates or deletes events.
+No code path pushes entry due dates to Google on entry create/update/delete,
+so the core acceptance criteria remain unmet.
 
 ## Related
 - `docs/client-interactions.md` — listed as "Planned for a later phase"

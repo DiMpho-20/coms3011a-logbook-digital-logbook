@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getEntries,
+  listEntries,
   createEntry,
   updateEntry,
   deleteEntry,
@@ -11,6 +12,9 @@ import { groupStats, timelineStats } from "../controllers/stats.controller.js";
 
 const router = Router();
 
+// User-scoped listing across projects. Declared before the project-scoped
+// route so "/entries" is never mistaken for a project id.
+router.get("/entries", requireAuth, listEntries);
 router.get("/projects/:projectId/entries", requireAuth, getEntries);
 router.post("/projects/:projectId/entries", requireAuth, createEntry);
 router.put("/entries/:id", requireAuth, updateEntry);
