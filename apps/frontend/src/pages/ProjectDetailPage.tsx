@@ -82,7 +82,6 @@ export default function ProjectDetailPage() {
   const [formatVersions, setFormatVersions] = useState<{ id: string; version: number; fields: EntryField[]; createdAt: string }[]>([]);
 
   // New entry form state
-  const [entryDescription, setEntryDescription] = useState("");
   const [entryDate, setEntryDate] = useState(todayISO());
   const [entryDuration, setEntryDuration] = useState("");
   const [entryDueDate, setEntryDueDate] = useState("");
@@ -136,16 +135,13 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (!entryModalOpen) return;
     if (editingEntry) {
-      const textField = fields.find((f) => f.type === "TEXT");
       setEntryValues({ ...editingEntry.values });
-      setEntryDescription(textField ? String(editingEntry.values[textField.id] ?? "") : "");
       setEntryDate(editingEntry.entryDate ? editingEntry.entryDate.slice(0, 10) : todayISO());
       setEntryDuration(String(editingEntry.durationMinutes || ""));
       setEntryDueDate(editingEntry.dueDate ? editingEntry.dueDate.slice(0, 10) : "");
       setEntryTags(editingEntry.tags ?? []);
     } else {
       setEntryValues(defaultValuesForFields(fields));
-      setEntryDescription("");
       setEntryDate(todayISO());
       setEntryDuration("");
       setEntryDueDate("");
@@ -249,14 +245,7 @@ export default function ProjectDetailPage() {
       return;
     }
 
-    // Merge description into values if there's a text field
-    const mergedValues = { ...entryValues };
-    const textField = fields.find((f) => f.type === "TEXT");
-    if (textField && entryDescription.trim()) {
-      mergedValues[textField.id] = entryDescription.trim();
-    }
-
-    const missing = fields.find((f) => f.required && isEmptyValue(mergedValues[f.id]));
+    const missing = fields.find((f) => f.required && isEmptyValue(entryValues[f.id]));
     if (missing) {
       setEntryError(`"${missing.name}" is required.`);
       return;
@@ -273,7 +262,7 @@ export default function ProjectDetailPage() {
       if (editingEntry) {
         const updated = await updateEntry(editingEntry.id, {
           durationMinutes: minutes,
-          values: mergedValues,
+          values: entryValues,
           tags: finalTags,
           dueDate: entryDueDate || null,
           entryDate: entryDate || null,
@@ -288,7 +277,7 @@ export default function ProjectDetailPage() {
           tags?: string[];
         } = {
           durationMinutes: minutes,
-          values: mergedValues,
+          values: entryValues,
           tags: finalTags,
         };
         if (entryDueDate) entryData.dueDate = entryDueDate;
@@ -325,12 +314,6 @@ export default function ProjectDetailPage() {
       </div>
     );
   }
-
-  // Non-text, non-first fields for the modal's dynamic section
-  const firstTextField = fields.find((f) => f.type === "TEXT");
-  const dynamicFields = firstTextField
-    ? fields.filter((f) => f.id !== firstTextField.id)
-    : fields;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -509,71 +492,24 @@ export default function ProjectDetailPage() {
             </p>
           )}
 
-          {/* Description (maps to first TEXT field) */}
-          {firstTextField && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                {firstTextField.name}
-                {firstTextField.required && <span className="text-red-500 ml-0.5">*</span>}
-              </label>
-              <textarea
-                rows={3}
-                placeholder={`Add ${firstTextField.name.toLowerCase()}...`}
-                value={entryDescription}
-                onChange={(e) => setEntryDescription(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-              />
-            </div>
-          )}
-
-          {/* Date + Duration row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-medium text-slate-500 mb-1">Date</label>
-              <input
-                type="date"
-                value={entryDate}
-                onChange={(e) => setEntryDate(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-medium text-slate-500 mb-1">Time spent (minutes, optional)</label>
-              <input
-                type="number"
-                min={0}
-                placeholder="Leave blank if not started"
-                value={entryDuration}
-                onChange={(e) => setEntryDuration(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Live stopwatch */}
-          <div>
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">Stopwatch</label>
-            <Stopwatch
-              compact
-              onMinutesChange={(mins) => setEntryDuration(String(mins))}
-            />
-          </div>
-
-          {/* Dynamic fields (everything except first text field) */}
-          {dynamicFields.length > 0 && (
+          {/* Entry fields, in the order the project defines them — a TEXT
+              field defined first naturally reads as "describe this entry",
+              with everything else the project asks for listed below it. */}
+          {fields.length > 0 && (
             <div className="space-y-3">
-              {dynamicFields.map((field) => (
+              {fields.map((field) => (
                 <div key={field.id}>
                   <label className="block text-[11px] font-medium text-slate-500 mb-1">
                     {field.name}
                     {field.required && <span className="text-red-500 ml-0.5">*</span>}
                   </label>
                   {field.type === "TEXT" && (
-                    <input
-                      type="text"
+                    <textarea
+                      rows={2}
+                      placeholder={`Add ${field.name.toLowerCase()}...`}
                       value={(entryValues[field.id] as string) || ""}
                       onChange={(e) => handleFieldChange(field.id, e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                     />
                   )}
                   {field.type === "NUMBER" && (
@@ -641,6 +577,39 @@ export default function ProjectDetailPage() {
               ))}
             </div>
           )}
+
+          {/* Date + Duration row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-medium text-slate-500 mb-1">Date</label>
+              <input
+                type="date"
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-slate-500 mb-1">Time spent (minutes, optional)</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="Leave blank if not started"
+                value={entryDuration}
+                onChange={(e) => setEntryDuration(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Live stopwatch */}
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">Stopwatch</label>
+            <Stopwatch
+              compact
+              onMinutesChange={(mins) => setEntryDuration(String(mins))}
+            />
+          </div>
 
           {/* Tags */}
           <div>
