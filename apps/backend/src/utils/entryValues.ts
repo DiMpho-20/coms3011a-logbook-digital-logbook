@@ -19,8 +19,18 @@ function checkValueShape(field: Field, value: unknown): string | null {
 
   switch (field.type) {
     case "TEXT":
-    case "LINK":
       return typeof value === "string" ? null : `"${field.name}" must be text.`;
+    case "LINK": {
+      if (typeof value !== "string") return `"${field.name}" must be a link.`;
+      try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:"
+          ? null
+          : `"${field.name}" must be a valid link (e.g. https://example.com).`;
+      } catch {
+        return `"${field.name}" must be a valid link (e.g. https://example.com).`;
+      }
+    }
     case "NUMBER": {
       // Accepts a numeric string too — the rest of the app (flattenValues,
       // calculateComputedValues) already treats "45" and 45 as equivalent.

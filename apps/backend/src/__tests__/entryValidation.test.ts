@@ -93,6 +93,32 @@ describe("Server-side entry value validation", () => {
     expect(res.body.values[hoursId]).toBe(45);
   });
 
+  it("rejects a LINK field given a value that isn't a real URL", async () => {
+    const projectId = await createProject(`__val_link_${ts}`);
+    const linkId = await createField(projectId, { name: "Recipe", type: "LINK" });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [linkId]: "mrd" } });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("Recipe");
+  });
+
+  it("accepts a LINK field given a real URL", async () => {
+    const projectId = await createProject(`__val_link_ok_${ts}`);
+    const linkId = await createField(projectId, { name: "Recipe", type: "LINK" });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [linkId]: "https://example.com/recipe" } });
+
+    expect(res.status).toBe(201);
+    expect(res.body.values[linkId]).toBe("https://example.com/recipe");
+  });
+
   it("rejects a BOOLEAN field given a non-boolean value", async () => {
     const projectId = await createProject(`__val_bool_${ts}`);
     const doneId = await createField(projectId, { name: "Done", type: "BOOLEAN" });
