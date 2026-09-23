@@ -77,6 +77,59 @@ describe("Stats: aggregating a COMPUTED field", () => {
   });
 });
 
+describe("Stats: counting a non-numeric field", () => {
+  it("counts how many entries have a CHECKLIST field filled in", async () => {
+    const projectId = await createProject(`__stats_count_checklist_${ts}`);
+    const stepsId = await createField(projectId, { name: "Steps", type: "CHECKLIST" });
+
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [stepsId]: [{ label: "Draft", checked: false }] } });
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: {} });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/stats/group`)
+      .set(H)
+      .send({ metricFieldId: stepsId, operation: "count" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.groups[0].value).toBe(1);
+  }, 30_000);
+
+  it("groups a BOOLEAN count by a TAGS field", async () => {
+    const projectId = await createProject(`__stats_count_group_${ts}`);
+    const billableId = await createField(projectId, { name: "Billable", type: "BOOLEAN" });
+    const clientId = await createField(projectId, { name: "Client", type: "TEXT" });
+
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [billableId]: true, [clientId]: "Acme" } });
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [billableId]: true, [clientId]: "Acme" } });
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [billableId]: false, [clientId]: "Globex" } });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/stats/group`)
+      .set(H)
+      .send({ metricFieldId: billableId, operation: "count", groupByFieldId: clientId });
+
+    expect(res.status).toBe(200);
+    const byClient = Object.fromEntries(res.body.groups.map((g: any) => [g.key, g.value]));
+    expect(byClient["Acme"]).toBe(2);
+    expect(byClient["Globex"]).toBe(1);
+  }, 30_000);
+});
+
 describe("Stats update correctly after entries change", () => {
   it("reflects an entry edit's new duration in the project time summary", async () => {
     const projectId = await createProject(`__stats_edit_${ts}`);
