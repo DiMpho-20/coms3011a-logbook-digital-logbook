@@ -29,9 +29,24 @@ import { FolderKanban } from "lucide-react";
 type EntryField = Partial<BaseEntryField> &
   Pick<BaseEntryField, "id" | "name" | "type" | "required"> & {
     isNew?: boolean;
+    /** Local-only: whether `name` should track the type's default label, or was typed by hand. */
+    useDefaultName?: boolean;
   };
 
 type FilterTab = "ALL" | "ACTIVE" | "ARCHIVED";
+
+/** Shown in the entry form and on entry cards when a field isn't given its own name. */
+const DEFAULT_FIELD_NAMES: Record<BaseEntryField["type"], string> = {
+  TEXT: "Text",
+  NUMBER: "Number",
+  DATE: "Date",
+  BOOLEAN: "Boolean",
+  TAGS: "Tags",
+  CHECKLIST: "Checklist",
+  LINK: "Link",
+  REFERENCE: "Reference",
+  COMPUTED: "Computed",
+};
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -143,7 +158,10 @@ export default function ProjectsPage() {
     setFormError(null);
     try {
       const fields = await fetchEntryFields(project.id);
-      setEntryFields(fields);
+      // A field saved with its type's default label (e.g. "Link") looks the
+      // same either way once loaded, so the toggle is inferred from that —
+      // there's no separate flag stored for it.
+      setEntryFields(fields.map((f) => ({ ...f, useDefaultName: f.name === DEFAULT_FIELD_NAMES[f.type] })));
       setRemovedFieldIds([]);
     } catch {
       setEntryFields([]);
@@ -159,12 +177,21 @@ export default function ProjectsPage() {
       // so React saw duplicate keys and duplicated or dropped rows (BUG-013).
       // The "new-" prefix is load-bearing — removeField tests it to decide
       // whether a row needs a DELETE call.
-      { id: `new-${crypto.randomUUID()}`, name: "", type: "TEXT", required: false, isNew: true },
+      { id: `new-${crypto.randomUUID()}`, name: "", type: "TEXT", required: true, isNew: true, useDefaultName: false },
     ]);
   };
 
   const handleUpdateField = (id: string, updates: Partial<EntryField>) => {
-    setEntryFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
+    setEntryFields((prev) =>
+      prev.map((f) => {
+        if (f.id !== id) return f;
+        const next = { ...f, ...updates };
+        // Keep the name in step with the type while "use default name" is on,
+        // both when the type changes and when the toggle is switched on.
+        if (next.useDefaultName) next.name = DEFAULT_FIELD_NAMES[next.type as BaseEntryField["type"]];
+        return next;
+      })
+    );
   };
 
   const handleRemoveField = (id: string) => {
@@ -194,12 +221,14 @@ export default function ProjectsPage() {
         for (const field of entryFields) {
           if (!field.name.trim()) continue;
           if (field.isNew) {
-            await createEntryField(editingProject.id, { name: field.name, type: field.type, required: field.required, formula: field.formula || undefined });
+            // Always required — a computed field fills itself in regardless,
+            // and every other field type must be filled in on each entry.
+            await createEntryField(editingProject.id, { name: field.name, type: field.type, required: true, formula: field.formula || undefined });
           } else {
             await updateEntryField(field.id, {
               name: field.name,
               type: field.type,
-              required: field.required,
+              required: true,
               formula: field.type === "COMPUTED" ? field.formula : undefined,
             });
           }
@@ -220,7 +249,7 @@ export default function ProjectsPage() {
         for (const field of entryFields) {
           if (!field.name.trim()) continue;
           if (field.isNew) {
-            await createEntryField(newProject.id, { name: field.name, type: field.type, required: field.required, formula: field.formula || undefined });
+            await createEntryField(newProject.id, { name: field.name, type: field.type, required: true, formula: field.formula || undefined });
           }
         }
       }
@@ -394,7 +423,7 @@ export default function ProjectsPage() {
 
           {/* Entry fields builder */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1">
               <label className="text-sm font-medium text-slate-700">Entry Fields</label>
               <button
                 type="button"
@@ -404,6 +433,9 @@ export default function ProjectsPage() {
                 + Add Field
               </button>
             </div>
+            <p className="text-[11px] text-slate-400 mb-2">
+              Every field must be filled in on each entry (computed fields fill themselves in).
+            </p>
 
             {entryFields.length === 0 ? (
               <p className="text-xs text-slate-400 py-2">
@@ -421,8 +453,9 @@ export default function ProjectsPage() {
                         type="text"
                         placeholder="Field name..."
                         value={field.name}
+                        disabled={field.useDefaultName}
                         onChange={(e) => handleUpdateField(field.id, { name: e.target.value })}
-                        className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
                       />
                       <select
                         value={field.type}
@@ -452,6 +485,14 @@ export default function ProjectsPage() {
                         <X className="h-4 w-4" />
                       </button>
                     </div>
+                    <label className="flex items-center gap-2 text-xs text-slate-500">
+                      <input
+                        type="checkbox"
+                        checked={!!field.useDefaultName}
+                        onChange={(e) => handleUpdateField(field.id, { useDefaultName: e.target.checked })}
+                      />
+                      Use the default name for this type (e.g. "{DEFAULT_FIELD_NAMES[field.type]}")
+                    </label>
                     {field.type === "COMPUTED" && (
                       <div>
                         <input
@@ -467,16 +508,6 @@ export default function ProjectsPage() {
                     {!field.isNew && field.type === "NUMBER" && (
                       <p className="text-[10px] text-slate-400">Formula ID: <code>{field.id}</code></p>
                     )}
-                    <label className="flex items-center gap-2 text-xs text-slate-500">
-                      <input
-                        type="checkbox"
-                        checked={field.required}
-                        onChange={(e) =>
-                          handleUpdateField(field.id, { required: e.target.checked })
-                        }
-                      />
-                      Required field
-                    </label>
                   </div>
                 ))}
               </div>
