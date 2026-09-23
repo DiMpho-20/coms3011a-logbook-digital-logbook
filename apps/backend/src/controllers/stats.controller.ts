@@ -53,18 +53,17 @@ export const groupStats = async (req: AuthenticatedRequest, res: Response) => {
     if (!metricField) {
       return res.status(404).json({ error: "Metric field not found" });
     }
-    if (!["NUMBER", "COMPUTED", "BOOLEAN", "TEXT", "TAGS"].includes(metricField.type)) {
-      return res.status(400).json({ error: `Cannot aggregate field type ${metricField.type}` });
-    }
 
-    // Count doesn't need a numeric cast; everything else does. COMPUTED
-    // fields always hold a number (that's what makes them computed), so
-    // they aggregate the same way NUMBER fields do.
+    // Count doesn't need a numeric cast, so it works for a field of any
+    // type — "how many entries have this filled in" is meaningful whether
+    // the field is a CHECKLIST, a LINK or a NUMBER. COMPUTED fields always
+    // hold a number (that's what makes them computed), so sum/avg/min/max
+    // treat them the same as NUMBER.
     const isCount = operation === "count";
     const isNumber = metricField.type === "NUMBER" || metricField.type === "COMPUTED";
 
     if (!isCount && !isNumber) {
-      return res.status(400).json({ error: `${operation} requires a NUMBER field` });
+      return res.status(400).json({ error: `${operation} requires a Number or Computed field` });
     }
 
     const metricCast = isCount ? "" : `(mv.value)::numeric`;

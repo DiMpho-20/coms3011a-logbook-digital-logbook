@@ -279,7 +279,7 @@ describe("Stats grouping (POST /projects/:id/stats/group)", () => {
       .send({ metricFieldId: categoryFieldId, operation: "sum" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain("requires a NUMBER field");
+    expect(res.body.error).toContain("requires a Number or Computed field");
   });
 
   it("returns 404 for an unknown metric field", async () => {

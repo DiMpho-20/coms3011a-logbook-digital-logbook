@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { calculateComputedValues } from "./computedFields.js";
 
-type SnapshotField = {
+export type SnapshotField = {
   id: string;
   projectId: string;
   name: string;
