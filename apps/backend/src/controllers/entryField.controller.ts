@@ -39,12 +39,42 @@ export const updateEntryField = async (req: AuthenticatedRequest, res: Response)
     const id = String(req.params.id);
     const field = await prisma.entryField.findFirst({ where: { id, project: { userId: req.userId! }, archivedAt: null } });
     if (!field) return res.status(404).json({ error: "Entry field not found" });
-    const { name, required, formula } = req.body;
+    const { name, type, required, formula } = req.body;
     if (name !== undefined && !String(name).trim()) return res.status(400).json({ error: "Field name cannot be empty" });
+    if (type !== undefined && !VALID_TYPES.includes(type)) return res.status(400).json({ error: "A valid field type is required" });
+
+    // Changing a type would reinterpret every value already stored for this
+    // field (for example, text as a checklist). Do not silently corrupt those
+    // entries; users can add a new field instead when data already exists.
+    if (type !== undefined && type !== field.type) {
+      const valueCount = await prisma.entryValue.count({ where: { fieldId: id } });
+      if (valueCount > 0) {
+        return res.status(409).json({ error: "This field already has entry values, so its type cannot be changed. Add a new field instead." });
+      }
+    }
+
+    const nextType = type ?? field.type;
     const allFields = await prisma.entryField.findMany({ where: { projectId: field.projectId, archivedAt: null } });
-    if (field.type === "COMPUTED" && formula !== undefined) validateFormula(formula, allFields);
-    if (field.type !== "COMPUTED" && formula !== undefined) return res.status(400).json({ error: "Only computed fields can have a formula" });
-    const updated = await prisma.entryField.update({ where: { id }, data: { ...(name !== undefined && { name: String(name).trim() }), ...(required !== undefined && field.type !== "COMPUTED" && { required: Boolean(required) }), ...(formula !== undefined && { formula: formula || null }) } });
+    const nextFormula = nextType === "COMPUTED"
+      ? (formula === undefined ? field.formula : String(formula).trim())
+      : null;
+    if (nextType === "COMPUTED") {
+      if (!nextFormula) return res.status(400).json({ error: "Computed fields require a formula" });
+      validateFormula(nextFormula, allFields);
+    } else if (formula !== undefined) {
+      return res.status(400).json({ error: "Only computed fields can have a formula" });
+    }
+
+    const updated = await prisma.entryField.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name: String(name).trim() }),
+        ...(type !== undefined && { type }),
+        ...(required !== undefined && { required: nextType === "COMPUTED" ? false : Boolean(required) }),
+        ...(type !== undefined && nextType === "COMPUTED" && required === undefined && { required: false }),
+        ...(type !== undefined || formula !== undefined ? { formula: nextFormula } : {}),
+      },
+    });
     await createFormatVersion(prisma, field.projectId);
     return res.json(updated);
   } catch (error: any) { return res.status(400).json({ error: error.message || "Failed to update entry field" }); }

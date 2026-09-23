@@ -136,7 +136,7 @@ export default function ProjectsPage() {
   const handleAddField = () => {
     setEntryFields((prev) => [
       ...prev,
-      { id: `new-${Date.now()}`, name: "", type: "TEXT", required: false, isNew: true },
+      { id: `new-${crypto.randomUUID()}`, name: "", type: "TEXT", required: false, isNew: true },
     ]);
   };
 
@@ -173,10 +173,20 @@ export default function ProjectsPage() {
           if (field.isNew) {
             await createEntryField(editingProject.id, { name: field.name, type: field.type, required: field.required, formula: field.formula || undefined });
           } else {
-            await updateEntryField(field.id, { name: field.name, required: field.required, formula: field.type === "COMPUTED" ? field.formula : undefined });
+            await updateEntryField(field.id, {
+              name: field.name,
+              type: field.type,
+              required: field.required,
+              formula: field.type === "COMPUTED" ? field.formula : undefined,
+            });
           }
         }
         await Promise.all(removedFieldIds.map(deleteEntryField));
+        // Read the saved configuration back before leaving the editor. A
+        // refresh failure must not turn an already-saved update into an error.
+        await fetchEntryFields(editingProject.id)
+          .then(setEntryFields)
+          .catch(() => {});
       } else {
         const newProject = await createProject({
           name: formData.name,

@@ -37,6 +37,36 @@ async function createField(projectId: string, body: Record<string, unknown>) {
 }
 
 describe("Server-side entry value validation", () => {
+  it("updates a field type when the field has no entry values", async () => {
+    const projectId = await createProject(`__val_type_change_${ts}`);
+    const fieldId = await createField(projectId, { name: "Notes", type: "TEXT" });
+
+    const res = await request(app)
+      .put(`/api/entry-fields/${fieldId}`)
+      .set(H)
+      .send({ type: "CHECKLIST", name: "Tasks", required: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: fieldId, type: "CHECKLIST", name: "Tasks", required: true });
+  });
+
+  it("does not change a field type after entry values have been stored", async () => {
+    const projectId = await createProject(`__val_type_in_use_${ts}`);
+    const fieldId = await createField(projectId, { name: "Notes", type: "TEXT" });
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [fieldId]: "Saved value" } });
+
+    const res = await request(app)
+      .put(`/api/entry-fields/${fieldId}`)
+      .set(H)
+      .send({ type: "CHECKLIST" });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toContain("cannot be changed");
+  });
+
   it("rejects a NUMBER field given a non-numeric value", async () => {
     const projectId = await createProject(`__val_number_${ts}`);
     const hoursId = await createField(projectId, { name: "Hours", type: "NUMBER" });
