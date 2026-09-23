@@ -302,8 +302,10 @@ export default function ProjectDetailPage() {
       if (id) {
         fetchProjectTimeSummary(id).then(setSummary).catch(() => {});
       }
-    } catch {
-      setEntryError(editingEntry ? "Couldn't update that entry. Try again." : "Couldn't save that entry. Try again.");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        || (editingEntry ? "Couldn't update that entry. Try again." : "Couldn't save that entry. Try again.");
+      setEntryError(msg);
     } finally {
       setEntrySubmitting(false);
     }
@@ -511,11 +513,12 @@ export default function ProjectDetailPage() {
           {firstTextField && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                What did you work on?
+                {firstTextField.name}
+                {firstTextField.required && <span className="text-red-500 ml-0.5">*</span>}
               </label>
               <textarea
                 rows={3}
-                placeholder={`Describe what you worked on...`}
+                placeholder={`Add ${firstTextField.name.toLowerCase()}...`}
                 value={entryDescription}
                 onChange={(e) => setEntryDescription(e.target.value)}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
