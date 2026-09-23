@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import StatusBadge from "../StatusBadge";
 import TagList from "../TagList";
@@ -69,24 +69,33 @@ describe("TagList", () => {
 });
 
 describe("EntryCard", () => {
+  // Reference and project-chip values render as react-router <Link>s, which
+  // throw outside a Router context.
+  const renderCard = (props: Parameters<typeof EntryCard>[0]) =>
+    render(
+      <MemoryRouter>
+        <EntryCard {...props} />
+      </MemoryRouter>
+    );
+
   it("shows the duration and the project chip when asked", () => {
-    render(<EntryCard entry={makeEntry()} projectName="Campus Marketplace" showProject />);
+    renderCard({ entry: makeEntry(), projectName: "Campus Marketplace", showProject: true });
 
     expect(screen.getByText("1h 30m")).toBeInTheDocument();
     expect(screen.getByText("Campus Marketplace")).toBeInTheDocument();
   });
 
   it("omits the project chip unless showProject is set", () => {
-    render(<EntryCard entry={makeEntry()} projectName="Campus Marketplace" />);
+    renderCard({ entry: makeEntry(), projectName: "Campus Marketplace" });
     expect(screen.queryByText("Campus Marketplace")).not.toBeInTheDocument();
   });
 
   it("marks an entry overdue only when its due date has passed", () => {
-    const { unmount } = render(<EntryCard entry={makeEntry({ dueDate: daysAgo(3) })} />);
+    const { unmount } = renderCard({ entry: makeEntry({ dueDate: daysAgo(3) }) });
     expect(screen.getByText("Overdue")).toBeInTheDocument();
     unmount();
 
-    render(<EntryCard entry={makeEntry({ dueDate: daysAgo(-3) })} />);
+    renderCard({ entry: makeEntry({ dueDate: daysAgo(-3) }) });
     expect(screen.queryByText("Overdue")).not.toBeInTheDocument();
   });
 
@@ -111,19 +120,25 @@ describe("EntryCard", () => {
       } as Entry["values"],
     });
 
-    render(<EntryCard entry={entry} fields={fields} />);
+    renderCard({ entry, fields });
 
     // false must render as "No" rather than being dropped as empty.
     expect(screen.getByText("No")).toBeInTheDocument();
     expect(screen.getByText("audit, phase-a")).toBeInTheDocument();
-    expect(screen.getByText("✓ Draft · ○ Review")).toBeInTheDocument();
-    expect(screen.getByText("Digital Logbook")).toBeInTheDocument();
+    // Checklist items render as individually tickable checkboxes, not a
+    // single summary string.
+    const draft = screen.getByText("Draft").closest("label")!;
+    expect(within(draft).getByRole("checkbox")).toBeChecked();
+    const review = screen.getByText("Review").closest("label")!;
+    expect(within(review).getByRole("checkbox")).not.toBeChecked();
+    // A REFERENCE value links to the project it points at.
+    expect(screen.getByRole("link", { name: "Digital Logbook" })).toHaveAttribute("href", "/projects/p2");
     expect(screen.getByText("wrote the audit")).toBeInTheDocument();
   });
 
   it("skips a field the entry never filled in", () => {
     const fields = [field("f1", "Summary", "TEXT"), field("f2", "Notes", "TEXT")];
-    render(<EntryCard entry={makeEntry({ values: { f1: "only this one" } as Entry["values"] })} fields={fields} />);
+    renderCard({ entry: makeEntry({ values: { f1: "only this one" } as Entry["values"] }), fields });
 
     expect(screen.getByText("only this one")).toBeInTheDocument();
     // Field names render as "Name:", so match loosely.
@@ -137,7 +152,7 @@ describe("EntryCard", () => {
       format: { version: 2, fields: [field("old-f", "Historic field", "TEXT")] } as Entry["format"],
     });
 
-    render(<EntryCard entry={entry} fields={[field("new-f", "Current field", "TEXT")]} />);
+    renderCard({ entry, fields: [field("new-f", "Current field", "TEXT")] });
 
     expect(screen.getByText(/Historic field/)).toBeInTheDocument();
     expect(screen.queryByText(/Current field/)).not.toBeInTheDocument();
@@ -148,12 +163,12 @@ describe("EntryCard", () => {
     const onDelete = vi.fn();
     const entry = makeEntry();
 
-    const { unmount } = render(<EntryCard entry={entry} />);
+    const { unmount } = renderCard({ entry });
     expect(screen.queryByLabelText("Edit entry")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Delete entry")).not.toBeInTheDocument();
     unmount();
 
-    render(<EntryCard entry={entry} onEdit={onEdit} onDelete={onDelete} />);
+    renderCard({ entry, onEdit, onDelete });
     fireEvent.click(screen.getByLabelText("Edit entry"));
     fireEvent.click(screen.getByLabelText("Delete entry"));
 
