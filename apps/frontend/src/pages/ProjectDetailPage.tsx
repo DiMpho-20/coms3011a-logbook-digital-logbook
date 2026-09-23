@@ -32,6 +32,7 @@ import {
   type Entry,
   type EntryField,
   type EntryFieldValue,
+  type ChecklistItem,
 } from "../api";
 import { formatDuration, todayISO, defaultValuesForFields, isEmptyValue, entryDateKey } from "../lib/utils";
 import StatCard from "../components/StatCard";
@@ -214,6 +215,23 @@ export default function ProjectDetailPage() {
       if (id) fetchProjectTimeSummary(id).then(setSummary).catch(() => {});
     } catch {
       alert("Couldn't delete that entry. Try again.");
+    }
+  };
+
+  const handleToggleChecklistItem = async (entry: Entry, field: EntryField, itemIndex: number) => {
+    const current = Array.isArray(entry.values?.[field.id]) ? (entry.values[field.id] as ChecklistItem[]) : [];
+    const items = current.map((item, i) => (i === itemIndex ? { ...item, checked: !item.checked } : item));
+
+    // Optimistic update so the checkbox responds immediately; reload from the
+    // server if the save fails so the card doesn't drift from what's stored.
+    setEntries((prev) =>
+      prev.map((e) => (e.id === entry.id ? { ...e, values: { ...e.values, [field.id]: items } } : e))
+    );
+    try {
+      const updated = await updateEntry(entry.id, { values: { [field.id]: items } });
+      setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    } catch {
+      load();
     }
   };
 
@@ -446,7 +464,14 @@ export default function ProjectDetailPage() {
                   </p>
                   <div className="space-y-2">
                     {dayEntries.map((entry) => (
-                      <EntryCard key={entry.id} entry={entry} fields={fields} onEdit={openEditEntryModal} onDelete={handleDeleteEntry} />
+                      <EntryCard
+                        key={entry.id}
+                        entry={entry}
+                        fields={fields}
+                        onEdit={openEditEntryModal}
+                        onDelete={handleDeleteEntry}
+                        onToggleChecklistItem={handleToggleChecklistItem}
+                      />
                     ))}
                   </div>
                 </div>
