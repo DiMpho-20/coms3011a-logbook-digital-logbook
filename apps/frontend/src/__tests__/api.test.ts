@@ -286,7 +286,7 @@ describe("exportLogbook", () => {
   it("collects every project with its fields and entries", async () => {
     vi.mocked(api.get).mockImplementation((url: string) => {
       if (url === "/projects") return Promise.resolve(ok([{ id: "p1", name: "Alpha", description: null, status: "ACTIVE" }]));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok([{ id: "f1", name: "Summary", type: "TEXT", required: true }]));
+      if (url.endsWith("/entry-fields")) return Promise.resolve(ok([{ id: "f1", name: "Summary", type: "TEXT", required: true, formula: null }]));
       return Promise.resolve(ok([{ id: "e1", durationMinutes: 30, entryDate: null, dueDate: null, values: {} }]));
     });
 
@@ -295,7 +295,7 @@ describe("exportLogbook", () => {
     expect(result.format).toBe("digital-logbook-backup");
     expect(result.version).toBe(1);
     expect(result.projects).toHaveLength(1);
-    expect(result.projects[0].fields[0]).toEqual({ id: "f1", name: "Summary", type: "TEXT", required: true });
+    expect(result.projects[0].fields[0]).toEqual({ id: "f1", name: "Summary", type: "TEXT", required: true, formula: null });
     expect(result.projects[0].entries[0]).toEqual({ durationMinutes: 30, entryDate: null, dueDate: null, values: {} });
   });
 });
@@ -332,6 +332,51 @@ describe("importLogbook", () => {
     expect(api.post).toHaveBeenCalledWith(
       "/projects/new-p1/entries",
       expect.objectContaining({ values: { "new-f1": "did a thing" } })
+    );
+  });
+
+  it("accepts a backup that uses a newer field type", async () => {
+    const withTags = {
+      ...backup,
+      projects: [{
+        ...backup.projects[0],
+        fields: [{ id: "old-f1", name: "Topics", type: "TAGS", required: false, formula: null }],
+        entries: [],
+      }],
+    };
+    vi.mocked(api.post).mockImplementation((url: string) => {
+      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
+      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-f1" }));
+      return Promise.resolve(ok({ id: "new-e1" }));
+    });
+
+    await expect(importLogbook(withTags)).resolves.toEqual({ projects: 1, entries: 0 });
+  });
+
+  it("remaps a COMPUTED field's formula onto the ids its fields are recreated with", async () => {
+    const withComputed = {
+      ...backup,
+      projects: [{
+        ...backup.projects[0],
+        fields: [
+          { id: "old-hours", name: "Hours", type: "NUMBER", required: false, formula: null },
+          { id: "old-cost", name: "Cost", type: "COMPUTED", required: false, formula: "{old-hours} * 10" },
+        ],
+        entries: [],
+      }],
+    };
+    let fieldCalls = 0;
+    vi.mocked(api.post).mockImplementation((url: string) => {
+      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
+      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: `new-f${++fieldCalls}` }));
+      return Promise.resolve(ok({ id: "new-e1" }));
+    });
+
+    await importLogbook(withComputed);
+
+    expect(api.post).toHaveBeenCalledWith(
+      "/projects/new-p1/entry-fields",
+      expect.objectContaining({ type: "COMPUTED", formula: "{new-f1} * 10" })
     );
   });
 });

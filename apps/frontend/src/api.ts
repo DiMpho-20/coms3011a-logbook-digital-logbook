@@ -37,7 +37,7 @@ export interface LogbookBackupProject {
   name: string;
   description: string | null;
   status: ProjectStatus;
-  fields: Array<Pick<EntryField, "id" | "name" | "type" | "required">>;
+  fields: Array<Pick<EntryField, "id" | "name" | "type" | "required" | "formula">>;
   entries: Array<Pick<Entry, "durationMinutes" | "entryDate" | "dueDate" | "values">>;
 }
 
@@ -273,7 +273,7 @@ export async function exportLogbook(): Promise<LogbookBackup> {
       name: project.name,
       description: project.description,
       status: project.status,
-      fields: fields.map(({ id, name, type, required }) => ({ id, name, type, required })),
+      fields: fields.map(({ id, name, type, required, formula }) => ({ id, name, type, required, formula })),
       entries: entries.map(({ durationMinutes, entryDate, dueDate, values }) => ({
         durationMinutes, entryDate, dueDate, values,
       })),
@@ -287,6 +287,11 @@ export async function exportLogbook(): Promise<LogbookBackup> {
     projects: backupProjects,
   };
 }
+
+// Every field type the app can create, not just the four oldest ones — a
+// backup that leaves out TAGS/CHECKLIST/LINK/REFERENCE/COMPUTED would be
+// rejected wholesale on import just for having used a newer field type.
+const BACKUP_FIELD_TYPES: EntryFieldType[] = ["TEXT", "NUMBER", "DATE", "BOOLEAN", "TAGS", "CHECKLIST", "LINK", "REFERENCE", "COMPUTED"];
 
 function isBackup(value: unknown): value is LogbookBackup {
   if (!value || typeof value !== "object") return false;
@@ -302,8 +307,12 @@ function isBackup(value: unknown): value is LogbookBackup {
       && project.fields.every((field) => field
         && typeof field.id === "string"
         && typeof field.name === "string"
-        && ["TEXT", "NUMBER", "DATE", "BOOLEAN"].includes(field.type)
-        && typeof field.required === "boolean")
+        && BACKUP_FIELD_TYPES.includes(field.type)
+        && typeof field.required === "boolean"
+        // Older backups predate this field entirely, so a missing key reads
+        // as "no formula" rather than failing validation.
+        && (field.formula === null || field.formula === undefined || typeof field.formula === "string")
+        && (field.type !== "COMPUTED" || Boolean(field.formula)))
       && Array.isArray(project.entries)
       && project.entries.every((entry) => entry
         && Number.isInteger(entry.durationMinutes)
@@ -334,10 +343,23 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
     importedProjects++;
     const fieldIds = new Map<string, string>();
     for (const field of project.fields) {
+      // A COMPUTED field's formula embeds the ids of the fields it reads
+      // (e.g. "{old-id} * 2"), which no longer exist once the fields it
+      // depends on are recreated under new ids. Every field a formula can
+      // legally reference was necessarily created earlier in this same
+      // backup (the original project could not have validated it
+      // otherwise), so fieldIds already holds the mapping by this point.
+      const formula = field.type === "COMPUTED" && field.formula
+        ? field.formula.replace(/\{([^}]+)\}/g, (match, oldId) => {
+            const newId = fieldIds.get(oldId.trim());
+            return newId ? `{${newId}}` : match;
+          })
+        : undefined;
       const createdField = await createEntryField(createdProject.id, {
         name: field.name,
         type: field.type,
         required: field.required,
+        formula,
       });
       fieldIds.set(field.id, createdField.id);
     }
