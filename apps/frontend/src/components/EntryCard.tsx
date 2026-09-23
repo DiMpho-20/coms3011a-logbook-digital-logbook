@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Clock, AlertTriangle, Pencil, Trash2 } from "lucide-react";
 import { formatDuration, isEmptyValue } from "../lib/utils";
 import TagList from "./TagList";
@@ -38,12 +39,8 @@ export default function EntryCard({
   const displayValue = (type: string, value: unknown) => {
     if (type === "BOOLEAN") return value ? "Yes" : "No";
     if (type === "TAGS") return Array.isArray(value) ? value.join(", ") : String(value);
-    if (type === "REFERENCE" && value && typeof value === "object") return (value as any).label || (value as any).id;
     return String(value);
   };
-
-  const checklistFields = displayFields.filter((f) => f.type === "CHECKLIST");
-  const otherFields = displayFields.filter((f) => f.type !== "CHECKLIST");
 
   return (
     <div className={`border rounded-lg p-3 transition ${
@@ -54,9 +51,13 @@ export default function EntryCard({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           {showProject && projectName && (
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+            <Link
+              to={`/projects/${entry.projectId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition"
+            >
               {projectName}
-            </span>
+            </Link>
           )}
           <span className="flex items-center gap-1 text-xs font-medium text-slate-600">
             <Clock className="h-3 w-3 text-slate-400" />
@@ -96,13 +97,44 @@ export default function EntryCard({
         </div>
       </div>
 
-      {otherFields.length > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-          {otherFields.map((field) => {
+      {displayFields.length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          {displayFields.map((field) => {
             const value = entry.values?.[field.id];
+
+            if (field.type === "CHECKLIST") {
+              const items = Array.isArray(value) ? (value as ChecklistItem[]) : [];
+              if (items.length === 0) return null;
+              return (
+                <div key={field.id} className="text-xs">
+                  <span className="text-slate-400">{field.name}</span>
+                  <div className="mt-0.5 space-y-1">
+                    {items.map((item, i) => (
+                      <label
+                        key={i}
+                        className={`flex items-center gap-2 ${onToggleChecklistItem ? "cursor-pointer" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={item.checked}
+                          disabled={!onToggleChecklistItem}
+                          onChange={() => onToggleChecklistItem?.(entry, field, i)}
+                          className="rounded"
+                        />
+                        <span className={item.checked ? "line-through text-slate-400" : "text-slate-800"}>
+                          {item.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
             if (isEmptyValue(value) && value !== false) return null;
+
             return (
-              <span key={field.id} className="text-xs text-slate-600">
+              <div key={field.id} className="text-xs text-slate-600">
                 <span className="text-slate-400">{field.name}:</span>{" "}
                 {field.type === "LINK" ? (
                   <a
@@ -110,53 +142,28 @@ export default function EntryCard({
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="font-medium text-blue-600 hover:underline"
+                    className="font-medium text-blue-600 hover:underline break-all"
                   >
                     {String(value)}
                   </a>
+                ) : field.type === "REFERENCE" && value && typeof value === "object" ? (
+                  <Link
+                    to={`/projects/${(value as { id: string; label?: string }).id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="font-medium text-blue-600 hover:underline"
+                  >
+                    {(value as { id: string; label?: string }).label || (value as { id: string }).id}
+                  </Link>
                 ) : (
                   <span className="font-medium text-slate-800">
                     {displayValue(field.type, value)}
                   </span>
                 )}
-              </span>
+              </div>
             );
           })}
         </div>
       )}
-
-      {checklistFields.map((field) => {
-        const items = Array.isArray(entry.values?.[field.id])
-          ? (entry.values![field.id] as ChecklistItem[])
-          : [];
-        if (items.length === 0) return null;
-        return (
-          <div key={field.id} className="mt-2">
-            <span className="text-xs text-slate-400">{field.name}</span>
-            <div className="mt-0.5 space-y-1">
-              {items.map((item, i) => (
-                <label
-                  key={i}
-                  className={`flex items-center gap-2 text-xs ${
-                    onToggleChecklistItem ? "cursor-pointer" : ""
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={item.checked}
-                    disabled={!onToggleChecklistItem}
-                    onChange={() => onToggleChecklistItem?.(entry, field, i)}
-                    className="rounded"
-                  />
-                  <span className={item.checked ? "line-through text-slate-400" : "text-slate-800"}>
-                    {item.label}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-        );
-      })}
 
       <TagList tags={entry.tags} className="mt-2" />
 
