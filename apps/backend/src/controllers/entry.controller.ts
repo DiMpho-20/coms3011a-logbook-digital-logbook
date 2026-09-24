@@ -7,6 +7,7 @@ import type { Entry } from "@logbook/shared";
 import { calculateComputedValues } from "../utils/computedFields.js";
 import { cleanTagNames, resolveTagIds } from "../utils/tags.js";
 import { validateEntryValues, findMissingRequiredField, isEmptyValue } from "../utils/entryValues.js";
+import type { SnapshotField } from "../utils/entryFormat.js";
 
 /**
  * Resolve a project the caller actually owns. requireAuth proves the caller
@@ -51,6 +52,44 @@ function flattenValues(values: { fieldId: string; value: string; field: { type: 
   return map;
 }
 
+function normalizeSnapshotField(field: any): SnapshotField {
+  return {
+    id: field.id,
+    projectId: field.projectId,
+    name: field.name,
+    type: field.type,
+    required: field.required,
+    formula: field.formula,
+    archivedAt: null,
+    createdAt: field.createdAt?.toISOString?.() ?? field.createdAt,
+    updatedAt: field.updatedAt?.toISOString?.() ?? field.updatedAt,
+  };
+}
+
+/**
+ * An entry's pinned format snapshot can miss a field two ways: a field added
+ * to the project after the snapshot was taken and later filled in on this
+ * entry, or a field since archived from the project that this entry still
+ * holds a value for. Both are recovered here from the value's own `field`
+ * relation, which always carries the real definition regardless of the
+ * live project's current field list — so a dropped field never disappears
+ * from an entry that already recorded it, and a newly added one appears as
+ * soon as a value is saved for it, without ever repointing the entry at a
+ * different snapshot (which would show *only* that snapshot's fields and
+ * silently drop whichever of these two categories it didn't already have).
+ */
+function mergeEntryFields(snapshotFields: SnapshotField[], values: { fieldId: string; field: any }[]): SnapshotField[] {
+  const known = new Set(snapshotFields.map((f) => f.id));
+  const extra: SnapshotField[] = [];
+  for (const v of values) {
+    if (!known.has(v.fieldId)) {
+      known.add(v.fieldId);
+      extra.push(normalizeSnapshotField(v.field));
+    }
+  }
+  return extra.length ? [...snapshotFields, ...extra] : snapshotFields;
+}
+
 /** Shape a Prisma LogbookEntry (with included values) into the API response. */
 function formatEntry(entry: {
   id: string;
@@ -66,6 +105,12 @@ function formatEntry(entry: {
   completedAt: Date | null;
   tags?: { tag: { name: string } }[];
 }): Entry {
+  // Legacy entries predate snapshots entirely, so this starts from an empty
+  // list rather than null — mergeEntryFields then derives their whole field
+  // list from the retained fields referenced by their values, same as it
+  // adds any extra field on top of a real snapshot.
+  const snapshotFields = entry.formatVersion ? (entry.formatVersion.fields as SnapshotField[]) : [];
+  const fields = mergeEntryFields(snapshotFields, entry.values);
   return {
     id: entry.id,
     projectId: entry.projectId,
@@ -76,13 +121,7 @@ function formatEntry(entry: {
     status: entry.status as "OPEN" | "DONE",
     completedAt: entry.completedAt?.toISOString() ?? null,
     tags: (entry.tags ?? []).map((t) => t.tag.name).sort(),
-    // Legacy entries predate snapshots; derive their historical field list from
-    // the retained fields referenced by their values.
-    format: entry.formatVersion
-      ? { version: entry.formatVersion.version, fields: entry.formatVersion.fields as any }
-      : entry.values.length
-        ? { version: 0, fields: entry.values.map((value) => ({ ...value.field, createdAt: value.field.createdAt?.toISOString?.() ?? value.field.createdAt, updatedAt: value.field.updatedAt?.toISOString?.() ?? value.field.updatedAt, archivedAt: value.field.archivedAt?.toISOString?.() ?? value.field.archivedAt })) }
-        : null,
+    format: fields.length ? { version: entry.formatVersion?.version ?? 0, fields: fields as any } : null,
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString(),
   };
@@ -237,10 +276,6 @@ export const updateEntry = async (req: AuthenticatedRequest, res: Response) => {
         entryData.dueDate = validated.dueDate;
       }
 
-      if (Object.keys(entryData).length > 0) {
-        await tx.logbookEntry.update({ where: { id }, data: entryData });
-      }
-
       if (validated.values) {
         const fields = await tx.entryField.findMany({ where: { projectId: existing.projectId, archivedAt: null } });
 
@@ -270,6 +305,10 @@ export const updateEntry = async (req: AuthenticatedRequest, res: Response) => {
             update: { value: stored },
           });
         }
+      }
+
+      if (Object.keys(entryData).length > 0) {
+        await tx.logbookEntry.update({ where: { id }, data: entryData });
       }
 
       // Replace the tag set wholesale when tags are provided.
@@ -398,19 +437,20 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
 
     // One shared map rather than the same format snapshot repeated on every
     // entry — a term of entries on a nine-field project would otherwise be
-    // mostly duplicated schema.
+    // mostly duplicated schema. An entry whose values reference a field
+    // outside its own snapshot (see mergeEntryFields) can't share that
+    // snapshot's entry as-is, since the extra field isn't part of every
+    // other entry pinned to the same version — it gets its own key instead.
     const formats: Record<string, { version: number; fields: unknown }> = {};
     const entries = ordered.map((entry) => {
-      // The embedded per-entry format is dropped in favour of the shared map.
       const { format, ...rest } = formatEntry(entry);
-      void format;
-      if (entry.formatVersionId && entry.formatVersion) {
-        formats[entry.formatVersionId] = {
-          version: entry.formatVersion.version,
-          fields: entry.formatVersion.fields,
-        };
+      const snapshotFields = entry.formatVersion ? (entry.formatVersion.fields as unknown as SnapshotField[]) : [];
+      const usesExtraFields = format !== null && format.fields.length !== snapshotFields.length;
+      const formatKey = usesExtraFields ? `entry:${entry.id}` : entry.formatVersionId;
+      if (formatKey && format) {
+        formats[formatKey] = { version: format.version, fields: format.fields };
       }
-      return { ...rest, formatVersionId: entry.formatVersionId };
+      return { ...rest, formatVersionId: formatKey };
     });
 
     return res.status(200).json({

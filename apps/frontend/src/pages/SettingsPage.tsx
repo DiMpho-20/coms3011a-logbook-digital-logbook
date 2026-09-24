@@ -178,27 +178,28 @@ export default function SettingsPage() {
   };
 
   const handleDeleteAccount = async () => {
-    if (!confirm("Are you sure you want to permanently delete your account? This cannot be undone.")) return;
     setDeleteError("");
     setIsDeleting(true);
     try {
-      await api.delete("/auth/account", { data: { confirmPassword: deletePw } });
+      const res = await api.delete("/auth/account", { data: { confirmPassword: deletePw } });
+
+      // Clear local data and redirect to login with the scheduled date.
+      const keys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith("logbook-")) keys.push(k);
+      }
+      keys.forEach((k) => localStorage.removeItem(k));
+      localStorage.removeItem("token");
+      applyTheme("system");
+
+      const date = encodeURIComponent(res.data.scheduledDeletionAt);
+      window.location.href = `/login?deletionScheduled=${date}`;
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to delete account.";
       setDeleteError(msg);
       setIsDeleting(false);
-      return;
     }
-    // Clear all local data
-    const keys: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k?.startsWith("logbook-")) keys.push(k);
-    }
-    keys.forEach((k) => localStorage.removeItem(k));
-    localStorage.removeItem("token");
-    applyTheme("system");
-    window.location.href = "/";
   };
 
   const handleExportJSON = async () => {
@@ -480,7 +481,9 @@ export default function SettingsPage() {
         </div>
         <div className="border-t border-slate-100 pt-4 mt-2">
           <p className="text-sm font-medium text-red-700 mb-1">Delete account</p>
-          <p className="text-xs text-slate-500 mb-3">Permanently remove your account and all associated data.</p>
+          <p className="text-xs text-slate-500 mb-3">
+            Schedule your account and all associated data for permanent deletion in 30 days. You can cancel by logging in before then.
+          </p>
           {deleteError && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-2">{deleteError}</p>
           )}
@@ -497,7 +500,7 @@ export default function SettingsPage() {
               disabled={isDeleting || !deletePw}
               className="shrink-0 flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Trash2 className="h-3.5 w-3.5" /> {isDeleting ? "Deleting..." : "Delete"}
+              <Trash2 className="h-3.5 w-3.5" /> {isDeleting ? "Scheduling..." : "Delete"}
             </button>
           </div>
         </div>

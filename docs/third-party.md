@@ -37,7 +37,8 @@ Before adding a library we check:
 | [nodemailer](https://nodemailer.com) ^9.0 | MIT-0 | Transactional email over SMTP | Works with any SMTP provider — we send through Gmail with an app password — so there is no vendor lock-in and it works in local development without an API account. |
 | [cors](https://github.com/expressjs/cors) ^2.8 | MIT | Cross-Origin Resource Sharing middleware | The frontend (Vite dev server on :5173, deployed frontend on Cloudflare Pages) calls the backend on a different origin; `cors` handles the preflight/OPTIONS dance correctly. |
 | [dotenv](https://github.com/motdotla/dotenv) ^17.4 | BSD-2-Clause | Loads `.env` into `process.env` | Twelve-factor configuration: secrets (DB URL, JWT secret, Gmail credentials) stay out of the codebase. |
-| [resend](https://resend.com) ^6.20 | MIT | Email API client | **Installed but not yet wired up.** Being evaluated for the Sprint 2 external-API integration requirement as a possible replacement for raw SMTP sending. |
+| [resend](https://resend.com) ^6.20 | MIT | Email API client | Preferred email provider when `RESEND_API_KEY` is set; Gmail SMTP is the fallback. A REST API avoids SMTP ports that some hosts block. |
+| [googleapis](https://github.com/googleapis/google-api-nodejs-client) ^181 | Apache-2.0 | Google Calendar API client and OAuth 2.0 | Our external API integration: syncs entry due dates into the user's Google Calendar. Google's official client handles the OAuth code exchange and refreshes access tokens automatically. |
 
 ## Frontend dependencies
 

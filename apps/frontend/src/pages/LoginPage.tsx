@@ -15,10 +15,19 @@ export const LoginPage: React.FC = () => {
   const [twoFactorEmail, setTwoFactorEmail] = useState("");
   const [twoFactorCode, setTwoFactorCode] = useState("");
 
-  // Shown when the API client redirected here after a 401 (expired session)
+  // Scheduled-deletion state
+  const [scheduledDeletionAt, setScheduledDeletionAt] = useState<string | null>(null);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [pendingUser, setPendingUser] = useState<{ fullName: string; email: string } | null>(null);
+
+  // Query-string flags
   const [sessionExpired] = useState(() =>
     new URLSearchParams(window.location.search).has("expired")
   );
+  const [deletionScheduledBanner] = useState(() => {
+    const raw = new URLSearchParams(window.location.search).get("deletionScheduled");
+    return raw ? decodeURIComponent(raw) : null;
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,9 +54,16 @@ export const LoginPage: React.FC = () => {
         setTwoFactorEmail(response.data.email);
         return;
       }
+
+      // If a deletion is scheduled, don't log in yet — show the modal.
+      if (response.data.scheduledDeletionAt) {
+        setPendingToken(response.data.token);
+        setPendingUser(response.data.user);
+        setScheduledDeletionAt(response.data.scheduledDeletionAt);
+        return;
+      }
       
       localStorage.setItem("token", response.data.token);
-      // Save user info for profile and sidebar
       if (response.data.user) {
         localStorage.setItem("logbook-name", response.data.user.fullName);
         localStorage.setItem("logbook-email", response.data.user.email);
@@ -76,6 +92,13 @@ export const LoginPage: React.FC = () => {
         email: twoFactorEmail,
         token: twoFactorCode,
       });
+
+      if (response.data.scheduledDeletionAt) {
+        setPendingToken(response.data.token);
+        setPendingUser(response.data.user);
+        setScheduledDeletionAt(response.data.scheduledDeletionAt);
+        return;
+      }
       
       localStorage.setItem("token", response.data.token);
       if (response.data.user) {
@@ -88,6 +111,34 @@ export const LoginPage: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const cancelDeletion = async () => {
+    if (!pendingToken || !pendingUser) return;
+    try {
+      setIsSubmitting(true);
+      // Temporarily set the token so the api client attaches it.
+      localStorage.setItem("token", pendingToken);
+      await api.post("/auth/account/cancel-deletion");
+      // Now complete the login normally.
+      localStorage.setItem("logbook-name", pendingUser.fullName);
+      localStorage.setItem("logbook-email", pendingUser.email);
+      window.location.href = "/dashboard";
+    } catch (err: any) {
+      localStorage.removeItem("token");
+      setServerError(err.response?.data?.error || "Failed to cancel deletion.");
+      setScheduledDeletionAt(null);
+      setPendingToken(null);
+      setPendingUser(null);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const keepDeletion = () => {
+    setScheduledDeletionAt(null);
+    setPendingToken(null);
+    setPendingUser(null);
   };
 
   return (
@@ -133,7 +184,6 @@ export const LoginPage: React.FC = () => {
               boxShadow: "0 0 20px rgba(0, 198, 255, 0.25)",
             }}
           >
-            {/* User Head & Shoulders Icon */}
             <svg
               width="26"
               height="26"
@@ -155,6 +205,52 @@ export const LoginPage: React.FC = () => {
             Sign in to access your dashboard
           </p>
         </div>
+
+        {/* Deletion scheduled banner */}
+        {deletionScheduledBanner && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "0.65rem",
+              backgroundColor: "rgba(245, 158, 11, 0.12)",
+              border: "1px solid rgba(245, 158, 11, 0.4)",
+              color: "#fcd34d",
+              padding: "0.85rem 1rem",
+              borderRadius: "10px",
+              fontSize: "0.85rem",
+              lineHeight: 1.45,
+              marginBottom: "1.25rem",
+            }}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#fcd34d"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ flexShrink: 0, marginTop: "1px" }}
+            >
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <span>
+              Your account will be permanently deleted in 30 days, on{" "}
+              <strong style={{ color: "#ffffff" }}>
+                {new Date(deletionScheduledBanner).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </strong>
+              . Log in before then to cancel.
+            </span>
+          </div>
+        )}
 
         {/* Session Expired Banner */}
         {sessionExpired && (
@@ -228,7 +324,6 @@ export const LoginPage: React.FC = () => {
               </p>
             </div>
 
-            {/* 2FA Code Input */}
             <div style={{ marginBottom: "1.5rem" }}>
               <label
                 style={{
@@ -290,7 +385,6 @@ export const LoginPage: React.FC = () => {
               )}
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={isSubmitting}
@@ -322,7 +416,6 @@ export const LoginPage: React.FC = () => {
               {isSubmitting ? "Verifying..." : "Verify & Sign In"}
             </button>
 
-            {/* Back to password form */}
             <button
               type="button"
               onClick={() => {
@@ -372,7 +465,6 @@ export const LoginPage: React.FC = () => {
               Email Address
             </label>
             <div style={{ position: "relative" }}>
-              {/* Mail Icon */}
               <div
                 style={{
                   position: "absolute",
@@ -479,7 +571,6 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div style={{ position: "relative" }}>
-              {/* Lock Icon */}
               <div
                 style={{
                   position: "absolute",
@@ -551,7 +642,6 @@ export const LoginPage: React.FC = () => {
             )}
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={isSubmitting}
@@ -585,7 +675,6 @@ export const LoginPage: React.FC = () => {
         </form>
         )}
 
-        {/* Footer Link to Register */}
         <p
           style={{
             textAlign: "center",
@@ -610,6 +699,96 @@ export const LoginPage: React.FC = () => {
           </a>
         </p>
       </GlassCard>
+
+      {/* Scheduled deletion modal (shown when logging in during grace period) */}
+      {scheduledDeletionAt && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+            padding: "1rem",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: "440px",
+              width: "100%",
+              background: "linear-gradient(180deg, #0d1b3e 0%, #0a1628 100%)",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
+              borderRadius: "16px",
+              padding: "1.75rem",
+              color: "#ffffff",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5)",
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700 }}>
+              Account scheduled for deletion
+            </h3>
+            <p
+              style={{
+                marginTop: "0.75rem",
+                marginBottom: "1.5rem",
+                fontSize: "0.9rem",
+                color: "rgba(255, 255, 255, 0.75)",
+                lineHeight: 1.5,
+              }}
+            >
+              Your account is scheduled for permanent deletion on{" "}
+              <strong style={{ color: "#ffffff" }}>
+                {new Date(scheduledDeletionAt).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </strong>
+              . Do you want to cancel the deletion?
+            </p>
+
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button
+                onClick={cancelDeletion}
+                disabled={isSubmitting}
+                style={{
+                  flex: 1,
+                  padding: "0.75rem",
+                  borderRadius: "10px",
+                  border: "none",
+                  background: "linear-gradient(135deg, #0072ff 0%, #7000ff 100%)",
+                  color: "#ffffff",
+                  fontSize: "0.9rem",
+                  fontWeight: 600,
+                  cursor: isSubmitting ? "not-allowed" : "pointer",
+                  opacity: isSubmitting ? 0.7 : 1,
+                }}
+              >
+                {isSubmitting ? "Cancelling..." : "Cancel deletion"}
+              </button>
+              <button
+                onClick={keepDeletion}
+                disabled={isSubmitting}
+                style={{
+                  flex: 1,
+                  padding: "0.75rem",
+                  borderRadius: "10px",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  background: "transparent",
+                  color: "rgba(255, 255, 255, 0.85)",
+                  fontSize: "0.9rem",
+                  fontWeight: 500,
+                  cursor: isSubmitting ? "not-allowed" : "pointer",
+                }}
+              >
+                Keep deletion
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AuthLayout>
   );
 };

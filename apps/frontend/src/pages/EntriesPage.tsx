@@ -30,6 +30,28 @@ import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
 import TagFilterBar from "../components/TagFilterBar";
 
+function isEmptyFieldValue(value: unknown) {
+  return value == null || value === "" || value === false || (Array.isArray(value) && value.length === 0);
+}
+
+function fieldValueLabel(field: EntryField, value: unknown): string {
+  if (field.type === "BOOLEAN") return field.name;
+  if (field.type === "TAGS" && Array.isArray(value)) return value.join(", ");
+  if (field.type === "REFERENCE" && value && typeof value === "object") {
+    const reference = value as { id?: string; label?: string };
+    return reference.label || reference.id || "";
+  }
+  return String(value);
+}
+
+function valueForSearch(value: unknown): string {
+  if (Array.isArray(value)) return value.map(valueForSearch).join(" ");
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).map(valueForSearch).join(" ");
+  }
+  return String(value ?? "");
+}
+
 export default function EntriesPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [fieldsByProject, setFieldsByProject] = useState<Record<string, EntryField[]>>({});
@@ -208,7 +230,7 @@ export default function EntriesPage() {
       const q = searchQuery.toLowerCase();
       list = list.filter((e) => {
         const name = projectName(e.projectId).toLowerCase();
-        const vals = Object.values(e.values || {}).map((v) => String(v)).join(" ").toLowerCase();
+        const vals = Object.values(e.values || {}).map(valueForSearch).join(" ").toLowerCase();
         const tagText = (e.tags || []).join(" ").toLowerCase();
         return name.includes(q) || vals.includes(q) || tagText.includes(q);
       });
@@ -489,7 +511,9 @@ export default function EntriesPage() {
                             hour: "2-digit",
                             minute: "2-digit",
                           });
-                          const fields = fieldsByProject[entry.projectId] || [];
+                          const fields = entry.format?.fields?.length
+                            ? entry.format.fields
+                            : fieldsByProject[entry.projectId] || [];
                           const isOverdue =
                             entry.dueDate &&
                             new Date(entry.dueDate) < new Date(new Date().toDateString());
@@ -501,19 +525,15 @@ export default function EntriesPage() {
                             ? (entry.values?.[descField.id] as string) || ""
                             : "";
 
-                          // Collect non-empty field values as chips (distinct from
-                          // entry.tags below). The description field is skipped while
+                          // Collect non-empty custom-field values. The description
+                          // field is skipped while
                           // it is showing as the headline — repeating the same text
                           // directly underneath it adds nothing.
-                          const fieldChips = fields
+                          const fieldValues = fields
                             .filter((f) => {
                               if (description && f.id === descField?.id) return false;
                               const v = entry.values?.[f.id];
-                              return v != null && v !== "" && v !== false;
-                            })
-                            .map((f) => {
-                              const v = entry.values?.[f.id];
-                              return f.type === "BOOLEAN" ? f.name : String(v);
+                              return !isEmptyFieldValue(v);
                             });
 
                           return (
@@ -548,16 +568,54 @@ export default function EntriesPage() {
                                   {projectName(entry.projectId)}
                                 </p>
 
-                                {fieldChips.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {fieldChips.map((chip, i) => (
-                                      <span
-                                        key={i}
-                                        className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
-                                      >
-                                        {chip}
-                                      </span>
-                                    ))}
+                                {fieldValues.length > 0 && (
+                                  <div className="mt-1.5 space-y-1">
+                                    {fieldValues.map((field) => {
+                                      const value = entry.values?.[field.id];
+
+                                      if (field.type === "CHECKLIST" && Array.isArray(value)) {
+                                        return (
+                                          <div key={field.id} className="text-xs text-slate-600">
+                                            <span className="text-slate-400">{field.name}</span>
+                                            <ul className="mt-0.5 space-y-0.5">
+                                              {(value as { label: string; checked: boolean }[]).map((item, index) => (
+                                                <li key={`${item.label}-${index}`} className="flex items-center gap-1.5">
+                                                  <span className={item.checked ? "text-emerald-600" : "text-slate-400"}>
+                                                    {item.checked ? "✓" : "○"}
+                                                  </span>
+                                                  <span className={item.checked ? "line-through text-slate-400" : "text-slate-700"}>
+                                                    {item.label}
+                                                  </span>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        );
+                                      }
+
+                                      if (field.type === "LINK") {
+                                        return (
+                                          <a
+                                            key={field.id}
+                                            href={String(value)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex max-w-full px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-blue-700 border border-slate-200 hover:underline break-all"
+                                          >
+                                            {String(value)}
+                                          </a>
+                                        );
+                                      }
+
+                                      return (
+                                        <span
+                                          key={field.id}
+                                          className="inline-flex max-w-full px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 break-words"
+                                        >
+                                          {fieldValueLabel(field, value)}
+                                        </span>
+                                      );
+                                    })}
                                   </div>
                                 )}
 

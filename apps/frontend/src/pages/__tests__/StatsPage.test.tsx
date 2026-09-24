@@ -160,9 +160,7 @@ describe("StatsPage — loading and empty states", () => {
     await renderAndWait();
 
     expect(
-      await screen.findByText(
-        "This project has no Number or Computed fields to total yet — add one to a field to see it here."
-      )
+      await screen.findByText("This project has no entry fields yet — add one to see it here.")
     ).toBeInTheDocument();
   });
 });
@@ -264,7 +262,11 @@ describe("StatsPage — total and group", () => {
       })
     );
     const group = sectionFor(GROUP);
-    fireEvent.change(selectOffering(group, "f-cat"), { target: { value: "f-cat" } });
+    // Not selectOffering: the Field select now also offers every field
+    // (including "f-cat"), so picking by option value would be ambiguous.
+    // The three selects are always Field, Operation, Group by in that order.
+    const groupBySelect = within(group).getAllByRole("combobox")[2];
+    fireEvent.change(groupBySelect, { target: { value: "f-cat" } });
 
     await waitFor(() =>
       expect(client.post).toHaveBeenLastCalledWith("/projects/p1/stats/group", {
@@ -333,15 +335,21 @@ describe("StatsPage — total and group", () => {
     ).toBeInTheDocument();
   });
 
-  it("says when the project has nothing numeric to total", async () => {
+  it("still lets a non-numeric field be counted, but nothing more", async () => {
+    vi.mocked(client.post).mockImplementation(postRouter({ groups: [{ key: "total", value: 2 }] }));
     await withFields([CATEGORY]);
 
-    expect(
-      await screen.findByText(
-        "This project has no Number or Computed fields to total yet — add one to a field to see it here."
-      )
-    ).toBeInTheDocument();
-    expect(client.post).not.toHaveBeenCalled();
+    // A field of any type can still be counted...
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith("/projects/p1/stats/group", {
+        metricFieldId: "f-cat",
+        operation: "count",
+      })
+    );
+
+    // ...but sum/avg/min/max aren't offered for it.
+    const operationSelect = selectOffering(sectionFor(GROUP), "count") as HTMLSelectElement;
+    expect(Array.from(operationSelect.options).map((o) => o.value)).toEqual(["count"]);
   });
 });
 

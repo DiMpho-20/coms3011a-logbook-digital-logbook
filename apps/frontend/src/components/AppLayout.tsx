@@ -6,6 +6,9 @@ import { pendingEntryCount, SYNC_EVENT } from "../lib/offlineEntries";
 
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem("logbook-sidebar-collapsed") === "true",
+  );
   const [pendingCount, setPendingCount] = useState(pendingEntryCount);
   const [online, setOnline] = useState(navigator.onLine);
 
@@ -24,11 +27,19 @@ export default function AppLayout() {
     };
   }, []);
 
+  const toggleSidebar = () => {
+    setSidebarCollapsed((collapsed) => {
+      const nextCollapsed = !collapsed;
+      localStorage.setItem("logbook-sidebar-collapsed", String(nextCollapsed));
+      return nextCollapsed;
+    });
+  };
+
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex">
-        <Sidebar />
+        <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
       </div>
 
       {/* Mobile sidebar overlay */}

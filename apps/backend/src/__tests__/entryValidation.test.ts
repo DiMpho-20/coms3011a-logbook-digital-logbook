@@ -37,6 +37,36 @@ async function createField(projectId: string, body: Record<string, unknown>) {
 }
 
 describe("Server-side entry value validation", () => {
+  it("updates a field type when the field has no entry values", async () => {
+    const projectId = await createProject(`__val_type_change_${ts}`);
+    const fieldId = await createField(projectId, { name: "Notes", type: "TEXT" });
+
+    const res = await request(app)
+      .put(`/api/entry-fields/${fieldId}`)
+      .set(H)
+      .send({ type: "CHECKLIST", name: "Tasks", required: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: fieldId, type: "CHECKLIST", name: "Tasks", required: true });
+  });
+
+  it("does not change a field type after entry values have been stored", async () => {
+    const projectId = await createProject(`__val_type_in_use_${ts}`);
+    const fieldId = await createField(projectId, { name: "Notes", type: "TEXT" });
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [fieldId]: "Saved value" } });
+
+    const res = await request(app)
+      .put(`/api/entry-fields/${fieldId}`)
+      .set(H)
+      .send({ type: "CHECKLIST" });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toContain("cannot be changed");
+  });
+
   it("rejects a NUMBER field given a non-numeric value", async () => {
     const projectId = await createProject(`__val_number_${ts}`);
     const hoursId = await createField(projectId, { name: "Hours", type: "NUMBER" });
@@ -61,6 +91,32 @@ describe("Server-side entry value validation", () => {
 
     expect(res.status).toBe(201);
     expect(res.body.values[hoursId]).toBe(45);
+  });
+
+  it("rejects a LINK field given a value that isn't a real URL", async () => {
+    const projectId = await createProject(`__val_link_${ts}`);
+    const linkId = await createField(projectId, { name: "Recipe", type: "LINK" });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [linkId]: "mrd" } });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("Recipe");
+  });
+
+  it("accepts a LINK field given a real URL", async () => {
+    const projectId = await createProject(`__val_link_ok_${ts}`);
+    const linkId = await createField(projectId, { name: "Recipe", type: "LINK" });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [linkId]: "https://example.com/recipe" } });
+
+    expect(res.status).toBe(201);
+    expect(res.body.values[linkId]).toBe("https://example.com/recipe");
   });
 
   it("rejects a BOOLEAN field given a non-boolean value", async () => {
@@ -199,5 +255,53 @@ describe("Format migration: adding a field backfills existing entries", () => {
     const getRes = await request(app).get(`/api/projects/${projectId}/entries`).set(H);
     const entry = getRes.body.find((e: any) => e.id === entryId);
     expect(entry.values[doubledId]).toBe(8);
+  }, 30_000);
+
+  it("displays a value saved for a field added after the entry was created", async () => {
+    const projectId = await createProject(`__migrate_display_new_${ts}`);
+    const entryRes = await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: {} });
+    const entryId = entryRes.body.id;
+
+    const linkId = await createField(projectId, { name: "Recipe", type: "LINK" });
+    await request(app)
+      .put(`/api/entries/${entryId}`)
+      .set(H)
+      .send({ values: { [linkId]: "https://example.com/recipe" } });
+
+    const getRes = await request(app).get(`/api/projects/${projectId}/entries`).set(H);
+    const entry = getRes.body.find((e: any) => e.id === entryId);
+    expect(entry.values[linkId]).toBe("https://example.com/recipe");
+    expect(entry.format.fields.some((f: any) => f.id === linkId)).toBe(true);
+  }, 30_000);
+
+  it("keeps a dropped field's value on an entry visible after an unrelated edit", async () => {
+    const projectId = await createProject(`__migrate_keep_dropped_${ts}`);
+    const linkId = await createField(projectId, { name: "Recipe", type: "LINK" });
+    const notesId = await createField(projectId, { name: "Notes", type: "TEXT" });
+
+    const entryRes = await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: { [linkId]: "https://example.com/recipe", [notesId]: "first draft" } });
+    const entryId = entryRes.body.id;
+
+    // Drop the LINK field from the live project format.
+    await request(app).delete(`/api/entry-fields/${linkId}`).set(H);
+
+    // Edit something unrelated — this must not make the already-saved LINK
+    // value disappear just because it's no longer a live field.
+    await request(app)
+      .put(`/api/entries/${entryId}`)
+      .set(H)
+      .send({ values: { [notesId]: "revised draft" } });
+
+    const getRes = await request(app).get(`/api/projects/${projectId}/entries`).set(H);
+    const entry = getRes.body.find((e: any) => e.id === entryId);
+    expect(entry.values[linkId]).toBe("https://example.com/recipe");
+    expect(entry.values[notesId]).toBe("revised draft");
+    expect(entry.format.fields.some((f: any) => f.id === linkId)).toBe(true);
   }, 30_000);
 });

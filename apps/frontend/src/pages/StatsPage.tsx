@@ -118,12 +118,27 @@ export default function StatsPage() {
   const dateFields = useMemo(() => fields.filter((f) => f.type === "DATE"), [fields]);
   const anyFields = useMemo(() => fields.filter((f) => f.type !== "COMPUTED"), [fields]);
 
+  // count works for a field of any type ("how many entries have this filled
+  // in" is meaningful for a CHECKLIST or a LINK, not just a NUMBER); sum,
+  // avg, min and max only make sense for something numeric.
+  const selectedMetricField = fields.find((f) => f.id === metricFieldId);
+  const isNumericMetric = selectedMetricField?.type === "NUMBER" || selectedMetricField?.type === "COMPUTED";
+  const availableOperations = isNumericMetric ? OPERATIONS : (["count"] as const);
+
   // Show something the moment fields load, rather than an empty control panel.
   useEffect(() => {
-    if (numericFields.length > 0 && !metricFieldId) {
-      setMetricFieldId(numericFields[0].id);
+    if (fields.length > 0 && !metricFieldId) {
+      setMetricFieldId(fields[0].id);
     }
-  }, [numericFields, metricFieldId]);
+  }, [fields, metricFieldId]);
+
+  // Switching (or defaulting) onto a non-numeric field can't keep a
+  // sum/avg/min/max operation selected — fall back to count.
+  useEffect(() => {
+    if (metricFieldId && !isNumericMetric && operation !== "count") {
+      setOperation("count");
+    }
+  }, [metricFieldId, isNumericMetric, operation]);
 
   useEffect(() => {
     if (dateFields.length > 0 && !dateFieldId) {
@@ -133,6 +148,9 @@ export default function StatsPage() {
 
   const runGroup = async () => {
     if (!selectedProjectId || !metricFieldId || !operation) return;
+    // Guards the moment right after switching to a non-numeric field, before
+    // the effect above has corrected `operation` back to count.
+    if (operation !== "count" && !isNumericMetric) return;
     setComputing(true);
     setError(null);
     setResult(null);
@@ -239,9 +257,9 @@ export default function StatsPage() {
 
         {loadingFields ? (
           <p className="text-xs text-slate-500">Loading fields…</p>
-        ) : numericFields.length === 0 ? (
+        ) : fields.length === 0 ? (
           <p className="text-xs text-slate-500">
-            This project has no Number or Computed fields to total yet — add one to a field to see it here.
+            This project has no entry fields yet — add one to see it here.
           </p>
         ) : (
           <>
@@ -253,7 +271,7 @@ export default function StatsPage() {
                   onChange={(e) => setMetricFieldId(e.target.value)}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
                 >
-                  {numericFields.map((f) => (
+                  {fields.map((f) => (
                     <option key={f.id} value={f.id}>{f.name}</option>
                   ))}
                 </select>
@@ -265,10 +283,13 @@ export default function StatsPage() {
                   onChange={(e) => setOperation(e.target.value as Operation)}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
                 >
-                  {OPERATIONS.map((op) => (
+                  {availableOperations.map((op) => (
                     <option key={op} value={op}>{op}</option>
                   ))}
                 </select>
+                {!isNumericMetric && (
+                  <p className="text-[10px] text-slate-400 mt-1">Only count works on a non-number field.</p>
+                )}
               </div>
               <div>
                 <label className="block text-[11px] font-medium text-slate-500 mb-1">Group by (optional)</label>
@@ -296,7 +317,7 @@ export default function StatsPage() {
                 <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-5 text-center">
                   <p className="text-3xl font-bold text-slate-900 tabular-nums">{formatNumber(result.groups[0].value)}</p>
                   <p className="text-xs text-slate-500 mt-1">
-                    {operation} of {numericFields.find((f) => f.id === metricFieldId)?.name}
+                    {operation} of {selectedMetricField?.name}
                   </p>
                 </div>
               ) : result && result.groups.length > 0 ? (

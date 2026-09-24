@@ -9,17 +9,19 @@ import {
   LogOut,
   User as UserIcon,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   X,
-  Bell,
   Circle,
   BarChart3,
   CalendarDays,
   Kanban,
 } from "lucide-react";
-import { api } from "../api/client";
 
 interface SidebarProps {
   onClose?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const NAV_ITEMS = [
@@ -37,10 +39,9 @@ const BOTTOM_ITEMS = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
-export default function Sidebar({ onClose }: SidebarProps) {
+export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [deadlineCount, setDeadlineCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const displayName =
@@ -64,37 +65,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // Fetch upcoming deadline count for notification badge
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const projectsRes = await api.get("/projects");
-        const active: { id: string }[] = (projectsRes.data || []).filter(
-          (p: { status: string }) => p.status === "ACTIVE"
-        );
-        const results = await Promise.all(
-          active.map((p) => api.get(`/projects/${p.id}/entries`).then((r) => r.data))
-        );
-        const today = new Date(new Date().toDateString());
-        const threeDays = new Date(today);
-        threeDays.setDate(threeDays.getDate() + 3);
-        let count = 0;
-        results.forEach((entries: { dueDate?: string }[]) => {
-          entries.forEach((e) => {
-            if (!e.dueDate) return;
-            const due = new Date(e.dueDate + "T00:00:00");
-            if (due <= threeDays) count++;
-          });
-        });
-        if (!cancelled) setDeadlineCount(count);
-      } catch {
-        // Silently ignore — badge just won't show
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
   const handleNav = (path: string) => {
     setMenuOpen(false);
     onClose?.();
@@ -103,30 +73,29 @@ export default function Sidebar({ onClose }: SidebarProps) {
 
   return (
     <aside
-      className="sidebar-root w-60 flex flex-col h-full shrink-0 relative overflow-hidden"
+      className={`sidebar-root ${collapsed ? "w-16" : "w-60"} flex flex-col h-full shrink-0 relative overflow-hidden transition-[width] duration-200`}
       style={{ background: "linear-gradient(180deg, #0a1628 0%, #0d1b3e 100%)" }}
     >
       {/* Brand area */}
-      <div className="relative z-10 flex items-center gap-2.5 px-5 h-16 shrink-0">
+      <div className={`relative z-10 flex items-center gap-2.5 h-16 shrink-0 ${collapsed ? "justify-center px-2" : "px-5"}`}>
         <div className="relative p-1.5 rounded-lg" style={{ background: "linear-gradient(135deg, #0072ff, #7000ff)" }}>
           <BookOpen className="h-4 w-4 text-white" />
         </div>
-        <span className="text-sm font-semibold text-white tracking-tight">
-          Digital Logbook
-        </span>
-        {/* Notification bell with deadline count */}
-        <button
-          onClick={() => handleNav("/entries")}
-          className="relative ml-auto p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition"
-          title={deadlineCount > 0 ? `${deadlineCount} upcoming deadline${deadlineCount > 1 ? "s" : ""}` : "No upcoming deadlines"}
-        >
-          <Bell className="h-4 w-4" />
-          {deadlineCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-[9px] font-bold text-white leading-none">
-              {deadlineCount > 9 ? "9+" : deadlineCount}
-            </span>
-          )}
-        </button>
+        {!collapsed && (
+          <span className="text-sm font-semibold text-white tracking-tight">
+            Digital Logbook
+          </span>
+        )}
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            className={`${collapsed ? "absolute -right-3 top-5" : "ml-auto"} hidden lg:flex p-1 rounded-md border border-white/10 bg-[#101d38] text-slate-400 hover:text-white hover:bg-white/10 transition`}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </button>
+        )}
         {onClose && (
           <button
             onClick={onClose}
@@ -139,10 +108,12 @@ export default function Sidebar({ onClose }: SidebarProps) {
       </div>
 
       {/* Main navigation */}
-      <nav className="relative z-10 flex-1 px-3 pt-4 space-y-0.5">
-        <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-          Main
-        </p>
+      <nav className={`relative z-10 flex-1 px-3 pt-4 space-y-0.5 ${collapsed ? "px-2" : ""}`}>
+        {!collapsed && (
+          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            Main
+          </p>
+        )}
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
@@ -150,12 +121,14 @@ export default function Sidebar({ onClose }: SidebarProps) {
             end={item.end}
             onClick={onClose}
             className={({ isActive }) =>
-              `sidebar-nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+              `sidebar-nav-item flex items-center ${collapsed ? "justify-center px-2" : "gap-2.5 px-3"} py-2 rounded-lg text-sm font-medium transition-all duration-200 relative ${
                 isActive
                   ? "sidebar-nav-active text-white"
                   : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
               }`
             }
+            title={collapsed ? item.label : undefined}
+            aria-label={collapsed ? item.label : undefined}
           >
             {({ isActive }) => (
               <>
@@ -163,7 +136,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                   <span className="sidebar-active-bar absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" />
                 )}
                 <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-cyan-400" : ""}`} />
-                {item.label}
+                {!collapsed && item.label}
               </>
             )}
           </NavLink>
@@ -174,22 +147,26 @@ export default function Sidebar({ onClose }: SidebarProps) {
       <div className="relative z-10 mx-4 my-2 h-px bg-white/[0.06]" />
 
       {/* Personal section */}
-      <div className="relative z-10 px-3 pb-2 space-y-0.5">
-        <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-          Personal
-        </p>
+      <div className={`relative z-10 px-3 pb-2 space-y-0.5 ${collapsed ? "px-2" : ""}`}>
+        {!collapsed && (
+          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            Personal
+          </p>
+        )}
         {BOTTOM_ITEMS.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             onClick={onClose}
             className={({ isActive }) =>
-              `sidebar-nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+              `sidebar-nav-item flex items-center ${collapsed ? "justify-center px-2" : "gap-2.5 px-3"} py-2 rounded-lg text-sm font-medium transition-all duration-200 relative ${
                 isActive
                   ? "sidebar-nav-active text-white"
                   : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
               }`
             }
+            title={collapsed ? item.label : undefined}
+            aria-label={collapsed ? item.label : undefined}
           >
             {({ isActive }) => (
               <>
@@ -197,7 +174,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                   <span className="sidebar-active-bar absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" />
                 )}
                 <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-cyan-400" : ""}`} />
-                {item.label}
+                {!collapsed && item.label}
               </>
             )}
           </NavLink>
@@ -208,7 +185,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
       <div ref={menuRef} className="relative z-10 shrink-0 border-t border-white/[0.06]">
         {/* Dropdown menu */}
         {menuOpen && (
-          <div className="absolute bottom-full left-3 right-3 mb-1.5 rounded-xl shadow-2xl overflow-hidden z-30"
+          <div className={`absolute bottom-full ${collapsed ? "left-2 w-56" : "left-3 right-3"} mb-1.5 rounded-xl shadow-2xl overflow-hidden z-30`}
             style={{ background: "linear-gradient(180deg, #1a2744, #141f38)", border: "1px solid rgba(255,255,255,0.08)" }}
           >
             <button
@@ -239,7 +216,9 @@ export default function Sidebar({ onClose }: SidebarProps) {
 
         <button
           onClick={() => setMenuOpen((v) => !v)}
-          className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-white/[0.04] transition text-left"
+          className={`w-full flex items-center gap-2.5 py-3 hover:bg-white/[0.04] transition text-left ${collapsed ? "justify-center px-2" : "px-4"}`}
+          aria-label={collapsed ? "Open account menu" : undefined}
+          title={collapsed ? "Open account menu" : undefined}
         >
           <div className="shrink-0">
             {avatar ? (
@@ -252,15 +231,19 @@ export default function Sidebar({ onClose }: SidebarProps) {
               </div>
             )}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-slate-200 truncate">{displayName}</p>
-            <p className="text-[10px] text-slate-500 truncate">Student</p>
-          </div>
-          <ChevronUp
-            className={`h-3.5 w-3.5 text-slate-500 shrink-0 transition-transform duration-200 ${
-              menuOpen ? "rotate-180" : ""
-            }`}
-          />
+          {!collapsed && (
+            <>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-200 truncate">{displayName}</p>
+                <p className="text-[10px] text-slate-500 truncate">Student</p>
+              </div>
+              <ChevronUp
+                className={`h-3.5 w-3.5 text-slate-500 shrink-0 transition-transform duration-200 ${
+                  menuOpen ? "rotate-180" : ""
+                }`}
+              />
+            </>
+          )}
         </button>
       </div>
     </aside>
