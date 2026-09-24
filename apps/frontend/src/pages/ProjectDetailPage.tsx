@@ -44,6 +44,7 @@ import ErrorState from "../components/ErrorState";
 import TagList from "../components/TagList";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
 import ChecklistInput from "../components/ChecklistInput";
+import { formulaIdsToNames, previewComputedValues } from "../lib/formulas";
 
 function relativeDay(dateStr: string): string {
   const date = new Date(dateStr);
@@ -86,6 +87,8 @@ export default function ProjectDetailPage() {
   const [entryDuration, setEntryDuration] = useState("");
   const [entryDueDate, setEntryDueDate] = useState("");
   const [entryValues, setEntryValues] = useState<Record<string, EntryFieldValue>>({});
+  // What each computed field will come to, updated as the form is filled in.
+  const computedPreview = useMemo(() => previewComputedValues(fields, entryValues), [fields, entryValues]);
   const [entryTags, setEntryTags] = useState<string[]>([]);
   const entryTagInputRef = useRef<TagInputHandle>(null);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
@@ -472,7 +475,7 @@ export default function ProjectDetailPage() {
             <div key={version.id} className="border border-slate-200 rounded-lg p-3">
               <p className="text-sm font-semibold text-slate-800">Version {version.version} <span className="text-xs font-normal text-slate-400">· {new Date(version.createdAt).toLocaleString()}</span></p>
               <ul className="mt-2 text-xs text-slate-600 space-y-1">
-                {version.fields.map((field) => <li key={field.id}>{field.name} <span className="text-slate-400">({field.type})</span>{field.formula ? ` — ${field.formula}` : ""}</li>)}
+                {version.fields.map((field) => <li key={field.id}>{field.name} <span className="text-slate-400">({field.type})</span>{field.formula ? ` — ${formulaIdsToNames(field.formula, version.fields)}` : ""}</li>)}
               </ul>
             </div>
           ))}
@@ -571,7 +574,15 @@ export default function ProjectDetailPage() {
                     </select>
                   )}
                   {field.type === "COMPUTED" && (
-                    <p className="h-[38px] px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-500">Calculated automatically: {field.formula}</p>
+                    <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
+                      <p className="text-sm font-medium text-slate-800">
+                        {computedPreview[field.id] == null ? "—" : Number(computedPreview[field.id]!.toFixed(4))}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Calculated automatically from {formulaIdsToNames(field.formula ?? "", fields)}
+                        {computedPreview[field.id] === null && " once those fields are filled in"}
+                      </p>
+                    </div>
                   )}
                 </div>
               ))}
