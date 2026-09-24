@@ -21,17 +21,19 @@ export default function TagFilterBar({ tags, selected, onChange }: TagFilterBarP
       </span>
       {tags.map((tag) => {
         const isActive = selected.includes(tag);
+        const color = getTagColor(tag);
         return (
           <button
             key={tag}
             type="button"
             onClick={() => toggle(tag)}
             aria-pressed={isActive}
-            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition ${
+            className="px-2.5 py-1 rounded-full text-xs font-medium border transition hover:brightness-95"
+            style={
               isActive
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-700"
-            }`}
+                ? { backgroundColor: color.solid, color: "#ffffff", borderColor: color.solid }
+                : { backgroundColor: color.background, color: color.foreground, borderColor: color.border }
+            }
           >
             {tag}
           </button>
@@ -49,3 +51,4 @@ export default function TagFilterBar({ tags, selected, onChange }: TagFilterBarP
     </div>
   );
 }
+import { getTagColor } from "../lib/tagColors";

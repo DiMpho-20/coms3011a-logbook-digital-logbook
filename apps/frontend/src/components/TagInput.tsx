@@ -1,5 +1,6 @@
 import { forwardRef, useImperativeHandle, useMemo, useState } from "react";
 import { X } from "lucide-react";
+import { getTagColor } from "../lib/tagColors";
 
 interface TagInputProps {
   value: string[];
@@ -72,22 +73,26 @@ const TagInput = forwardRef<TagInputHandle, TagInputProps>(function TagInput(
   return (
     <div className="relative">
       <div className="flex flex-wrap items-center gap-1.5 w-full border border-slate-200 rounded-lg px-2 py-1.5 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
-        {value.map((tag) => (
-          <span
-            key={tag}
-            className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100"
-          >
-            {tag}
-            <button
-              type="button"
-              onClick={() => removeTag(tag)}
-              className="p-0.5 rounded-full hover:bg-blue-100 transition"
-              aria-label={`Remove tag ${tag}`}
+        {value.map((tag) => {
+          const color = getTagColor(tag);
+          return (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs font-medium border"
+              style={{ backgroundColor: color.background, color: color.foreground, borderColor: color.border }}
             >
-              <X className="h-3 w-3" />
-            </button>
-          </span>
-        ))}
+              {tag}
+              <button
+                type="button"
+                onClick={() => removeTag(tag)}
+                className="p-0.5 rounded-full hover:bg-black/10 transition"
+                aria-label={`Remove tag ${tag}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          );
+        })}
         <input
           type="text"
           value={draft}
