@@ -59,7 +59,28 @@ export function generateToken(userId: string): string {
 // Verify JWT token from authorization header
 export function verifyToken(token: string): { userId: string } | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as { userId: string };
+    const payload = jwt.verify(token, JWT_SECRET) as { userId?: string; purpose?: string };
+    // Purpose-scoped tokens (e.g. OAuth state, which travels in URLs) share
+    // the signing key but must never be accepted as a session.
+    if (payload.purpose !== undefined || typeof payload.userId !== "string") return null;
+    return payload as { userId: string };
+  } catch {
+    return null;
+  }
+}
+
+/** Bind a short-lived third-party OAuth callback to the user who started it. */
+export function generateOAuthState(userId: string): string {
+  return jwt.sign({ userId, purpose: "oauth-state" }, JWT_SECRET, { expiresIn: "10m" });
+}
+
+/** Returns the initiating user only for an unexpired, correctly-scoped state. */
+export function verifyOAuthState(state: string): string | null {
+  try {
+    const payload = jwt.verify(state, JWT_SECRET) as { userId?: string; purpose?: string };
+    return payload.purpose === "oauth-state" && typeof payload.userId === "string"
+      ? payload.userId
+      : null;
   } catch {
     return null;
   }
