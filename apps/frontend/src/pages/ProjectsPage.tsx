@@ -25,6 +25,7 @@ import ErrorState from "../components/ErrorState";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
 import TagFilterBar from "../components/TagFilterBar";
 import { FolderKanban } from "lucide-react";
+import { findFormulaProblem, formulaIdsToNames, formulaNamesToIds, orderForSaving } from "../lib/formulas";
 
 type EntryField = Partial<BaseEntryField> &
   Pick<BaseEntryField, "id" | "name" | "type" | "required"> & {
@@ -34,6 +35,20 @@ type EntryField = Partial<BaseEntryField> &
   };
 
 type FilterTab = "ALL" | "ACTIVE" | "ARCHIVED";
+
+/**
+ * Turns saved fields into editor rows. A field saved with its type's default
+ * label (e.g. "Link") looks the same either way once loaded, so the toggle is
+ * inferred from that — there's no separate flag stored for it. Formulas are
+ * shown with field names in place of the ids they are stored with.
+ */
+function toFormFields(fields: BaseEntryField[]): EntryField[] {
+  return fields.map((f) => ({
+    ...f,
+    formula: f.formula ? formulaIdsToNames(f.formula, fields) : f.formula,
+    useDefaultName: f.name === DEFAULT_FIELD_NAMES[f.type],
+  }));
+}
 
 /** Shown in the entry form and on entry cards when a field isn't given its own name. */
 const DEFAULT_FIELD_NAMES: Record<BaseEntryField["type"], string> = {
@@ -156,15 +171,15 @@ export default function ProjectsPage() {
     setFormData({ name: project.name, description: project.description || "" });
     setTags(project.tags ?? []);
     setFormError(null);
+    setRemovedFieldIds([]);
     try {
       const fields = await fetchEntryFields(project.id);
-      // A field saved with its type's default label (e.g. "Link") looks the
-      // same either way once loaded, so the toggle is inferred from that —
-      // there's no separate flag stored for it.
-      setEntryFields(fields.map((f) => ({ ...f, useDefaultName: f.name === DEFAULT_FIELD_NAMES[f.type] })));
-      setRemovedFieldIds([]);
+      setEntryFields(toFormFields(fields));
     } catch {
+      // Say so rather than showing an empty list, which reads as "this
+      // project has no fields" when they simply failed to load.
       setEntryFields([]);
+      setFormError("This project's entry fields could not be loaded. Close and try again before changing them.");
     }
     setModalOpen(true);
   };
@@ -205,12 +220,43 @@ export default function ProjectsPage() {
       setFormError("Project name is required.");
       return;
     }
+    const fieldsToSave = entryFields.filter((field) => field.name.trim());
+    // Check formulas before saving anything: a rejected formula used to leave
+    // the project created with only some of its fields.
+    for (const field of fieldsToSave) {
+      if (field.type !== "COMPUTED") continue;
+      const problem = findFormulaProblem(field, fieldsToSave);
+      if (problem) {
+        setFormError(problem);
+        return;
+      }
+    }
     setSaving(true);
     setFormError(null);
     // Read the tags input directly rather than the `tags` state: clicking
     // this submit button blurs the tags input in the same tick, and that
     // blur's commit hasn't reached `tags` yet when this handler runs.
     const finalTags = tagInputRef.current?.getValue() ?? tags;
+
+    // Computed fields go last, each after the computed fields it uses, so
+    // every field a formula names already has the id it is stored with.
+    const saveFields = async (projectId: string) => {
+      const savedIds = new Map(fieldsToSave.filter((f) => !f.isNew).map((f) => [f.id, f.id]));
+      for (const field of orderForSaving(fieldsToSave)) {
+        const formula = field.type === "COMPUTED"
+          ? formulaNamesToIds(field, fieldsToSave, savedIds)
+          : undefined;
+        if (field.isNew) {
+          // Always required — a computed field fills itself in regardless,
+          // and every other field type must be filled in on each entry.
+          const created = await createEntryField(projectId, { name: field.name, type: field.type, required: true, formula });
+          savedIds.set(field.id, created.id);
+        } else {
+          await updateEntryField(field.id, { name: field.name, type: field.type, required: true, formula });
+        }
+      }
+    };
+
     try {
       if (editingProject) {
         await updateProject(editingProject.id, {
@@ -218,26 +264,13 @@ export default function ProjectsPage() {
           description: formData.description || undefined,
           tags: finalTags,
         });
-        for (const field of entryFields) {
-          if (!field.name.trim()) continue;
-          if (field.isNew) {
-            // Always required — a computed field fills itself in regardless,
-            // and every other field type must be filled in on each entry.
-            await createEntryField(editingProject.id, { name: field.name, type: field.type, required: true, formula: field.formula || undefined });
-          } else {
-            await updateEntryField(field.id, {
-              name: field.name,
-              type: field.type,
-              required: true,
-              formula: field.type === "COMPUTED" ? field.formula : undefined,
-            });
-          }
-        }
+        await saveFields(editingProject.id);
         await Promise.all(removedFieldIds.map(deleteEntryField));
+        setRemovedFieldIds([]);
         // Read the saved configuration back before leaving the editor. A
         // refresh failure must not turn an already-saved update into an error.
         await fetchEntryFields(editingProject.id)
-          .then(setEntryFields)
+          .then((fields) => setEntryFields(toFormFields(fields)))
           .catch(() => {});
       } else {
         const newProject = await createProject({
@@ -246,12 +279,7 @@ export default function ProjectsPage() {
           status: "ACTIVE",
           tags: finalTags,
         });
-        for (const field of entryFields) {
-          if (!field.name.trim()) continue;
-          if (field.isNew) {
-            await createEntryField(newProject.id, { name: field.name, type: field.type, required: true, formula: field.formula || undefined });
-          }
-        }
+        await saveFields(newProject.id);
       }
       await loadProjects();
       setModalOpen(false);
@@ -497,16 +525,23 @@ export default function ProjectsPage() {
                       <div>
                         <input
                           type="text"
-                          placeholder="Formula, e.g. {numeric-field-id} * 2"
+                          placeholder="Formula, e.g. {Hours} * {Rate}"
                           value={field.formula || ""}
                           onChange={(e) => handleUpdateField(field.id, { formula: e.target.value })}
                           className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <p className="text-[10px] text-slate-400 mt-1">Use numeric field IDs in braces, for example <code>{"{a-field-id} * 2"}</code>.</p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Put Number or Computed field names in braces, for example <code>{"{Hours} * 2"}</code>.
+                          {(() => {
+                            const names = entryFields
+                              .filter((f) => f.id !== field.id && (f.type === "NUMBER" || f.type === "COMPUTED") && f.name.trim())
+                              .map((f) => `{${f.name.trim()}}`);
+                            return names.length > 0
+                              ? <> Available: <code>{names.join(", ")}</code></>
+                              : <> Add a Number field first.</>;
+                          })()}
+                        </p>
                       </div>
-                    )}
-                    {!field.isNew && field.type === "NUMBER" && (
-                      <p className="text-[10px] text-slate-400">Formula ID: <code>{field.id}</code></p>
                     )}
                   </div>
                 ))}
