@@ -208,7 +208,7 @@ model EntryTag {
 
 model GoogleCalendarConnection {
   id           String   @id @default(cuid())
-  userId       String   @unique
+  userId       String   @unique @db.Uuid
   accessToken  String
   refreshToken String
   expiryDate   DateTime?
