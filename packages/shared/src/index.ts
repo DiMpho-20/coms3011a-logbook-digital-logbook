@@ -78,7 +78,39 @@ export interface Entry {
   updatedAt: string;
   status: "OPEN" | "DONE";
   completedAt: string | null;
+  /** When the entry was moved to the archive; null (or absent offline) while active. */
+  archivedAt?: string | null;
 }
+
+/** An entry's content at one point in its history, without its identity or archive state. */
+export type EntrySnapshot = Omit<Entry, "id" | "projectId" | "createdAt" | "updatedAt" | "archivedAt">;
+
+export type EntryVersionReason = "CREATED" | "UPDATED" | "RESTORED";
+
+export interface EntryVersion {
+  version: number;
+  reason: EntryVersionReason;
+  /** Set when reason is RESTORED: the version whose content was brought back. */
+  restoredFromVersion: number | null;
+  /** When this version became the entry's current state. */
+  createdAt: string;
+  snapshot: EntrySnapshot;
+}
+
+export interface EntryHistory {
+  entryId: string;
+  entryCreatedAt: string;
+  currentVersion: number;
+  /** Oldest first. */
+  versions: EntryVersion[];
+}
+
+/** GET /entries/:id/versions/at — the entry as it stood at a given moment. */
+export type EntryAtDate =
+  | { existed: false; entryCreatedAt: string }
+  | { existed: true; entryCreatedAt: string; version: EntryVersion; isCurrent: boolean };
+
+export type ArchivedFilter = "exclude" | "only" | "include";
 
 export interface TimeSummary {
   projectId: string;

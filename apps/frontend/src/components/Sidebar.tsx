@@ -17,6 +17,7 @@ import {
   CalendarDays,
   Kanban,
 } from "lucide-react";
+import { clearOfflineCache } from "../lib/offlineCache";
 
 interface SidebarProps {
   onClose?: () => void;
@@ -205,6 +206,7 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
               onClick={() => {
                 setMenuOpen(false);
                 localStorage.removeItem("token");
+                clearOfflineCache();
                 window.location.href = "/login";
               }}
               className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition text-left"

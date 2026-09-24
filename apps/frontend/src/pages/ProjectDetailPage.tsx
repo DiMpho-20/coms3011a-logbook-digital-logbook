@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Clock,
@@ -26,6 +26,9 @@ import {
   deleteEntry,
   fetchEntryFormatVersions,
   fetchTags,
+  setEntryArchived,
+  setEntriesArchived,
+  type ArchivedFilter,
   type Project,
   type ProjectWithFields,
   type TimeSummary,
@@ -44,7 +47,18 @@ import ErrorState from "../components/ErrorState";
 import TagList from "../components/TagList";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
 import ChecklistInput from "../components/ChecklistInput";
+import EntryHistoryModal from "../components/EntryHistoryModal";
 import { formulaIdsToNames, previewComputedValues } from "../lib/formulas";
+import { SYNC_EVENT } from "../lib/offlineEntries";
+import { resolveSyncedId } from "../lib/offlineProjects";
+
+type EntryView = "active" | "archived" | "all";
+
+const ARCHIVED_FILTER: Record<EntryView, ArchivedFilter> = {
+  active: "exclude",
+  archived: "only",
+  all: "include",
+};
 
 function relativeDay(dateStr: string): string {
   const date = new Date(dateStr);
@@ -69,6 +83,26 @@ function dateHeading(dateStr: string): string {
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  // Entry view, history dialog and bulk selection (US20-22, US30)
+  const [entryView, setEntryView] = useState<EntryView>("active");
+  const [historyEntry, setHistoryEntry] = useState<Entry | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
+
+  // A project created offline gets a new id when it syncs; follow it there.
+  useEffect(() => {
+    if (!id?.startsWith("offline-")) return;
+    const followSync = () => {
+      const synced = resolveSyncedId(id);
+      if (synced !== id) navigate(`/projects/${synced}`, { replace: true });
+    };
+    followSync();
+    window.addEventListener(SYNC_EVENT, followSync);
+    return () => window.removeEventListener(SYNC_EVENT, followSync);
+  }, [id, navigate]);
 
   const [project, setProject] = useState<ProjectWithFields | null>(null);
   const [summary, setSummary] = useState<TimeSummary | null>(null);
@@ -109,26 +143,30 @@ export default function ProjectDetailPage() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
+    // Switching between active and archived entries reloads in place rather
+    // than blanking the whole page behind a spinner.
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const [proj, sum, ents, flds] = await Promise.all([
         fetchProject(id),
         fetchProjectTimeSummary(id),
-        fetchEntries(id),
+        fetchEntries(id, { archived: ARCHIVED_FILTER[entryView] }),
         fetchEntryFields(id),
       ]);
+      hasLoadedRef.current = true;
       setProject(proj);
       setSummary(sum);
       setEntries(ents);
       setFields(flds);
+      setSelectedIds(new Set());
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load project.";
       setError(msg);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, entryView]);
 
   useEffect(() => {
     load();
@@ -217,6 +255,55 @@ export default function ProjectDetailPage() {
     }
   };
 
+  // Archiving moves an entry out of the active list without deleting it;
+  // from the archive, the same button brings it back.
+  const handleArchiveEntry = async (entry: Entry) => {
+    setArchiveError(null);
+    try {
+      const updated = await setEntryArchived(entry.id, !entry.archivedAt);
+      setEntries((prev) =>
+        entryView === "all"
+          ? prev.map((e) => (e.id === updated.id ? updated : e))
+          : prev.filter((e) => e.id !== updated.id)
+      );
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.id);
+        return next;
+      });
+    } catch {
+      setArchiveError("Couldn't update that entry. Check your connection and try again.");
+    }
+  };
+
+  const handleSelectEntry = (entry: Entry, isSelected: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (isSelected) next.add(entry.id);
+      else next.delete(entry.id);
+      return next;
+    });
+  };
+
+  // In the archive view the bulk action restores; everywhere else it archives.
+  const bulkArchives = entryView !== "archived";
+
+  const handleArchiveSelected = async () => {
+    if (selectedIds.size === 0) return;
+    setArchiveError(null);
+    try {
+      await setEntriesArchived([...selectedIds], bulkArchives);
+      await load();
+    } catch {
+      setArchiveError("Couldn't update the selected entries. Check your connection and try again.");
+    }
+  };
+
+  const handleVersionRestored = (updated: Entry) => {
+    setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    if (id) fetchProjectTimeSummary(id).then(setSummary).catch(() => {});
+  };
+
   const handleToggleChecklistItem = async (entry: Entry, field: EntryField, itemIndex: number) => {
     const current = Array.isArray(entry.values?.[field.id]) ? (entry.values[field.id] as ChecklistItem[]) : [];
     const items = current.map((item, i) => (i === itemIndex ? { ...item, checked: !item.checked } : item));
@@ -287,7 +374,8 @@ export default function ProjectDetailPage() {
         if (entryDate && entryDate !== todayISO()) entryData.entryDate = entryDate;
 
         const newEntry = await createEntry(id, entryData);
-        setEntries((prev) => [newEntry, ...prev]);
+        // A new entry is active, so it has no place in the archive view.
+        if (entryView !== "archived") setEntries((prev) => [newEntry, ...prev]);
       }
 
       closeEntryModal();
@@ -423,17 +511,55 @@ export default function ProjectDetailPage() {
 
       {/* Entries */}
       <div className="bg-white rounded-lg border border-slate-200">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">Entries</h2>
-          <button
-            onClick={openNewEntryModal}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
-          >
-            <Plus className="h-3.5 w-3.5" /> New Entry
-          </button>
+        <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-sm font-semibold text-slate-900">Entries</h2>
+            <div className="flex border border-slate-200 rounded-lg overflow-hidden text-xs font-medium" role="group" aria-label="Which entries to show">
+              {(["active", "archived", "all"] as const).map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => setEntryView(view)}
+                  aria-pressed={entryView === view}
+                  className={`px-2.5 py-1 transition ${
+                    entryView === view ? "bg-slate-100 text-slate-900" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {view === "active" ? "Active" : view === "archived" ? "Archived" : "All"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={handleArchiveSelected}
+                className="flex items-center gap-1.5 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
+              >
+                {bulkArchives ? <Archive className="h-3.5 w-3.5" /> : <ArchiveRestore className="h-3.5 w-3.5" />}
+                {bulkArchives ? "Archive" : "Restore"} selected ({selectedIds.size})
+              </button>
+            )}
+            <button
+              onClick={openNewEntryModal}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+            >
+              <Plus className="h-3.5 w-3.5" /> New Entry
+            </button>
+          </div>
         </div>
         <div className="p-4">
-          {groupedEntries.length === 0 ? (
+          {archiveError && (
+            <p className="mb-3 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {archiveError}
+            </p>
+          )}
+          {groupedEntries.length === 0 && entryView === "archived" ? (
+            <div className="text-center py-12">
+              <p className="text-sm text-slate-400">No archived entries in this project.</p>
+            </div>
+          ) : groupedEntries.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-sm text-slate-400 mb-3">No entries logged for this project yet.</p>
               <button
@@ -459,6 +585,10 @@ export default function ProjectDetailPage() {
                         onEdit={openEditEntryModal}
                         onDelete={handleDeleteEntry}
                         onToggleChecklistItem={handleToggleChecklistItem}
+                        onHistory={setHistoryEntry}
+                        onArchive={handleArchiveEntry}
+                        selected={selectedIds.has(entry.id)}
+                        onSelect={handleSelectEntry}
                       />
                     ))}
                   </div>
@@ -468,6 +598,13 @@ export default function ProjectDetailPage() {
           )}
         </div>
       </div>
+
+      <EntryHistoryModal
+        entry={historyEntry}
+        fields={fields}
+        onClose={() => setHistoryEntry(null)}
+        onRestored={handleVersionRestored}
+      />
 
       <Modal open={formatHistoryOpen} onClose={() => setFormatHistoryOpen(false)} title="Entry format history">
         <div className="space-y-4 max-h-[60vh] overflow-y-auto">

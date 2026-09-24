@@ -418,8 +418,9 @@ List entries for a project. Supports filtering.
 |---|---|---|
 | `status` | string | Filter by `OPEN` or `DONE` |
 | `dueBefore` | string | ISO date — returns entries due before this date |
+| `archived` | string | `exclude` (default) leaves archived entries out, `only` returns just the archive, `include` returns both. Also accepted by `GET /api/entries`. |
 
-**Response `200`:** Array of entry objects.
+**Response `200`:** Array of entry objects. Each has `archivedAt` (`null` while active).
 
 ---
 
@@ -460,6 +461,79 @@ Permanently delete an entry and all its values.
 
 **Response `200`:** `{ "message": "Entry deleted." }`
 **Errors:** `404` (not found)
+
+---
+
+## Entry History & Archive (`/api/...`) 🔒
+
+Every create, edit, status change and restore of an entry saves a new **version** — a snapshot of the entry's content at that moment. Versions are never changed or deleted, so an edit can't overwrite what the entry said before. Entries created before this feature existed show their current state as version 1 until their first change.
+
+A version object:
+```json
+{
+  "version": 2,
+  "reason": "UPDATED",
+  "restoredFromVersion": null,
+  "createdAt": "2026-09-24T10:15:00.000Z",
+  "snapshot": { "durationMinutes": 45, "entryDate": null, "dueDate": null, "values": { "<fieldId>": "..." }, "format": { "version": 1, "fields": [] }, "tags": [], "status": "OPEN", "completedAt": null }
+}
+```
+`reason` is `CREATED`, `UPDATED` or `RESTORED`.
+
+### `GET /api/entries/:id/versions`
+
+The entry's full history, oldest first.
+
+**Response `200`:** `{ "entryId": "...", "entryCreatedAt": "...", "currentVersion": 3, "versions": [ ...version objects ] }`
+**Errors:** `404` (not found)
+
+---
+
+### `GET /api/entries/:id/versions/at?date=<ISO date>`
+
+The entry as it stood at a moment in time: the newest version saved at or before `date`.
+
+**Response `200`:**
+- `{ "existed": true, "entryCreatedAt": "...", "version": { ... }, "isCurrent": false }`
+- `{ "existed": false, "entryCreatedAt": "..." }` when `date` is before the entry was created
+
+**Errors:** `400` (missing or invalid date), `404` (not found)
+
+---
+
+### `POST /api/entries/:id/versions/:version/restore`
+
+Make an earlier version the current entry. The restore is saved as a new `RESTORED` version, so the version being replaced stays in the history. Values for fields since deleted from the project can't come back and are counted in `skippedFields`.
+
+**Response `200`:** `{ "entry": { ...entry }, "version": { ...the new version }, "skippedFields": 0 }`
+**Errors:** `400` (invalid version number), `404` (entry or version not found)
+
+---
+
+### `PATCH /api/entries/:id/archive`
+
+Move one entry to the archive, or back to the active logbook.
+
+| Field | Type | Required |
+|---|---|---|
+| `archived` | boolean | Yes |
+
+**Response `200`:** Updated entry object.
+**Errors:** `400`, `404` (not found)
+
+---
+
+### `POST /api/entries/archive`
+
+Archive (or restore) several selected entries at once. Ids that aren't the caller's are skipped.
+
+| Field | Type | Required |
+|---|---|---|
+| `ids` | string[] | Yes — 1 to 500 entry ids |
+| `archived` | boolean | Yes |
+
+**Response `200`:** `{ "updated": 2 }`
+**Errors:** `400`
 
 ---
 

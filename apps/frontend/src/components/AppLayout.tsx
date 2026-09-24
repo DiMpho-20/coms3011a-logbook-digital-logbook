@@ -3,6 +3,14 @@ import { Outlet } from "react-router-dom";
 import { CloudOff, Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { pendingEntryCount, SYNC_EVENT } from "../lib/offlineEntries";
+import { pendingProjectCount, pendingProjectErrors } from "../lib/offlineProjects";
+
+function describePending(projects: number, entries: number): string {
+  const parts = [];
+  if (projects > 0) parts.push(`${projects} project${projects === 1 ? "" : "s"}`);
+  if (entries > 0) parts.push(`${entries} entr${entries === 1 ? "y" : "ies"}`);
+  return parts.join(" and ") || "0 entries";
+}
 
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -10,12 +18,16 @@ export default function AppLayout() {
     () => localStorage.getItem("logbook-sidebar-collapsed") === "true",
   );
   const [pendingCount, setPendingCount] = useState(pendingEntryCount);
+  const [pendingProjects, setPendingProjects] = useState(pendingProjectCount);
+  const [syncErrors, setSyncErrors] = useState(pendingProjectErrors);
   const [online, setOnline] = useState(navigator.onLine);
 
   useEffect(() => {
     const updateStatus = () => {
       setOnline(navigator.onLine);
       setPendingCount(pendingEntryCount());
+      setPendingProjects(pendingProjectCount());
+      setSyncErrors(pendingProjectErrors());
     };
     window.addEventListener("online", updateStatus);
     window.addEventListener("offline", updateStatus);
@@ -71,12 +83,18 @@ export default function AppLayout() {
           <span className="text-sm font-semibold text-slate-900">Digital Logbook</span>
         </div>
 
-        {(!online || pendingCount > 0) && (
+        {(!online || pendingCount > 0 || pendingProjects > 0) && (
           <div className="flex items-center gap-2 px-6 lg:px-8 py-2 text-xs font-medium border-b border-amber-200 bg-amber-50 text-amber-800">
             <CloudOff className="h-3.5 w-3.5" />
             {!online
-              ? `Offline — ${pendingCount} entr${pendingCount === 1 ? "y is" : "ies are"} saved on this device and will sync when you reconnect.`
-              : `Syncing ${pendingCount} saved offline entr${pendingCount === 1 ? "y" : "ies"}…`}
+              ? pendingProjects === 0
+                ? `Offline — ${pendingCount} entr${pendingCount === 1 ? "y is" : "ies are"} saved on this device and will sync when you reconnect.`
+                : `Offline — ${describePending(pendingProjects, pendingCount)} saved on this device and will sync when you reconnect.`
+              : syncErrors.length > 0
+                ? `Couldn't sync "${syncErrors[0].name}": ${syncErrors[0].error} Edit the project to fix it and it will sync again.`
+                : pendingProjects === 0
+                  ? `Syncing ${pendingCount} saved offline entr${pendingCount === 1 ? "y" : "ies"}…`
+                  : `Syncing ${describePending(pendingProjects, pendingCount)} saved offline…`}
           </div>
         )}
 
