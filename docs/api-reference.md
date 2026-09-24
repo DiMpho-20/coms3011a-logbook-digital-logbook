@@ -500,6 +500,75 @@ Aggregate entry counts over time buckets.
 
 ---
 
+## Google Calendar (`/api/google-calendar`)
+
+Syncs open entries' due dates into the user's primary Google Calendar using the
+[Google Calendar API](https://developers.google.com/calendar/api) (OAuth 2.0,
+scope `calendar.events`). Each open entry with a due date becomes an all-day
+event. The logbook tags its events with private extended properties, so a sync
+can find them again: it creates new events, updates events whose date or title
+changed, and removes events for entries that were completed, undated, or deleted.
+Events the user created themselves are never touched.
+
+Google access and refresh tokens are stored per user, encrypted with AES-256-GCM
+(`GOOGLE_TOKEN_ENCRYPTION_KEY`). They are never returned by the API.
+
+### `GET /api/google-calendar/connect` 🔒
+
+Returns the Google consent URL. The URL carries a signed, 10-minute `state`
+token bound to the caller, which the callback requires.
+
+**Response `200`:**
+```json
+{ "url": "https://accounts.google.com/o/oauth2/v2/auth?...&state=..." }
+```
+**Errors:** `500` (Google Calendar not configured on the server)
+
+### `GET /api/google-calendar/callback`
+
+Google redirects the browser here after consent. It is not called by the SPA.
+The user is identified only from the signed `state`. On completion the
+browser is redirected to `APP_URL/calendar?calendar=connected`, `=denied`
+(the user cancelled), or `=error`.
+
+| Query | Notes |
+|---|---|
+| `code` | Authorization code from Google |
+| `state` | Signed state issued by `/connect` |
+
+**Errors:** `400` (missing `code` or `state`), `401` (invalid or expired `state`)
+
+### `GET /api/google-calendar/status` 🔒
+
+**Response `200`:**
+```json
+{ "configured": true, "connected": true, "connectedAt": "2026-09-24T10:00:00.000Z" }
+```
+
+### `POST /api/google-calendar/sync` 🔒
+
+Mirrors the caller's open, dated entries into Google Calendar. Safe to repeat.
+
+**Response `200`:**
+```json
+{ "message": "Due dates synced to Google Calendar.", "created": 2, "updated": 1, "removed": 0 }
+```
+**Errors:** `400` (not connected), `409` (access was revoked in the Google
+account; the connection is removed and the user must reconnect), `502`
+(Google API failure)
+
+### `DELETE /api/google-calendar/disconnect` 🔒
+
+Revokes the grant at Google (best effort) and deletes the stored tokens.
+Events that were already synced remain in the user's calendar.
+
+**Response `200`:**
+```json
+{ "message": "Google Calendar connection removed." }
+```
+
+---
+
 ## Error Format
 
 All error responses use a consistent JSON shape:
@@ -523,6 +592,7 @@ All error responses use a consistent JSON shape:
 | Service | Purpose | Configuration |
 |---|---|---|
 | **Neon** | Hosted PostgreSQL database | `DATABASE_URL` in `.env` |
+| **Google Calendar API** | Syncs entry due dates to the user's calendar ([details](#google-calendar-apigoogle-calendar)) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, `APP_URL` |
 | **Resend** | Transactional email (preferred) | `RESEND_API_KEY` in `.env` |
 | **Gmail SMTP** | Transactional email (fallback) | `EMAIL_USER` + `EMAIL_PASS` in `.env` |
 
