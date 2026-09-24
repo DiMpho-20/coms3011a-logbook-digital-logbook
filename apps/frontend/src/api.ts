@@ -18,6 +18,7 @@
 } from "@logbook/shared";
 import { api } from "./api/client";
 import { getPendingEntries, isOfflineRequest, queueEntry } from "./lib/offlineEntries";
+import { orderForSaving } from "./lib/formulas";
 
 // Re-export types so the rest of the frontend can import from api.ts
 export type {
@@ -342,13 +343,12 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
     });
     importedProjects++;
     const fieldIds = new Map<string, string>();
-    for (const field of project.fields) {
+    for (const field of orderForSaving(project.fields)) {
       // A COMPUTED field's formula embeds the ids of the fields it reads
       // (e.g. "{old-id} * 2"), which no longer exist once the fields it
-      // depends on are recreated under new ids. Every field a formula can
-      // legally reference was necessarily created earlier in this same
-      // backup (the original project could not have validated it
-      // otherwise), so fieldIds already holds the mapping by this point.
+      // depends on are recreated under new ids. orderForSaving puts every
+      // field a formula reads ahead of it — a computed field may read one
+      // defined after it — so fieldIds already holds the mapping by this point.
       const formula = field.type === "COMPUTED" && field.formula
         ? field.formula.replace(/\{([^}]+)\}/g, (match, oldId) => {
             const newId = fieldIds.get(oldId.trim());
