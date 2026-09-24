@@ -147,3 +147,35 @@ export async function sendPasswordResetEmail(toEmail: string, token: string) {
     console.error("Failed to send password reset email:", error);
   }
 }
+
+export async function sendDeletionScheduledEmail(toEmail: string, deletionDate: Date) {
+  const dateStr = deletionDate.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  try {
+    await send(
+      toEmail,
+      "Account Deletion Scheduled - Digital Logbook",
+      `
+        <div style="font-family: Arial, sans-serif; background-color: #0f172a; padding: 30px; color: #ffffff; border-radius: 10px;">
+          <h2 style="color: #ff6b6b;">Account Deletion Scheduled</h2>
+          <p style="color: #cbd5e1; font-size: 16px;">
+            Your Digital Logbook account has been scheduled for permanent deletion on
+            <strong style="color: #ffffff;">${dateStr}</strong>.
+          </p>
+          <p style="color: #cbd5e1; font-size: 14px;">
+            If you change your mind, simply log in before that date and choose
+            "Cancel deletion". After ${dateStr}, your account and all its data
+            will be permanently removed and cannot be recovered.
+          </p>
+        </div>
+      `,
+    );
+    console.log(`Deletion scheduled email sent to ${toEmail} via ${provider}`);
+  } catch (error) {
+    console.error("Failed to send deletion scheduled email:", error);
+  }
+}

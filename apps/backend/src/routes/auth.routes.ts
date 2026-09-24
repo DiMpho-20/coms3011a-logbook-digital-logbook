@@ -16,7 +16,7 @@ import {
 import { hashPassword, comparePassword, generateToken } from "../utils/auth.js";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import { loginLimiter, twoFactorLimiter, registerLimiter } from "../middleware/rateLimit.middleware.js";
-import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/email.js";
+import { sendVerificationEmail, sendPasswordResetEmail, sendDeletionScheduledEmail } from "../utils/email.js";
 import prisma from "../prisma.js";
 
 const router = Router();
@@ -156,6 +156,16 @@ router.post("/login", loginLimiter, async (req: Request, res: Response) => {
     return res.status(401).json({ error: "Invalid email or password" });
   }
 
+  // Scheduled for deletion?
+  if (user.scheduledDeletionAt) {
+    if (user.scheduledDeletionAt <= new Date()) {
+      // Grace period expired — hard delete now and reject login
+      await prisma.user.delete({ where: { id: user.id } });
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+    // Grace period active — allow login, but surface the date below
+  }
+
   // BLOCK LOGIN IF EMAIL NOT VERIFIED
   if (!user.isEmailVerified) {
     return res.status(403).json({ 
@@ -176,6 +186,7 @@ router.post("/login", loginLimiter, async (req: Request, res: Response) => {
     message: "Login successful",
     user: { id: user.id, fullName: user.fullName, email: user.email },
     token,
+    scheduledDeletionAt: user.scheduledDeletionAt?.toISOString() ?? null,
   });
 });
 
@@ -209,6 +220,7 @@ router.post("/login/2fa", twoFactorLimiter, async (req: Request, res: Response) 
     message: "Login successful",
     user: { id: user.id, fullName: user.fullName, email: user.email },
     token: jwtToken,
+    scheduledDeletionAt: user.scheduledDeletionAt?.toISOString() ?? null,
   });
 });
 
@@ -287,7 +299,7 @@ router.post("/reset-password", async (req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------
-// US00.4: DELETE /api/auth/account
+// US00.4: DELETE /api/auth/account — schedule deletion (30-day grace)
 // ---------------------------------------------------------
 router.delete("/account", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const parseResult = deleteAccountSchema.safeParse(req.body);
@@ -307,9 +319,51 @@ router.delete("/account", requireAuth, async (req: AuthenticatedRequest, res: Re
     return res.status(401).json({ error: "Incorrect password. Cannot delete account." });
   }
 
-  await prisma.user.delete({ where: { id: userId } });
+  // If already scheduled, keep the existing date. Otherwise set it to midnight, 30 days out.
+  const scheduledDeletionAt =
+    user.scheduledDeletionAt ??
+    (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    })();
 
-  return res.json({ message: "Account deleted successfully." });
+  if (!user.scheduledDeletionAt) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { scheduledDeletionAt },
+    });
+    await sendDeletionScheduledEmail(user.email, scheduledDeletionAt);
+  }
+
+  return res.json({
+    message: `Your account will be permanently deleted on ${scheduledDeletionAt.toDateString()}.`,
+    scheduledDeletionAt: scheduledDeletionAt.toISOString(),
+  });
+});
+
+// ---------------------------------------------------------
+// US00.4b: POST /api/auth/account/cancel-deletion
+// ---------------------------------------------------------
+router.post("/account/cancel-deletion", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.userId!;
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  if (!user.scheduledDeletionAt) {
+    return res.status(400).json({ error: "No deletion is currently scheduled" });
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { scheduledDeletionAt: null },
+  });
+
+  return res.json({ message: "Account deletion cancelled." });
 });
 
 // ---------------------------------------------------------
