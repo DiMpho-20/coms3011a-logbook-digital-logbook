@@ -256,3 +256,33 @@ export const updateProjectStatus = async (req: AuthenticatedRequest, res: Respon
     return res.status(400).json({ error: error.errors || error.message });
   }
 };
+
+// ── DELETE /projects/:id ─────────────────────────────────────────────────
+// Permanent, unlike archiving: the project goes with its fields, entries,
+// their values, version history and tag links (all cascade in the schema).
+// The interface confirms first, naming how many entries will be lost.
+
+export const deleteProject = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    const id = String(req.params.id);
+
+    const existing = await prisma.project.findFirst({
+      where: { id, userId },
+      include: { _count: { select: { entries: true } } },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    await prisma.project.delete({ where: { id } });
+
+    return res.status(200).json({
+      message: "Project deleted",
+      deletedEntries: existing._count.entries,
+    });
+  } catch (error) {
+    console.error("Failed to delete project:", error);
+    return res.status(500).json({ error: "Failed to delete project" });
+  }
+};

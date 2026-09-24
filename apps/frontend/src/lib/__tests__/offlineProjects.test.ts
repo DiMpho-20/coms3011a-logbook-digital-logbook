@@ -13,6 +13,7 @@ import {
   queueField,
   queueProject,
   removeQueuedField,
+  removeQueuedProject,
   resolveSyncedId,
   syncEverything,
   syncPendingProjects,
@@ -74,6 +75,17 @@ describe("queueing a project offline", () => {
 
     removeQueuedField(field.id);
     expect(getPendingProject(project.id)?.entryFields).toEqual([]);
+  });
+
+  it("deletes a queued project together with the entries queued for it", () => {
+    const doomed = queueProject({ name: "Doomed" });
+    const kept = queueProject({ name: "Kept" });
+    queueEntry(doomed.id, { durationMinutes: 1, values: {} });
+    queueEntry(kept.id, { durationMinutes: 2, values: {} });
+
+    removeQueuedProject(doomed.id);
+    expect(getPendingProjects().map((p) => p.name)).toEqual(["Kept"]);
+    expect(getPendingEntries().map((e) => e.projectId)).toEqual([kept.id]);
   });
 
   it("applies edits to the queued project", () => {

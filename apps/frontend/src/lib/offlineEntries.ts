@@ -120,6 +120,13 @@ export function remapPendingEntries(ids: Record<string, string>) {
   if (changed) writePending(remapped);
 }
 
+/** Drop every queued entry for a project that has been deleted. */
+export function removePendingEntriesForProject(projectId: string) {
+  const pending = readPending();
+  const remaining = pending.filter((item) => item.entry.projectId !== projectId);
+  if (remaining.length !== pending.length) writePending(remaining);
+}
+
 export function startOfflineSync() {
   void syncPendingEntries();
   const onOnline = () => { void syncPendingEntries(); };

@@ -12,6 +12,7 @@ import {
   Circle,
   MoreVertical,
   Loader2,
+  Trash2,
 } from "lucide-react";
 
 import {
@@ -48,6 +49,7 @@ import TagList from "../components/TagList";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
 import ChecklistInput from "../components/ChecklistInput";
 import EntryHistoryModal from "../components/EntryHistoryModal";
+import DeleteProjectModal from "../components/DeleteProjectModal";
 import { formulaIdsToNames, previewComputedValues } from "../lib/formulas";
 import { SYNC_EVENT } from "../lib/offlineEntries";
 import { resolveSyncedId } from "../lib/offlineProjects";
@@ -90,6 +92,7 @@ export default function ProjectDetailPage() {
   const [historyEntry, setHistoryEntry] = useState<Entry | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const hasLoadedRef = useRef(false);
 
   // A project created offline gets a new id when it syncs; follow it there.
@@ -457,6 +460,16 @@ export default function ProjectDetailPage() {
                     {isActive ? <Archive className="h-3.5 w-3.5" /> : <ArchiveRestore className="h-3.5 w-3.5" />}
                     {isActive ? "Archive project" : "Unarchive project"}
                   </button>
+                  <button
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setDeleteOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete project
+                  </button>
                 </div>
               )}
             </div>
@@ -598,6 +611,17 @@ export default function ProjectDetailPage() {
           )}
         </div>
       </div>
+
+      <DeleteProjectModal
+        project={deleteOpen ? project : null}
+        entryCount={summary?.entryCount}
+        onClose={() => setDeleteOpen(false)}
+        onDeleted={() => navigate("/projects", { replace: true })}
+        onArchiveInstead={async () => {
+          setDeleteOpen(false);
+          await handleToggleArchive();
+        }}
+      />
 
       <EntryHistoryModal
         entry={historyEntry}

@@ -24,6 +24,7 @@ import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
 import TagFilterBar from "../components/TagFilterBar";
+import DeleteProjectModal from "../components/DeleteProjectModal";
 import { FolderKanban } from "lucide-react";
 import { findFormulaProblem, formulaIdsToNames, formulaNamesToIds, orderForSaving } from "../lib/formulas";
 
@@ -85,6 +86,7 @@ export default function ProjectsPage() {
   const [removedFieldIds, setRemovedFieldIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null);
 
   useEffect(() => {
     fetchTags().then((t) => setTagSuggestions(t.map((tag) => tag.name))).catch(() => {});
@@ -401,10 +403,25 @@ export default function ProjectsPage() {
               summary={summaries[project.id]}
               onEdit={openEditModal}
               onToggleArchive={handleToggleArchive}
+              onDelete={setDeletingProject}
             />
           ))}
         </div>
       )}
+
+      <DeleteProjectModal
+        project={deletingProject}
+        entryCount={deletingProject ? summaries[deletingProject.id]?.entryCount : undefined}
+        onClose={() => setDeletingProject(null)}
+        onDeleted={(deleted) => {
+          setDeletingProject(null);
+          setProjects((prev) => prev.filter((p) => p.id !== deleted.id));
+        }}
+        onArchiveInstead={async (project) => {
+          setDeletingProject(null);
+          await handleToggleArchive(project);
+        }}
+      />
 
       {/* Create / Edit Modal */}
       <Modal

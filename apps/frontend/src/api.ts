@@ -22,7 +22,7 @@
   EntryVersion,
 } from "@logbook/shared";
 import { api } from "./api/client";
-import { getPendingEntries, isOfflineRequest, queueEntry } from "./lib/offlineEntries";
+import { getPendingEntries, isOfflineRequest, queueEntry, removePendingEntriesForProject } from "./lib/offlineEntries";
 import { orderForSaving } from "./lib/formulas";
 import { cachedRequest } from "./lib/offlineCache";
 import {
@@ -33,6 +33,7 @@ import {
   queueField,
   queueProject,
   removeQueuedField,
+  removeQueuedProject,
   resolveSyncedId,
   updateQueuedField,
   updateQueuedProject,
@@ -122,6 +123,23 @@ export async function toggleProjectStatus(
   if (isQueuedProject(id)) return updateQueuedProject(id, { status });
   const res = await api.patch(`/projects/${resolveSyncedId(id)}/status`, { status });
   return res.data;
+}
+
+/**
+ * Permanently delete a project with all its fields, entries and history.
+ * Unlike archiving, this can't be undone. Resolves to how many entries went with it.
+ */
+export async function deleteProject(id: string): Promise<number> {
+  if (isQueuedProject(id)) {
+    const queuedEntries = getPendingEntries(id).length;
+    removeQueuedProject(id);
+    return queuedEntries;
+  }
+  const projectId = resolveSyncedId(id);
+  const res = await api.delete(`/projects/${projectId}`);
+  // Entries queued offline for it would otherwise fail to sync forever.
+  removePendingEntriesForProject(projectId);
+  return res.data?.deletedEntries ?? 0;
 }
 
 export async function fetchProjectTimeSummary(id: string): Promise<TimeSummary> {

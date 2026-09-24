@@ -8,7 +8,13 @@ import type {
   UpdateProjectInput,
 } from "@logbook/shared";
 import { api } from "../api/client";
-import { isOfflineRequest, remapPendingEntries, syncPendingEntries, SYNC_EVENT } from "./offlineEntries";
+import {
+  isOfflineRequest,
+  remapPendingEntries,
+  removePendingEntriesForProject,
+  syncPendingEntries,
+  SYNC_EVENT,
+} from "./offlineEntries";
 import { orderForSaving } from "./formulas";
 import { readCache } from "./offlineCache";
 
@@ -143,6 +149,12 @@ export function updateQueuedProject(id: string, updates: UpdateProjectInput): Pr
   writePending(pending);
   if (retry) queueMicrotask(() => { void syncEverything(); });
   return target.project;
+}
+
+/** Delete a project that never reached the server, along with the entries queued for it. */
+export function removeQueuedProject(id: string) {
+  writePending(readPending().filter((p) => p.project.id !== id));
+  removePendingEntriesForProject(id);
 }
 
 export function queueField(projectId: string, input: CreateEntryFieldInput): EntryField {

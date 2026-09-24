@@ -265,6 +265,15 @@ Toggle a project between `ACTIVE` and `ARCHIVED`.
 
 ---
 
+### `DELETE /api/projects/:id`
+
+Permanently delete a project together with its entry fields, entries, their values and version history, and its tag links. Unlike archiving (`PATCH /api/projects/:id/status`), this can't be undone — the interface asks for the project's name to be typed first.
+
+**Response `200`:** `{ "message": "Project deleted", "deletedEntries": 12 }`
+**Errors:** `404` (not found, or not the caller's)
+
+---
+
 ### `GET /api/projects/:id/time-summary`
 
 Get aggregated time statistics for a project.
