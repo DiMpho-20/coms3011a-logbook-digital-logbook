@@ -60,7 +60,7 @@ export const updateEntryField = async (req: AuthenticatedRequest, res: Response)
       : null;
     if (nextType === "COMPUTED") {
       if (!nextFormula) return res.status(400).json({ error: "Computed fields require a formula" });
-      validateFormula(nextFormula, allFields);
+      validateFormula(nextFormula, allFields, id);
     } else if (formula !== undefined) {
       return res.status(400).json({ error: "Only computed fields can have a formula" });
     }
