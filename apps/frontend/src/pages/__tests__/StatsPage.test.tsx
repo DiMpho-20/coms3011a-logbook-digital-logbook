@@ -60,10 +60,13 @@ const summary = (totalMinutes: number) => ({
  */
 const postRouter = (
   group: unknown = { groups: [{ key: "total", value: 320 }] },
-  timeline: unknown = { points: [{ date: "2026-09-07", value: 3 }] }
+  timeline: unknown = { points: [{ date: "2026-09-07", value: 3 }] },
+  expression: unknown = { value: 3.42 }
 ) =>
   ((url: string) =>
-    Promise.resolve({ data: url.endsWith("/timeline") ? timeline : group })) as never;
+    Promise.resolve({
+      data: url.endsWith("/timeline") ? timeline : url.endsWith("/expression") ? expression : group,
+    })) as never;
 
 const renderStats = () =>
   render(
@@ -440,5 +443,86 @@ describe("StatsPage — switching project", () => {
     fireEvent.change(selectOffering(document.body, "p2"), { target: { value: "p2" } });
 
     await waitFor(() => expect(api.fetchEntryFields).toHaveBeenCalledWith("p2"));
+  });
+});
+
+describe("StatsPage — custom expressions", () => {
+  const EXPRESSION = /Custom Expression/;
+  const typeExpression = (value: string) =>
+    fireEvent.change(screen.getByLabelText("Expression"), { target: { value } });
+  const calculate = () => fireEvent.click(screen.getByRole("button", { name: "Calculate" }));
+
+  it("offers the fields and functions an expression can use", async () => {
+    await withFields();
+
+    const panel = sectionFor(EXPRESSION);
+    // Only the fields that can actually be aggregated are offered.
+    expect(within(panel).getByRole("button", { name: "Hours" })).toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: "Category" })).not.toBeInTheDocument();
+    expect(within(panel).getByText("COUNT()")).toBeInTheDocument();
+    expect(within(panel).getByText("SUM(field)")).toBeInTheDocument();
+  });
+
+  it("will not calculate until something has been written", async () => {
+    await withFields();
+
+    expect(screen.getByRole("button", { name: "Calculate" })).toBeDisabled();
+    typeExpression("COUNT()");
+    expect(screen.getByRole("button", { name: "Calculate" })).toBeEnabled();
+  });
+
+  it("adds a field to the expression when its chip is clicked", async () => {
+    await withFields();
+
+    fireEvent.click(within(sectionFor(EXPRESSION)).getByRole("button", { name: "Hours" }));
+
+    // Braced, so a name with spaces stays one token.
+    expect(screen.getByLabelText("Expression")).toHaveValue("{Hours}");
+  });
+
+  it("sends the expression to the project it is scoped to, and shows the result", async () => {
+    await withFields();
+
+    typeExpression("  SUM({Hours}) / COUNT()  ");
+    calculate();
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenLastCalledWith("/projects/p1/stats/expression", {
+        expression: "SUM({Hours}) / COUNT()",
+      })
+    );
+    expect(await within(sectionFor(EXPRESSION)).findByText("3.4")).toBeInTheDocument();
+  });
+
+  it("shows the server's complaint rather than a generic failure", async () => {
+    await withFields();
+    vi.mocked(client.post).mockRejectedValue({
+      response: { data: { error: 'This project has no field called "Nope".' } },
+    });
+
+    typeExpression("SUM({Nope})");
+    calculate();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/no field called "Nope"/i);
+  });
+
+  it("falls back to its own message when the server cannot be reached", async () => {
+    await withFields();
+    vi.mocked(client.post).mockRejectedValue(new Error("offline"));
+
+    typeExpression("COUNT()");
+    calculate();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not work that expression out/i);
+  });
+
+  it("shows a spinner while the server is working it out", async () => {
+    await withFields();
+    vi.mocked(client.post).mockImplementation((() => new Promise(() => {})) as never);
+
+    typeExpression("COUNT()");
+    calculate();
+
+    expect(await within(sectionFor(EXPRESSION)).findByText("Calculating…")).toBeInTheDocument();
   });
 });
