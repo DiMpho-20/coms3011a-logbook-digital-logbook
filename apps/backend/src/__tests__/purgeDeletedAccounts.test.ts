@@ -114,10 +114,12 @@ describe("startDeletionPurge", () => {
     const scheduling = vi.spyOn(globalThis, "setInterval").mockReturnValue(0 as never);
     try {
       startDeletionPurge(1_234);
+      // Asserted before restoring: mockRestore also clears the mock's call
+      // history, so the expectation would otherwise see zero calls.
+      expect(scheduling).toHaveBeenCalledWith(expect.any(Function), 1_234);
     } finally {
       scheduling.mockRestore();
     }
-    expect(scheduling).toHaveBeenCalledWith(expect.any(Function), 1_234);
 
     // The startup sweep is fired without being awaited, so its effect is what
     // has to be waited on rather than the call itself.
