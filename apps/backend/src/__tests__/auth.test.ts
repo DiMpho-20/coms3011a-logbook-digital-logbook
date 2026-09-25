@@ -393,15 +393,24 @@ describe("Account deletion", () => {
     expect(res.status).toBe(401);
   });
 
-  it("DELETE /auth/account with correct password erases the account", async () => {
+  // Deletion has a 30-day grace period: the account is scheduled for
+  // deletion, not erased on the spot, so it can still be recovered.
+  it("DELETE /auth/account with correct password schedules deletion 30 days out", async () => {
+    const before = Date.now();
     const res = await request(app)
       .delete("/api/auth/account")
       .set(tfaToken)
       .send({ confirmPassword: TEST_PASSWORD });
 
     expect(res.status).toBe(200);
+    const scheduled = new Date(res.body.scheduledDeletionAt).getTime();
+    // Midnight 30 days from now, so between 29 and 30 whole days away.
+    const daysAway = (scheduled - before) / 86_400_000;
+    expect(daysAway).toBeGreaterThan(29);
+    expect(daysAway).toBeLessThanOrEqual(30);
 
     const user = await prisma.user.findUnique({ where: { id: TFA_USER_ID } });
-    expect(user).toBeNull();
+    expect(user).not.toBeNull();
+    expect(user!.scheduledDeletionAt?.toISOString()).toBe(res.body.scheduledDeletionAt);
   });
 });
