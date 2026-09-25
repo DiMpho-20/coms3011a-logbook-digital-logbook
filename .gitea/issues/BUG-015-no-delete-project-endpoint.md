@@ -1,7 +1,7 @@
 # BUG-015: No Delete-Project Endpoint
 
 **Severity:** Low
-**Status:** Open
+**Status:** Resolved
 **Component:** Backend — `apps/backend/src/routes/project.routes.ts`
 **Labels:** bug, api, ux
 
@@ -31,3 +31,6 @@ If implemented, cascade behaviour needs care — `Project` cascades to `EntryFie
 ## Related
 - Surfaced during the audit walkthrough: the test project `AUDIT TEST 2026-09` could not be cleaned up and had to be archived
 - Recorded in `docs/feature-audit-2026-09.md` §7
+
+## Resolution
+Implemented as a hard delete, as the tutor asked for projects to be removable completely rather than only archived. `DELETE /api/projects/:id` removes the project and cascades to its fields, entries, values, version history and tag links. The interface guards it: the confirmation names how many entries will be lost, offers **Archive instead**, and needs the project's name typed before **Delete permanently** is enabled. Available from the project card (trash icon) and the project page's menu. Covered by `apps/backend/src/__tests__/projectDelete.test.ts`.

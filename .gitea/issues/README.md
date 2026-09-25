@@ -20,7 +20,7 @@ This directory contains all known bugs and feature requests for the Digital Logb
 | BUG-012 | [Blank Numeric Field Breaks Every Aggregation](BUG-012-blank-numeric-breaks-stats.md) | High | Fixed |
 | BUG-013 | [Duplicate React Keys in the Project Field Editor](BUG-013-duplicate-react-keys-field-editor.md) | Medium | Fixed |
 | BUG-014 | [List Views Fan Out One Request Per Project](BUG-014-n-plus-one-list-views.md) | Medium | Fixed |
-| BUG-015 | [No Delete-Project Endpoint](BUG-015-no-delete-project-endpoint.md) | Low | Open |
+| BUG-015 | [No Delete-Project Endpoint](BUG-015-no-delete-project-endpoint.md) | Low | Resolved |
 
 ## Feature Requests (8)
 

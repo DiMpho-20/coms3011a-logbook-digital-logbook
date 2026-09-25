@@ -124,14 +124,40 @@ model LogbookEntry {
   status          EntryStatus  @default(OPEN)
   completedAt     DateTime?    @map("completed_at")
   formatVersionId String?      @map("format_version_id") @db.Uuid
+  // Set when the entry is moved to the archive (US30); null means active.
+  archivedAt      DateTime?    @map("archived_at")
 
 
   project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   values  EntryValue[]
   formatVersion EntryFormatVersion? @relation(fields: [formatVersionId], references: [id], onDelete: SetNull)
   tags    EntryTag[]
+  versions EntryVersion[]
 
   @@map("logbook_entries")
+}
+
+// --- ENTRY VERSIONS (US20-22) ---
+// One row per saved state of an entry, written when it is created, edited or
+// restored. Rows are never updated or deleted, so an edit can't overwrite
+// what the entry said before. `snapshot` holds the entry exactly as the API
+// returned it at that point, field names included, so a historical version
+// still reads correctly after the project's fields are renamed or removed.
+
+model EntryVersion {
+  id                  String   @id @default(uuid()) @db.Uuid
+  entryId             String   @map("entry_id") @db.Uuid
+  version             Int
+  // CREATED, UPDATED or RESTORED
+  reason              String   @db.VarChar(20)
+  restoredFromVersion Int?     @map("restored_from_version")
+  snapshot            Json
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  entry LogbookEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, version])
+  @@map("entry_versions")
 }
 
 // Immutable snapshots let entries retain the format that was current when

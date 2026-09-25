@@ -238,6 +238,80 @@ describe("ProjectsPage — creating and editing", () => {
     expect(await screen.findByPlaceholderText(/^Formula/)).toBeInTheDocument();
   });
 
+  it("saves a computed field after the Number field its formula names, using the new id", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([] as never);
+    vi.mocked(api.createEntryField)
+      .mockResolvedValueOnce({ id: "srv-hours" } as never)
+      .mockResolvedValueOnce({ id: "srv-total" } as never);
+    renderPage();
+
+    await openNewProjectModal();
+    fireEvent.change(screen.getByPlaceholderText("Enter project name..."), { target: { value: "Pay" } });
+    // Computed row first, to show the order it is written in doesn't matter.
+    fireEvent.click(screen.getByRole("button", { name: "+ Add Field" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Add Field" }));
+    const [computedName, hoursName] = screen.getAllByPlaceholderText("Field name...");
+    const [computedType, hoursType] = screen.getAllByRole("combobox").filter((s) =>
+      Array.from((s as HTMLSelectElement).options).some((o) => o.value === "COMPUTED")
+    );
+    fireEvent.change(computedName, { target: { value: "Double hours" } });
+    fireEvent.change(computedType, { target: { value: "COMPUTED" } });
+    fireEvent.change(hoursName, { target: { value: "Hours" } });
+    fireEvent.change(hoursType, { target: { value: "NUMBER" } });
+    fireEvent.change(screen.getByPlaceholderText(/^Formula/), { target: { value: "{hours} * 2" } });
+    fireEvent.submit(screen.getByPlaceholderText("Enter project name...").closest("form")!);
+
+    await waitFor(() => expect(api.createEntryField).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.createEntryField).mock.calls[0][1]).toMatchObject({ name: "Hours", type: "NUMBER" });
+    expect(vi.mocked(api.createEntryField).mock.calls[1][1]).toMatchObject({
+      name: "Double hours", type: "COMPUTED", formula: "{srv-hours} * 2",
+    });
+  });
+
+  it("refuses a formula naming a missing field before creating the project", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([] as never);
+    renderPage();
+
+    await openNewProjectModal();
+    fireEvent.change(screen.getByPlaceholderText("Enter project name..."), { target: { value: "Pay" } });
+    fireEvent.click(screen.getByRole("button", { name: "+ Add Field" }));
+    fireEvent.change(screen.getByPlaceholderText("Field name..."), { target: { value: "Total" } });
+    const typeSelect = screen.getAllByRole("combobox").find((s) =>
+      Array.from((s as HTMLSelectElement).options).some((o) => o.value === "COMPUTED")
+    )!;
+    fireEvent.change(typeSelect, { target: { value: "COMPUTED" } });
+    fireEvent.change(screen.getByPlaceholderText(/^Formula/), { target: { value: "{Hours} * 2" } });
+    fireEvent.submit(screen.getByPlaceholderText("Enter project name...").closest("form")!);
+
+    expect(await screen.findByText(/no Number or Computed field with that name/)).toBeInTheDocument();
+    expect(api.createProject).not.toHaveBeenCalled();
+  });
+
+  it("shows a saved formula with field names when editing", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
+    vi.mocked(api.fetchEntryFields).mockResolvedValue([
+      { id: "f1", name: "Hours", type: "NUMBER", required: true, formula: null },
+      { id: "f2", name: "Double", type: "COMPUTED", required: false, formula: "{f1} * 2" },
+    ] as never);
+    renderPage();
+
+    await screen.findByText("Campus Marketplace");
+    fireEvent.click(screen.getByTitle("Edit project"));
+
+    expect(await screen.findByDisplayValue("{Hours} * 2")).toBeInTheDocument();
+  });
+
+  it("says so when a project's fields fail to load, instead of showing none", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
+    vi.mocked(api.fetchEntryFields).mockRejectedValueOnce(new Error("offline"));
+    renderPage();
+
+    await screen.findByText("Campus Marketplace");
+    fireEvent.click(screen.getByTitle("Edit project"));
+
+    expect(await screen.findByText(/entry fields could not be loaded/)).toBeInTheDocument();
+  });
+
   it("removes a field row again", async () => {
     vi.mocked(api.fetchProjects).mockResolvedValue([] as never);
     renderPage();

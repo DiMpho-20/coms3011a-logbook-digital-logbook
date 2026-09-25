@@ -86,15 +86,73 @@ describe("validateFormula", () => {
   });
 
   it("rejects a formula that references a non-numeric field", () => {
-    expect(() => validateFormula("{name}", fields)).toThrow(/numeric fields/);
+    expect(() => validateFormula("{name}", fields)).toThrow(/numeric or computed fields/);
   });
 
   it("rejects a formula that references an unknown field", () => {
-    expect(() => validateFormula("{unknown}", fields)).toThrow(/numeric fields/);
+    expect(() => validateFormula("{unknown}", fields)).toThrow(/numeric or computed fields/);
   });
 
   it("rejects a formula with invalid characters", () => {
     expect(() => validateFormula("{hours} + abc", fields)).toThrow(/arithmetic operators/);
+  });
+
+  it("accepts a formula that uses another computed field", () => {
+    const withTotal = [...fields, { id: "pay", type: "COMPUTED", formula: "{hours} * {rate}" }];
+    expect(() => validateFormula("{pay} * 1.15", withTotal)).not.toThrow();
+  });
+
+  it("rejects a computed field that uses itself", () => {
+    const withTotal = [...fields, { id: "pay", type: "COMPUTED", formula: "{hours} * {rate}" }];
+    expect(() => validateFormula("{pay} + 1", withTotal, "pay")).toThrow(/numeric or computed fields/);
+  });
+
+  it("rejects computed fields that depend on each other in a loop", () => {
+    const loop = [
+      ...fields,
+      { id: "a", type: "COMPUTED", formula: "{hours} * 2" },
+      { id: "b", type: "COMPUTED", formula: "{a} + 1" },
+    ];
+    // Editing a to read b would make a → b → a.
+    expect(() => validateFormula("{b} * 2", loop, "a")).toThrow(/loop/);
+  });
+});
+
+describe("calculateComputedValues — chains", () => {
+  it("works out a computed field used before it is defined", () => {
+    const fields: Field[] = [
+      { id: "a", type: "NUMBER", formula: null },
+      { id: "quadruple", type: "COMPUTED", formula: "{double} * 2" },
+      { id: "double", type: "COMPUTED", formula: "{a} * 2" },
+    ];
+    expect(calculateComputedValues(fields, { a: 5 })).toEqual({ quadruple: 20, double: 10 });
+  });
+
+  it("ignores a stale stored value for a computed field it depends on", () => {
+    const fields: Field[] = [
+      { id: "a", type: "NUMBER", formula: null },
+      { id: "double", type: "COMPUTED", formula: "{a} * 2" },
+      { id: "quadruple", type: "COMPUTED", formula: "{double} * 2" },
+    ];
+    expect(calculateComputedValues(fields, { a: 5, double: 999 })).toEqual({ double: 10, quadruple: 20 });
+  });
+
+  it("limits the result to the requested fields", () => {
+    const fields: Field[] = [
+      { id: "a", type: "NUMBER", formula: null },
+      { id: "double", type: "COMPUTED", formula: "{a} * 2" },
+      { id: "quadruple", type: "COMPUTED", formula: "{double} * 2" },
+      { id: "broken", type: "COMPUTED", formula: "1 / {a}" },
+    ];
+    expect(calculateComputedValues(fields, { a: 0 }, ["quadruple"])).toEqual({ quadruple: 0 });
+  });
+
+  it("throws on a loop rather than recursing forever", () => {
+    const fields: Field[] = [
+      { id: "x", type: "COMPUTED", formula: "{y} + 1" },
+      { id: "y", type: "COMPUTED", formula: "{x} + 1" },
+    ];
+    expect(() => calculateComputedValues(fields, {})).toThrow(/refers back/);
   });
 });
 

@@ -6,6 +6,7 @@ import {
   fetchEntryFields,
   fetchAllEntries,
   fetchTags,
+  type ArchivedFilter,
   type Project,
   type EntryField,
   type Entry,
@@ -70,6 +71,8 @@ export default function EntriesPage() {
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  // Archived entries are left out unless asked for (US30).
+  const [archivedFilter, setArchivedFilter] = useState<ArchivedFilter>("exclude");
 
   // Saved filters (persisted to localStorage)
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
@@ -95,7 +98,7 @@ export default function EntriesPage() {
       // One request across every active project, rather than two per
       // project. 500 is the endpoint's cap.
       const listing = await fetchAllEntries(
-        { projectStatus: "ACTIVE", limit: 500 },
+        { projectStatus: "ACTIVE", limit: 500, ...(archivedFilter !== "exclude" && { archived: archivedFilter }) },
         { pendingProjectIds: active.map((p) => p.id) }
       );
       if (run !== loadRunRef.current) return;
@@ -129,7 +132,7 @@ export default function EntriesPage() {
         setEntriesLoading(false);
       }
     }
-  }, []);
+  }, [archivedFilter]);
 
   useEffect(() => {
     loadAll();
@@ -339,6 +342,16 @@ export default function EntriesPage() {
               <option value="overdue">
                 Overdue{stats.overdueCount > 0 ? ` (${stats.overdueCount})` : ""}
               </option>
+            </select>
+            <select
+              value={archivedFilter}
+              onChange={(e) => setArchivedFilter(e.target.value as ArchivedFilter)}
+              aria-label="Archived entries"
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="exclude">Active entries</option>
+              <option value="include">Include archived</option>
+              <option value="only">Archived only</option>
             </select>
             <button
               onClick={() => {
@@ -556,6 +569,11 @@ export default function EntriesPage() {
                                   <span className="text-xs font-medium text-slate-500">
                                     {formatDuration(entry.durationMinutes)}
                                   </span>
+                                  {entry.archivedAt && (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                      Archived
+                                    </span>
+                                  )}
                                 </div>
 
                                 {description && (

@@ -8,7 +8,7 @@ API. All endpoints are prefixed with `/api` and return JSON responses.
 
 **Authentication:** Most endpoints require a JWT in the
 `Authorization: Bearer <token>` header. Obtain one via the
-[`POST /auth/login`](#post-authlogin) endpoint.
+[`POST /api/auth/login`](#post-apiauthlogin) endpoint.
 
 ---
 
@@ -36,7 +36,7 @@ Verifies database connectivity. No authentication required.
 
 ## Authentication (`/api/auth`)
 
-### `POST /auth/register`
+### `POST /api/auth/register`
 
 Create a new user account.
 
@@ -54,7 +54,7 @@ Create a new user account.
 
 ---
 
-### `POST /auth/verify-email`
+### `POST /api/auth/verify-email`
 
 Verify a user's email address with the token sent during registration.
 
@@ -67,7 +67,7 @@ Verify a user's email address with the token sent during registration.
 
 ---
 
-### `POST /auth/login`
+### `POST /api/auth/login`
 
 Authenticate and receive a JWT. If 2FA is enabled, returns a flag
 instead of a token.
@@ -79,8 +79,14 @@ instead of a token.
 
 **Response `200` (no 2FA):**
 ```json
-{ "token": "eyJ...", "user": { "id": "...", "fullName": "...", "email": "..." } }
+{ "message": "Login successful", "token": "eyJ...", "user": { "id": "...", "fullName": "...", "email": "..." }, "scheduledDeletionAt": null }
 ```
+`scheduledDeletionAt` is an ISO date when the account is inside its 30-day
+deletion grace period (see [`DELETE /api/auth/account`](#delete-apiauthaccount)),
+otherwise `null`. Logging in during the grace period does not cancel the
+deletion. Once the date has passed, the account is erased at the next login
+attempt, which then fails with `401` like an unknown email.
+
 **Response `200` (2FA enabled):**
 ```json
 { "requiresTwoFactor": true, "email": "..." }
@@ -89,9 +95,9 @@ instead of a token.
 
 ---
 
-### `POST /auth/login/2fa`
+### `POST /api/auth/login/2fa`
 
-Complete 2FA login after `POST /auth/login` returned `requiresTwoFactor`.
+Complete 2FA login after `POST /api/auth/login` returned `requiresTwoFactor`.
 
 | Field | Type | Required |
 |---|---|---|
@@ -100,13 +106,13 @@ Complete 2FA login after `POST /auth/login` returned `requiresTwoFactor`.
 
 **Response `200`:**
 ```json
-{ "token": "eyJ...", "user": { "id": "...", "email": "..." } }
+{ "token": "eyJ...", "user": { "id": "...", "email": "..." }, "scheduledDeletionAt": null }
 ```
 **Errors:** `401` (invalid code), `400` (malformed code)
 
 ---
 
-### `POST /auth/forgot-password`
+### `POST /api/auth/forgot-password`
 
 Request a password-reset email. Returns the same message regardless of
 whether the email exists (prevents account enumeration).
@@ -122,7 +128,7 @@ whether the email exists (prevents account enumeration).
 
 ---
 
-### `POST /auth/reset-password`
+### `POST /api/auth/reset-password`
 
 Reset the password using a single-use token from the reset email.
 
@@ -136,21 +142,42 @@ Reset the password using a single-use token from the reset email.
 
 ---
 
-### `DELETE /auth/account` 🔒
+### `DELETE /api/auth/account` 🔒
 
-Permanently delete the authenticated user's account and all associated
-data (projects, entries, values, tokens).
+Schedule the authenticated user's account for deletion. Nothing is removed
+straight away: the account enters a 30-day grace period, ending at midnight
+30 days from the request, and a confirmation email is sent. The user can
+still log in during that time and can cancel with
+[`POST /api/auth/account/cancel-deletion`](#post-apiauthaccountcancel-deletion).
+Once the period has ended, the account and all its data (projects, entries,
+values, tokens) are permanently deleted by the purge job, which runs when the
+server starts and then hourly, or at the next login attempt if that comes first.
+
+Calling this again while a deletion is already scheduled keeps the original
+date and does not send another email.
 
 | Field | Type | Required |
 |---|---|---|
 | `confirmPassword` | string | Yes |
 
-**Response `200`:** `{ "message": "Account deleted." }`
-**Errors:** `401` (wrong password)
+**Response `200`:**
+```json
+{ "message": "Your account will be permanently deleted on Sat Oct 24 2026.", "scheduledDeletionAt": "2026-10-24T00:00:00.000Z" }
+```
+**Errors:** `400` (missing `confirmPassword`), `401` (wrong password), `404` (user not found)
 
 ---
 
-### `POST /auth/2fa/setup` 🔒
+### `POST /api/auth/account/cancel-deletion` 🔒
+
+Cancel a scheduled account deletion during the grace period. No request body.
+
+**Response `200`:** `{ "message": "Account deletion cancelled." }`
+**Errors:** `400` (no deletion is scheduled), `404` (user not found)
+
+---
+
+### `POST /api/auth/2fa/setup` 🔒
 
 Begin 2FA setup — returns a TOTP secret and QR code data URL.
 
@@ -162,7 +189,7 @@ Begin 2FA setup — returns a TOTP secret and QR code data URL.
 
 ---
 
-### `POST /auth/2fa/verify-setup` 🔒
+### `POST /api/auth/2fa/verify-setup` 🔒
 
 Verify the TOTP code from the authenticator app to complete 2FA setup.
 
@@ -175,7 +202,7 @@ Verify the TOTP code from the authenticator app to complete 2FA setup.
 
 ---
 
-### `POST /auth/2fa/disable` 🔒
+### `POST /api/auth/2fa/disable` 🔒
 
 Disable 2FA. Requires password re-authentication.
 
@@ -188,7 +215,7 @@ Disable 2FA. Requires password re-authentication.
 
 ---
 
-### `GET /auth/2fa/status` 🔒
+### `GET /api/auth/2fa/status` 🔒
 
 Check whether 2FA is enabled for the authenticated user.
 
@@ -265,6 +292,15 @@ Toggle a project between `ACTIVE` and `ARCHIVED`.
 
 ---
 
+### `DELETE /api/projects/:id`
+
+Permanently delete a project together with its entry fields, entries, their values and version history, and its tag links. Unlike archiving (`PATCH /api/projects/:id/status`), this can't be undone — the interface asks for the project's name to be typed first.
+
+**Response `200`:** `{ "message": "Project deleted", "deletedEntries": 12 }`
+**Errors:** `404` (not found, or not the caller's)
+
+---
+
 ### `GET /api/projects/:id/time-summary`
 
 Get aggregated time statistics for a project.
@@ -285,19 +321,45 @@ Create a custom entry field for a project.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `name` | string | Yes | |
-| `type` | string | Yes | `TEXT`, `NUMBER`, `DATE`, `BOOLEAN`, `COMPUTED` |
-| `required` | boolean | No | Default `false` |
-| `formula` | string | No | Required when `type` is `COMPUTED`; e.g. `{field-id} * 2` |
+| `type` | string | Yes | `TEXT`, `NUMBER`, `DATE`, `BOOLEAN`, `TAGS`, `CHECKLIST`, `LINK`, `REFERENCE`, `COMPUTED` |
+| `required` | boolean | No | Default `false`. Always stored as `false` for `COMPUTED`, which fills itself in |
+| `formula` | string | `COMPUTED` only | Required for `COMPUTED`, rejected for every other type. See [Computed formulas](#computed-formulas) |
+
+Creating a `COMPUTED` field also fills in its value on the project's existing
+entries, and every change to a project's fields saves a new format version.
 
 **Response `201`:** Created entry field object.
+**Errors:** `400` (missing name, unknown type, missing or invalid formula), `404` (project not found)
+
+#### Computed formulas
+
+A formula is arithmetic over other fields of the same project, referenced by
+id in braces:
+
+```text
+{hours-field-id} * {rate-field-id}
+({pay-field-id} + 50) * 1.15
+```
+
+- Only numbers, `+ - * /`, parentheses and `{field-id}` references are allowed.
+- A reference must be a `NUMBER` or another `COMPUTED` field in the project.
+  Computed fields are always recalculated in dependency order, never read
+  from a previously stored value.
+- A field may not use itself, directly or through a loop of computed fields.
+- A referenced value that an entry left empty counts as `0`. A result that is
+  not a finite number (for example, dividing by zero) rejects the entry.
+- The web app lets people write `{Field name}` and converts names to ids
+  before calling the API. The API itself only accepts ids.
 
 ---
 
 ### `GET /api/projects/:projectId/entry-fields`
 
-List all entry fields for a project (including archived).
+List the project's current entry fields, oldest first. Archived (deleted)
+fields are left out; they remain in the format version snapshots.
 
 **Response `200`:** Array of entry field objects.
+**Errors:** `404` (project not found)
 
 ---
 
@@ -311,9 +373,17 @@ List all format version snapshots for a project.
 
 ### `PUT /api/entry-fields/:id`
 
-Update an entry field (name, required, formula).
+Update an entry field. All body fields are optional.
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | Cannot be blank |
+| `type` | string | Only while no entry has a value for the field |
+| `required` | boolean | Always `false` for `COMPUTED` |
+| `formula` | string | `COMPUTED` only; same rules as [Computed formulas](#computed-formulas) |
 
 **Response `200`:** Updated entry field object.
+**Errors:** `400` (blank name, unknown type, invalid formula or loop, formula on a non-computed field), `404` (field not found), `409` (type change on a field that already has values)
 
 ---
 
@@ -322,7 +392,8 @@ Update an entry field (name, required, formula).
 Soft-delete (archive) an entry field. Existing entries retain their
 values; the field is hidden from new entry forms.
 
-**Response `200`:** `{ "message": "Field archived." }`
+**Response `204`:** No content.
+**Errors:** `404` (field not found)
 
 ---
 
@@ -418,8 +489,9 @@ List entries for a project. Supports filtering.
 |---|---|---|
 | `status` | string | Filter by `OPEN` or `DONE` |
 | `dueBefore` | string | ISO date — returns entries due before this date |
+| `archived` | string | `exclude` (default) leaves archived entries out, `only` returns just the archive, `include` returns both. Also accepted by `GET /api/entries`. |
 
-**Response `200`:** Array of entry objects.
+**Response `200`:** Array of entry objects. Each has `archivedAt` (`null` while active).
 
 ---
 
@@ -463,6 +535,79 @@ Permanently delete an entry and all its values.
 
 ---
 
+## Entry History & Archive (`/api/...`) 🔒
+
+Every create, edit, status change and restore of an entry saves a new **version** — a snapshot of the entry's content at that moment. Versions are never changed or deleted, so an edit can't overwrite what the entry said before. Entries created before this feature existed show their current state as version 1 until their first change.
+
+A version object:
+```json
+{
+  "version": 2,
+  "reason": "UPDATED",
+  "restoredFromVersion": null,
+  "createdAt": "2026-09-24T10:15:00.000Z",
+  "snapshot": { "durationMinutes": 45, "entryDate": null, "dueDate": null, "values": { "<fieldId>": "..." }, "format": { "version": 1, "fields": [] }, "tags": [], "status": "OPEN", "completedAt": null }
+}
+```
+`reason` is `CREATED`, `UPDATED` or `RESTORED`.
+
+### `GET /api/entries/:id/versions`
+
+The entry's full history, oldest first.
+
+**Response `200`:** `{ "entryId": "...", "entryCreatedAt": "...", "currentVersion": 3, "versions": [ ...version objects ] }`
+**Errors:** `404` (not found)
+
+---
+
+### `GET /api/entries/:id/versions/at?date=<ISO date>`
+
+The entry as it stood at a moment in time: the newest version saved at or before `date`.
+
+**Response `200`:**
+- `{ "existed": true, "entryCreatedAt": "...", "version": { ... }, "isCurrent": false }`
+- `{ "existed": false, "entryCreatedAt": "..." }` when `date` is before the entry was created
+
+**Errors:** `400` (missing or invalid date), `404` (not found)
+
+---
+
+### `POST /api/entries/:id/versions/:version/restore`
+
+Make an earlier version the current entry. The restore is saved as a new `RESTORED` version, so the version being replaced stays in the history. Values for fields since deleted from the project can't come back and are counted in `skippedFields`.
+
+**Response `200`:** `{ "entry": { ...entry }, "version": { ...the new version }, "skippedFields": 0 }`
+**Errors:** `400` (invalid version number), `404` (entry or version not found)
+
+---
+
+### `PATCH /api/entries/:id/archive`
+
+Move one entry to the archive, or back to the active logbook.
+
+| Field | Type | Required |
+|---|---|---|
+| `archived` | boolean | Yes |
+
+**Response `200`:** Updated entry object.
+**Errors:** `400`, `404` (not found)
+
+---
+
+### `POST /api/entries/archive`
+
+Archive (or restore) several selected entries at once. Ids that aren't the caller's are skipped.
+
+| Field | Type | Required |
+|---|---|---|
+| `ids` | string[] | Yes — 1 to 500 entry ids |
+| `archived` | boolean | Yes |
+
+**Response `200`:** `{ "updated": 2 }`
+**Errors:** `400`
+
+---
+
 ## Statistics (`/api/...`) 🔒
 
 ### `POST /api/projects/:projectId/stats/group`
@@ -497,6 +642,33 @@ Aggregate entry counts over time buckets.
 { "points": [{ "date": "2026-09-01", "count": 5 }, { "date": "2026-09-02", "count": 3 }] }
 ```
 **Errors:** `400` (invalid bucket, non-DATE field, missing field), `404` (unknown field)
+
+---
+
+## Tags (`/api/tags`) 🔒
+
+Each user has their own tag vocabulary, shared by their projects and entries.
+Tags are created implicitly: sending a new tag name on a project or entry adds
+it. These endpoints read and prune that vocabulary.
+
+### `GET /api/tags`
+
+List the authenticated user's tags, alphabetically.
+
+**Response `200`:**
+```json
+[{ "id": "...", "name": "coursework" }, { "id": "...", "name": "urgent" }]
+```
+
+---
+
+### `DELETE /api/tags/:id`
+
+Delete a tag from the vocabulary. It is removed from every project and entry
+it was on; the projects and entries themselves are not changed otherwise.
+
+**Response `204`:** No content.
+**Errors:** `404` (tag not found, or not the caller's)
 
 ---
 
@@ -604,7 +776,7 @@ console instead of sent.
 
 🔒 = requires `Authorization: Bearer <token>` header.
 
-*Related: [Authentication & Security Guide](../apps/backend/AUTHENTICATION.md)
+*Related: [Authentication & Security Guide](https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook/src/branch/main/apps/backend/AUTHENTICATION.md)
 covers the 2FA lifecycle, password reset flow, and security properties in
 detail. [Testing](testing.md) documents the automated test coverage for
 every endpoint listed above.*

@@ -1,4 +1,7 @@
-import { google, calendar_v3 } from "googleapis";
+// The Calendar module alone rather than "googleapis": the package root loads
+// type definitions for every Google API, which pushed tsc past 1.6 GB of
+// memory and made the backend Docker image impossible to build.
+import { auth, calendar as googleCalendar, calendar_v3 } from "googleapis/build/src/apis/calendar/index.js";
 import prisma from "../prisma.js";
 
 /**
@@ -6,7 +9,7 @@ import prisma from "../prisma.js";
  * one user's access token overwrite another user's credentials.
  */
 export function createGoogleCalendarClient() {
-  return new google.auth.OAuth2(
+  return new auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
     process.env.GOOGLE_REDIRECT_URI,
@@ -76,7 +79,7 @@ async function listLogbookEvents(calendar: calendar_v3.Calendar): Promise<calend
  * them, and removes events whose entry was completed, undated or deleted.
  */
 export async function syncDueDates(userId: string, auth: OAuth2Client): Promise<SyncResult> {
-  const calendar = google.calendar({ version: "v3", auth });
+  const calendar = googleCalendar({ version: "v3", auth });
 
   const entries = (await prisma.logbookEntry.findMany({
     where: { project: { userId }, status: "OPEN", dueDate: { not: null } },

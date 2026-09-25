@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { startOfflineSync } from "./lib/offlineEntries";
+import { startFullOfflineSync } from "./lib/offlineProjects";
 import OpenWorkPage from "./pages/OpenWorkPage";
 import StatsPage from "./pages/StatsPage";
 import CalendarPage from "./pages/CalendarPage";
@@ -25,7 +25,7 @@ import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 
 export default function App() {
-  useEffect(() => startOfflineSync(), []);
+  useEffect(() => startFullOfflineSync(), []);
 
   return (
     <BrowserRouter>

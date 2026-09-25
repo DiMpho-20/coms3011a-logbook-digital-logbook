@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Archive, ArchiveRestore, Edit2 } from "lucide-react";
+import { Archive, ArchiveRestore, CloudOff, Edit2, Trash2 } from "lucide-react";
 import { formatDuration } from "../lib/utils";
 import TagList from "./TagList";
 import type { Project, TimeSummary } from "../api";
@@ -9,6 +9,8 @@ interface ProjectCardProps {
   summary?: TimeSummary;
   onEdit: (project: Project) => void;
   onToggleArchive: (project: Project) => void;
+  /** When provided, shows a button to delete the project permanently. */
+  onDelete?: (project: Project) => void;
 }
 
 function relativeDay(dateStr: string): string {
@@ -29,6 +31,7 @@ export default function ProjectCard({
   summary,
   onEdit,
   onToggleArchive,
+  onDelete,
 }: ProjectCardProps) {
   const navigate = useNavigate();
   const isArchived = project.status === "ARCHIVED";
@@ -56,7 +59,7 @@ export default function ProjectCard({
       )}
 
       {/* Status badge */}
-      <div className="mb-3">
+      <div className="mb-3 flex items-center gap-2">
         <span className="inline-flex items-center gap-1.5 text-xs font-medium">
           <span
             className={`w-2 h-2 rounded-full ${
@@ -65,6 +68,14 @@ export default function ProjectCard({
           />
           {isActive ? "Active" : "Archived"}
         </span>
+        {project.id.startsWith("offline-") && (
+          <span
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"
+            title="Created offline. It will be saved to your account when you reconnect."
+          >
+            <CloudOff className="h-3 w-3" /> Not synced yet
+          </span>
+        )}
       </div>
 
       {/* Tags */}
@@ -134,6 +145,19 @@ export default function ProjectCard({
             <Archive className="h-3.5 w-3.5" />
           )}
         </button>
+        {onDelete && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(project);
+            }}
+            className="p-1.5 rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+            title="Delete project permanently"
+            aria-label="Delete project"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -79,13 +79,16 @@ export async function backfillNewField(
     select: { id: true, values: { select: { fieldId: true, value: true } } },
   });
   if (entries.length === 0) return;
+  // The formula may use other computed fields, which are worked out again
+  // rather than read from what each entry stored for them.
+  const fields = await prisma.entryField.findMany({ where: { projectId, archivedAt: null } });
 
   // Only entries the formula can actually be computed for get a row — an
   // entry missing the numbers it depends on is skipped, not fabricated.
   const writes = entries.flatMap((entry) => {
     const raw = Object.fromEntries(entry.values.map((v) => [v.fieldId, v.value]));
     try {
-      const computed = calculateComputedValues([field], raw);
+      const computed = calculateComputedValues([...fields.filter((f) => f.id !== field.id), field], raw, [field.id]);
       if (!(field.id in computed)) return [];
       return [
         prisma.entryValue.upsert({

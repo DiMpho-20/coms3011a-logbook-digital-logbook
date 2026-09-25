@@ -15,9 +15,29 @@
   EntryFieldType,
   ChecklistItem,
   Tag,
+  ArchivedFilter,
+  EntryAtDate,
+  EntryHistory,
+  EntrySnapshot,
+  EntryVersion,
 } from "@logbook/shared";
 import { api } from "./api/client";
-import { getPendingEntries, isOfflineRequest, queueEntry } from "./lib/offlineEntries";
+import { getPendingEntries, isOfflineRequest, queueEntry, removePendingEntriesForProject } from "./lib/offlineEntries";
+import { orderForSaving } from "./lib/formulas";
+import { cachedRequest } from "./lib/offlineCache";
+import {
+  getPendingFields,
+  getPendingProject,
+  getPendingProjects,
+  isOfflineId,
+  queueField,
+  queueProject,
+  removeQueuedField,
+  removeQueuedProject,
+  resolveSyncedId,
+  updateQueuedField,
+  updateQueuedProject,
+} from "./lib/offlineProjects";
 
 // Re-export types so the rest of the frontend can import from api.ts
 export type {
@@ -31,7 +51,21 @@ export type {
   EntryFieldType,
   ChecklistItem,
   Tag,
+  ArchivedFilter,
+  EntryAtDate,
+  EntryHistory,
+  EntrySnapshot,
+  EntryVersion,
 };
+
+/**
+ * A project that is still only on this device — created offline and not yet
+ * synced. Once it syncs it leaves the queue, and its temporary id resolves
+ * to the server's through resolveSyncedId instead.
+ */
+function isQueuedProject(id: string): boolean {
+  return isOfflineId(id) && getPendingProject(id) !== null;
+}
 
 export interface LogbookBackupProject {
   name: string;
@@ -50,23 +84,35 @@ export interface LogbookBackup {
 
 // ── Projects ─────────────────────────────────────────────────────────────
 
+// Reads go through cachedRequest, so the last copy fetched online is still
+// shown offline. Projects created offline are merged in until they sync.
+
 export async function fetchProjects(): Promise<Project[]> {
-  const res = await api.get("/projects");
-  return res.data;
+  const projects = await cachedRequest<Project[]>("projects", async () => (await api.get("/projects")).data);
+  return [...projects, ...getPendingProjects()];
 }
 
 export async function fetchProject(id: string): Promise<ProjectWithFields> {
-  const res = await api.get(`/projects/${id}`);
-  return res.data;
+  const pending = isQueuedProject(id) ? getPendingProject(id) : null;
+  if (pending) return pending;
+  const projectId = resolveSyncedId(id);
+  return cachedRequest(`project:${projectId}`, async () => (await api.get(`/projects/${projectId}`)).data);
 }
 
 export async function createProject(data: CreateProjectInput): Promise<Project> {
-  const res = await api.post("/projects", data);
-  return res.data;
+  if (!navigator.onLine) return queueProject(data);
+  try {
+    const res = await api.post("/projects", data);
+    return res.data;
+  } catch (error) {
+    if (isOfflineRequest(error)) return queueProject(data);
+    throw error;
+  }
 }
 
 export async function updateProject(id: string, updates: UpdateProjectInput): Promise<Project> {
-  const res = await api.put(`/projects/${id}`, updates);
+  if (isQueuedProject(id)) return updateQueuedProject(id, updates);
+  const res = await api.put(`/projects/${resolveSyncedId(id)}`, updates);
   return res.data;
 }
 
@@ -74,13 +120,44 @@ export async function toggleProjectStatus(
   id: string,
   status: ProjectStatus
 ): Promise<Project> {
-  const res = await api.patch(`/projects/${id}/status`, { status });
+  if (isQueuedProject(id)) return updateQueuedProject(id, { status });
+  const res = await api.patch(`/projects/${resolveSyncedId(id)}/status`, { status });
   return res.data;
 }
 
+/**
+ * Permanently delete a project with all its fields, entries and history.
+ * Unlike archiving, this can't be undone. Resolves to how many entries went with it.
+ */
+export async function deleteProject(id: string): Promise<number> {
+  if (isQueuedProject(id)) {
+    const queuedEntries = getPendingEntries(id).length;
+    removeQueuedProject(id);
+    return queuedEntries;
+  }
+  const projectId = resolveSyncedId(id);
+  const res = await api.delete(`/projects/${projectId}`);
+  // Entries queued offline for it would otherwise fail to sync forever.
+  removePendingEntriesForProject(projectId);
+  return res.data?.deletedEntries ?? 0;
+}
+
 export async function fetchProjectTimeSummary(id: string): Promise<TimeSummary> {
-  const res = await api.get(`/projects/${id}/time-summary`);
-  return res.data;
+  if (isQueuedProject(id)) {
+    // Nothing is on the server yet, so the summary is worked out from the
+    // entries queued on this device.
+    const entries = getPendingEntries(id);
+    const totalMinutes = entries.reduce((sum, e) => sum + e.durationMinutes, 0);
+    return {
+      projectId: id,
+      totalMinutes,
+      totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+      entryCount: entries.length,
+      lastEntryAt: entries.map((e) => e.createdAt).sort().pop() ?? null,
+    };
+  }
+  const projectId = resolveSyncedId(id);
+  return cachedRequest(`summary:${projectId}`, async () => (await api.get(`/projects/${projectId}/time-summary`)).data);
 }
 
 // ── Entry Fields ─────────────────────────────────────────────────────────
@@ -89,35 +166,40 @@ export async function createEntryField(
   projectId: string,
   data: CreateEntryFieldInput
 ): Promise<EntryField> {
-  const res = await api.post(`/projects/${projectId}/entry-fields`, data);
+  if (isQueuedProject(projectId)) return queueField(projectId, data);
+  const res = await api.post(`/projects/${resolveSyncedId(projectId)}/entry-fields`, data);
   return res.data;
 }
 
 export async function fetchEntryFields(projectId: string): Promise<EntryField[]> {
-  const res = await api.get(`/projects/${projectId}/entry-fields`);
-  return res.data;
+  const pending = isQueuedProject(projectId) ? getPendingFields(projectId) : null;
+  if (pending) return pending;
+  const id = resolveSyncedId(projectId);
+  return cachedRequest(`fields:${id}`, async () => (await api.get(`/projects/${id}/entry-fields`)).data);
 }
 
 export async function updateEntryField(id: string, data: UpdateEntryFieldInput): Promise<EntryField> {
-  const res = await api.put(`/entry-fields/${id}`, data);
+  if (isOfflineId(resolveSyncedId(id))) return updateQueuedField(id, data);
+  const res = await api.put(`/entry-fields/${resolveSyncedId(id)}`, data);
   return res.data;
 }
 
 export async function deleteEntryField(id: string): Promise<void> {
-  await api.delete(`/entry-fields/${id}`);
+  if (isOfflineId(resolveSyncedId(id))) return removeQueuedField(id);
+  await api.delete(`/entry-fields/${resolveSyncedId(id)}`);
 }
 
 export async function fetchEntryFormatVersions(projectId: string) {
-  const res = await api.get(`/projects/${projectId}/entry-format-versions`);
-  return res.data;
+  if (isQueuedProject(projectId)) return [];
+  const id = resolveSyncedId(projectId);
+  return cachedRequest(`formats:${id}`, async () => (await api.get(`/projects/${id}/entry-format-versions`)).data);
 }
 
 // ── Tags ─────────────────────────────────────────────────────────────────
 
 /** The caller's own tag vocabulary, for suggestions when tagging a project or entry. */
 export async function fetchTags(): Promise<Tag[]> {
-  const res = await api.get("/tags");
-  return res.data;
+  return cachedRequest("tags", async () => (await api.get("/tags")).data);
 }
 
 /** Remove a tag from the vocabulary entirely, detaching it everywhere it was used. */
@@ -127,12 +209,23 @@ export async function deleteTag(id: string): Promise<void> {
 
 // ── Entries ──────────────────────────────────────────────────────────────
 
-export async function fetchEntries(projectId: string): Promise<Entry[]> {
+export async function fetchEntries(
+  projectId: string,
+  options: { archived?: ArchivedFilter } = {}
+): Promise<Entry[]> {
+  // Queued entries are never archived, so they belong in every view but "only archived".
+  const pending = () => (options.archived === "only" ? [] : getPendingEntries(projectId));
+  if (isQueuedProject(projectId)) return pending();
+  const id = resolveSyncedId(projectId);
+  const archived = options.archived ?? "exclude";
   try {
-    const res = await api.get(`/projects/${projectId}/entries`);
-    return [...res.data, ...getPendingEntries(projectId)];
+    const entries = await cachedRequest<Entry[]>(`entries:${id}:${archived}`, async () => {
+      const url = `/projects/${id}/entries`;
+      return (await (archived === "exclude" ? api.get(url) : api.get(url, { params: { archived } }))).data;
+    });
+    return [...entries, ...pending()];
   } catch (error) {
-    if (isOfflineRequest(error)) return getPendingEntries(projectId);
+    if (isOfflineRequest(error)) return pending();
     throw error;
   }
 }
@@ -144,6 +237,8 @@ export interface EntriesQuery {
   from?: string;
   to?: string;
   limit?: number;
+  /** Leave archived entries out (default), show only them, or include them. */
+  archived?: ArchivedFilter;
 }
 
 export interface EntriesListing {
@@ -176,6 +271,7 @@ export async function fetchAllEntries(
   // the caller says which projects it is showing; without it, every queued
   // entry is included.
   const pendingFor = (): Entry[] => {
+    if (query.archived === "only") return [];
     const all = getPendingEntries(query.projectId);
     if (!options.pendingProjectIds) return all;
     const allowed = new Set(options.pendingProjectIds);
@@ -193,9 +289,11 @@ export async function fetchAllEntries(
   };
 
   try {
-    const res = await api.get("/entries", { params: query });
-    const raw = (res.data?.entries ?? []) as (Omit<Entry, "format"> & { formatVersionId: string | null })[];
-    const formats = (res.data?.formats ?? {}) as Record<string, { version: number; fields: EntryField[] }>;
+    const data = await cachedRequest(`entries-all:${JSON.stringify(query)}`, async () =>
+      (await api.get("/entries", { params: query })).data
+    );
+    const raw = (data?.entries ?? []) as (Omit<Entry, "format"> & { formatVersionId: string | null })[];
+    const formats = (data?.formats ?? {}) as Record<string, { version: number; fields: EntryField[] }>;
 
     const fieldsByProject: Record<string, EntryField[]> = {};
     const newestSeen: Record<string, number> = {};
@@ -224,7 +322,7 @@ export async function fetchAllEntries(
 
     return {
       entries: [...entries, ...pending],
-      truncated: Boolean(res.data?.truncated),
+      truncated: Boolean(data?.truncated),
       fieldsByProject,
       projectsNeedingFields: [...needFields],
     };
@@ -238,12 +336,24 @@ export async function createEntry(
   projectId: string,
   data: CreateEntryInput
 ): Promise<Entry> {
-  if (!navigator.onLine) return queueEntry(projectId, data);
+  // A project still only on this device can't take entries on the server
+  // yet; the entry is queued and follows the project when it syncs.
+  if (isQueuedProject(projectId)) return queueEntry(projectId, data);
+
+  // A page opened on an offline project that has synced since still holds
+  // the temporary ids; send the server's.
+  const id = resolveSyncedId(projectId);
+  const payload = id === projectId ? data : {
+    ...data,
+    values: Object.fromEntries(Object.entries(data.values).map(([fieldId, value]) => [resolveSyncedId(fieldId), value])),
+  };
+
+  if (!navigator.onLine) return queueEntry(id, payload);
   try {
-    const res = await api.post(`/projects/${projectId}/entries`, data);
+    const res = await api.post(`/projects/${id}/entries`, payload);
     return res.data;
   } catch (error) {
-    if (isOfflineRequest(error)) return queueEntry(projectId, data);
+    if (isOfflineRequest(error)) return queueEntry(id, payload);
     throw error;
   }
 }
@@ -258,6 +368,45 @@ export async function updateEntry(
 
 export async function deleteEntry(id: string): Promise<void> {
   await api.delete(`/entries/${id}`);
+}
+
+// ── Version history (US20-22) ────────────────────────────────────────────
+
+/** Every saved version of an entry, oldest first. */
+export async function fetchEntryHistory(id: string): Promise<EntryHistory> {
+  const res = await api.get(`/entries/${id}/versions`);
+  return res.data;
+}
+
+/** The entry as it stood at `date`, or word that it didn't exist yet. */
+export async function fetchEntryAtDate(id: string, date: Date): Promise<EntryAtDate> {
+  const res = await api.get(`/entries/${id}/versions/at`, { params: { date: date.toISOString() } });
+  return res.data;
+}
+
+/**
+ * Make an earlier version the entry's current content. The restore is saved
+ * as a new version, so nothing in the history is lost.
+ */
+export async function restoreEntryVersion(
+  id: string,
+  version: number
+): Promise<{ entry: Entry; version: EntryVersion; skippedFields: number }> {
+  const res = await api.post(`/entries/${id}/versions/${version}/restore`);
+  return res.data;
+}
+
+// ── Archiving (US30) ─────────────────────────────────────────────────────
+
+export async function setEntryArchived(id: string, archived: boolean): Promise<Entry> {
+  const res = await api.patch(`/entries/${id}/archive`, { archived });
+  return res.data;
+}
+
+/** Archive (or bring back) several entries at once; resolves to how many changed. */
+export async function setEntriesArchived(ids: string[], archived: boolean): Promise<number> {
+  const res = await api.post("/entries/archive", { ids, archived });
+  return res.data.updated;
 }
 
 // ── Backup and restore ───────────────────────────────────────────────────
@@ -342,13 +491,12 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
     });
     importedProjects++;
     const fieldIds = new Map<string, string>();
-    for (const field of project.fields) {
+    for (const field of orderForSaving(project.fields)) {
       // A COMPUTED field's formula embeds the ids of the fields it reads
       // (e.g. "{old-id} * 2"), which no longer exist once the fields it
-      // depends on are recreated under new ids. Every field a formula can
-      // legally reference was necessarily created earlier in this same
-      // backup (the original project could not have validated it
-      // otherwise), so fieldIds already holds the mapping by this point.
+      // depends on are recreated under new ids. orderForSaving puts every
+      // field a formula reads ahead of it — a computed field may read one
+      // defined after it — so fieldIds already holds the mapping by this point.
       const formula = field.type === "COMPUTED" && field.formula
         ? field.formula.replace(/\{([^}]+)\}/g, (match, oldId) => {
             const newId = fieldIds.get(oldId.trim());

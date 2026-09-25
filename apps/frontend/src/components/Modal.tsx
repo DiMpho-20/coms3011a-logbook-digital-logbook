@@ -7,9 +7,11 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  /** Room for side-by-side content, such as comparing two versions of an entry. */
+  wide?: boolean;
 }
 
-export default function Modal({ open, onClose, title, children }: ModalProps) {
+export default function Modal({ open, onClose, title, children, wide = false }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // Escape key closes modal
@@ -47,7 +49,7 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
       aria-modal="true"
       aria-label={title}
     >
-      <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-xl border border-slate-200">
+      <div className={`bg-white rounded-xl ${wide ? "max-w-3xl" : "max-w-md"} w-full max-h-[90vh] overflow-y-auto shadow-xl border border-slate-200`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
           <button

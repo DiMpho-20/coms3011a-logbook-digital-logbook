@@ -20,17 +20,13 @@ const fake = {
   delete: vi.fn(),
 };
 
-vi.mock("googleapis", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("googleapis")>();
+vi.mock("googleapis/build/src/apis/calendar/index.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("googleapis/build/src/apis/calendar/index.js")>();
   return {
     ...actual,
-    google: {
-      ...actual.google,
-      auth: actual.google.auth,
-      calendar: () => ({
-        events: { list: fake.list, insert: fake.insert, patch: fake.patch, delete: fake.delete },
-      }),
-    },
+    calendar: () => ({
+      events: { list: fake.list, insert: fake.insert, patch: fake.patch, delete: fake.delete },
+    }),
   };
 });
 
