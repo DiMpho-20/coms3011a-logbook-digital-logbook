@@ -10,10 +10,9 @@ import {
 
 // A stand-in for the database. The evaluator only ever asks for numbers, so
 // the parser and the arithmetic can be tested without touching Postgres.
-const source = (
-  totals: Record<string, Partial<Record<AggregateFn, number>>>,
-  entries = 5
-): AggregateSource => ({
+type Totals = Record<string, Partial<Record<AggregateFn, number>>>;
+
+const source = (totals: Totals, entries = 5): AggregateSource => ({
   count: () => entries,
   aggregate: (fn, field) => {
     const value = totals[field.toLowerCase()]?.[fn];
@@ -24,7 +23,7 @@ const source = (
 
 const HOURS = { hours: { SUM: 40, AVG: 8, MIN: 2, MAX: 15 } };
 
-const run = (expression: string, totals = HOURS, entries = 5) =>
+const run = (expression: string, totals: Totals = HOURS, entries = 5) =>
   evaluate(parseExpression(expression), source(totals, entries));
 
 describe("expressions — the aggregate functions", () => {
