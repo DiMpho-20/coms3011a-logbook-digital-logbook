@@ -452,8 +452,20 @@ describe("StatsPage — custom expressions", () => {
     fireEvent.change(screen.getByLabelText("Expression"), { target: { value } });
   const calculate = () => fireEvent.click(screen.getByRole("button", { name: "Calculate" }));
 
-  it("offers the fields and functions an expression can use", async () => {
+  /**
+   * The panel's form is drawn as soon as a project is chosen — briefly, with
+   * no fields — then replaced by the loading placeholder until the fields
+   * request lands. Waiting on the form itself would catch that empty state,
+   * so wait for a field chip, which only exists once the request has landed.
+   */
+  const withExpressionPanel = async () => {
     await withFields();
+    await screen.findByRole("heading", { name: EXPRESSION });
+    await within(sectionFor(EXPRESSION)).findByRole("button", { name: "Hours" });
+  };
+
+  it("offers the fields and functions an expression can use", async () => {
+    await withExpressionPanel();
 
     const panel = sectionFor(EXPRESSION);
     // Only the fields that can actually be aggregated are offered.
@@ -464,7 +476,7 @@ describe("StatsPage — custom expressions", () => {
   });
 
   it("will not calculate until something has been written", async () => {
-    await withFields();
+    await withExpressionPanel();
 
     expect(screen.getByRole("button", { name: "Calculate" })).toBeDisabled();
     typeExpression("COUNT()");
@@ -472,7 +484,7 @@ describe("StatsPage — custom expressions", () => {
   });
 
   it("adds a field to the expression when its chip is clicked", async () => {
-    await withFields();
+    await withExpressionPanel();
 
     fireEvent.click(within(sectionFor(EXPRESSION)).getByRole("button", { name: "Hours" }));
 
@@ -481,7 +493,7 @@ describe("StatsPage — custom expressions", () => {
   });
 
   it("sends the expression to the project it is scoped to, and shows the result", async () => {
-    await withFields();
+    await withExpressionPanel();
 
     typeExpression("  SUM({Hours}) / COUNT()  ");
     calculate();
@@ -495,7 +507,7 @@ describe("StatsPage — custom expressions", () => {
   });
 
   it("shows the server's complaint rather than a generic failure", async () => {
-    await withFields();
+    await withExpressionPanel();
     vi.mocked(client.post).mockRejectedValue({
       response: { data: { error: 'This project has no field called "Nope".' } },
     });
@@ -507,7 +519,7 @@ describe("StatsPage — custom expressions", () => {
   });
 
   it("falls back to its own message when the server cannot be reached", async () => {
-    await withFields();
+    await withExpressionPanel();
     vi.mocked(client.post).mockRejectedValue(new Error("offline"));
 
     typeExpression("COUNT()");
@@ -517,7 +529,7 @@ describe("StatsPage — custom expressions", () => {
   });
 
   it("shows a spinner while the server is working it out", async () => {
-    await withFields();
+    await withExpressionPanel();
     vi.mocked(client.post).mockImplementation((() => new Promise(() => {})) as never);
 
     typeExpression("COUNT()");
