@@ -15,7 +15,7 @@ import {
   archiveEntries,
 } from "../controllers/entryHistory.controller.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
-import { groupStats, timelineStats } from "../controllers/stats.controller.js";
+import { groupStats, timelineStats, evaluateExpression } from "../controllers/stats.controller.js";
 
 const router = Router();
 
@@ -37,5 +37,7 @@ router.post("/entries/archive", requireAuth, archiveEntries);
 router.patch("/entries/:id/archive", requireAuth, setEntryArchived);
 router.post("/projects/:projectId/stats/group", requireAuth, groupStats);
 router.post("/projects/:projectId/stats/timeline", requireAuth, timelineStats);
+// Custom expressions (US16) — one number for the whole project.
+router.post("/projects/:projectId/stats/expression", requireAuth, evaluateExpression);
 
 export default router;

@@ -270,6 +270,20 @@ export function aggregatesUsed(node: ExpressionNode): { fn: AggregateFn; field: 
   return [...found.values()];
 }
 
+/** Whether the tree asks for COUNT(), so the caller knows to fetch it. */
+export function usesCount(node: ExpressionNode): boolean {
+  switch (node.kind) {
+    case "count":
+      return true;
+    case "negate":
+      return usesCount(node.operand);
+    case "binary":
+      return usesCount(node.left) || usesCount(node.right);
+    default:
+      return false;
+  }
+}
+
 /** Supplies the numbers the tree asks for. Kept separate so the evaluator needs no database. */
 export interface AggregateSource {
   /** How many entries are in scope. */
