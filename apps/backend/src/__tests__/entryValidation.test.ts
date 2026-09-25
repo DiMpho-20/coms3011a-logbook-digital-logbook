@@ -257,6 +257,49 @@ describe("Format migration: adding a field backfills existing entries", () => {
     expect(entry.values[doubledId]).toBe(8);
   }, 30_000);
 
+  it("recalculates old entries, and the computed fields that use it, when a formula is edited (#88)", async () => {
+    const projectId = await createProject(`__recalc_formula_${ts}`);
+    const hoursId = await createField(projectId, { name: "Hours", type: "NUMBER" });
+    const payId = await createField(projectId, { name: "Pay", type: "COMPUTED", formula: `{${hoursId}} * 10` });
+    const bonusId = await createField(projectId, { name: "Bonus", type: "COMPUTED", formula: `{${payId}} + 1` });
+
+    const first = await request(app).post(`/api/projects/${projectId}/entries`).set(H)
+      .send({ durationMinutes: 30, values: { [hoursId]: 4 } });
+    const second = await request(app).post(`/api/projects/${projectId}/entries`).set(H)
+      .send({ durationMinutes: 30, values: { [hoursId]: 6 } });
+
+    const res = await request(app).put(`/api/entry-fields/${payId}`).set(H)
+      .send({ formula: `{${hoursId}} * 100` });
+    expect(res.status).toBe(200);
+
+    const getRes = await request(app).get(`/api/projects/${projectId}/entries`).set(H);
+    const byId = (id: string) => getRes.body.find((e: any) => e.id === id);
+    expect(byId(first.body.id).values[payId]).toBe(400);
+    expect(byId(first.body.id).values[bonusId]).toBe(401);
+    expect(byId(second.body.id).values[payId]).toBe(600);
+    expect(byId(second.body.id).values[bonusId]).toBe(601);
+
+    // Statistics read the stored results, so they must move too.
+    const sumRes = await request(app).post(`/api/projects/${projectId}/stats/group`).set(H)
+      .send({ metricFieldId: payId, operation: "sum" });
+    expect(sumRes.body.groups[0].value).toBe(1000);
+  }, 60_000);
+
+  it("leaves stored results alone when only a computed field's name changes", async () => {
+    const projectId = await createProject(`__recalc_rename_${ts}`);
+    const hoursId = await createField(projectId, { name: "Hours", type: "NUMBER" });
+    const payId = await createField(projectId, { name: "Pay", type: "COMPUTED", formula: `{${hoursId}} * 10` });
+    await request(app).post(`/api/projects/${projectId}/entries`).set(H)
+      .send({ durationMinutes: 30, values: { [hoursId]: 4 } });
+    const before = await prisma.entryValue.findMany({ where: { fieldId: payId } });
+
+    await request(app).put(`/api/entry-fields/${payId}`).set(H).send({ name: "Earnings" });
+
+    const after = await prisma.entryValue.findMany({ where: { fieldId: payId } });
+    // Same rows, not rewritten: a rename must not touch every entry.
+    expect(after.map((v) => v.id)).toEqual(before.map((v) => v.id));
+  }, 60_000);
+
   it("displays a value saved for a field added after the entry was created", async () => {
     const projectId = await createProject(`__migrate_display_new_${ts}`);
     const entryRes = await request(app)

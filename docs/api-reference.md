@@ -382,6 +382,14 @@ Update an entry field. All body fields are optional.
 | `required` | boolean | Always `false` for `COMPUTED` |
 | `formula` | string | `COMPUTED` only; same rules as [Computed formulas](#computed-formulas) |
 
+When the formula changes, or a field becomes `COMPUTED`, the stored result is
+recalculated on every existing entry in the project. So is every computed
+field that uses this one, directly or indirectly. This happens in the same
+transaction as the field update, so entries and statistics never mix old and
+new results. An entry the new formula cannot be worked out for (for example,
+a division by zero) is left without a value. Renaming a field does not touch
+stored results.
+
 **Response `200`:** Updated entry field object.
 **Errors:** `400` (blank name, unknown type, invalid formula or loop, formula on a non-computed field), `404` (field not found), `409` (type change on a field that already has values)
 

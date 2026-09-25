@@ -1,5 +1,5 @@
-import type { PrismaClient } from "@prisma/client";
-import { calculateComputedValues } from "./computedFields.js";
+import type { Prisma, PrismaClient } from "@prisma/client";
+import { affectedComputedFields, calculateComputedValues } from "./computedFields.js";
 
 export type SnapshotField = {
   id: string;
@@ -73,34 +73,49 @@ export async function backfillNewField(
   field: { id: string; type: string; formula: string | null }
 ): Promise<void> {
   if (field.type !== "COMPUTED" || !field.formula) return;
+  await recalculateComputedFields(prisma, projectId, field.id);
+}
 
-  const entries = await prisma.logbookEntry.findMany({
+/**
+ * Rewrites the stored results of every computed field affected by a change to
+ * `changedFieldId` — the field itself and every computed field that uses it —
+ * on every entry in the project. Called when a field is added and when a
+ * formula is edited, so old entries never keep a result worked out from a
+ * formula that no longer applies (views and statistics read these rows).
+ *
+ * An entry the formula cannot be worked out for (a division by zero, say) is
+ * left without a row rather than keeping its old, now-wrong result. Pass a
+ * transaction client to make the rewrite atomic with the field change.
+ */
+export async function recalculateComputedFields(
+  db: Prisma.TransactionClient,
+  projectId: string,
+  changedFieldId: string
+): Promise<void> {
+  const fields = await db.entryField.findMany({ where: { projectId, archivedAt: null } });
+  const targets = affectedComputedFields(changedFieldId, fields);
+  if (targets.length === 0) return;
+
+  const entries = await db.logbookEntry.findMany({
     where: { projectId },
     select: { id: true, values: { select: { fieldId: true, value: true } } },
   });
   if (entries.length === 0) return;
-  // The formula may use other computed fields, which are worked out again
-  // rather than read from what each entry stored for them.
-  const fields = await prisma.entryField.findMany({ where: { projectId, archivedAt: null } });
 
-  // Only entries the formula can actually be computed for get a row — an
-  // entry missing the numbers it depends on is skipped, not fabricated.
-  const writes = entries.flatMap((entry) => {
+  const rows = entries.flatMap((entry) => {
     const raw = Object.fromEntries(entry.values.map((v) => [v.fieldId, v.value]));
-    try {
-      const computed = calculateComputedValues([...fields.filter((f) => f.id !== field.id), field], raw, [field.id]);
-      if (!(field.id in computed)) return [];
-      return [
-        prisma.entryValue.upsert({
-          where: { entryId_fieldId: { entryId: entry.id, fieldId: field.id } },
-          create: { entryId: entry.id, fieldId: field.id, value: String(computed[field.id]) },
-          update: {},
-        }),
-      ];
-    } catch {
-      return [];
-    }
+    // One target at a time, so a formula that fails for this entry does not
+    // stop the others from being worked out.
+    return targets.flatMap((fieldId) => {
+      try {
+        const result = calculateComputedValues(fields, raw, [fieldId]);
+        return fieldId in result ? [{ entryId: entry.id, fieldId, value: String(result[fieldId]) }] : [];
+      } catch {
+        return [];
+      }
+    });
   });
 
-  if (writes.length > 0) await prisma.$transaction(writes);
+  await db.entryValue.deleteMany({ where: { fieldId: { in: targets }, entry: { projectId } } });
+  if (rows.length > 0) await db.entryValue.createMany({ data: rows });
 }

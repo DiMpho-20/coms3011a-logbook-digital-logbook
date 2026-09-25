@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── computedFields ──────────────────────────────────────────────────────
 import {
+  affectedComputedFields,
   calculateComputedValues,
   validateFormula,
 } from "../utils/computedFields.js";
@@ -115,6 +116,28 @@ describe("validateFormula", () => {
     ];
     // Editing a to read b would make a → b → a.
     expect(() => validateFormula("{b} * 2", loop, "a")).toThrow(/loop/);
+  });
+});
+
+describe("affectedComputedFields", () => {
+  const fields: Field[] = [
+    { id: "hours", type: "NUMBER", formula: null },
+    { id: "pay", type: "COMPUTED", formula: "{hours} * 50" },
+    { id: "withTax", type: "COMPUTED", formula: "{pay} * 1.15" },
+    { id: "rounded", type: "COMPUTED", formula: "{withTax} + 0" },
+    { id: "unrelated", type: "COMPUTED", formula: "2 * 3" },
+  ];
+
+  it("includes a computed field and everything that uses it, however indirectly", () => {
+    expect(affectedComputedFields("pay", fields).sort()).toEqual(["pay", "rounded", "withTax"]);
+  });
+
+  it("gives only the dependents for a number field", () => {
+    expect(affectedComputedFields("hours", fields).sort()).toEqual(["pay", "rounded", "withTax"]);
+  });
+
+  it("is empty when nothing depends on the field", () => {
+    expect(affectedComputedFields("hours", [{ id: "hours", type: "NUMBER", formula: null }])).toEqual([]);
   });
 });
 
