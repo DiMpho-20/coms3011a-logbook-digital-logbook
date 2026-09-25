@@ -413,4 +413,54 @@ describe("Account deletion", () => {
     expect(user).not.toBeNull();
     expect(user!.scheduledDeletionAt?.toISOString()).toBe(res.body.scheduledDeletionAt);
   });
+
+  it("DELETE /auth/account again keeps the original deletion date", async () => {
+    const first = await prisma.user.findUnique({ where: { id: TFA_USER_ID } });
+    const res = await request(app)
+      .delete("/api/auth/account")
+      .set(tfaToken)
+      .send({ confirmPassword: TEST_PASSWORD });
+
+    expect(res.status).toBe(200);
+    expect(res.body.scheduledDeletionAt).toBe(first!.scheduledDeletionAt!.toISOString());
+  });
+
+  it("POST /auth/account/cancel-deletion keeps the account", async () => {
+    const res = await request(app).post("/api/auth/account/cancel-deletion").set(tfaToken);
+    expect(res.status).toBe(200);
+
+    const user = await prisma.user.findUnique({ where: { id: TFA_USER_ID } });
+    expect(user!.scheduledDeletionAt).toBeNull();
+  });
+
+  it("POST /auth/account/cancel-deletion with nothing scheduled → 400", async () => {
+    const res = await request(app).post("/api/auth/account/cancel-deletion").set(tfaToken);
+    expect(res.status).toBe(400);
+  });
+
+  it("erases the account at the first login after the grace period ends", async () => {
+    const expiredId = crypto.randomUUID();
+    const expiredEmail = `auth_expired_${ts}@example.com`;
+    await prisma.user.create({
+      data: {
+        id: expiredId,
+        email: expiredEmail,
+        passwordHash: await hashPassword(TEST_PASSWORD),
+        fullName: "Expired Deletion User",
+        isEmailVerified: true,
+        scheduledDeletionAt: new Date(Date.now() - 86_400_000),
+      },
+    });
+
+    try {
+      const res = await request(app)
+        .post("/api/auth/login")
+        .send({ email: expiredEmail, password: TEST_PASSWORD });
+
+      expect(res.status).toBe(401);
+      expect(await prisma.user.findUnique({ where: { id: expiredId } })).toBeNull();
+    } finally {
+      await prisma.user.delete({ where: { id: expiredId } }).catch(() => {});
+    }
+  });
 });
