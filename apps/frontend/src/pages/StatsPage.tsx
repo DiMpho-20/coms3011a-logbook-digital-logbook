@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { BarChart3, TrendingUp, Loader2, Clock } from "lucide-react";
+import { BarChart3, TrendingUp, Loader2, Clock, Sigma } from "lucide-react";
 import { api } from "../api/client";
 import {
   fetchProjects,
@@ -52,6 +52,12 @@ export default function StatsPage() {
   const [timeline, setTimeline] = useState<TimelineResult | null>(null);
   const [computingTimeline, setComputingTimeline] = useState(false);
   const [timelineError, setTimelineError] = useState<string | null>(null);
+
+  // Custom Expression (US16)
+  const [expression, setExpression] = useState("");
+  const [expressionValue, setExpressionValue] = useState<number | null>(null);
+  const [evaluating, setEvaluating] = useState(false);
+  const [expressionError, setExpressionError] = useState<string | null>(null);
 
   const selectedProjectId = params.get("project") ?? "";
 
@@ -106,6 +112,8 @@ export default function StatsPage() {
         setDateFieldId("");
         setTimelinePlot(COUNT_MODE);
         setTimeline(null);
+        setExpressionValue(null);
+        setExpressionError(null);
       })
       .catch(() => setFields([]))
       .finally(() => setLoadingFields(false));
@@ -195,6 +203,29 @@ export default function StatsPage() {
     if (dateFieldId) void runTimeline(dateFieldId, bucket, timelinePlot);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFieldId, bucket, timelinePlot]);
+
+  /** A field is written {in braces} so names with spaces work as one token. */
+  const referenceFor = (name: string) => `{${name}}`;
+
+  const runExpression = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedProjectId || !expression.trim()) return;
+    setEvaluating(true);
+    setExpressionError(null);
+    setExpressionValue(null);
+    try {
+      const res = await api.post(`/projects/${selectedProjectId}/stats/expression`, {
+        expression: expression.trim(),
+      });
+      setExpressionValue(res.data.value);
+    } catch (err: any) {
+      // The server explains what is wrong with an expression; only fall back
+      // when it could not be reached at all.
+      setExpressionError(err?.response?.data?.error ?? "Could not work that expression out");
+    } finally {
+      setEvaluating(false);
+    }
+  };
 
   const plottedFieldName =
     timelinePlot !== COUNT_MODE ? fields.find((f) => f.id === timelinePlot)?.name : null;
@@ -409,6 +440,104 @@ export default function StatsPage() {
                 />
               ) : timeline ? (
                 <p className="text-xs text-slate-500 py-2">No dated entries yet.</p>
+              ) : null}
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* Custom Expression (US16) — one number across the whole project */}
+      <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+            <Sigma className="h-4 w-4 text-cyan-600" /> Custom Expression
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Your own calculation over every entry in this project — for example
+            {" "}
+            <span className="font-mono text-slate-600">SUM(&#123;Hours&#125;) / COUNT()</span>.
+          </p>
+        </div>
+
+        {loadingFields ? (
+          <p className="text-xs text-slate-500">Loading fields…</p>
+        ) : (
+          <>
+            <form onSubmit={runExpression} className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[240px]">
+                <label htmlFor="custom-expression" className="block text-[11px] font-medium text-slate-500 mb-1">
+                  Expression
+                </label>
+                <input
+                  id="custom-expression"
+                  value={expression}
+                  onChange={(e) => setExpression(e.target.value)}
+                  placeholder="SUM({Hours}) / COUNT()"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono text-slate-800 bg-white outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={evaluating || !expression.trim()}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                Calculate
+              </button>
+            </form>
+
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-[11px]">
+              <div>
+                <p className="font-medium text-slate-500 mb-1">Fields you can use</p>
+                {numericFields.length === 0 ? (
+                  <p className="text-slate-500">
+                    This project has no Number or Computed fields yet, so only COUNT() will work.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {numericFields.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setExpression((current) => `${current}${referenceFor(f.name)}`)}
+                        title={`Add ${f.name} to the expression`}
+                        className="px-2 py-0.5 rounded-md font-mono bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition"
+                      >
+                        {f.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-slate-500 mb-1">Functions</p>
+                <div className="flex flex-wrap gap-1">
+                  {["COUNT()", "SUM(field)", "AVG(field)", "MIN(field)", "MAX(field)"].map((fn) => (
+                    <span
+                      key={fn}
+                      className="px-2 py-0.5 rounded-md font-mono bg-slate-100 text-slate-600 border border-slate-200"
+                    >
+                      {fn}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-slate-500 mt-1">with + - * / and parentheses</p>
+              </div>
+            </div>
+
+            <div className="pt-1">
+              {evaluating ? (
+                <div className="flex items-center gap-2 text-xs text-slate-400 py-4">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Calculating…
+                </div>
+              ) : expressionError ? (
+                <p role="alert" className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  {expressionError}
+                </p>
+              ) : expressionValue !== null ? (
+                <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-5 text-center">
+                  <p className="text-3xl font-bold text-slate-900 tabular-nums">{formatNumber(expressionValue)}</p>
+                  <p className="text-xs text-slate-500 mt-1 font-mono break-all">{expression.trim()}</p>
+                </div>
               ) : null}
             </div>
           </>
