@@ -56,6 +56,10 @@ export default function StatsPage() {
   // Custom Expression (US16)
   const [expression, setExpression] = useState("");
   const [expressionValue, setExpressionValue] = useState<number | null>(null);
+  // The expression the shown number actually came from. Captioning the result
+  // with whatever is currently typed would let an edited box describe a
+  // number it did not produce.
+  const [evaluatedExpression, setEvaluatedExpression] = useState("");
   const [evaluating, setEvaluating] = useState(false);
   const [expressionError, setExpressionError] = useState<string | null>(null);
 
@@ -113,6 +117,7 @@ export default function StatsPage() {
         setTimelinePlot(COUNT_MODE);
         setTimeline(null);
         setExpressionValue(null);
+        setEvaluatedExpression("");
         setExpressionError(null);
       })
       .catch(() => setFields([]))
@@ -214,10 +219,12 @@ export default function StatsPage() {
     setExpressionError(null);
     setExpressionValue(null);
     try {
+      const asked = expression.trim();
       const res = await api.post(`/projects/${selectedProjectId}/stats/expression`, {
-        expression: expression.trim(),
+        expression: asked,
       });
       setExpressionValue(res.data.value);
+      setEvaluatedExpression(asked);
     } catch (err: any) {
       // The server explains what is wrong with an expression; only fall back
       // when it could not be reached at all.
@@ -536,7 +543,7 @@ export default function StatsPage() {
               ) : expressionValue !== null ? (
                 <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-5 text-center">
                   <p className="text-3xl font-bold text-slate-900 tabular-nums">{formatNumber(expressionValue)}</p>
-                  <p className="text-xs text-slate-500 mt-1 font-mono break-all">{expression.trim()}</p>
+                  <p className="text-xs text-slate-500 mt-1 font-mono break-all">{evaluatedExpression}</p>
                 </div>
               ) : null}
             </div>
