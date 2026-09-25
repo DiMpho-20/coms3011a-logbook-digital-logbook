@@ -1,4 +1,7 @@
-name: Build and Push Backend Application
+# CI only: installs, typechecks, lints, tests and builds. It deploys nothing —
+# the backend goes to Render and the frontend to Cloudflare Pages by hand
+# (see the deployment guides).
+name: CI - Test and Build
 
 on:
   push:
