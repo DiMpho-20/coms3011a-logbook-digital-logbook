@@ -30,6 +30,22 @@ enum EntryStatus {
   DONE
 }
 
+enum ReminderStatus {
+  PENDING
+  COMPLETED
+  DISMISSED
+}
+
+// MANUAL reminders are set by the student; the rest are generated from
+// their reminder rules (US28).
+enum ReminderSource {
+  MANUAL
+  DUE_SOON
+  OVERDUE
+  STALE
+  DAILY_LOG
+}
+
 // --- USER ENTITY (Person 1) ---
 
 model User {
@@ -51,6 +67,8 @@ model User {
   projects                Project[]
   tags                    Tag[]
   googleCalendarConnection GoogleCalendarConnection?
+  reminders               Reminder[]
+  reminderSettings        ReminderSettings?
 
   @@map("users")
 }
@@ -133,6 +151,7 @@ model LogbookEntry {
   formatVersion EntryFormatVersion? @relation(fields: [formatVersionId], references: [id], onDelete: SetNull)
   tags    EntryTag[]
   versions EntryVersion[]
+  reminders Reminder[]
 
   @@map("logbook_entries")
 }
@@ -242,4 +261,52 @@ model GoogleCalendarConnection {
   updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// --- REMINDERS (US28) ---
+// A generated reminder carries a ruleKey naming the rule and the condition
+// that fired it (e.g. "due-soon:<entryId>:2026-10-01"). The unique index
+// means the same condition only ever produces one reminder, so dismissing it
+// sticks, while a changed due date is a new condition and a new reminder.
+
+model Reminder {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  entryId     String?        @map("entry_id") @db.Uuid
+  source      ReminderSource @default(MANUAL)
+  ruleKey     String?        @map("rule_key") @db.VarChar(255)
+  title       String         @db.VarChar(255)
+  note        String?        @db.Text
+  remindAt    DateTime       @map("remind_at")
+  status      ReminderStatus @default(PENDING)
+  completedAt DateTime?      @map("completed_at")
+  dismissedAt DateTime?      @map("dismissed_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entry LogbookEntry? @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ruleKey])
+  @@index([userId, status, remindAt])
+  @@map("reminders")
+}
+
+// The student's reminder rules. No row means the defaults below.
+model ReminderSettings {
+  userId          String   @id @map("user_id") @db.Uuid
+  dueSoonEnabled  Boolean  @default(true) @map("due_soon_enabled")
+  dueSoonDays     Int      @default(1) @map("due_soon_days")
+  overdueEnabled  Boolean  @default(true) @map("overdue_enabled")
+  staleEnabled    Boolean  @default(false) @map("stale_enabled")
+  staleDays       Int      @default(7) @map("stale_days")
+  dailyLogEnabled Boolean  @default(false) @map("daily_log_enabled")
+  dailyLogTime    String   @default("18:00") @map("daily_log_time") @db.VarChar(5)
+  // IANA zone the student's calendar days are counted in, e.g. "Africa/Johannesburg".
+  timeZone        String   @default("UTC") @map("time_zone") @db.VarChar(64)
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reminder_settings")
 }
