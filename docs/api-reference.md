@@ -724,6 +724,124 @@ it was on; the projects and entries themselves are not changed otherwise.
 
 ---
 
+## Reminders (`/api/reminders`) 🔒
+
+US28. A reminder is either set by hand (`source: "MANUAL"`) or generated from
+the user's reminder rules:
+
+| Source | Generated when |
+|---|---|
+| `DUE_SOON` | An open, unarchived entry's due date is within `dueSoonDays` days |
+| `OVERDUE` | An open, unarchived entry's due date has passed |
+| `STALE` | An open, unarchived entry has not been edited for `staleDays` days |
+| `DAILY_LOG` | Nothing has been logged today and it is past `dailyLogTime` |
+
+Rules are evaluated whenever reminders are read (`GET /reminders` and
+`GET /reminders/count`). Each condition produces at most one reminder, so a
+completed or dismissed reminder stays that way while the condition holds. A
+pending generated reminder whose condition lapses is marked `COMPLETED` if
+its entry was marked done (or, for `DAILY_LOG`, something was logged), and
+removed otherwise, e.g. when the due date moves or the rule is switched off.
+Calendar days are counted in the rules' `timeZone`.
+
+Reminder object:
+```json
+{
+  "id": "...",
+  "title": "Due soon: Submit lab report",
+  "note": null,
+  "source": "DUE_SOON",
+  "status": "PENDING",
+  "remindAt": "2026-09-26T10:00:00.000Z",
+  "completedAt": null,
+  "dismissedAt": null,
+  "createdAt": "2026-09-26T10:00:00.000Z",
+  "entry": {
+    "id": "...", "projectId": "...", "projectName": "Chemistry",
+    "label": "Submit lab report", "dueDate": "2026-09-27T00:00:00.000Z", "status": "OPEN"
+  }
+}
+```
+
+### `GET /api/reminders`
+
+List the caller's reminders.
+
+**Query:** `status` = `pending` (default) \| `completed` \| `dismissed` \| `done` (completed + dismissed) \| `all`;
+`due=true` keeps only reminders whose `remindAt` has passed.
+Pending reminders are ordered by `remindAt`; others most recently changed first. At most 200.
+
+**Response `200`:** array of reminder objects.
+**Errors:** `400` (unknown status)
+
+---
+
+### `GET /api/reminders/count`
+
+**Response `200`:** `{ "due": 3 }`: pending reminders whose time has come.
+
+---
+
+### `POST /api/reminders`
+
+Set a reminder by hand.
+
+**Body:**
+```json
+{ "title": "Email supervisor", "remindAt": "2026-09-27T09:00:00.000Z", "note": "optional", "entryId": "optional uuid" }
+```
+
+**Response `201`:** the reminder.
+**Errors:** `400` (missing title, invalid date), `404` (entry not found, or not the caller's)
+
+---
+
+### `PATCH /api/reminders/:id`
+
+Complete, dismiss, reopen, snooze or edit a reminder. Send any of
+`status` (`PENDING` \| `COMPLETED` \| `DISMISSED`), `title`, `note`, `remindAt`.
+Setting a status stamps `completedAt`/`dismissedAt`; `PENDING` clears both.
+
+**Response `200`:** the reminder.
+**Errors:** `400` (invalid value, empty body), `404`
+
+---
+
+### `DELETE /api/reminders/:id`
+
+Delete a manual reminder. Generated reminders would come back while their
+condition holds, so they must be dismissed instead.
+
+**Response `204`:** No content.
+**Errors:** `400` (generated reminder), `404`
+
+---
+
+### `GET /api/reminders/settings`
+
+The caller's reminder rules (defaults shown):
+```json
+{
+  "dueSoonEnabled": true, "dueSoonDays": 1,
+  "overdueEnabled": true,
+  "staleEnabled": false, "staleDays": 7,
+  "dailyLogEnabled": false, "dailyLogTime": "18:00",
+  "timeZone": "UTC"
+}
+```
+
+---
+
+### `PUT /api/reminders/settings`
+
+Update any subset of the rules. `dueSoonDays` 0–30, `staleDays` 1–365,
+`dailyLogTime` `HH:MM`, `timeZone` an IANA zone name.
+
+**Response `200`:** the full rules.
+**Errors:** `400` (out-of-range or invalid value)
+
+---
+
 ## Google Calendar (`/api/google-calendar`)
 
 Syncs open entries' due dates into the user's primary Google Calendar using the
