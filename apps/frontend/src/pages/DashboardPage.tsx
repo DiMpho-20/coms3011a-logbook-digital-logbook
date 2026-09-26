@@ -6,6 +6,7 @@ import {
   Clock,
   Plus,
   FolderOpen,
+  LayoutDashboard,
 } from "lucide-react";
 
 import {
@@ -23,6 +24,24 @@ import DeadlineReminders from "../components/DeadlineReminders";
 import LoadingState from "../components/LoadingState";
 import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
+import Modal from "../components/Modal";
+import {
+  DASHBOARD_PANELS,
+  loadDashboardPanels,
+  saveDashboardPanels,
+  type DashboardPanelId,
+} from "../lib/dashboardPreferences";
+
+const DASHBOARD_PANEL_DETAILS: Record<DashboardPanelId, { title: string; description: string }> = {
+  "active-projects": { title: "Active projects", description: "Your number of active projects" },
+  "entries-this-week": { title: "Entries this week", description: "Entries created in the last seven days" },
+  "total-time-logged": { title: "Total time logged", description: "Time logged across your active projects" },
+  "deadline-reminders": { title: "Deadline reminders", description: "Upcoming due dates from your entries" },
+  activity: { title: "Activity", description: "A seven-day view of time logged" },
+  "current-projects": { title: "Current projects", description: "Your active projects and their logged time" },
+  tags: { title: "Tags", description: "Tags used in your projects and entries" },
+  "recent-entries": { title: "Recent entries", description: "Your latest logbook entries" },
+};
 
 // ── SVG Sparkline ────────────────────────────────────────────────────────
 function ActivityChart({ data }: { data: { label: string; value: number }[] }) {
@@ -148,6 +167,9 @@ export default function DashboardPage() {
   const [entriesLoading, setEntriesLoading] = useState(true);
   const [loadFailures, setLoadFailures] = useState(0);
   const [truncated, setTruncated] = useState(false);
+  const [selectedPanels, setSelectedPanels] = useState<DashboardPanelId[]>(loadDashboardPanels);
+  const [panelPickerOpen, setPanelPickerOpen] = useState(false);
+  const [draftPanels, setDraftPanels] = useState<DashboardPanelId[]>(selectedPanels);
   const [displayName] = useState(
     () => (typeof window !== "undefined" ? localStorage.getItem("logbook-name") : null) || "Student"
   );
@@ -286,6 +308,23 @@ export default function DashboardPage() {
 
   if (loading) return <LoadingState message="Loading dashboard..." />;
 
+  const panelIsSelected = (panel: DashboardPanelId) => selectedPanels.includes(panel);
+  const openPanelPicker = () => {
+    setDraftPanels(selectedPanels);
+    setPanelPickerOpen(true);
+  };
+  const toggleDraftPanel = (panel: DashboardPanelId) => {
+    setDraftPanels((current) =>
+      current.includes(panel) ? current.filter((item) => item !== panel) : [...current, panel]
+    );
+  };
+  const savePanelSelection = () => {
+    const orderedPanels = DASHBOARD_PANELS.filter((panel) => draftPanels.includes(panel));
+    setSelectedPanels(orderedPanels);
+    saveDashboardPanels(orderedPanels);
+    setPanelPickerOpen(false);
+  };
+
   return (
     <div className="space-y-6 max-w-6xl">
       {/* ── 1. Greeting ─────────────────────────────────────────────────── */}
@@ -293,31 +332,41 @@ export default function DashboardPage() {
         title={`${getGreeting()}, ${displayName} \u{1F44B}`}
         subtitle="Here's what you've been working on."
         action={
-          <button
-            onClick={() => navigate("/projects")}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-          >
-            <Plus className="h-4 w-4" /> New Project
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openPanelPicker}
+              className="flex items-center gap-2 border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition"
+            >
+              <LayoutDashboard className="h-4 w-4" /> Customize dashboard
+            </button>
+            <button
+              onClick={() => navigate("/projects")}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+            >
+              <Plus className="h-4 w-4" /> New Project
+            </button>
+          </div>
         }
       />
 
       {/* ── 2. Key Statistics ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard icon={FolderKanban} label="Active Projects" value={stats.activeCount} color="blue" />
-        <StatCard icon={ListChecks} label="Entries This Week" value={stats.weekCount} color="emerald" loading={entriesLoading} />
-        <StatCard icon={Clock} label="Total Time Logged" value={formatDuration(stats.totalMinutes)} color="orange" loading={entriesLoading} />
-      </div>
+      {(panelIsSelected("active-projects") || panelIsSelected("entries-this-week") || panelIsSelected("total-time-logged")) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {panelIsSelected("active-projects") && <StatCard icon={FolderKanban} label="Active Projects" value={stats.activeCount} color="blue" />}
+          {panelIsSelected("entries-this-week") && <StatCard icon={ListChecks} label="Entries This Week" value={stats.weekCount} color="emerald" loading={entriesLoading} />}
+          {panelIsSelected("total-time-logged") && <StatCard icon={Clock} label="Total Time Logged" value={formatDuration(stats.totalMinutes)} color="orange" loading={entriesLoading} />}
+        </div>
+      )}
 
       {/* ── Deadline Reminders ─────────────────────────────────────────── */}
-      {entriesLoading ? (
+      {panelIsSelected("deadline-reminders") && (entriesLoading ? (
         <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-2">
           <Skeleton className="h-4 w-28" />
           <Skeleton className="h-3 w-56" />
         </div>
       ) : (
         <DeadlineReminders entries={allEntries} projectNames={projectNames} />
-      )}
+      ))}
 
       {truncated && (
         <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -334,9 +383,9 @@ export default function DashboardPage() {
       )}
 
       {/* ── 3. Activity + Projects ──────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      {(panelIsSelected("activity") || panelIsSelected("current-projects")) && <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Activity Chart — 3/5 */}
-        <div className="lg:col-span-3 bg-white rounded-lg border border-slate-200">
+        {panelIsSelected("activity") && <div className={panelIsSelected("current-projects") ? "lg:col-span-3 bg-white rounded-lg border border-slate-200" : "lg:col-span-5 bg-white rounded-lg border border-slate-200"}>
           <div className="px-4 py-3 border-b border-slate-100">
             <h2 className="text-sm font-semibold text-slate-900">Activity</h2>
             <p className="text-[11px] text-slate-400 mt-0.5">Minutes logged — last 7 days</p>
@@ -344,10 +393,10 @@ export default function DashboardPage() {
           <div className="p-4">
             <ActivityChart data={activityData} />
           </div>
-        </div>
+        </div>}
 
         {/* Current Projects — 2/5 */}
-        <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200">
+        {panelIsSelected("current-projects") && <div className={panelIsSelected("activity") ? "lg:col-span-2 bg-white rounded-lg border border-slate-200" : "lg:col-span-5 bg-white rounded-lg border border-slate-200"}>
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">Current Projects</h2>
             <button
@@ -386,11 +435,11 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </div>
-      </div>
+        </div>}
+      </div>}
 
       {/* ── 4. Tags ──────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-lg border border-slate-200">
+      {panelIsSelected("tags") && <div className="bg-white rounded-lg border border-slate-200">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">Tags</h2>
           <button
@@ -421,10 +470,10 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* ── 5. Recent Entries ───────────────────────────────────────────── */}
-      <div className="bg-white rounded-lg border border-slate-200">
+      {panelIsSelected("recent-entries") && <div className="bg-white rounded-lg border border-slate-200">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">Recent Entries</h2>
           <button
@@ -464,7 +513,46 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
+
+      {selectedPanels.length === 0 && (
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+          <h2 className="text-sm font-semibold text-slate-800">Your dashboard is ready to customise</h2>
+          <p className="mt-1 text-sm text-slate-500">Choose statistics or information panels to start building your view.</p>
+          <button onClick={openPanelPicker} className="mt-4 text-sm font-medium text-blue-600 hover:text-blue-700">Choose panels</button>
+        </div>
+      )}
+
+      <Modal open={panelPickerOpen} onClose={() => setPanelPickerOpen(false)} title="Customize dashboard" wide>
+        <p className="mb-4 text-sm text-slate-500">Choose the statistics and information you want to monitor. Your selection is saved to this device.</p>
+        <fieldset className="space-y-2">
+          <legend className="sr-only">Dashboard panels</legend>
+          {DASHBOARD_PANELS.map((panel) => {
+            const detail = DASHBOARD_PANEL_DETAILS[panel];
+            return (
+              <label key={panel} className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={draftPanels.includes(panel)}
+                  onChange={() => toggleDraftPanel(panel)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-slate-800">{detail.title}</span>
+                  <span className="block text-xs text-slate-500">{detail.description}</span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <button onClick={() => setDraftPanels([...DASHBOARD_PANELS])} className="text-sm font-medium text-blue-600 hover:text-blue-700">Restore defaults</button>
+          <div className="flex gap-2">
+            <button onClick={() => setPanelPickerOpen(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button onClick={savePanelSelection} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Save dashboard</button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

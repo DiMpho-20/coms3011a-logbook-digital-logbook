@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
 // Mock the API module so no network calls happen
@@ -60,6 +61,23 @@ describe("DashboardPage", () => {
     expect(
       await screen.findByRole("button", { name: /new project/i }),
     ).toBeInTheDocument();
+  });
+
+  it("lets a student remove a dashboard panel and restores that choice", async () => {
+    const user = userEvent.setup();
+    const firstRender = renderDashboard();
+
+    await user.click(await screen.findByRole("button", { name: /customize dashboard/i }));
+    await user.click(screen.getByRole("checkbox", { name: /activity/i }));
+    await user.click(screen.getByRole("button", { name: /save dashboard/i }));
+
+    expect(screen.queryByText("Activity")).not.toBeInTheDocument();
+    expect(localStorage.getItem("logbook-dashboard-panels")).not.toContain("activity");
+
+    firstRender.unmount();
+    renderDashboard();
+    expect(await screen.findByText("Active Projects")).toBeInTheDocument();
+    expect(screen.queryByText("Activity")).not.toBeInTheDocument();
   });
 
   it("renders the Activity chart section", async () => {

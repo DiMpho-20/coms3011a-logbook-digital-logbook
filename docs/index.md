@@ -40,7 +40,7 @@ Sprint 1 delivers the core logbook functionality with authentication and user ma
 - **Entry Schema Definition** — Define custom entry fields (TEXT, NUMBER, DATE, BOOLEAN) per project.
 - **Entry CRUD** — Create, update, delete logbook entries with typed field values, due dates, and backdated entry dates.
 - **Time Tracking** — Record duration per entry, view per-project time summaries (total hours, entry count, last entry).
-- **Dashboard** — Greeting, stat cards (active projects, entries this week, total time), SVG activity sparkline chart, current projects list, and recent entries table.
+- **Custom dashboard** — Students can choose which built-in statistics and information panels appear on their dashboard; the selected view is retained on the device.
 - **Project Detail View** — Entry format section (required/optional indicators), grouped entries by date, clean modal form for entry creation.
 - **Entry Browser** — Vertical timeline layout with date grouping, search, project filter, entry type filter (All/This Week/Overdue), and newest/oldest sort toggle.
 - **Overdue Entries** — Entries past `due_date` flagged with red border, warning badge, and dedicated Overdue filter tab.
