@@ -13,6 +13,7 @@
   CreateEntryFieldInput,
   UpdateEntryFieldInput,
   EntryFieldType,
+  RecurrencePattern,
   ChecklistItem,
   Tag,
   ArchivedFilter,
@@ -54,6 +55,7 @@ export type {
   TimeSummary,
   ProjectStatus,
   EntryFieldType,
+  RecurrencePattern,
   ChecklistItem,
   Tag,
   ArchivedFilter,
@@ -371,6 +373,12 @@ export async function updateEntry(
   updates: UpdateEntryInput
 ): Promise<Entry> {
   const res = await api.put(`/entries/${id}`, updates);
+  return res.data;
+}
+
+/** Enable or disable all future occurrences for one recurring entry series. */
+export async function setRecurrenceEnabled(id: string, enabled: boolean): Promise<Entry["recurrence"]> {
+  const res = await api.patch(`/recurrences/${id}`, { enabled });
   return res.data;
 }
 

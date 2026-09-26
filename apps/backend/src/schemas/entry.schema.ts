@@ -10,12 +10,19 @@ const isoDateSchema = z
   .refine((s) => !isNaN(Date.parse(s)), { message: "Invalid ISO date" })
   .transform((s) => new Date(s));
 
+const recurrenceSchema = z.object({
+  pattern: z.enum(["DAILY", "WEEKLY", "MONTHLY"]),
+  // An omitted end date means the recurrence continues until it is disabled.
+  until: isoDateSchema.optional(),
+});
+
 export const createEntrySchema = z.object({
   durationMinutes: z.number().int().min(0, "Duration cannot be negative"),
   values: entryValuesSchema,
   entryDate: isoDateSchema.optional(),
   dueDate: isoDateSchema.optional(),
   tags: z.array(z.string()).optional(),
+  recurrence: recurrenceSchema.optional(),
 });
 
 export const updateEntrySchema = z.object({

@@ -1,6 +1,7 @@
 // ─── Enums & Constants ───────────────────────────────────────────────────
 
 export type ProjectStatus = "ACTIVE" | "ARCHIVED";
+export type RecurrencePattern = "DAILY" | "WEEKLY" | "MONTHLY";
 export type EntryFieldType =
   | "TEXT"
   | "NUMBER"
@@ -80,6 +81,13 @@ export interface Entry {
   completedAt: string | null;
   /** When the entry was moved to the archive; null (or absent offline) while active. */
   archivedAt?: string | null;
+  recurrence?: {
+    id: string;
+    pattern: RecurrencePattern;
+    enabled: boolean;
+    nextOccurrence: string;
+    until: string | null;
+  } | null;
 }
 
 /** An entry's content at one point in its history, without its identity or archive state. */
@@ -142,6 +150,7 @@ export interface CreateEntryInput {
   entryDate?: string;
   dueDate?: string;
   tags?: string[];
+  recurrence?: { pattern: RecurrencePattern; until?: string };
 }
 
 export interface UpdateEntryInput {

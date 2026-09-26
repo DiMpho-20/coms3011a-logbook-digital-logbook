@@ -483,9 +483,27 @@ Create a new logbook entry.
 | `durationMinutes` | number | Yes | |
 | `values` | object | Yes | Key = field ID, value = field value |
 | `entryDate` | string | No | ISO date (YYYY-MM-DD) |
+| `recurrence` | object | No | Creates a recurrence rule: `{ "pattern": "DAILY" | "WEEKLY" | "MONTHLY", "until"?: ISO date }` |
 | `dueDate` | string | No | ISO date (YYYY-MM-DD) |
 
 **Response `201`:** Created entry object with `status: "OPEN"`.
+
+When an entry includes `recurrence`, the original and each generated
+occurrence expose a `recurrence` object containing its rule id, pattern,
+enabled state and next occurrence. Due occurrences are generated automatically
+while the backend is running and are also caught up when the student's entries
+are read.
+
+### `PATCH /api/recurrences/:id`
+
+Enable or disable future automatic occurrences for a recurring-entry rule.
+The rule must belong to the authenticated user.
+
+| Body field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `enabled` | boolean | Yes | `false` stops future entries; existing entries remain unchanged. |
+
+**Response `200`:** Updated recurrence summary.
 
 ---
 

@@ -1,5 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
 
+// Both the root client and an interactive transaction provide this delegate.
+type TagDb = Pick<PrismaClient, "tag">;
+
 /** Trim and collapse whitespace, and cap length to the column's limit. */
 export function normalizeTagName(raw: string): string {
   return raw.trim().replace(/\s+/g, " ").slice(0, 50);
@@ -27,7 +30,7 @@ export function cleanTagNames(names: unknown): string[] {
  * name across all of that user's projects and entries.
  */
 export async function resolveTagIds(
-  prisma: PrismaClient,
+  prisma: TagDb,
   userId: string,
   names: string[]
 ): Promise<string[]> {

@@ -29,7 +29,9 @@ import {
   fetchTags,
   setEntryArchived,
   setEntriesArchived,
+  setRecurrenceEnabled,
   type ArchivedFilter,
+  type RecurrencePattern,
   type Project,
   type ProjectWithFields,
   type TimeSummary,
@@ -123,6 +125,8 @@ export default function ProjectDetailPage() {
   const [entryDate, setEntryDate] = useState(todayISO());
   const [entryDuration, setEntryDuration] = useState("");
   const [entryDueDate, setEntryDueDate] = useState("");
+  const [entryRecurring, setEntryRecurring] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>("WEEKLY");
   const [entryValues, setEntryValues] = useState<Record<string, EntryFieldValue>>({});
   // What each computed field will come to, updated as the form is filled in.
   const computedPreview = useMemo(() => previewComputedValues(fields, entryValues), [fields, entryValues]);
@@ -184,12 +188,15 @@ export default function ProjectDetailPage() {
       setEntryDuration(String(editingEntry.durationMinutes || ""));
       setEntryDueDate(editingEntry.dueDate ? editingEntry.dueDate.slice(0, 10) : "");
       setEntryTags(editingEntry.tags ?? []);
+      setEntryRecurring(false);
     } else {
       setEntryValues(defaultValuesForFields(fields));
       setEntryDate(todayISO());
       setEntryDuration("");
       setEntryDueDate("");
       setEntryTags([]);
+      setEntryRecurring(false);
+      setRecurrencePattern("WEEKLY");
     }
     setEntryError(null);
   }, [entryModalOpen, editingEntry, fields]);
@@ -255,6 +262,18 @@ export default function ProjectDetailPage() {
       if (id) fetchProjectTimeSummary(id).then(setSummary).catch(() => {});
     } catch {
       alert("Couldn't delete that entry. Try again.");
+    }
+  };
+
+  const handleDisableRecurrence = async (entry: Entry) => {
+    if (!entry.recurrence || !confirm("Stop creating future occurrences of this entry?")) return;
+    try {
+      const recurrence = await setRecurrenceEnabled(entry.recurrence.id, false);
+      setEntries((current) => current.map((item) =>
+        item.recurrence?.id === recurrence?.id ? { ...item, recurrence } : item
+      ));
+    } catch {
+      setArchiveError("Couldn't stop the recurrence. Try again.");
     }
   };
 
@@ -368,6 +387,7 @@ export default function ProjectDetailPage() {
           dueDate?: string;
           entryDate?: string;
           tags?: string[];
+          recurrence?: { pattern: RecurrencePattern };
         } = {
           durationMinutes: minutes,
           values: entryValues,
@@ -375,6 +395,7 @@ export default function ProjectDetailPage() {
         };
         if (entryDueDate) entryData.dueDate = entryDueDate;
         if (entryDate && entryDate !== todayISO()) entryData.entryDate = entryDate;
+        if (entryRecurring) entryData.recurrence = { pattern: recurrencePattern };
 
         const newEntry = await createEntry(id, entryData);
         // A new entry is active, so it has no place in the archive view.
@@ -599,7 +620,8 @@ export default function ProjectDetailPage() {
                         onDelete={handleDeleteEntry}
                         onToggleChecklistItem={handleToggleChecklistItem}
                         onHistory={setHistoryEntry}
-                        onArchive={handleArchiveEntry}
+                      onArchive={handleArchiveEntry}
+                      onDisableRecurrence={handleDisableRecurrence}
                         selected={selectedIds.has(entry.id)}
                         onSelect={handleSelectEntry}
                       />
@@ -799,6 +821,35 @@ export default function ProjectDetailPage() {
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+
+          {!editingEntry && (
+            <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={entryRecurring}
+                  onChange={(e) => setEntryRecurring(e.target.checked)}
+                  className="rounded"
+                />
+                Repeat this entry automatically
+              </label>
+              {entryRecurring && (
+                <div className="mt-2 flex items-center gap-2">
+                  <label className="text-xs text-slate-600" htmlFor="recurrence-pattern">Repeat</label>
+                  <select
+                    id="recurrence-pattern"
+                    value={recurrencePattern}
+                    onChange={(e) => setRecurrencePattern(e.target.value as RecurrencePattern)}
+                    className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 bg-white"
+                  >
+                    <option value="DAILY">Daily</option>
+                    <option value="WEEKLY">Weekly</option>
+                    <option value="MONTHLY">Monthly</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">

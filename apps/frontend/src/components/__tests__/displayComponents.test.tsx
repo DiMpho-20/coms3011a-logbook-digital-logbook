@@ -99,6 +99,26 @@ describe("EntryCard", () => {
     expect(screen.queryByText("Overdue")).not.toBeInTheDocument();
   });
 
+  it("labels a recurring entry and lets the parent stop future occurrences", () => {
+    const stop = vi.fn();
+    renderCard({
+      entry: makeEntry({
+        recurrence: {
+          id: "r1",
+          pattern: "WEEKLY",
+          enabled: true,
+          nextOccurrence: "2026-09-08T10:30:00.000Z",
+          until: null,
+        },
+      }),
+      onDisableRecurrence: stop,
+    });
+
+    expect(screen.getByText("weekly")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Stop recurrence" }));
+    expect(stop).toHaveBeenCalledOnce();
+  });
+
   it("renders each field type the way a reader expects", () => {
     const fields = [
       field("f-bool", "Billable", "BOOLEAN"),

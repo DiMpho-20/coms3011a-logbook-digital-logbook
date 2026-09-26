@@ -30,6 +30,12 @@ enum EntryStatus {
   DONE
 }
 
+enum RecurrencePattern {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
 enum ReminderStatus {
   PENDING
   COMPLETED
@@ -103,6 +109,7 @@ model Project {
   entryFields EntryField[]
   formatVersions EntryFormatVersion[]
   entries     LogbookEntry[]
+  recurrenceRules RecurrenceRule[]
   tags        ProjectTag[]
 
   @@unique([userId, name])
@@ -144,6 +151,7 @@ model LogbookEntry {
   formatVersionId String?      @map("format_version_id") @db.Uuid
   // Set when the entry is moved to the archive (US30); null means active.
   archivedAt      DateTime?    @map("archived_at")
+  recurrenceRuleId String?     @map("recurrence_rule_id") @db.Uuid
 
 
   project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -152,8 +160,34 @@ model LogbookEntry {
   tags    EntryTag[]
   versions EntryVersion[]
   reminders Reminder[]
+  recurrenceRule RecurrenceRule? @relation(fields: [recurrenceRuleId], references: [id], onDelete: SetNull)
 
   @@map("logbook_entries")
+}
+
+// A recurrence stores a stable template instead of copying from the most
+// recently generated entry. This keeps the pattern predictable even when a
+// student edits or completes one occurrence.
+model RecurrenceRule {
+  id                String            @id @default(uuid()) @db.Uuid
+  projectId         String            @map("project_id") @db.Uuid
+  pattern           RecurrencePattern
+  enabled           Boolean           @default(true)
+  nextOccurrence    DateTime          @map("next_occurrence")
+  until             DateTime?
+  durationMinutes   Int               @map("duration_minutes")
+  dueDateOffsetDays Int?              @map("due_date_offset_days")
+  values            Json              @map("template_values")
+  tags              String[]          @default([]) @map("template_tags")
+  formatVersionId   String?           @map("format_version_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  project Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  entries LogbookEntry[]
+
+  @@index([enabled, nextOccurrence])
+  @@map("recurrence_rules")
 }
 
 // --- ENTRY VERSIONS (US20-22) ---
