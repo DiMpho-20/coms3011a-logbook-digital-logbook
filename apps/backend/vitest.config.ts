@@ -3,6 +3,9 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globals: true,
+    // Supplies test defaults for secrets the app requires at runtime; see the
+    // file for why they are defaulted rather than demanded of CI.
+    setupFiles: ["./vitest.setup.ts"],
     // These suites run against a live Neon database over the network, and CI
     // executes twelve files against it concurrently. Locally a test takes a
     // second or two; on a loaded runner one has been measured at 14.7s and a

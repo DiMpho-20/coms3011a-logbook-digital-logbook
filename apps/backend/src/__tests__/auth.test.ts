@@ -5,6 +5,7 @@ import { generateSync } from "otplib";
 import app from "../app.js";
 import prisma from "../prisma.js";
 import { hashPassword, generateToken } from "../utils/auth.js";
+import { hashToken } from "../utils/tokens.js";
 
 // ── Shared constants ─────────────────────────────────────────────────────
 
@@ -21,6 +22,10 @@ const TFA_EMAIL = `auth_2fa_${ts}@example.com`;
 
 let registeredUserId: string | null = null;
 let tfaToken: Record<string, string>;
+// Issued by /login once the password verifies, and required by /login/2fa.
+// Captured from the login response below rather than forged, so these tests
+// exercise the same hand-off a real client performs (BUG-006).
+let pendingTwoFactorToken = "";
 
 beforeAll(async () => {
   // Two Prisma-created users with known password hashes:
@@ -245,12 +250,15 @@ describe("2FA lifecycle", () => {
     expect(res.body.requiresTwoFactor).toBe(true);
     expect(res.body.email).toBe(TFA_EMAIL);
     expect(res.body.token).toBeUndefined();
+    expect(res.body.twoFactorToken).toBeTruthy();
+
+    pendingTwoFactorToken = res.body.twoFactorToken;
   });
 
   it("POST /login/2fa rejects an invalid code → 401", async () => {
     const res = await request(app).post("/api/auth/login/2fa").send({
-      email: TFA_EMAIL,
-      token: "123123",
+      twoFactorToken: pendingTwoFactorToken,
+      code: "123123",
     });
 
     expect(res.status).toBe(401);
@@ -260,8 +268,8 @@ describe("2FA lifecycle", () => {
   it("POST /login/2fa accepts a valid code and issues a JWT", async () => {
     const code = generateSync({ secret });
     const res = await request(app).post("/api/auth/login/2fa").send({
-      email: TFA_EMAIL,
-      token: code,
+      twoFactorToken: pendingTwoFactorToken,
+      code,
     });
 
     expect(res.status).toBe(200);
@@ -271,8 +279,8 @@ describe("2FA lifecycle", () => {
 
   it("POST /login/2fa rejects a malformed code → 400", async () => {
     const res = await request(app).post("/api/auth/login/2fa").send({
-      email: TFA_EMAIL,
-      token: "12345", // not 6 digits
+      twoFactorToken: pendingTwoFactorToken,
+      code: "12345", // neither a 6-digit code nor a recovery code
     });
 
     expect(res.status).toBe(400);
@@ -347,7 +355,8 @@ describe("Password reset", () => {
     await prisma.passwordReset.create({
       data: {
         userId: LOGIN_USER_ID,
-        tokenHash: token,
+        // The column stores a digest now, not the token itself.
+        tokenHash: hashToken(token),
         expiresAt: new Date(Date.now() + 3600000),
       },
     });

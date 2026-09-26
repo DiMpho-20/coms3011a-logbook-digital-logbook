@@ -1,5 +1,4 @@
 import { Router, Request, Response } from "express";
-import crypto from "node:crypto";
 import { generateSecret, generateURI, verifySync, generateSync } from "otplib";
 import QRCode from "qrcode";
 import { 
@@ -12,14 +11,67 @@ import {
   verifyTwoFactorSetupSchema,
   twoFactorLoginSchema,
   disableTwoFactorSchema,
+  regenerateRecoveryCodesSchema,
 } from "@logbook/shared";
-import { hashPassword, comparePassword, generateToken } from "../utils/auth.js";
+import {
+  hashPassword,
+  comparePassword,
+  generateToken,
+  generateTwoFactorPendingToken,
+  verifyTwoFactorPendingToken,
+} from "../utils/auth.js";
+import {
+  encryptTwoFactorSecret,
+  decryptTwoFactorSecret,
+  isEncryptedSecret,
+  hasEncryptionKey,
+} from "../utils/twoFactorSecret.js";
+import {
+  generateRawToken,
+  hashToken,
+  generateRecoveryCodes,
+  hashRecoveryCode,
+  looksLikeRecoveryCode,
+  RECOVERY_CODE_COUNT,
+} from "../utils/tokens.js";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import { loginLimiter, twoFactorLimiter, registerLimiter } from "../middleware/rateLimit.middleware.js";
 import { sendVerificationEmail, sendPasswordResetEmail, sendDeletionScheduledEmail } from "../utils/email.js";
 import prisma from "../prisma.js";
 
 const router = Router();
+
+/**
+ * Spend a recovery code, atomically.
+ *
+ * The usedAt: null guard is inside the UPDATE rather than a read followed by
+ * a write, so two requests racing with the same code cannot both succeed —
+ * exactly one of them sees a row count of 1.
+ */
+async function consumeRecoveryCode(userId: string, code: string): Promise<boolean> {
+  const { count } = await prisma.twoFactorRecoveryCode.updateMany({
+    where: { userId, codeHash: hashRecoveryCode(code), usedAt: null },
+    data: { usedAt: new Date() },
+  });
+  return count === 1;
+}
+
+/** How many unspent codes the user has left. */
+function countUnusedRecoveryCodes(userId: string): Promise<number> {
+  return prisma.twoFactorRecoveryCode.count({ where: { userId, usedAt: null } });
+}
+
+/** Replace the whole set. Returns the raw codes — the only time they exist outside the user's hands. */
+async function issueRecoveryCodes(userId: string): Promise<string[]> {
+  const codes = generateRecoveryCodes();
+  await prisma.$transaction([
+    prisma.twoFactorRecoveryCode.deleteMany({ where: { userId } }),
+    prisma.twoFactorRecoveryCode.createMany({
+      data: codes.map((code) => ({ userId, codeHash: hashRecoveryCode(code) })),
+    }),
+  ]);
+  return codes;
+}
 
 // ---------------------------------------------------------
 // US00.1: POST /api/auth/register
@@ -40,8 +92,10 @@ router.post("/register", registerLimiter, async (req: Request, res: Response) =>
 
     const passwordHash = await hashPassword(password);
 
-    // Generate Email Verification Token (1 hour validity)
-    const verificationToken = crypto.randomBytes(32).toString("hex");
+    // Generate Email Verification Token (1 hour validity).
+    // The raw token goes in the email; only its digest is stored, so a read
+    // of the users table cannot be used to verify someone else's address.
+    const verificationToken = generateRawToken();
     const verificationExpiry = new Date(Date.now() + 3600000); // 1 hour
 
     const user = await prisma.user.create({
@@ -50,7 +104,7 @@ router.post("/register", registerLimiter, async (req: Request, res: Response) =>
         email,
         passwordHash,
         isEmailVerified: false,
-        emailVerificationToken: verificationToken,
+        emailVerificationToken: hashToken(verificationToken),
         emailVerificationExpiry: verificationExpiry,
       },
     });
@@ -114,7 +168,7 @@ router.post("/verify-email", async (req: Request, res: Response) => {
 
   const user = await prisma.user.findFirst({
     where: {
-      emailVerificationToken: token,
+      emailVerificationToken: hashToken(token),
       emailVerificationExpiry: { gt: new Date() },
     },
   });
@@ -175,9 +229,13 @@ router.post("/login", loginLimiter, async (req: Request, res: Response) => {
 
   // If 2FA is enabled, don't issue token yet — require TOTP code
   if (user.isTwoFactorEnabled) {
+    // The password has verified. Hand back a short-lived, purpose-scoped
+    // token that /login/2fa will demand — that token is what makes the second
+    // step part of *this* sign-in rather than a standalone way in (BUG-006).
     return res.json({
       requiresTwoFactor: true,
       email: user.email,
+      twoFactorToken: generateTwoFactorPendingToken(user.id),
     });
   }
 
@@ -199,20 +257,54 @@ router.post("/login/2fa", twoFactorLimiter, async (req: Request, res: Response) 
     return res.status(400).json({ errors: parseResult.error.flatten().fieldErrors });
   }
 
-  const { email, token: totpCode } = parseResult.data;
+  const { twoFactorToken, code } = parseResult.data;
 
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !user.twoFactorSecret) {
+  // BUG-006: the account is identified by a token this server issued after
+  // the password verified, not by an email address in the request body. The
+  // old handler would complete a login for anyone who could produce a valid
+  // code, which made the second factor a replacement for the password rather
+  // than an addition to it.
+  const userId = verifyTwoFactorPendingToken(twoFactorToken);
+  if (!userId) {
+    return res
+      .status(401)
+      .json({ error: "Your sign-in session has expired. Please sign in again." });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.isTwoFactorEnabled || !user.twoFactorSecret) {
     return res.status(401).json({ error: "Invalid or expired session" });
   }
 
-  const isValid = verifySync({
-    token: totpCode,
-    secret: user.twoFactorSecret,
-  });
+  let usedRecoveryCode = false;
 
-  if (!isValid.valid) {
-    return res.status(401).json({ error: "Invalid authentication code" });
+  if (looksLikeRecoveryCode(code)) {
+    usedRecoveryCode = await consumeRecoveryCode(user.id, code);
+    if (!usedRecoveryCode) {
+      return res.status(401).json({ error: "Invalid authentication code" });
+    }
+  } else {
+    const secret = decryptTwoFactorSecret(user.twoFactorSecret);
+    const isValid = verifySync({ token: code, secret });
+
+    if (!isValid.valid) {
+      return res.status(401).json({ error: "Invalid authentication code" });
+    }
+
+    // Opportunistic migration (BUG-004): a secret stored before encryption
+    // landed is rewritten the first time its owner signs in, so the plaintext
+    // rows drain away on their own instead of needing a backfill window. A
+    // failure here must not fail the login — the user did nothing wrong.
+    if (!isEncryptedSecret(user.twoFactorSecret) && hasEncryptionKey()) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { twoFactorSecret: encryptTwoFactorSecret(secret) },
+        });
+      } catch (err) {
+        console.error("Failed to re-encrypt two-factor secret:", err);
+      }
+    }
   }
 
   const jwtToken = generateToken(user.id);
@@ -221,6 +313,8 @@ router.post("/login/2fa", twoFactorLimiter, async (req: Request, res: Response) 
     user: { id: user.id, fullName: user.fullName, email: user.email },
     token: jwtToken,
     scheduledDeletionAt: user.scheduledDeletionAt?.toISOString() ?? null,
+    usedRecoveryCode,
+    recoveryCodesRemaining: await countUnusedRecoveryCodes(user.id),
   });
 });
 
@@ -241,12 +335,14 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
     return res.json({ message: "If account exists, a password reset email has been sent." });
   }
 
-  // Generate secure random reset token
-  const resetToken = crypto.randomBytes(32).toString("hex");
+  // Generate secure random reset token. The raw value is emailed and never
+  // stored; the column holds its SHA-256 digest, so read access to
+  // password_resets no longer lets anyone complete a reset in flight.
+  const resetToken = generateRawToken();
   const expiresAt = new Date(Date.now() + 3600000); // 1 hour expiration
 
   await prisma.passwordReset.create({
-    data: { userId: user.id, tokenHash: resetToken, expiresAt },
+    data: { userId: user.id, tokenHash: hashToken(resetToken), expiresAt },
   });
 
   // Send password reset email using positional arguments
@@ -273,9 +369,9 @@ router.post("/reset-password", async (req: Request, res: Response) => {
   const { token, newPassword } = parseResult.data;
 
   const resetRecord = await prisma.passwordReset.findFirst({
-    where: { 
-      tokenHash: token, 
-      expiresAt: { gt: new Date() } 
+    where: {
+      tokenHash: hashToken(token),
+      expiresAt: { gt: new Date() },
     },
   });
 
@@ -381,6 +477,16 @@ router.post("/2fa/setup", requireAuth, async (req: AuthenticatedRequest, res: Re
     return res.status(400).json({ error: "Two-factor authentication is already enabled" });
   }
 
+  // Refuse to start rather than write a secret we cannot protect (BUG-004).
+  // A 503 with the cause named beats a 500 from deep inside the crypto call.
+  if (!hasEncryptionKey()) {
+    return res.status(503).json({
+      error:
+        "Two-factor authentication is unavailable: the server is missing its " +
+        "encryption key. Set TWO_FACTOR_ENCRYPTION_KEY and restart.",
+    });
+  }
+
   // Generate a new TOTP secret
   const secret = generateSecret();
   const otpauthUrl = generateURI({ secret, issuer: "Digital Logbook", label: user.email });
@@ -391,7 +497,7 @@ router.post("/2fa/setup", requireAuth, async (req: AuthenticatedRequest, res: Re
   // Store the secret temporarily (not yet enabled until verified)
   await prisma.user.update({
     where: { id: userId },
-    data: { twoFactorSecret: secret, isTwoFactorEnabled: false },
+    data: { twoFactorSecret: encryptTwoFactorSecret(secret), isTwoFactorEnabled: false },
   });
 
   return res.json({ secret, qrCodeUrl });
@@ -419,7 +525,7 @@ router.post("/2fa/verify-setup", requireAuth, async (req: AuthenticatedRequest, 
 
   const isValid = verifySync({
     token: parseResult.data.token,
-    secret: user.twoFactorSecret,
+    secret: decryptTwoFactorSecret(user.twoFactorSecret),
   });
 
   if (!isValid.valid) {
@@ -431,7 +537,15 @@ router.post("/2fa/verify-setup", requireAuth, async (req: AuthenticatedRequest, 
     data: { isTwoFactorEnabled: true },
   });
 
-  return res.json({ message: "Two-factor authentication enabled successfully" });
+  // BUG-005: without these, losing the authenticator device means losing the
+  // account. This response is the only time the codes exist in readable form
+  // — the database holds digests — so the client must show them now.
+  const recoveryCodes = await issueRecoveryCodes(userId);
+
+  return res.json({
+    message: "Two-factor authentication enabled successfully",
+    recoveryCodes,
+  });
 });
 
 // ---------------------------------------------------------
@@ -459,13 +573,18 @@ router.post("/2fa/disable", requireAuth, async (req: AuthenticatedRequest, res: 
     return res.status(401).json({ error: "Incorrect password" });
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      isTwoFactorEnabled: false,
-      twoFactorSecret: null,
-    },
-  });
+  // The codes are only meaningful alongside a secret; leaving them behind
+  // would let a stale one unlock a later, unrelated 2FA setup.
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        isTwoFactorEnabled: false,
+        twoFactorSecret: null,
+      },
+    }),
+    prisma.twoFactorRecoveryCode.deleteMany({ where: { userId } }),
+  ]);
 
   return res.json({ message: "Two-factor authentication disabled" });
 });
@@ -484,7 +603,53 @@ router.get("/2fa/status", requireAuth, async (req: AuthenticatedRequest, res: Re
     return res.status(404).json({ error: "User not found" });
   }
 
-  return res.json({ isTwoFactorEnabled: user.isTwoFactorEnabled });
+  return res.json({
+    isTwoFactorEnabled: user.isTwoFactorEnabled,
+    recoveryCodesRemaining: user.isTwoFactorEnabled
+      ? await countUnusedRecoveryCodes(userId)
+      : 0,
+    recoveryCodeCount: RECOVERY_CODE_COUNT,
+  });
 });
+
+// ---------------------------------------------------------
+// 2FA: POST /api/auth/2fa/recovery-codes — regenerate the set
+// ---------------------------------------------------------
+router.post(
+  "/2fa/recovery-codes",
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response) => {
+    const parseResult = regenerateRecoveryCodesSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ errors: parseResult.error.flatten().fieldErrors });
+    }
+
+    const userId = req.userId!;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!user.isTwoFactorEnabled) {
+      return res.status(400).json({ error: "Two-factor authentication is not enabled" });
+    }
+
+    // Regenerating invalidates every existing code, so it is gated on the
+    // password exactly as disabling 2FA is — otherwise a borrowed session
+    // could quietly mint itself a permanent way back in.
+    const isPasswordValid = await comparePassword(parseResult.data.password, user.passwordHash);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: "Incorrect password" });
+    }
+
+    const recoveryCodes = await issueRecoveryCodes(userId);
+
+    return res.json({
+      message: "New recovery codes generated. Your previous codes no longer work.",
+      recoveryCodes,
+    });
+  }
+);
 
 export default router;
