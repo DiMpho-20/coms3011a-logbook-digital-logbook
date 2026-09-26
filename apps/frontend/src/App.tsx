@@ -23,6 +23,7 @@ import ProjectDetailPage from "./pages/ProjectDetailPage";
 import EntriesPage from "./pages/EntriesPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
+import RemindersPage from "./pages/RemindersPage";
 
 export default function App() {
   useEffect(() => startFullOfflineSync(), []);
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="/open-work" element={<OpenWorkPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/board" element={<BoardPage />} />
+            <Route path="/reminders" element={<RemindersPage />} />
           </Route>
         </Route>
 

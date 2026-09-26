@@ -9,6 +9,7 @@ import { cleanTagNames, resolveTagIds } from "../utils/tags.js";
 import { validateEntryValues, findMissingRequiredField, isEmptyValue } from "../utils/entryValues.js";
 import type { SnapshotField } from "../utils/entryFormat.js";
 import { ensureBaselineVersion, recordVersion, sameSnapshot, toSnapshot } from "../utils/entryVersions.js";
+import { dueDateOffsetDays, materializeDueRecurringEntries, nextRecurrenceDate } from "../utils/recurringEntries.js";
 
 /**
  * Resolve a project the caller actually owns. requireAuth proves the caller
@@ -38,6 +39,7 @@ export const ENTRY_INCLUDE = {
   values: { include: { field: true } },
   formatVersion: true,
   tags: { include: { tag: true } },
+  recurrenceRule: true,
 } as const;
 
 /**
@@ -113,6 +115,7 @@ export function formatEntry(entry: {
   completedAt: Date | null;
   archivedAt?: Date | null;
   tags?: { tag: { name: string } }[];
+  recurrenceRule?: { id: string; pattern: string; enabled: boolean; nextOccurrence: Date; until: Date | null } | null;
 }): Entry {
   // Legacy entries predate snapshots entirely, so this starts from an empty
   // list rather than null — mergeEntryFields then derives their whole field
@@ -130,6 +133,15 @@ export function formatEntry(entry: {
     status: entry.status as "OPEN" | "DONE",
     completedAt: entry.completedAt?.toISOString() ?? null,
     archivedAt: entry.archivedAt?.toISOString() ?? null,
+    recurrence: entry.recurrenceRule
+      ? {
+          id: entry.recurrenceRule.id,
+          pattern: entry.recurrenceRule.pattern as "DAILY" | "WEEKLY" | "MONTHLY",
+          enabled: entry.recurrenceRule.enabled,
+          nextOccurrence: entry.recurrenceRule.nextOccurrence.toISOString(),
+          until: entry.recurrenceRule.until?.toISOString() ?? null,
+        }
+      : null,
     tags: (entry.tags ?? []).map((t) => t.tag.name).sort(),
     format: fields.length ? { version: entry.formatVersion?.version ?? 0, fields: fields as any } : null,
     createdAt: entry.createdAt.toISOString(),
@@ -154,6 +166,7 @@ export const getEntries = async (req: AuthenticatedRequest, res: Response) => {
     if (!(await ownedProject(projectId, req.userId!))) {
       return res.status(404).json({ error: "Project not found" });
     }
+    await materializeDueRecurringEntries(req.userId!);
     const { status, dueBefore } = req.query;
     const archived = parseArchivedFilter(req.query.archived);
     if (!archived) {
@@ -246,6 +259,21 @@ export const createEntry = async (req: AuthenticatedRequest, res: Response) => {
     const tagNames = cleanTagNames(validated.tags);
     const tagIds = await resolveTagIds(prisma, project.userId, tagNames);
     const entry = await prisma.$transaction(async (tx) => {
+      const recurrenceRule = validated.recurrence
+        ? await tx.recurrenceRule.create({
+            data: {
+              projectId,
+              pattern: validated.recurrence.pattern,
+              until: validated.recurrence.until,
+              nextOccurrence: nextRecurrenceDate(validated.entryDate ?? new Date(), validated.recurrence.pattern),
+              durationMinutes: validated.durationMinutes,
+              dueDateOffsetDays: dueDateOffsetDays(validated.entryDate ?? new Date(), validated.dueDate),
+              values: { ...suppliedValues, ...computedValues } as Prisma.InputJsonValue,
+              tags: tagNames,
+              formatVersionId: latestFormat?.id,
+            },
+          })
+        : null;
       const created = formatEntry(await tx.logbookEntry.create({
         data: {
           projectId,
@@ -253,6 +281,7 @@ export const createEntry = async (req: AuthenticatedRequest, res: Response) => {
           durationMinutes: validated.durationMinutes,
           entryDate: validated.entryDate,
           dueDate: validated.dueDate,
+          recurrenceRuleId: recurrenceRule?.id,
           values: {
             // A field the user did not fill in gets no row at all. Writing ""
             // for it used to reach (mv.value)::numeric in the statistics
@@ -426,6 +455,7 @@ function parseDateParam(value: unknown, label: string): Date | undefined {
 export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.userId!;
+    await materializeDueRecurringEntries(userId);
 
     const projectStatus = String(req.query.projectStatus ?? "ALL").toUpperCase();
     if (!PROJECT_STATUSES.includes(projectStatus)) {

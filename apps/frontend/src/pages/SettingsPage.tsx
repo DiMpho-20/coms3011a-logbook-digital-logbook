@@ -3,6 +3,7 @@ import {
   User, Palette, Bell, BookOpen, Download, Upload, Trash2,
   Check, Sun, Moon, Monitor, Shield, ShieldCheck, X,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import { exportLogbook, fetchProjects, importLogbook, type Project } from "../api";
 import { api } from "../api/client";
@@ -16,12 +17,6 @@ type WeekStart = "monday" | "sunday";
 type TimeFormat = "12h" | "24h";
 type AccentColor = "blue" | "emerald" | "violet" | "amber" | "rose";
 
-interface NotifSettings {
-  dailyReminder: boolean;
-  reminderTime: string;
-  dueDateReminders: boolean;
-}
-
 interface LogbookPrefs {
   defaultProjectId: string;
   defaultView: EntryView;
@@ -33,7 +28,6 @@ interface LogbookPrefs {
 const DEFAULTS = {
   theme: "system" as Theme,
   accent: "blue" as AccentColor,
-  notif: { dailyReminder: false, reminderTime: "18:00", dueDateReminders: true } as NotifSettings,
   logbook: { defaultProjectId: "", defaultView: "timeline", defaultSort: "newest", weekStartsOn: "monday", timeFormat: "24h" } as LogbookPrefs,
 };
 
@@ -62,29 +56,6 @@ function applyAccent(color: AccentColor) {
 }
 
 // -- reusable small components --
-
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <label className="flex items-center justify-between gap-3 cursor-pointer">
-      <span className="text-sm text-slate-700">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative w-10 h-5 rounded-full transition shrink-0 ${
-          checked ? "bg-blue-600" : "bg-slate-300"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 h-4 w-4 bg-white rounded-full shadow transition-transform ${
-            checked ? "translate-x-5" : ""
-          }`}
-        />
-      </button>
-    </label>
-  );
-}
 
 function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
@@ -127,8 +98,6 @@ export default function SettingsPage() {
   const [theme, setTheme] = useState<Theme>(() => load("logbook-theme", DEFAULTS.theme));
   const [accent, setAccent] = useState<AccentColor>(() => load("logbook-accent", DEFAULTS.accent));
 
-  // Notifications
-  const [notif, setNotif] = useState<NotifSettings>(() => load("logbook-notif", DEFAULTS.notif));
 
   // Logbook
   const [logbook, setLogbook] = useState<LogbookPrefs>(() => load("logbook-prefs", DEFAULTS.logbook));
@@ -153,7 +122,6 @@ export default function SettingsPage() {
   // Persist appearance on change
   useEffect(() => { save("logbook-theme", theme); applyTheme(theme); }, [theme]);
   useEffect(() => { save("logbook-accent", accent); applyAccent(accent); }, [accent]);
-  useEffect(() => { save("logbook-notif", notif); }, [notif]);
   useEffect(() => { save("logbook-prefs", logbook); }, [logbook]);
 
   // Load projects for default project selector
@@ -265,7 +233,6 @@ export default function SettingsPage() {
     setEmail("");
     setTheme("system");
     setAccent("blue");
-    setNotif(DEFAULTS.notif);
     setLogbook(DEFAULTS.logbook);
   };
 
@@ -552,31 +519,17 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      {/* 3. Notifications */}
-      <Section icon={Bell} title="Notifications">
-        <Toggle
-          label="Daily logbook reminder"
-          checked={notif.dailyReminder}
-          onChange={(v) => setNotif({ ...notif, dailyReminder: v })}
-        />
-        {notif.dailyReminder && (
-          <Field label="Reminder time">
-            <input
-              type="time"
-              value={notif.reminderTime}
-              onChange={(e) => setNotif({ ...notif, reminderTime: e.target.value })}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 w-40"
-            />
-          </Field>
-        )}
-        <Toggle
-          label="Due-date reminders"
-          checked={notif.dueDateReminders}
-          onChange={(v) => setNotif({ ...notif, dueDateReminders: v })}
-        />
-        <p className="text-[11px] text-slate-400">
-          Browser notifications will be requested when this feature is activated.
+      {/* 3. Reminders — the rules live on the server, with the reminders themselves */}
+      <Section icon={Bell} title="Reminders">
+        <p className="text-sm text-slate-600">
+          Due-date, overdue, stalled-entry and daily logbook reminders are configured with your reminders.
         </p>
+        <Link
+          to="/reminders"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+        >
+          Manage reminder rules
+        </Link>
       </Section>
 
       {/* 4. Logbook Preferences */}

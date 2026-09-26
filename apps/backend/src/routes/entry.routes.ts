@@ -16,6 +16,7 @@ import {
 } from "../controllers/entryHistory.controller.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import { groupStats, timelineStats, evaluateExpression } from "../controllers/stats.controller.js";
+import { updateRecurrence } from "../controllers/recurrence.controller.js";
 
 const router = Router();
 
@@ -27,6 +28,7 @@ router.post("/projects/:projectId/entries", requireAuth, createEntry);
 router.put("/entries/:id", requireAuth, updateEntry);
 router.delete("/entries/:id", requireAuth, deleteEntry);
 router.patch("/entries/:id/status", requireAuth, updateEntryStatus);
+router.patch("/recurrences/:id", requireAuth, updateRecurrence);
 // Version history (US20-22). "/versions/at" is declared before any
 // "/versions/:version" route so "at" is never read as a version number.
 router.get("/entries/:id/versions", requireAuth, getEntryVersions);

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
 // Mock the API module so no network calls happen
@@ -60,6 +61,92 @@ describe("DashboardPage", () => {
     expect(
       await screen.findByRole("button", { name: /new project/i }),
     ).toBeInTheDocument();
+  });
+
+  it("lets a student remove a dashboard panel and restores that choice", async () => {
+    const user = userEvent.setup();
+    const firstRender = renderDashboard();
+
+    await user.click(await screen.findByRole("button", { name: /customize dashboard/i }));
+    await user.click(screen.getByRole("checkbox", { name: /activity/i }));
+    await user.click(screen.getByRole("button", { name: /save dashboard/i }));
+
+    expect(screen.queryByText("Activity")).not.toBeInTheDocument();
+    expect(localStorage.getItem("logbook-dashboard-panels")).not.toContain("activity");
+
+    firstRender.unmount();
+    renderDashboard();
+    expect(await screen.findByText("Active Projects")).toBeInTheDocument();
+    expect(screen.queryByText("Activity")).not.toBeInTheDocument();
+  });
+
+  it("saves a rearranged dashboard layout and restores its panel order", async () => {
+    const user = userEvent.setup();
+    const firstRender = renderDashboard();
+
+    await user.click(await screen.findByRole("button", { name: /customize dashboard/i }));
+    await user.click(screen.getByRole("button", { name: "Move Activity up" }));
+    await user.click(screen.getByRole("button", { name: /save dashboard/i }));
+
+    const savedPanels = JSON.parse(localStorage.getItem("logbook-dashboard-panels") || "[]");
+    expect(savedPanels.indexOf("activity")).toBeLessThan(savedPanels.indexOf("deadline-reminders"));
+
+    firstRender.unmount();
+    renderDashboard();
+    const activity = await screen.findByText("Activity");
+    const deadlines = screen.getByText("Deadlines");
+    expect(activity.compareDocumentPosition(deadlines) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("restores the original dashboard layout immediately", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+
+    await user.click(await screen.findByRole("button", { name: /customize dashboard/i }));
+    await user.click(screen.getByRole("button", { name: "Move Activity up" }));
+    await user.click(screen.getByRole("button", { name: /save dashboard/i }));
+    await user.click(screen.getByRole("button", { name: /customize dashboard/i }));
+    await user.click(screen.getByRole("button", { name: /restore defaults/i }));
+
+    expect(screen.queryByRole("dialog", { name: /customize dashboard/i })).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("logbook-dashboard-panels") || "[]")).toEqual([
+      "active-projects", "entries-this-week", "total-time-logged", "deadline-reminders",
+      "activity", "current-projects", "tags", "recent-entries",
+    ]);
+    const activity = screen.getByText("Activity");
+    const deadlines = screen.getByText("Deadlines");
+    expect(deadlines.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("expands an unpaired custom panel instead of retaining an empty grid slot", async () => {
+    localStorage.setItem("logbook-dashboard-panels", JSON.stringify(["activity", "tags", "recent-entries"]));
+    renderDashboard();
+
+    const recentEntriesPanel = await screen.findByRole("region", { name: "Recent entries" });
+    expect(recentEntriesPanel).toHaveClass("lg:col-span-6");
+  });
+
+  it("lets a student drag a panel to a new position and saves the layout", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+
+    await user.click(await screen.findByRole("button", { name: /arrange panels/i }));
+    const activity = screen.getByRole("region", { name: "Activity" });
+    const tags = screen.getByRole("region", { name: "Tags" });
+    const transfer = {
+      setData: vi.fn(),
+      getData: () => "activity",
+      effectAllowed: "move",
+      dropEffect: "move",
+    };
+
+    fireEvent.dragStart(activity, { dataTransfer: transfer });
+    fireEvent.dragOver(tags, { dataTransfer: transfer });
+    fireEvent.drop(tags, { dataTransfer: transfer });
+
+    const savedPanels = JSON.parse(localStorage.getItem("logbook-dashboard-panels") || "[]");
+    expect(savedPanels.indexOf("activity")).toBeLessThan(savedPanels.indexOf("tags"));
+    expect(transfer.setData).toHaveBeenCalledWith("text/plain", "activity");
   });
 
   it("renders the Activity chart section", async () => {

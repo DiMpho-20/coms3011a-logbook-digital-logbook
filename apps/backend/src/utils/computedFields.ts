@@ -41,6 +41,27 @@ export function calculateComputedValues(fields: Field[], values: Record<string, 
 }
 
 /**
+ * The computed fields whose results change when `fieldId` changes: the field
+ * itself if it is computed, plus every computed field that uses it, directly
+ * or through other computed fields.
+ */
+export function affectedComputedFields(fieldId: string, fields: Field[]): string[] {
+  const computed = fields.filter((field) => field.type === "COMPUTED" && field.formula);
+  const affected = new Set(computed.some((field) => field.id === fieldId) ? [fieldId] : []);
+  const pending = [fieldId];
+  while (pending.length > 0) {
+    const changed = pending.pop()!;
+    for (const field of computed) {
+      if (!affected.has(field.id) && referencesOf(field.formula!).includes(changed)) {
+        affected.add(field.id);
+        pending.push(field.id);
+      }
+    }
+  }
+  return [...affected];
+}
+
+/**
  * `selfId` is the computed field being edited, if it already exists: it may
  * not use itself, directly or through other computed fields.
  */

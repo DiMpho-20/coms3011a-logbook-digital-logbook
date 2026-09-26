@@ -1,6 +1,7 @@
 // ─── Enums & Constants ───────────────────────────────────────────────────
 
 export type ProjectStatus = "ACTIVE" | "ARCHIVED";
+export type RecurrencePattern = "DAILY" | "WEEKLY" | "MONTHLY";
 export type EntryFieldType =
   | "TEXT"
   | "NUMBER"
@@ -80,6 +81,13 @@ export interface Entry {
   completedAt: string | null;
   /** When the entry was moved to the archive; null (or absent offline) while active. */
   archivedAt?: string | null;
+  recurrence?: {
+    id: string;
+    pattern: RecurrencePattern;
+    enabled: boolean;
+    nextOccurrence: string;
+    until: string | null;
+  } | null;
 }
 
 /** An entry's content at one point in its history, without its identity or archive state. */
@@ -142,6 +150,7 @@ export interface CreateEntryInput {
   entryDate?: string;
   dueDate?: string;
   tags?: string[];
+  recurrence?: { pattern: RecurrencePattern; until?: string };
 }
 
 export interface UpdateEntryInput {
@@ -203,6 +212,64 @@ export interface UpdateCustomStatisticInput {
 
 export interface ApiError {
   error: string;
+}
+
+// ─── Reminders (US28) ────────────────────────────────────────────────────
+
+export type ReminderStatus = "PENDING" | "COMPLETED" | "DISMISSED";
+/** MANUAL reminders are set by the student; the rest come from their rules. */
+export type ReminderSource = "MANUAL" | "DUE_SOON" | "OVERDUE" | "STALE" | "DAILY_LOG";
+export type ReminderStatusFilter = "pending" | "completed" | "dismissed" | "done" | "all";
+
+export interface Reminder {
+  id: string;
+  title: string;
+  note: string | null;
+  source: ReminderSource;
+  status: ReminderStatus;
+  /** When the reminder falls due; pending reminders before this are upcoming. */
+  remindAt: string;
+  completedAt: string | null;
+  dismissedAt: string | null;
+  createdAt: string;
+  entry: {
+    id: string;
+    projectId: string;
+    projectName: string;
+    label: string;
+    dueDate: string | null;
+    status: "OPEN" | "DONE";
+  } | null;
+}
+
+export interface CreateReminderInput {
+  title: string;
+  note?: string | null;
+  remindAt: string;
+  entryId?: string | null;
+}
+
+export interface UpdateReminderInput {
+  status?: ReminderStatus;
+  title?: string;
+  note?: string | null;
+  remindAt?: string;
+}
+
+/** The rules reminders are generated from. */
+export interface ReminderSettings {
+  dueSoonEnabled: boolean;
+  /** Remind this many days before an entry's due date (0 = on the day). */
+  dueSoonDays: number;
+  overdueEnabled: boolean;
+  staleEnabled: boolean;
+  /** Remind about an open entry not edited for this many days. */
+  staleDays: number;
+  dailyLogEnabled: boolean;
+  /** "HH:MM" — remind after this time if nothing was logged that day. */
+  dailyLogTime: string;
+  /** IANA zone calendar days are counted in. */
+  timeZone: string;
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────

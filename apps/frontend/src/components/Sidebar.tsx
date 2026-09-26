@@ -16,8 +16,39 @@ import {
   BarChart3,
   CalendarDays,
   Kanban,
+  Bell,
 } from "lucide-react";
 import { clearOfflineCache } from "../lib/offlineCache";
+import { fetchDueReminderCount, REMINDERS_CHANGED_EVENT } from "../api";
+
+/** How often the due-reminder badge re-checks while the app is open. */
+const REMINDER_POLL_MS = 5 * 60_000;
+
+/**
+ * Pending reminders whose time has come. Polls so a reminder that falls due
+ * while the app sits open still shows up, and refreshes straight away when
+ * the reminders page changes something.
+ */
+function useDueReminderCount(): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      fetchDueReminderCount()
+        .then((n) => { if (!cancelled) setCount(n); })
+        .catch(() => {});
+    };
+    refresh();
+    const timer = window.setInterval(refresh, REMINDER_POLL_MS);
+    window.addEventListener(REMINDERS_CHANGED_EVENT, refresh);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener(REMINDERS_CHANGED_EVENT, refresh);
+    };
+  }, []);
+  return count;
+}
 
 interface SidebarProps {
   onClose?: () => void;
@@ -33,6 +64,7 @@ const NAV_ITEMS = [
   { to: "/stats", label: "Stats", icon: BarChart3, end: false },
   { to: "/calendar", label: "Calendar", icon: CalendarDays, end: false },
   { to: "/board", label: "Board", icon: Kanban, end: false },
+  { to: "/reminders", label: "Reminders", icon: Bell, end: false },
 ];
 
 const BOTTOM_ITEMS = [
@@ -44,6 +76,7 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const dueReminders = useDueReminderCount();
 
   const displayName =
     typeof window !== "undefined"
@@ -138,6 +171,14 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
                 )}
                 <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-cyan-400" : ""}`} />
                 {!collapsed && item.label}
+                {item.to === "/reminders" && dueReminders > 0 && (
+                  <span
+                    className={`${collapsed ? "absolute top-1 right-1 h-2 w-2 p-0" : "ml-auto px-1.5 py-0.5 text-[10px]"} rounded-full bg-amber-500 font-semibold text-white leading-none`}
+                    aria-label={`${dueReminders} reminder${dueReminders === 1 ? "" : "s"} due`}
+                  >
+                    {!collapsed && dueReminders}
+                  </span>
+                )}
               </>
             )}
           </NavLink>

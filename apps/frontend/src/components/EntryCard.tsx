@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Clock, AlertTriangle, Pencil, Trash2, History, Archive, ArchiveRestore } from "lucide-react";
+import { Clock, AlertTriangle, Pencil, Trash2, History, Archive, ArchiveRestore, Repeat2 } from "lucide-react";
 import { formatDuration, isEmptyValue } from "../lib/utils";
 import TagList from "./TagList";
 import type { ChecklistItem, Entry, EntryField } from "../api";
@@ -22,6 +22,8 @@ interface EntryCardProps {
   /** When provided, shows a checkbox for picking this entry, e.g. to archive several at once. */
   selected?: boolean;
   onSelect?: (entry: Entry, selected: boolean) => void;
+  /** Disables every future occurrence in this entry's recurrence series. */
+  onDisableRecurrence?: (entry: Entry) => void;
 }
 
 export default function EntryCard({
@@ -36,6 +38,7 @@ export default function EntryCard({
   onArchive,
   selected = false,
   onSelect,
+  onDisableRecurrence,
 }: EntryCardProps) {
   // Entries still queued on this device have no server history or archive state yet.
   const isQueued = entry.id.startsWith("offline-");
@@ -98,6 +101,16 @@ export default function EntryCard({
               Overdue
             </span>
           )}
+          {entry.recurrence && (
+            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
+              entry.recurrence.enabled
+                ? "bg-violet-50 text-violet-700 border-violet-100"
+                : "bg-slate-100 text-slate-500 border-slate-200"
+            }`}>
+              <Repeat2 className="h-3 w-3" />
+              {entry.recurrence.pattern.toLowerCase()}{entry.recurrence.enabled ? "" : " (stopped)"}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[11px] text-slate-400">{timeStr}</span>
@@ -125,6 +138,17 @@ export default function EntryCard({
               title={isArchived ? "Restore from archive" : "Archive entry"}
             >
               {isArchived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+            </button>
+          )}
+          {onDisableRecurrence && entry.recurrence?.enabled && !isQueued && (
+            <button
+              type="button"
+              onClick={() => onDisableRecurrence(entry)}
+              className="p-1 rounded-md text-slate-400 hover:text-violet-700 hover:bg-violet-50 transition"
+              aria-label="Stop recurrence"
+              title="Stop future occurrences"
+            >
+              <Repeat2 className="h-3.5 w-3.5" />
             </button>
           )}
           {onEdit && (

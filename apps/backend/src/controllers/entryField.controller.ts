@@ -1,6 +1,6 @@
 import { Response } from "express";
 import prisma from "../prisma.js";
-import { createFormatVersion, backfillNewField } from "../utils/entryFormat.js";
+import { createFormatVersion, backfillNewField, recalculateComputedFields } from "../utils/entryFormat.js";
 import { validateFormula } from "../utils/computedFields.js";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 
@@ -65,16 +65,25 @@ export const updateEntryField = async (req: AuthenticatedRequest, res: Response)
       return res.status(400).json({ error: "Only computed fields can have a formula" });
     }
 
-    const updated = await prisma.entryField.update({
-      where: { id },
-      data: {
-        ...(name !== undefined && { name: String(name).trim() }),
-        ...(type !== undefined && { type }),
-        ...(required !== undefined && { required: nextType === "COMPUTED" ? false : Boolean(required) }),
-        ...(type !== undefined && nextType === "COMPUTED" && required === undefined && { required: false }),
-        ...(type !== undefined || formula !== undefined ? { formula: nextFormula } : {}),
-      },
-    });
+    // A new formula (or a field that has just become computed) changes the
+    // result on every existing entry, and on every computed field that uses
+    // this one. Rewriting them in the same transaction as the field means
+    // the stored results never disagree with the formula (issue #88).
+    const resultsChange = nextType === "COMPUTED" && (field.type !== "COMPUTED" || nextFormula !== field.formula);
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.entryField.update({
+        where: { id },
+        data: {
+          ...(name !== undefined && { name: String(name).trim() }),
+          ...(type !== undefined && { type }),
+          ...(required !== undefined && { required: nextType === "COMPUTED" ? false : Boolean(required) }),
+          ...(type !== undefined && nextType === "COMPUTED" && required === undefined && { required: false }),
+          ...(type !== undefined || formula !== undefined ? { formula: nextFormula } : {}),
+        },
+      });
+      if (resultsChange) await recalculateComputedFields(tx, field.projectId, id);
+      return saved;
+    }, { maxWait: 10_000, timeout: 30_000 });
     await createFormatVersion(prisma, field.projectId);
     return res.json(updated);
   } catch (error: any) { return res.status(400).json({ error: error.message || "Failed to update entry field" }); }

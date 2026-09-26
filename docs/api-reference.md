@@ -382,6 +382,14 @@ Update an entry field. All body fields are optional.
 | `required` | boolean | Always `false` for `COMPUTED` |
 | `formula` | string | `COMPUTED` only; same rules as [Computed formulas](#computed-formulas) |
 
+When the formula changes, or a field becomes `COMPUTED`, the stored result is
+recalculated on every existing entry in the project. So is every computed
+field that uses this one, directly or indirectly. This happens in the same
+transaction as the field update, so entries and statistics never mix old and
+new results. An entry the new formula cannot be worked out for (for example,
+a division by zero) is left without a value. Renaming a field does not touch
+stored results.
+
 **Response `200`:** Updated entry field object.
 **Errors:** `400` (blank name, unknown type, invalid formula or loop, formula on a non-computed field), `404` (field not found), `409` (type change on a field that already has values)
 
@@ -475,9 +483,27 @@ Create a new logbook entry.
 | `durationMinutes` | number | Yes | |
 | `values` | object | Yes | Key = field ID, value = field value |
 | `entryDate` | string | No | ISO date (YYYY-MM-DD) |
+| `recurrence` | object | No | Creates a recurrence rule: `{ "pattern": "DAILY" | "WEEKLY" | "MONTHLY", "until"?: ISO date }` |
 | `dueDate` | string | No | ISO date (YYYY-MM-DD) |
 
 **Response `201`:** Created entry object with `status: "OPEN"`.
+
+When an entry includes `recurrence`, the original and each generated
+occurrence expose a `recurrence` object containing its rule id, pattern,
+enabled state and next occurrence. Due occurrences are generated automatically
+while the backend is running and are also caught up when the student's entries
+are read.
+
+### `PATCH /api/recurrences/:id`
+
+Enable or disable future automatic occurrences for a recurring-entry rule.
+The rule must belong to the authenticated user.
+
+| Body field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `enabled` | boolean | Yes | `false` stops future entries; existing entries remain unchanged. |
+
+**Response `200`:** Updated recurrence summary.
 
 ---
 
@@ -713,6 +739,124 @@ it was on; the projects and entries themselves are not changed otherwise.
 
 **Response `204`:** No content.
 **Errors:** `404` (tag not found, or not the caller's)
+
+---
+
+## Reminders (`/api/reminders`) 🔒
+
+US28. A reminder is either set by hand (`source: "MANUAL"`) or generated from
+the user's reminder rules:
+
+| Source | Generated when |
+|---|---|
+| `DUE_SOON` | An open, unarchived entry's due date is within `dueSoonDays` days |
+| `OVERDUE` | An open, unarchived entry's due date has passed |
+| `STALE` | An open, unarchived entry has not been edited for `staleDays` days |
+| `DAILY_LOG` | Nothing has been logged today and it is past `dailyLogTime` |
+
+Rules are evaluated whenever reminders are read (`GET /reminders` and
+`GET /reminders/count`). Each condition produces at most one reminder, so a
+completed or dismissed reminder stays that way while the condition holds. A
+pending generated reminder whose condition lapses is marked `COMPLETED` if
+its entry was marked done (or, for `DAILY_LOG`, something was logged), and
+removed otherwise, e.g. when the due date moves or the rule is switched off.
+Calendar days are counted in the rules' `timeZone`.
+
+Reminder object:
+```json
+{
+  "id": "...",
+  "title": "Due soon: Submit lab report",
+  "note": null,
+  "source": "DUE_SOON",
+  "status": "PENDING",
+  "remindAt": "2026-09-26T10:00:00.000Z",
+  "completedAt": null,
+  "dismissedAt": null,
+  "createdAt": "2026-09-26T10:00:00.000Z",
+  "entry": {
+    "id": "...", "projectId": "...", "projectName": "Chemistry",
+    "label": "Submit lab report", "dueDate": "2026-09-27T00:00:00.000Z", "status": "OPEN"
+  }
+}
+```
+
+### `GET /api/reminders`
+
+List the caller's reminders.
+
+**Query:** `status` = `pending` (default) \| `completed` \| `dismissed` \| `done` (completed + dismissed) \| `all`;
+`due=true` keeps only reminders whose `remindAt` has passed.
+Pending reminders are ordered by `remindAt`; others most recently changed first. At most 200.
+
+**Response `200`:** array of reminder objects.
+**Errors:** `400` (unknown status)
+
+---
+
+### `GET /api/reminders/count`
+
+**Response `200`:** `{ "due": 3 }`: pending reminders whose time has come.
+
+---
+
+### `POST /api/reminders`
+
+Set a reminder by hand.
+
+**Body:**
+```json
+{ "title": "Email supervisor", "remindAt": "2026-09-27T09:00:00.000Z", "note": "optional", "entryId": "optional uuid" }
+```
+
+**Response `201`:** the reminder.
+**Errors:** `400` (missing title, invalid date), `404` (entry not found, or not the caller's)
+
+---
+
+### `PATCH /api/reminders/:id`
+
+Complete, dismiss, reopen, snooze or edit a reminder. Send any of
+`status` (`PENDING` \| `COMPLETED` \| `DISMISSED`), `title`, `note`, `remindAt`.
+Setting a status stamps `completedAt`/`dismissedAt`; `PENDING` clears both.
+
+**Response `200`:** the reminder.
+**Errors:** `400` (invalid value, empty body), `404`
+
+---
+
+### `DELETE /api/reminders/:id`
+
+Delete a manual reminder. Generated reminders would come back while their
+condition holds, so they must be dismissed instead.
+
+**Response `204`:** No content.
+**Errors:** `400` (generated reminder), `404`
+
+---
+
+### `GET /api/reminders/settings`
+
+The caller's reminder rules (defaults shown):
+```json
+{
+  "dueSoonEnabled": true, "dueSoonDays": 1,
+  "overdueEnabled": true,
+  "staleEnabled": false, "staleDays": 7,
+  "dailyLogEnabled": false, "dailyLogTime": "18:00",
+  "timeZone": "UTC"
+}
+```
+
+---
+
+### `PUT /api/reminders/settings`
+
+Update any subset of the rules. `dueSoonDays` 0–30, `staleDays` 1–365,
+`dailyLogTime` `HH:MM`, `timeZone` an IANA zone name.
+
+**Response `200`:** the full rules.
+**Errors:** `400` (out-of-range or invalid value)
 
 ---
 
