@@ -653,6 +653,50 @@ Aggregate entry counts over time buckets.
 
 ---
 
+### `POST /api/projects/:projectId/stats/expression`
+
+Evaluate a custom expression (US16) across every entry in the project, and
+return the single number it works out to.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `expression` | string | Yes | Up to 500 characters |
+
+**Syntax.** `COUNT()` counts the entries in the project. `SUM(field)`,
+`AVG(field)`, `MIN(field)` and `MAX(field)` aggregate one Number or Computed
+field. These combine with `+`, `-`, `*`, `/` and parentheses, with the usual
+precedence. A field is named directly (`SUM(hours)`), or in braces when the
+name contains spaces (`SUM({Tasks Completed})`). Names are matched without
+regard to capitals.
+
+**Request:**
+```json
+{ "expression": "SUM({Hours}) / COUNT()" }
+```
+
+**Response `200`:**
+```json
+{ "value": 3.42 }
+```
+
+**Semantics.** Values that are not readable as a number are skipped, so
+`AVG` averages the values it can read rather than dividing by the entry
+count. A field no entry has filled in sums to `0`; averaging, minimising or
+maximising it is an error rather than a misleading zero. Computed fields
+aggregate like any other number, using the value already stored per entry —
+the formula is not re-evaluated here.
+
+**Errors:** `400` (empty or malformed expression, unknown function, unknown
+or duplicated field name, non-numeric field, unbalanced parentheses,
+division by zero), `401` (not signed in), `404` (project not found, which is
+also what another owner's project returns)
+
+Expressions are parsed and evaluated by the server; no user input is ever
+executed, and field names reach the database only as bound parameters after
+being matched against the project's own fields.
+
+---
+
 ## Tags (`/api/tags`) 🔒
 
 Each user has their own tag vocabulary, shared by their projects and entries.

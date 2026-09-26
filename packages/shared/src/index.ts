@@ -168,6 +168,15 @@ export interface UpdateEntryFieldInput {
 
 // ─── Error ───────────────────────────────────────────────────────────────
 
+/** US16 — a custom expression evaluated over one project's entries. */
+export interface EvaluateExpressionInput {
+  expression: string;
+}
+
+export interface ExpressionResult {
+  value: number;
+}
+
 export interface ApiError {
   error: string;
 }
