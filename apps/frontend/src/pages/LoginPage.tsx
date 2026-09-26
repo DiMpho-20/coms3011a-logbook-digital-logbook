@@ -12,7 +12,11 @@ export const LoginPage: React.FC = () => {
   
   // 2FA state
   const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
-  const [twoFactorEmail, setTwoFactorEmail] = useState("");
+  // Proof that the password step of this sign-in succeeded. The second step
+  // sends this instead of the email address, so a code on its own is no
+  // longer enough to get in (BUG-006).
+  const [twoFactorToken, setTwoFactorToken] = useState("");
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState("");
 
   // Scheduled-deletion state
@@ -51,7 +55,7 @@ export const LoginPage: React.FC = () => {
       // Check if 2FA is required
       if (response.data.requiresTwoFactor) {
         setRequiresTwoFactor(true);
-        setTwoFactorEmail(response.data.email);
+        setTwoFactorToken(response.data.twoFactorToken);
         return;
       }
 
@@ -81,17 +85,42 @@ export const LoginPage: React.FC = () => {
     setErrors({});
     setServerError("");
 
-    if (!/^\d{6}$/.test(twoFactorCode)) {
-      setErrors({ code: "Please enter a valid 6-digit code" });
+    const valid = useRecoveryCode
+      ? /^[A-Z0-9]{5}-?[A-Z0-9]{5}$/.test(twoFactorCode.toUpperCase())
+      : /^\d{6}$/.test(twoFactorCode);
+
+    if (!valid) {
+      setErrors({
+        code: useRecoveryCode
+          ? "Recovery codes look like XXXXX-XXXXX"
+          : "Please enter a valid 6-digit code",
+      });
+      return;
+    }
+
+    if (!twoFactorToken) {
+      setServerError("Your sign-in session has expired. Please sign in again.");
       return;
     }
 
     try {
       setIsSubmitting(true);
       const response = await api.post("/auth/login/2fa", {
-        email: twoFactorEmail,
-        token: twoFactorCode,
+        twoFactorToken,
+        code: twoFactorCode,
       });
+
+      // A recovery code is spent by using it. Say so plainly rather than
+      // letting them find out when the last one silently fails.
+      if (response.data.usedRecoveryCode) {
+        const left = response.data.recoveryCodesRemaining ?? 0;
+        localStorage.setItem(
+          "logbook-recovery-notice",
+          left === 0
+            ? "You just used your last recovery code. Generate a new set in Settings."
+            : `Recovery code used. You have ${left} left.`
+        );
+      }
 
       if (response.data.scheduledDeletionAt) {
         setPendingToken(response.data.token);
@@ -334,15 +363,21 @@ export const LoginPage: React.FC = () => {
                   color: "rgba(255, 255, 255, 0.9)",
                 }}
               >
-                Authentication Code
+                {useRecoveryCode ? "Recovery Code" : "Authentication Code"}
               </label>
               <input
                 type="text"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="000000"
+                inputMode={useRecoveryCode ? "text" : "numeric"}
+                maxLength={useRecoveryCode ? 11 : 6}
+                placeholder={useRecoveryCode ? "XXXXX-XXXXX" : "000000"}
                 value={twoFactorCode}
-                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) =>
+                  setTwoFactorCode(
+                    useRecoveryCode
+                      ? e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "")
+                      : e.target.value.replace(/\D/g, "")
+                  )
+                }
                 autoFocus
                 style={{
                   width: "100%",
@@ -355,7 +390,7 @@ export const LoginPage: React.FC = () => {
                   background: "rgba(10, 20, 50, 0.45)",
                   color: "#ffffff",
                   fontSize: "1.25rem",
-                  letterSpacing: "0.5rem",
+                  letterSpacing: useRecoveryCode ? "0.15rem" : "0.5rem",
                   textAlign: "center",
                   outline: "none",
                   transition: "all 0.2s ease-in-out",
@@ -383,6 +418,30 @@ export const LoginPage: React.FC = () => {
                   {errors.code}
                 </small>
               )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setUseRecoveryCode((v) => !v);
+                  setTwoFactorCode("");
+                  setErrors({});
+                  setServerError("");
+                }}
+                style={{
+                  marginTop: "0.6rem",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "#7cc4ff",
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                }}
+              >
+                {useRecoveryCode
+                  ? "Use your authenticator app instead"
+                  : "Lost your device? Use a recovery code"}
+              </button>
             </div>
 
             <button
@@ -421,6 +480,8 @@ export const LoginPage: React.FC = () => {
               onClick={() => {
                 setRequiresTwoFactor(false);
                 setTwoFactorCode("");
+                setTwoFactorToken("");
+                setUseRecoveryCode(false);
                 setServerError("");
                 setErrors({});
               }}

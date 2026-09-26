@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
-import { CloudOff, Menu } from "lucide-react";
+import { CloudOff, KeyRound, Menu, X } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { pendingEntryCount, SYNC_EVENT } from "../lib/offlineEntries";
 import { pendingProjectCount, pendingProjectErrors } from "../lib/offlineProjects";
@@ -14,6 +14,25 @@ function describePending(projects: number, entries: number): string {
 
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Left behind by a sign-in that spent a 2FA recovery code. Read on mount and
+  // cleared in an effect rather than in the initializer, so StrictMode's double
+  // invocation in development cannot swallow it.
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("logbook-recovery-notice");
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (!recoveryNotice) return;
+    try {
+      localStorage.removeItem("logbook-recovery-notice");
+    } catch {
+      // Private browsing can refuse writes; the banner still shows this once.
+    }
+  }, [recoveryNotice]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem("logbook-sidebar-collapsed") === "true",
   );
@@ -82,6 +101,20 @@ export default function AppLayout() {
           </button>
           <span className="text-sm font-semibold text-slate-900">Digital Logbook</span>
         </div>
+
+        {recoveryNotice && (
+          <div className="flex items-center gap-2 px-6 lg:px-8 py-2 text-xs font-medium border-b border-blue-200 bg-blue-50 text-blue-800">
+            <KeyRound className="h-3.5 w-3.5 shrink-0" />
+            <span>{recoveryNotice}</span>
+            <button
+              onClick={() => setRecoveryNotice(null)}
+              className="ml-auto p-0.5 rounded hover:bg-blue-100 transition"
+              aria-label="Dismiss"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {(!online || pendingCount > 0 || pendingProjects > 0) && (
           <div className="flex items-center gap-2 px-6 lg:px-8 py-2 text-xs font-medium border-b border-amber-200 bg-amber-50 text-amber-800">

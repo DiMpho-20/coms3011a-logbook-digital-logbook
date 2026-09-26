@@ -28,6 +28,9 @@ const CREDENTIAL_401_ROUTES = [
   "/auth/login/2fa",
   "/auth/account",
   "/auth/2fa/disable",
+  // A wrong password here is the user mistyping, not an expired session —
+  // without this the interceptor would sign them out mid-task.
+  "/auth/2fa/recovery-codes",
 ];
 
 // A 401 from any other endpoint means the session token is missing, invalid,
