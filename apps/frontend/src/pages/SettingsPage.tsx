@@ -118,6 +118,14 @@ export default function SettingsPage() {
   const [twoFALoading, setTwoFALoading] = useState(false);
   const [disable2FAPassword, setDisable2FAPassword] = useState("");
   const [showDisable2FA, setShowDisable2FA] = useState(false);
+  // Shown exactly once, straight after they are generated. The server keeps
+  // only digests, so if the user navigates away without saving these they
+  // are gone for good and a fresh set has to be issued.
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [recoveryCodesRemaining, setRecoveryCodesRemaining] = useState(0);
+  const [showRegenerateCodes, setShowRegenerateCodes] = useState(false);
+  const [regeneratePassword, setRegeneratePassword] = useState("");
+  const [codesCopied, setCodesCopied] = useState(false);
 
   // Persist appearance on change
   useEffect(() => { save("logbook-theme", theme); applyTheme(theme); }, [theme]);
@@ -131,7 +139,13 @@ export default function SettingsPage() {
 
   // Load 2FA status
   useEffect(() => {
-    api.get("/auth/2fa/status").then((res) => setIs2FAEnabled(res.data.isTwoFactorEnabled)).catch(() => {});
+    api
+      .get("/auth/2fa/status")
+      .then((res) => {
+        setIs2FAEnabled(res.data.isTwoFactorEnabled);
+        setRecoveryCodesRemaining(res.data.recoveryCodesRemaining ?? 0);
+      })
+      .catch(() => {});
   }, []);
 
   // -- handlers --
@@ -262,12 +276,14 @@ export default function SettingsPage() {
     }
     setTwoFALoading(true);
     try {
-      await api.post("/auth/2fa/verify-setup", { token: twoFACode });
+      const res = await api.post("/auth/2fa/verify-setup", { token: twoFACode });
       setIs2FAEnabled(true);
       setShow2FASetup(false);
       setTwoFACode("");
       setTwoFASecret("");
       setTwoFAQrCode("");
+      setRecoveryCodes(res.data.recoveryCodes ?? []);
+      setRecoveryCodesRemaining((res.data.recoveryCodes ?? []).length);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || "Invalid code.";
       setTwoFAError(msg);
@@ -288,12 +304,65 @@ export default function SettingsPage() {
       setIs2FAEnabled(false);
       setShowDisable2FA(false);
       setDisable2FAPassword("");
+      setRecoveryCodes([]);
+      setRecoveryCodesRemaining(0);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to disable 2FA.";
       setTwoFAError(msg);
     } finally {
       setTwoFALoading(false);
     }
+  };
+
+  const handleRegenerateCodes = async () => {
+    setTwoFAError("");
+    if (!regeneratePassword) {
+      setTwoFAError("Password is required");
+      return;
+    }
+    setTwoFALoading(true);
+    try {
+      const res = await api.post("/auth/2fa/recovery-codes", { password: regeneratePassword });
+      setRecoveryCodes(res.data.recoveryCodes ?? []);
+      setRecoveryCodesRemaining((res.data.recoveryCodes ?? []).length);
+      setShowRegenerateCodes(false);
+      setRegeneratePassword("");
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        "Failed to generate new recovery codes.";
+      setTwoFAError(msg);
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  const handleCopyCodes = async () => {
+    try {
+      await navigator.clipboard.writeText(recoveryCodes.join("\n"));
+      setCodesCopied(true);
+      setTimeout(() => setCodesCopied(false), 2000);
+    } catch {
+      // Clipboard access can be refused; the codes are on screen regardless.
+      setTwoFAError("Could not copy automatically — please select and copy the codes manually.");
+    }
+  };
+
+  const handleDownloadCodes = () => {
+    const body = [
+      "Digital Logbook — two-factor recovery codes",
+      `Generated ${new Date().toLocaleString()}`,
+      "",
+      "Each code works once. Keep them somewhere you can reach without your phone.",
+      "",
+      ...recoveryCodes,
+    ].join("\n");
+    const url = URL.createObjectURL(new Blob([body], { type: "text/plain" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "logbook-recovery-codes.txt";
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -340,6 +409,45 @@ export default function SettingsPage() {
 
           {twoFAError && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{twoFAError}</p>
+          )}
+
+          {/* Recovery codes — shown once, at the moment they are generated */}
+          {recoveryCodes.length > 0 && (
+            <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-3">
+              <h3 className="text-sm font-semibold text-amber-900 mb-1">
+                Save your recovery codes
+              </h3>
+              <p className="text-xs text-amber-800 mb-3">
+                Each code works once, and lets you sign in if you lose your
+                authenticator device. This is the only time they will be shown —
+                store them somewhere you can reach without your phone.
+              </p>
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-sm text-slate-800 bg-white border border-amber-200 rounded-md p-3 mb-3">
+                {recoveryCodes.map((code) => (
+                  <li key={code}>{code}</li>
+                ))}
+              </ul>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyCodes}
+                  className="border border-amber-300 text-amber-900 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-amber-100 transition"
+                >
+                  {codesCopied ? "Copied" : "Copy"}
+                </button>
+                <button
+                  onClick={handleDownloadCodes}
+                  className="border border-amber-300 text-amber-900 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-amber-100 transition"
+                >
+                  Download
+                </button>
+                <button
+                  onClick={() => setRecoveryCodes([])}
+                  className="ml-auto bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                >
+                  I have saved them
+                </button>
+              </div>
+            </div>
           )}
 
           {/* 2FA Setup Modal */}
@@ -429,14 +537,72 @@ export default function SettingsPage() {
             </button>
           )}
 
+          {is2FAEnabled && showRegenerateCodes && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-3">
+              <h3 className="text-sm font-semibold text-slate-800 mb-1">
+                Generate new recovery codes
+              </h3>
+              <p className="text-xs text-slate-500 mb-3">
+                Your existing codes will stop working immediately.
+              </p>
+              <input
+                type="password"
+                value={regeneratePassword}
+                onChange={(e) => setRegeneratePassword(e.target.value)}
+                placeholder="Confirm your password"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleRegenerateCodes}
+                  disabled={twoFALoading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition disabled:opacity-50"
+                >
+                  {twoFALoading ? "Generating..." : "Generate new codes"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRegenerateCodes(false);
+                    setRegeneratePassword("");
+                    setTwoFAError("");
+                  }}
+                  className="border border-slate-200 text-slate-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-slate-100 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           {is2FAEnabled && !showDisable2FA && (
-            <button
-              onClick={() => setShowDisable2FA(true)}
-              className="flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-50 transition"
-            >
-              <Shield className="h-3.5 w-3.5" />
-              Disable 2FA
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setShowDisable2FA(true)}
+                className="flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-50 transition"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Disable 2FA
+              </button>
+              {!showRegenerateCodes && (
+                <button
+                  onClick={() => setShowRegenerateCodes(true)}
+                  className="border border-slate-200 text-slate-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-slate-100 transition"
+                >
+                  Regenerate recovery codes
+                </button>
+              )}
+              <span
+                className={`text-xs ${
+                  recoveryCodesRemaining === 0 ? "text-red-600" : "text-slate-500"
+                }`}
+              >
+                {recoveryCodesRemaining === 0
+                  ? "No recovery codes left"
+                  : `${recoveryCodesRemaining} recovery code${
+                      recoveryCodesRemaining === 1 ? "" : "s"
+                    } remaining`}
+              </span>
+            </div>
           )}
         </div>
 

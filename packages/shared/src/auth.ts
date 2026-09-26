@@ -92,12 +92,25 @@ export const verifyTwoFactorSetupSchema = z.object({
 
 export type VerifyTwoFactorSetupDto = z.infer<typeof verifyTwoFactorSetupSchema>;
 
+// A six-digit TOTP code, or a recovery code as "XXXXX-XXXXX". Both arrive in
+// the same field because the user is answering one question — "prove it is
+// you" — and should not have to tell us which kind of answer they are giving.
+const TOTP_CODE = /^\d{6}$/;
+const RECOVERY_CODE = /^[A-Za-z0-9]{5}[-\s]?[A-Za-z0-9]{5}$/;
+
 export const twoFactorLoginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  token: z
+  // Proof that the password step of this same sign-in succeeded (BUG-006).
+  // Not the session token, and not interchangeable with one.
+  twoFactorToken: z
     .string()
-    .length(6, "Authentication code must be exactly 6 digits")
-    .regex(/^\d+$/, "Code must contain only numbers"),
+    .min(1, "Your sign-in session has expired. Please sign in again."),
+  code: z
+    .string()
+    .trim()
+    .refine(
+      (value) => TOTP_CODE.test(value) || RECOVERY_CODE.test(value),
+      "Enter the 6-digit code from your authenticator app, or one of your recovery codes"
+    ),
 });
 
 export type TwoFactorLoginDto = z.infer<typeof twoFactorLoginSchema>;
@@ -107,3 +120,11 @@ export const disableTwoFactorSchema = z.object({
 });
 
 export type DisableTwoFactorDto = z.infer<typeof disableTwoFactorSchema>;
+
+// Regenerating recovery codes invalidates every existing one, so it is gated
+// on the password the same way disabling 2FA is.
+export const regenerateRecoveryCodesSchema = z.object({
+  password: z.string().min(1, "Password confirmation is required"),
+});
+
+export type RegenerateRecoveryCodesDto = z.infer<typeof regenerateRecoveryCodesSchema>;

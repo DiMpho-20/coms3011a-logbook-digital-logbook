@@ -76,6 +76,7 @@ model User {
   customStatistics        CustomStatistic[]
   reminders               Reminder[]
   reminderSettings        ReminderSettings?
+  twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
 
   @@map("users")
 }
@@ -92,6 +93,27 @@ model PasswordReset {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("password_resets")
+}
+
+// --- 2FA RECOVERY CODES (BUG-005) ---
+// A single-use way back in when the authenticator device is gone. Only the
+// SHA-256 digest is stored: the codes themselves are shown to the user once,
+// at the moment they are generated, and cannot be recovered afterwards.
+// Spent codes are kept with usedAt set rather than deleted, so "3 of 10
+// remaining" stays answerable and a reused code is refused rather than simply
+// not found.
+model TwoFactorRecoveryCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash") @db.VarChar(64)
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, codeHash])
+  @@index([userId])
+  @@map("two_factor_recovery_codes")
 }
 
 // --- PROJECT ENTITY ---
