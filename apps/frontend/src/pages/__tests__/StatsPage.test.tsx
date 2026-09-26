@@ -565,6 +565,10 @@ describe("StatsPage — saved statistics", () => {
   const press = (label: string) => fireEvent.click(screen.getByRole("button", { name: label }));
 
   const calculate = async () => {
+    // The panel draws its form without fields before the fields request
+    // lands; wait for a field chip so the queries below cannot catch it
+    // mid-swap, the same way withExpressionPanel does.
+    await within(sectionFor(/Custom Expression/)).findByRole("button", { name: "Hours" });
     fireEvent.change(screen.getByLabelText("Expression"), {
       target: { value: "SUM({Hours}) / COUNT()" },
     });
