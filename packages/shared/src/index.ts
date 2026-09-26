@@ -177,6 +177,30 @@ export interface ExpressionResult {
   value: number;
 }
 
+/** US17 — a statistic the owner saved. `value` is worked out on every read,
+    so it follows the entries; `error` says why a saved expression stopped
+    working, for instance because its field was renamed. */
+export interface CustomStatistic {
+  id: string;
+  projectId: string;
+  name: string;
+  expression: string;
+  value: number | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCustomStatisticInput {
+  name: string;
+  expression: string;
+}
+
+export interface UpdateCustomStatisticInput {
+  name?: string;
+  expression?: string;
+}
+
 export interface ApiError {
   error: string;
 }
