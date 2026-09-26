@@ -20,6 +20,11 @@
   EntryHistory,
   EntrySnapshot,
   EntryVersion,
+  Reminder,
+  ReminderSettings,
+  ReminderStatusFilter,
+  CreateReminderInput,
+  UpdateReminderInput,
 } from "@logbook/shared";
 import { api } from "./api/client";
 import { getPendingEntries, isOfflineRequest, queueEntry, removePendingEntriesForProject } from "./lib/offlineEntries";
@@ -56,6 +61,9 @@ export type {
   EntryHistory,
   EntrySnapshot,
   EntryVersion,
+  Reminder,
+  ReminderSettings,
+  ReminderStatusFilter,
 };
 
 /**
@@ -407,6 +415,52 @@ export async function setEntryArchived(id: string, archived: boolean): Promise<E
 export async function setEntriesArchived(ids: string[], archived: boolean): Promise<number> {
   const res = await api.post("/entries/archive", { ids, archived });
   return res.data.updated;
+}
+
+// ── Reminders (US28) ─────────────────────────────────────────────────────
+
+/** Fired after reminders change, so the sidebar badge can refresh. */
+export const REMINDERS_CHANGED_EVENT = "logbook:reminders-changed";
+
+function remindersChanged() {
+  window.dispatchEvent(new Event(REMINDERS_CHANGED_EVENT));
+}
+
+/** The caller's reminders; the server applies their reminder rules first. */
+export async function fetchReminders(status: ReminderStatusFilter = "pending"): Promise<Reminder[]> {
+  return (await api.get("/reminders", { params: { status } })).data;
+}
+
+/** How many pending reminders have reached their time. */
+export async function fetchDueReminderCount(): Promise<number> {
+  return (await api.get("/reminders/count")).data.due;
+}
+
+export async function createReminder(data: CreateReminderInput): Promise<Reminder> {
+  const res = await api.post("/reminders", data);
+  remindersChanged();
+  return res.data;
+}
+
+export async function updateReminder(id: string, data: UpdateReminderInput): Promise<Reminder> {
+  const res = await api.patch(`/reminders/${id}`, data);
+  remindersChanged();
+  return res.data;
+}
+
+export async function deleteReminder(id: string): Promise<void> {
+  await api.delete(`/reminders/${id}`);
+  remindersChanged();
+}
+
+export async function fetchReminderSettings(): Promise<ReminderSettings> {
+  return (await api.get("/reminders/settings")).data;
+}
+
+export async function updateReminderSettings(data: Partial<ReminderSettings>): Promise<ReminderSettings> {
+  const res = await api.put("/reminders/settings", data);
+  remindersChanged();
+  return res.data;
 }
 
 // ── Backup and restore ───────────────────────────────────────────────────
