@@ -1,14 +1,8 @@
 import { Response } from "express";
 import prisma from "../prisma.js";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
-import {
-  parseExpression,
-  aggregatesUsed,
-  usesCount,
-  evaluate,
-  ExpressionError,
-  type AggregateFn,
-} from "../utils/expressions.js";
+import { ExpressionError } from "../utils/expressions.js";
+import { evaluateExpressionForProject } from "../utils/expressionEvaluation.js";
 import { evaluateExpressionSchema } from "../schemas/expression.schema.js";
 
 /**
@@ -205,6 +199,17 @@ export const timelineStats = async (req: AuthenticatedRequest, res: Response) =>
 // use, and a project-wide answer is what "an expression over their own
 // entries" means here. Every entry of that project takes part, archived
 // ones included, because that is what group and timeline already do.
+// POST /projects/:projectId/stats/expression
+// Body: { expression }  e.g. "SUM(hours) / COUNT()"
+//
+// US16. Scope is one project: the statistics page already works a project
+// at a time, the ownership check is the same one the other two handlers
+// use, and a project-wide answer is what "an expression over their own
+// entries" means here. Every entry of that project takes part, archived
+// ones included, because that is what group and timeline already do.
+//
+// The evaluation itself lives in utils/expressionEvaluation.ts, shared with
+// saved statistics (US17) so there is one implementation, not two.
 export const evaluateExpression = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const projectId = String(req.params.projectId);
@@ -217,101 +222,7 @@ export const evaluateExpression = async (req: AuthenticatedRequest, res: Respons
       return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
     }
 
-    // Parsed once, then reused for both the field lookup and the arithmetic.
-    const tree = parseExpression(parsed.data.expression);
-    const wanted = aggregatesUsed(tree);
-
-    // Names are matched against this project's live fields only, so a name
-    // can never reach the database as anything but a field id this owner
-    // already has.
-    const fields = await prisma.entryField.findMany({
-      where: { projectId, archivedAt: null },
-      select: { id: true, name: true, type: true },
-    });
-    const normalise = (name: string) => name.trim().toLowerCase();
-
-    const resolved = new Map<string, string>(); // "FN:field" -> field id
-    const fieldIds = new Set<string>();
-    for (const { fn, field } of wanted) {
-      const matches = fields.filter((candidate) => normalise(candidate.name) === normalise(field));
-      if (matches.length === 0) {
-        return res.status(400).json({ error: `This project has no field called "${field}".` });
-      }
-      if (matches.length > 1) {
-        return res.status(400).json({
-          error: `More than one field in this project is called "${field}". Rename one of them to use it in an expression.`,
-        });
-      }
-      const [match] = matches;
-      // Same rule the group handler applies: a computed field always holds a
-      // number, so it aggregates exactly like a Number field.
-      if (match.type !== "NUMBER" && match.type !== "COMPUTED") {
-        return res.status(400).json({
-          error: `"${match.name}" is a ${match.type.toLowerCase()} field, and ${fn}() needs a Number or Computed field.`,
-        });
-      }
-      resolved.set(`${fn}:${normalise(field)}`, match.id);
-      fieldIds.add(match.id);
-    }
-
-    // One round trip for every field the expression mentions, rather than
-    // one per mention. Same numeric guard as the other handlers: a row that
-    // does not look like a number is left out instead of failing the cast.
-    const totals = new Map<string, { sum: number; avg: number; min: number; max: number }>();
-    if (fieldIds.size > 0) {
-      const ids = [...fieldIds];
-      const placeholders = ids.map((_id, index) => `$${index + 1}`).join(", ");
-      const rows: any[] = await prisma.$queryRawUnsafe(`
-        SELECT ev.field_id AS id,
-               SUM((ev.value)::numeric) AS sum,
-               AVG((ev.value)::numeric) AS avg,
-               MIN((ev.value)::numeric) AS min,
-               MAX((ev.value)::numeric) AS max
-        FROM logbook_entries le
-        JOIN entry_values ev ON ev.entry_id = le.id
-         AND ev.field_id IN (${placeholders})
-         AND ev.value ${NUMERIC_VALUES}
-        WHERE le.project_id = $${ids.length + 1}
-        GROUP BY ev.field_id
-      `, ...ids, projectId);
-      for (const row of rows) {
-        totals.set(String(row.id), {
-          sum: Number(row.sum),
-          avg: Number(row.avg),
-          min: Number(row.min),
-          max: Number(row.max),
-        });
-      }
-    }
-
-    // Only asked for when the expression actually uses COUNT().
-    let entryCount: number | null = null;
-    const countEntries = async () => {
-      if (entryCount === null) {
-        entryCount = await prisma.logbookEntry.count({ where: { projectId } });
-      }
-      return entryCount;
-    };
-    if (usesCount(tree)) await countEntries();
-
-    const value = evaluate(tree, {
-      count: () => entryCount ?? 0,
-      aggregate: (fn: AggregateFn, field: string) => {
-        const id = resolved.get(`${fn}:${normalise(field)}`)!;
-        const row = totals.get(id);
-        // No row means no entry has a usable number in that field yet.
-        // An empty sum is genuinely 0; an average, smallest or largest of
-        // nothing is not, and reporting 0 for those would be a wrong answer
-        // rather than an empty one.
-        if (!row) {
-          if (fn === "SUM") return 0;
-          throw new ExpressionError(`No entry has a number in "${field}" yet, so ${fn}(${field}) has no value.`);
-        }
-        return row[fn.toLowerCase() as "sum" | "avg" | "min" | "max"];
-      },
-    });
-
-    return res.json({ value });
+    return res.json({ value: await evaluateExpressionForProject(projectId, parsed.data.expression) });
   } catch (error: any) {
     if (error instanceof ExpressionError) {
       return res.status(400).json({ error: error.message });

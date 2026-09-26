@@ -28,6 +28,10 @@ export default defineConfig({
     setupFiles: ['./src/test-setup.ts'],
     css: false,
     include: ['src/**/__tests__/**/*.{test,spec}.{ts,tsx}'],
+    // Stays comfortably above the 5s Testing Library ceiling set in
+    // src/test-setup.ts, so a slow-but-passing find reports its own result
+    // rather than being killed by the per-test clock first.
+    testTimeout: 10_000,
     coverage: {
       provider: 'v8',
       // text for the CI log, lcov for the uploaded artifact.

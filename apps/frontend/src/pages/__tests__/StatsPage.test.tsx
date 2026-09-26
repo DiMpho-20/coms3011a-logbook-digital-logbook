@@ -9,7 +9,7 @@ vi.mock("../../api", () => ({
 }));
 
 vi.mock("../../api/client", () => ({
-  api: { post: vi.fn() },
+  api: { post: vi.fn(), get: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
 
 import * as api from "../../api";
@@ -109,6 +109,10 @@ beforeEach(() => {
   vi.mocked(api.fetchProjectTimeSummary).mockResolvedValue(summary(0) as never);
   vi.mocked(api.fetchEntryFields).mockResolvedValue([] as never);
   vi.mocked(client.post).mockImplementation(postRouter());
+  // Every render asks for the saved statistics (US17); most tests have none.
+  vi.mocked(client.get).mockResolvedValue({ data: [] } as never);
+  vi.mocked(client.patch).mockResolvedValue({ data: {} } as never);
+  vi.mocked(client.delete).mockResolvedValue({ data: {} } as never);
 });
 
 describe("StatsPage — loading and empty states", () => {
@@ -536,5 +540,178 @@ describe("StatsPage — custom expressions", () => {
     calculate();
 
     expect(await within(sectionFor(EXPRESSION)).findByText("Calculating…")).toBeInTheDocument();
+  });
+});
+
+describe("StatsPage — saved statistics", () => {
+  const SAVED = /My Custom Statistics/;
+  const statistic = (over: Record<string, unknown> = {}) => ({
+    id: "s1",
+    projectId: "p1",
+    name: "Average Hours Per Entry",
+    expression: "SUM({Hours}) / COUNT()",
+    value: 3.42,
+    error: null,
+    createdAt: "2026-09-26T00:00:00.000Z",
+    updatedAt: "2026-09-26T00:00:00.000Z",
+    ...over,
+  });
+
+  // "Expression" labels both the panel's own box and the dialog's, so the
+  // dialog's fields are always reached through the dialog.
+  const dialog = () => screen.getByLabelText("Name").closest("form") as HTMLElement;
+  const typeIn = (field: HTMLElement, value: string) =>
+    fireEvent.change(field, { target: { value } });
+  const press = (label: string) => fireEvent.click(screen.getByRole("button", { name: label }));
+
+  const calculate = async () => {
+    // The panel draws its form without fields before the fields request
+    // lands; wait for a field chip so the queries below cannot catch it
+    // mid-swap, the same way withExpressionPanel does.
+    await within(sectionFor(/Custom Expression/)).findByRole("button", { name: "Hours" });
+    fireEvent.change(screen.getByLabelText("Expression"), {
+      target: { value: "SUM({Hours}) / COUNT()" },
+    });
+    press("Calculate");
+    return screen.findByRole("button", { name: "Save as statistic" });
+  };
+
+  it("says nothing is saved yet for a project with none", async () => {
+    await withFields();
+
+    expect(await within(sectionFor(SAVED)).findByText(/Nothing saved yet/)).toBeInTheDocument();
+  });
+
+  it("lists a saved statistic with its value and the expression behind it", async () => {
+    vi.mocked(client.get).mockResolvedValue({ data: [statistic()] } as never);
+    await withFields();
+
+    const panel = sectionFor(SAVED);
+    expect(await within(panel).findByText("Average Hours Per Entry")).toBeInTheDocument();
+    expect(within(panel).getByText("3.4")).toBeInTheDocument();
+    expect(within(panel).getByText("SUM({Hours}) / COUNT()")).toBeInTheDocument();
+  });
+
+  it("says why a saved statistic has stopped working, without hiding it", async () => {
+    vi.mocked(client.get).mockResolvedValue({
+      data: [statistic({ value: null, error: 'This project has no field called "Hours".' })],
+    } as never);
+    await withFields();
+
+    const panel = sectionFor(SAVED);
+    expect(await within(panel).findByText(/no field called "Hours"/)).toBeInTheDocument();
+    // Still listed, so it can be edited rather than silently lost.
+    expect(within(panel).getByText("Average Hours Per Entry")).toBeInTheDocument();
+  });
+
+  it("offers to save only once an expression has produced a result", async () => {
+    await withFields();
+
+    expect(screen.queryByRole("button", { name: "Save as statistic" })).not.toBeInTheDocument();
+    await calculate();
+    expect(screen.getByRole("button", { name: "Save as statistic" })).toBeInTheDocument();
+  });
+
+  it("opens the dialog with the expression already filled in", async () => {
+    await withFields();
+    await calculate();
+
+    press("Save as statistic");
+
+    expect(within(dialog()).getByLabelText("Expression")).toHaveValue("SUM({Hours}) / COUNT()");
+    expect(screen.getByLabelText("Name")).toHaveValue("");
+    // Nothing to save until it is named.
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("saves the named statistic against this project", async () => {
+    await withFields();
+    await calculate();
+    press("Save as statistic");
+
+    typeIn(screen.getByLabelText("Name"), "  Average Hours Per Entry  ");
+    press("Save");
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenLastCalledWith("/projects/p1/custom-statistics", {
+        name: "Average Hours Per Entry",
+        expression: "SUM({Hours}) / COUNT()",
+      })
+    );
+  });
+
+  it("shows the server's reason for refusing a statistic", async () => {
+    await withFields();
+    await calculate();
+    press("Save as statistic");
+    typeIn(screen.getByLabelText("Name"), "Broken");
+    vi.mocked(client.post).mockRejectedValue({
+      response: { data: { error: "You already have a statistic with that name in this project" } },
+    });
+
+    press("Save");
+
+    expect(await within(dialog()).findByRole("alert")).toHaveTextContent(/already have a statistic/i);
+  });
+
+  it("opens the edit dialog filled with what was saved", async () => {
+    vi.mocked(client.get).mockResolvedValue({ data: [statistic()] } as never);
+    await withFields();
+    await within(sectionFor(SAVED)).findByText("Average Hours Per Entry");
+
+    press("Edit Average Hours Per Entry");
+
+    expect(screen.getByLabelText("Name")).toHaveValue("Average Hours Per Entry");
+    expect(within(dialog()).getByLabelText("Expression")).toHaveValue("SUM({Hours}) / COUNT()");
+  });
+
+  it("sends an edit as a change to the one that was saved", async () => {
+    vi.mocked(client.get).mockResolvedValue({ data: [statistic()] } as never);
+    await withFields();
+    await within(sectionFor(SAVED)).findByText("Average Hours Per Entry");
+    press("Edit Average Hours Per Entry");
+
+    typeIn(within(dialog()).getByLabelText("Expression"), "MAX({Hours})");
+    press("Save");
+
+    await waitFor(() =>
+      expect(client.patch).toHaveBeenLastCalledWith("/projects/p1/custom-statistics/s1", {
+        name: "Average Hours Per Entry",
+        expression: "MAX({Hours})",
+      })
+    );
+  });
+
+  it("asks before deleting, and names what it is about to remove", async () => {
+    vi.mocked(client.get).mockResolvedValue({ data: [statistic()] } as never);
+    await withFields();
+    await within(sectionFor(SAVED)).findByText("Average Hours Per Entry");
+
+    press("Delete Average Hours Per Entry");
+
+    expect(await screen.findByText(/Delete .Average Hours Per Entry/)).toBeInTheDocument();
+    expect(client.delete).not.toHaveBeenCalled();
+  });
+
+  it("deletes once the confirmation is given", async () => {
+    vi.mocked(client.get).mockResolvedValue({ data: [statistic()] } as never);
+    await withFields();
+    await within(sectionFor(SAVED)).findByText("Average Hours Per Entry");
+    press("Delete Average Hours Per Entry");
+
+    press("Delete");
+
+    await waitFor(() =>
+      expect(client.delete).toHaveBeenCalledWith("/projects/p1/custom-statistics/s1")
+    );
+  });
+
+  it("explains itself when the saved list cannot be loaded", async () => {
+    vi.mocked(client.get).mockRejectedValue(new Error("offline"));
+    await withFields();
+
+    expect(
+      await within(sectionFor(SAVED)).findByText(/Could not load your saved statistics/)
+    ).toBeInTheDocument();
   });
 });
