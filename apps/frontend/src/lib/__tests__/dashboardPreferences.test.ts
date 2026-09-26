@@ -16,12 +16,12 @@ describe("dashboard panel preferences", () => {
     expect(loadDashboardPanels()).toEqual(DEFAULT_DASHBOARD_PANELS);
   });
 
-  it("persists known panels in their dashboard display order", () => {
+  it("persists known panels in the student's selected order", () => {
     saveDashboardPanels(["tags", "activity", "tags"]);
 
     expect(localStorage.getItem(DASHBOARD_PANELS_STORAGE_KEY)).toBe(
-      JSON.stringify(["activity", "tags"])
+      JSON.stringify(["tags", "activity"])
     );
-    expect(loadDashboardPanels()).toEqual(["activity", "tags"]);
+    expect(loadDashboardPanels()).toEqual(["tags", "activity"]);
   });
 });
