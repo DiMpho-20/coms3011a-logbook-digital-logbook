@@ -27,6 +27,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Must come before every typecheck, lint and build below: the backend and
+      # the frontend both resolve @logbook/shared through its package.json, which
+      # now points at dist. Without this step they resolve to nothing.
+      - name: Build shared package
+        run: npm run build --workspace=packages/shared
+
       - name: Generate Prisma Client
         run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
 

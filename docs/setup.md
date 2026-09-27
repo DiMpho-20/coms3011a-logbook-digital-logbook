@@ -32,6 +32,17 @@ From the repository root (installs all workspace packages):
 npm install
 ```
 
+Then build the shared package once:
+
+```bash
+npm run build --workspace=packages/shared
+```
+
+`@logbook/shared` ships compiled JavaScript and declarations rather than
+TypeScript source, so both apps resolve it through `packages/shared/dist`.
+Until it is built, the backend and frontend will report that they cannot find
+the module. Re-run it after changing anything in `packages/shared/src`.
+
 ### 4. Configure environment variables
 
 Create `apps/backend/.env` from the example file:
