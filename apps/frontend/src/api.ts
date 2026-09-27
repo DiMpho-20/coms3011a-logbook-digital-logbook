@@ -639,3 +639,65 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
   }
   return { projects: importedProjects, entries: importedEntries };
 }
+
+// ── Automation rules (US26) ──────────────────────────────────────────────
+
+export type AutomationTrigger = "ENTRY_CREATED" | "ENTRY_UPDATED";
+
+export type AutomationOperator =
+  | "EQ" | "NEQ" | "GT" | "GTE" | "LT" | "LTE"
+  | "IS_EMPTY" | "IS_NOT_EMPTY" | "IS_TRUE" | "IS_FALSE";
+
+export type AutomationCondition =
+  | { source: "ATTRIBUTE"; attribute: "durationMinutes" | "status"; operator: AutomationOperator; value?: number | string }
+  | { source: "FIELD"; fieldId: string; operator: AutomationOperator; value?: number | string };
+
+export type AutomationAction =
+  | { type: "ADD_TAG"; tagId: string }
+  | { type: "REMOVE_TAG"; tagId: string }
+  | { type: "SET_STATUS"; status: "OPEN" | "DONE" };
+
+export interface AutomationRule {
+  id: string;
+  projectId: string;
+  name: string;
+  trigger: AutomationTrigger;
+  conditions: AutomationCondition[];
+  action: AutomationAction;
+  enabled: boolean;
+  /** Why the rule cannot currently run — its field archived, its tag deleted. */
+  invalidReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AutomationRuleInput {
+  name: string;
+  trigger: AutomationTrigger;
+  conditions: AutomationCondition[];
+  action: AutomationAction;
+  enabled?: boolean;
+}
+
+export async function fetchAutomationRules(projectId: string): Promise<AutomationRule[]> {
+  return (await api.get(`/projects/${projectId}/automation-rules`)).data;
+}
+
+export async function createAutomationRule(
+  projectId: string,
+  input: AutomationRuleInput
+): Promise<AutomationRule> {
+  return (await api.post(`/projects/${projectId}/automation-rules`, input)).data;
+}
+
+export async function updateAutomationRule(
+  projectId: string,
+  id: string,
+  input: Partial<AutomationRuleInput>
+): Promise<AutomationRule> {
+  return (await api.patch(`/projects/${projectId}/automation-rules/${id}`, input)).data;
+}
+
+export async function deleteAutomationRule(projectId: string, id: string): Promise<void> {
+  await api.delete(`/projects/${projectId}/automation-rules/${id}`);
+}
