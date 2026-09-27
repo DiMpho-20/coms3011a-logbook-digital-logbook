@@ -17,6 +17,24 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// A reminder pushed by the server (see apps/backend/src/utils/push.ts).
+self.addEventListener("push", (event) => {
+  let message = {};
+  try {
+    message = event.data ? event.data.json() : {};
+  } catch {
+    message = { body: event.data ? event.data.text() : "" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(message.title || "Reminder", {
+      body: message.body || "",
+      icon: "/favicon.svg",
+      tag: message.tag,
+      data: { url: message.url || "/reminders" },
+    })
+  );
+});
+
 // Clicking a reminder notification brings an open logbook tab forward, or
 // opens one, on the page the notification points to.
 self.addEventListener("notificationclick", (event) => {

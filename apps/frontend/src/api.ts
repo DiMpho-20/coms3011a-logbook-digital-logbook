@@ -476,6 +476,20 @@ export async function updateReminderSettings(data: Partial<ReminderSettings>): P
   return res.data;
 }
 
+/** The key browsers subscribe to push with; null when the server has push off. */
+export async function fetchPushPublicKey(): Promise<string | null> {
+  return (await api.get("/push/public-key")).data.publicKey;
+}
+
+/** Register this device's push subscription with the server. */
+export async function savePushSubscription(subscription: PushSubscriptionJSON): Promise<void> {
+  await api.post("/push/subscriptions", subscription);
+}
+
+export async function removePushSubscription(endpoint: string): Promise<void> {
+  await api.delete("/push/subscriptions", { data: { endpoint } });
+}
+
 // ── Backup and restore ───────────────────────────────────────────────────
 
 export async function exportLogbook(): Promise<LogbookBackup> {

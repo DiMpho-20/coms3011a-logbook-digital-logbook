@@ -10,7 +10,7 @@ import {
   disableReminderNotifications,
   enableReminderNotifications,
   notificationsSupported,
-  reminderNotificationsEnabled,
+  reminderNotificationMode,
 } from "../lib/reminderNotifications";
 import { api } from "../api/client";
 
@@ -86,9 +86,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 /** Turns system notifications for newly due reminders on or off on this device. */
 function ReminderNotificationToggle() {
-  const [enabled, setEnabled] = useState(reminderNotificationsEnabled);
+  const [mode, setMode] = useState(reminderNotificationMode);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const enabled = mode !== null;
 
   if (!notificationsSupported()) {
     return <p className="text-sm text-slate-500">This browser can't show notifications.</p>;
@@ -96,15 +97,16 @@ function ReminderNotificationToggle() {
 
   const toggle = async () => {
     setMessage("");
+    setBusy(true);
     if (enabled) {
-      disableReminderNotifications();
-      setEnabled(false);
+      await disableReminderNotifications();
+      setMode(null);
+      setBusy(false);
       return;
     }
-    setBusy(true);
     try {
       const on = await enableReminderNotifications(await fetchDueReminders());
-      setEnabled(on);
+      setMode(reminderNotificationMode());
       if (!on) {
         setMessage(
           Notification.permission === "denied"
@@ -132,7 +134,9 @@ function ReminderNotificationToggle() {
         <span>
           <span className="block text-sm font-medium text-slate-700">Notify me on this device</span>
           <span className="block text-sm text-slate-500">
-            Shows a system notification when a reminder falls due, while the logbook is open in a tab.
+            {mode === "in-app"
+              ? "Shows a system notification when a reminder falls due, while the logbook is open in a tab. This browser can't receive notifications with the app closed."
+              : "Shows a system notification when a reminder falls due, even when the logbook is closed."}
           </span>
         </span>
       </label>

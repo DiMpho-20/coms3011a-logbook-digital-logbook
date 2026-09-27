@@ -1,10 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { Reminder } from "@logbook/shared";
 
+const api = vi.hoisted(() => ({
+  fetchPushPublicKey: vi.fn(async (): Promise<string | null> => null),
+  savePushSubscription: vi.fn(async () => {}),
+  removePushSubscription: vi.fn(async () => {}),
+}));
+vi.mock("../../api", () => api);
+
 import {
   disableReminderNotifications,
   enableReminderNotifications,
   notifyNewDueReminders,
+  reminderNotificationMode,
   reminderNotificationsEnabled,
 } from "../reminderNotifications";
 
@@ -82,5 +90,53 @@ describe("reminder notifications", () => {
     disableReminderNotifications();
     await notifyNewDueReminders([reminder("a")]);
     expect(shown).toHaveLength(0);
+  });
+});
+
+describe("push notifications", () => {
+  const subscription = {
+    endpoint: "https://push.example.com/device",
+    toJSON: () => ({ endpoint: "https://push.example.com/device", keys: { p256dh: "k", auth: "a" } }),
+    unsubscribe: vi.fn(async () => true),
+  };
+  const pushManager = {
+    getSubscription: vi.fn(async (): Promise<typeof subscription | null> => null),
+    subscribe: vi.fn(async () => subscription),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("navigator", {
+      serviceWorker: { getRegistration: async () => ({ pushManager, showNotification: vi.fn() }) },
+    });
+  });
+
+  it("subscribe the device when the server has push set up", async () => {
+    api.fetchPushPublicKey.mockResolvedValueOnce("BPublicKey_-");
+    expect(await enableReminderNotifications([])).toBe(true);
+    expect(reminderNotificationMode()).toBe("push");
+    expect(api.savePushSubscription).toHaveBeenCalledWith(subscription.toJSON());
+  });
+
+  it("leave announcing to the server once pushing", async () => {
+    api.fetchPushPublicKey.mockResolvedValueOnce("BPublicKey_-");
+    await enableReminderNotifications([]);
+    expect(await notifyNewDueReminders([reminder("a")])).toEqual([]);
+  });
+
+  it("fall back to in-app notifications when the server has push off", async () => {
+    expect(await enableReminderNotifications([])).toBe(true);
+    expect(reminderNotificationMode()).toBe("in-app");
+    expect(pushManager.subscribe).not.toHaveBeenCalled();
+  });
+
+  it("unsubscribe the device when turned off", async () => {
+    api.fetchPushPublicKey.mockResolvedValueOnce("BPublicKey_-");
+    await enableReminderNotifications([]);
+    pushManager.getSubscription.mockResolvedValueOnce(subscription);
+    await disableReminderNotifications();
+    expect(api.removePushSubscription).toHaveBeenCalledWith(subscription.endpoint);
+    expect(subscription.unsubscribe).toHaveBeenCalled();
+    expect(reminderNotificationsEnabled()).toBe(false);
   });
 });

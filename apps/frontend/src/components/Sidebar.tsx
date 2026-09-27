@@ -20,7 +20,11 @@ import {
 } from "lucide-react";
 import { clearOfflineCache } from "../lib/offlineCache";
 import { fetchDueReminderCount, fetchDueReminders, REMINDERS_CHANGED_EVENT } from "../api";
-import { notifyNewDueReminders, reminderNotificationsEnabled } from "../lib/reminderNotifications";
+import {
+  disableReminderNotifications,
+  notifyNewDueReminders,
+  reminderNotificationMode,
+} from "../lib/reminderNotifications";
 
 /** How often the due-reminder badge re-checks while the app is open. */
 const REMINDER_POLL_MS = 5 * 60_000;
@@ -36,8 +40,8 @@ function useDueReminderCount(): number {
   useEffect(() => {
     let cancelled = false;
     const refresh = () => {
-      // With notifications on, the full list is needed to spot new ones.
-      const due = reminderNotificationsEnabled()
+      // When this tab does the notifying, the full list is needed to spot new ones.
+      const due = reminderNotificationMode() === "in-app"
         ? fetchDueReminders().then(async (list) => {
             await notifyNewDueReminders(list);
             return list.length;
@@ -253,8 +257,10 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
             </button>
             <div className="h-px bg-white/[0.06]" />
             <button
-              onClick={() => {
+              onClick={async () => {
                 setMenuOpen(false);
+                // Stop pushes to this device before the session ends.
+                await disableReminderNotifications();
                 localStorage.removeItem("token");
                 clearOfflineCache();
                 window.location.href = "/login";

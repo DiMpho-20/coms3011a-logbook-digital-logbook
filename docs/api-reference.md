@@ -860,6 +860,53 @@ Update any subset of the rules. `dueSoonDays` 0–30, `staleDays` 1–365,
 
 ---
 
+## Push notifications (`/api/push`) 🔒
+
+Web push for reminders. When `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` are
+set, a job runs every minute. For each user with a subscribed device, it
+applies their reminder rules and pushes every pending reminder whose
+`remindAt` has passed and that hasn't been pushed yet. If more than three are
+due at once, it sends one summary instead. Snoozing a reminder (a new
+`remindAt`) lets it be pushed again. Without the keys, push is off and
+reminders stay in-app only.
+
+Push payload, as the service worker receives it:
+```json
+{ "title": "Due soon: Submit lab report", "body": "Chemistry: Submit lab report", "url": "/reminders", "tag": "reminder-<id>" }
+```
+
+### `GET /api/push/public-key`
+
+**Response `200`:** `{ "publicKey": "B..." }`, or `{ "publicKey": null }` when push is off.
+
+---
+
+### `POST /api/push/subscriptions`
+
+Register this device. The body is the browser's `PushSubscription.toJSON()`.
+Reminders already due at this point count as pushed, so a new device isn't
+sent old ones. Re-sending an endpoint updates it, and moves it to the caller
+if another user had it.
+
+**Body:**
+```json
+{ "endpoint": "https://fcm.googleapis.com/...", "keys": { "p256dh": "...", "auth": "..." } }
+```
+
+**Response `201`:** `{ "subscribed": true }`
+**Errors:** `400` (malformed subscription), `503` (push not set up on the server)
+
+---
+
+### `DELETE /api/push/subscriptions`
+
+Stop pushing to a device. **Body:** `{ "endpoint": "..." }`
+
+**Response `204`:** No content. Devices the push service reports as gone
+(`404`/`410`) are removed automatically.
+
+---
+
 ## Google Calendar (`/api/google-calendar`)
 
 Syncs open entries' due dates into the user's primary Google Calendar using the
