@@ -1,7 +1,7 @@
 # FEAT-001: Google Calendar API Integration
 
 **Priority:** Medium
-**Status:** Partial (OAuth plumbing and a manual per-entry link only)
+**Status:** Done
 **Component:** Frontend + Backend
 **Labels:** feature, integration, external-api
 
@@ -36,7 +36,7 @@ Entries have a `due_date` field but no external calendar sync. Users must manual
 - **iCal export** (.ics file download) — simpler but not real-time
 - **CalDAV** — more universal but more complex to implement
 
-## Status Notes (2026-09-20)
+## Status Notes (2026-09-20) — superseded, see Resolution below
 Partial — do not close. The OAuth2 plumbing exists: `/api/google-calendar`
 exposes `connect` (OAuth2 consent for the `calendar.events` scope),
 `callback`, `status` and `disconnect` routes, backed by the
@@ -52,3 +52,37 @@ so the core acceptance criteria remain unmet.
 ## Related
 - `docs/client-interactions.md` — listed as "Planned for a later phase"
 - `apps/frontend/src/pages/CalendarPage.tsx` — already has the UI for viewing due dates
+
+## Resolution
+
+Completed in PR #93 (merge `de08724`, on top of `aa9d469` and `cd4bf6e`),
+which supersedes the 2026-09-20 note above: the stub `/sync` was replaced by
+a real, idempotent mirror.
+
+`syncDueDates` (`apps/backend/src/services/googleCalendarService.ts`) lists
+the user's open, dated entries and reconciles them against the connected
+primary calendar. Events the logbook created carry private extended
+properties (`logbookSource=digital-logbook`, `logbookEntryId`), so a sync
+finds its own events again without storing Google event ids: insert when an
+entry has no event, patch when the summary or date changed, delete when the
+entry was completed, undated or deleted (orphans are cleaned up too). Due
+dates are calendar days, so events are all-day.
+
+The OAuth hand-off is bound to the user who started it: the callback's
+`state` is a 10-minute purpose-scoped JWT (`oauth-state`), so a callback URL
+cannot be forged to attach someone else's calendar. Access/refresh tokens are
+encrypted at rest with AES-256-GCM under `GOOGLE_TOKEN_ENCRYPTION_KEY`
+(`apps/backend/src/utils/googleTokens.ts`) — the same envelope shape later
+reused for TOTP secrets. The frontend exposes the operation through the
+`GoogleCalendarSync` component on the Calendar page.
+
+One deliberate deviation from the proposed solution: sync is an explicit,
+idempotent operation the user triggers (`POST /api/google-calendar/sync`)
+rather than a hook fired inside entry create/update/delete. That keeps
+Google API latency and failures out of the entry-save transaction, and makes
+the operation retryable and self-healing — re-running converges the calendar
+to the logbook's state. All five acceptance criteria are met by the mirror.
+
+Regression coverage is in `apps/backend/src/__tests__/googleCalendarSync.test.ts`
+(create/update/remove/idempotency) and `googleCalendar.test.ts` (connect,
+callback incl. forged-state rejection, status, disconnect).

@@ -9,9 +9,9 @@ This directory contains all known bugs and feature requests for the Digital Logb
 | BUG-001 | [Concurrent Entry-Field Creation Race Condition](BUG-001-concurrent-entry-field-race.md) | High | Open |
 | BUG-002 | [Hardcoded JWT Secret Fallback](BUG-002-hardcoded-jwt-secret.md) | Critical | Fixed |
 | BUG-003 | [No Rate Limiting on Auth Endpoints](BUG-003-no-rate-limiting.md) | High | Fixed |
-| BUG-004 | [TOTP Secrets Stored Unencrypted](BUG-004-unencrypted-totp-secrets.md) | High | Open |
-| BUG-005 | [No 2FA Recovery/Backup Codes](BUG-005-no-2fa-recovery-codes.md) | High | Open |
-| BUG-006 | [2FA Login Steps Not Cryptographically Linked](BUG-006-2fa-steps-not-linked.md) | Medium | Open |
+| BUG-004 | [TOTP Secrets Stored Unencrypted](BUG-004-unencrypted-totp-secrets.md) | High | Fixed |
+| BUG-005 | [No 2FA Recovery/Backup Codes](BUG-005-no-2fa-recovery-codes.md) | High | Fixed |
+| BUG-006 | [2FA Login Steps Not Cryptographically Linked](BUG-006-2fa-steps-not-linked.md) | Medium | Fixed |
 | BUG-007 | [CI Node.js Version Mismatch](BUG-007-ci-node-version-mismatch.md) | Medium | Open |
 | BUG-008 | [Stale Prisma Client Breaks Tests](BUG-008-stale-prisma-client.md) | Medium | Fixed |
 | BUG-009 | [Dashboard "New Entry" Button](BUG-009-dashboard-new-entry-button.md) | Medium | Fixed |
@@ -26,7 +26,7 @@ This directory contains all known bugs and feature requests for the Digital Logb
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
-| FEAT-001 | [Google Calendar API Integration](FEAT-001-google-calendar-integration.md) | Medium | Partial |
+| FEAT-001 | [Google Calendar API Integration](FEAT-001-google-calendar-integration.md) | Medium | Done |
 | FEAT-002 | [Entry-Field Help Text](FEAT-002-entry-field-help-text.md) | High | Open |
 | FEAT-003 | [View Discoverability](FEAT-003-view-discoverability.md) | Medium | Open |
 | FEAT-004 | [API Pagination](FEAT-004-api-pagination.md) | Medium | Open |

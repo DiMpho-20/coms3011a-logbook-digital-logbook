@@ -1,7 +1,7 @@
 # BUG-005: No 2FA Recovery/Backup Codes
 
 **Severity:** High
-**Status:** Open
+**Status:** Fixed
 **Component:** Backend — `apps/backend/src/routes/auth.routes.ts`
 **Labels:** bug, 2fa, account-recovery
 
@@ -33,3 +33,28 @@ Account recovery requires a database administrator to manually clear the `twoFac
 ## Related
 - BUG-003 (no rate limiting) makes TOTP brute-force feasible without backup codes
 - BUG-004 (unencrypted secrets) means the admin recovery path exposes secrets in the DB
+
+## Resolution
+
+Fixed in `acdcf58` (backend), with the UI carried through in `74dfa9f`.
+
+Ten single-use recovery codes are issued exactly once, when 2FA is enabled at
+`POST /api/auth/2fa/verify-setup` — the only response in which they are ever
+readable. The database stores SHA-256 digests in the
+`two_factor_recovery_codes` table, never the codes themselves.
+`POST /api/auth/login/2fa` accepts a recovery code anywhere a TOTP code is
+accepted (recognised by shape, normalised for case and hyphenation), and
+spending is atomic: the row's `used_at` is only set if it was still `NULL`,
+so the same code cannot be replayed even by two concurrent requests.
+
+`POST /api/auth/2fa/recovery-codes` regenerates a fresh set — password-gated,
+and invalidating every previous code — and disabling 2FA deletes all codes,
+because a stale code must not unlock a later, unrelated 2FA setup. Together
+these mean the administrator-clears-the-column recovery path is only needed
+when a user loses both the authenticator *and* all ten codes.
+
+Regression coverage is in
+`apps/backend/src/__tests__/twoFactorSecurity.test.ts` (21 tests: full set
+issued, digests stored, remaining count reported, formatting-tolerant
+sign-in, replay refused, regeneration gated and invalidating, codes discarded
+on disable). AUTHENTICATION.md documents the flows.
