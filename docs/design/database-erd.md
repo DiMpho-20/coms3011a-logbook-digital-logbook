@@ -268,7 +268,7 @@ for the rule language and its deliberate limitations.
 The schema is managed with **Prisma Migrate**. On 2026-09-27 the accumulated
 migration history was squashed into a single baseline,
 `prisma/migrations/0_init/migration.sql`, generated with
-`prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma`
+`prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script`
 and verified to reproduce the live schema exactly (a drift diff reports no
 differences, and deploying it to an empty database creates every table).
 `npx prisma migrate deploy` therefore bootstraps a fresh environment
@@ -301,10 +301,14 @@ strings never leave the environment configuration.
 | Auth hardening — `two_factor_recovery_codes`, SHA-256 token digests | 2 | new table + `password_resets`, `users` |
 | Automation rules (`automation_rules`, `AutomationTrigger` enum) | 2 | new table + enum |
 | Migration history squashed into the `0_init` baseline | 2 | `_prisma_migrations` |
+| Web push for reminders (`push_subscriptions`, `reminders.pushed_at`) | 2 | new table + `reminders` |
 
 The change-history rows above summarise work that arrived as eight dated
 migrations and was folded into the baseline on 2026-09-27; each original
-migration is still visible in the git history.
+migration is still visible in the git history. The web-push row is the first
+dated migration to land *on top of* the squashed baseline
+(`20260927010000_push_notifications`), which is the workflow every later
+schema change follows.
 
 The authoritative source for the current schema is
 `apps/backend/prisma/schema.prisma` in the repository.
