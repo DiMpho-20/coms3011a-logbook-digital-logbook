@@ -146,6 +146,8 @@ export const updateReminder = async (req: AuthenticatedRequest, res: Response) =
     const { status, ...rest } = parsed.data;
 
     const data: Prisma.ReminderUpdateInput = { ...rest };
+    // A snoozed or rescheduled reminder is pushed again when its new time comes.
+    if (rest.remindAt) data.pushedAt = null;
     if (status) {
       const now = new Date();
       data.status = status;
