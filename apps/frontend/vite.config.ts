@@ -9,7 +9,7 @@ export default defineConfig({
 
   resolve: {
     alias: {
-      '@logbook/shared': path.resolve(__dirname, '../../packages/shared/src'),
+      '@logbook/shared': path.resolve(import.meta.dirname, '../../packages/shared/src'),
     },
   },
 
