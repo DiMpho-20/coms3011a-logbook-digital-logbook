@@ -44,18 +44,18 @@ is **% Lines**, the number coverage is measured on. Backend example, from the
 
 ```text
 File      | % Stmts | % Branch | % Funcs | % Lines
-All files |   85.32 |    80.04 |   92.98 |   85.95
+All files |   84.78 |    79.68 |   92.12 |   85.43
 ```
 
 ## 4. The 50% rule
 
 The project **must stay above 50% combined coverage** — that is the figure the
-marking rubric reads. Where it stands (2026-09-27, 842 tests):
+marking rubric reads. Where it stands (2026-09-27, 863 tests):
 
 | Workspace | % Lines |
 |---|---|
-| Backend | ~86% |
-| Frontend | ~53% |
+| Backend | ~85% |
+| Frontend | ~54% |
 | **Combined** | **~65%** |
 
 The margin over the bar is real but not free: the frontend is the lower of

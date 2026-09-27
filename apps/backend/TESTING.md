@@ -34,7 +34,7 @@ This document explains everything about how the Digital Logbook backend is teste
 
 ## What We Test
 
-494 tests across 26 files. The original four Sprint 2 files are still here; the suite has grown around them feature by feature, and most newer files are named after the bug or user story they lock in.
+505 tests across 27 files. The original four Sprint 2 files are still here; the suite has grown around them feature by feature, and most newer files are named after the bug or user story they lock in.
 
 ### Core API & infrastructure
 
@@ -75,6 +75,7 @@ This document explains everything about how the Digital Logbook backend is teste
 - **`googleCalendar.test.ts` (13)** — FEAT-001: OAuth state, token encryption, connect and callback (including forged-state rejection)
 - **`googleCalendarSync.test.ts` (7)** — FEAT-001: the idempotent due-date mirror — create, update, remove, convergence on re-run
 - **`reminders.test.ts` (42)** — US28: reminder helpers, reminders generated from entries, manual reminders, viewing, completing and dismissing, settings
+- **`push.test.ts` (11)** — US28 web push: the public key, subscription validation and re-subscription, and the delivery job — a reminder is pushed when it falls due, pushed again after a snooze, never twice, with one summary when many fall due at once and devices the push service reports gone are dropped
 - **`utils.test.ts` (32)** — calculateComputedValues, validateFormula, affectedComputedFields, computed chains, auth utils, createFormatVersion
 
 ---
@@ -101,6 +102,7 @@ apps/backend/src/__tests__/
 ├── jwtSecret.test.ts           #   5 — BUG-002 regression
 ├── projectDelete.test.ts       #   6 — project deletion
 ├── purgeDeletedAccounts.test.ts#   6 — deletion grace-period purge
+├── push.test.ts                #  11 — push subscriptions and delivery (US28)
 ├── rateLimit.test.ts           #   6 — BUG-003 regression
 ├── recurringEntries.test.ts    #   3 — recurring entries (US27)
 ├── reminders.test.ts           #  42 — reminders (US28)
@@ -204,47 +206,49 @@ Prerequisites: a reachable `DATABASE_URL` in `apps/backend/.env` and a regenerat
 
 ## Proof of Passing Runs
 
-**Run date: 2026-09-27 · 494 / 494 tests passing · 26 / 26 test files passing**
+**Run date: 2026-09-27 · 505 / 505 tests passing · 27 / 27 test files passing**
 
-Captured from `npm run test:coverage --workspace=apps/backend` (run with two
-workers against the remote database — per-file times are wall-clock and
-include the time a file spent queued behind its worker's previous file):
+Captured from `npm run test:coverage --workspace=apps/backend` (run against
+the remote database with Vitest's default worker pool — per-file times are
+wall-clock and include the time a file spent queued behind its worker's
+previous file):
 
 ```text
- ✓ src/__tests__/api.test.ts (27 tests) 54026ms
- ✓ src/__tests__/auth.test.ts (33 tests) 24812ms
- ✓ src/__tests__/authCrypto.test.ts (28 tests) 31ms
- ✓ src/__tests__/automationEngine.test.ts (51 tests) 361444ms
- ✓ src/__tests__/automationRules.test.ts (28 tests) 25ms
- ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 53990ms
- ✓ src/__tests__/customStatistics.test.ts (27 tests) 63990ms
- ✓ src/__tests__/entriesListing.test.ts (14 tests) 31717ms
- ✓ src/__tests__/entryHistory.test.ts (18 tests) 192194ms
- ✓ src/__tests__/entryOwnership.test.ts (9 tests) 31710ms
- ✓ src/__tests__/entryValidation.test.ts (17 tests) 183807ms
- ✓ src/__tests__/expressions.test.ts (28 tests) 25ms
- ✓ src/__tests__/expressionStats.test.ts (22 tests) 37849ms
- ✓ src/__tests__/googleCalendar.test.ts (13 tests) 106ms
- ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 18ms
- ✓ src/__tests__/jwtSecret.test.ts (5 tests) 287ms
- ✓ src/__tests__/projectDelete.test.ts (6 tests) 41543ms
- ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 9364ms
- ✓ src/__tests__/rateLimit.test.ts (6 tests) 138ms
- ✓ src/__tests__/recurringEntries.test.ts (3 tests) 13ms
- ✓ src/__tests__/reminders.test.ts (42 tests) 244793ms
- ✓ src/__tests__/sprint2.test.ts (22 tests) 56670ms
- ✓ src/__tests__/stats.test.ts (10 tests) 133622ms
- ✓ src/__tests__/tags.test.ts (13 tests) 69031ms
- ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 23410ms
- ✓ src/__tests__/utils.test.ts (32 tests) 926ms
+ ✓ src/__tests__/api.test.ts (27 tests) 53374ms
+ ✓ src/__tests__/auth.test.ts (33 tests) 23720ms
+ ✓ src/__tests__/authCrypto.test.ts (28 tests) 30ms
+ ✓ src/__tests__/automationEngine.test.ts (51 tests) 352794ms
+ ✓ src/__tests__/automationRules.test.ts (28 tests) 19ms
+ ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 53289ms
+ ✓ src/__tests__/customStatistics.test.ts (27 tests) 64106ms
+ ✓ src/__tests__/entriesListing.test.ts (14 tests) 30855ms
+ ✓ src/__tests__/entryHistory.test.ts (18 tests) 196734ms
+ ✓ src/__tests__/entryOwnership.test.ts (9 tests) 32127ms
+ ✓ src/__tests__/entryValidation.test.ts (17 tests) 184336ms
+ ✓ src/__tests__/expressions.test.ts (28 tests) 26ms
+ ✓ src/__tests__/expressionStats.test.ts (22 tests) 37680ms
+ ✓ src/__tests__/googleCalendar.test.ts (13 tests) 102ms
+ ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 30ms
+ ✓ src/__tests__/jwtSecret.test.ts (5 tests) 137ms
+ ✓ src/__tests__/projectDelete.test.ts (6 tests) 39685ms
+ ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 9293ms
+ ✓ src/__tests__/push.test.ts (11 tests) 49532ms
+ ✓ src/__tests__/rateLimit.test.ts (6 tests) 160ms
+ ✓ src/__tests__/recurringEntries.test.ts (3 tests) 11ms
+ ✓ src/__tests__/reminders.test.ts (42 tests) 249595ms
+ ✓ src/__tests__/sprint2.test.ts (22 tests) 57062ms
+ ✓ src/__tests__/stats.test.ts (10 tests) 132627ms
+ ✓ src/__tests__/tags.test.ts (13 tests) 69059ms
+ ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 24195ms
+ ✓ src/__tests__/utils.test.ts (32 tests) 1729ms
 
- Test Files  26 passed (26)
-      Tests  494 passed (494)
-   Duration  834.72s (transform 3.24s, setup 513ms, import 36.52s, tests 1615.54s, environment 4ms)
+ Test Files  27 passed (27)
+      Tests  505 passed (505)
+   Duration  432.73s (transform 4.16s, setup 578ms, import 38.66s, tests 1662.31s, environment 6ms)
 ```
 
-**Coverage (V8 provider):** 85.32% statements · 80.04% branches · 92.98%
-functions · 85.95% lines.
+**Coverage (V8 provider):** 84.78% statements · 79.68% branches · 92.12%
+functions · 85.43% lines.
 
 ---
 
