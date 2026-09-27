@@ -10,6 +10,7 @@ import { validateEntryValues, findMissingRequiredField, isEmptyValue } from "../
 import type { SnapshotField } from "../utils/entryFormat.js";
 import { ensureBaselineVersion, recordVersion, sameSnapshot, toSnapshot } from "../utils/entryVersions.js";
 import { dueDateOffsetDays, materializeDueRecurringEntries, nextRecurrenceDate } from "../utils/recurringEntries.js";
+import { runEntryAutomation } from "../utils/automationRunner.js";
 
 /**
  * Resolve a project the caller actually owns. requireAuth proves the caller
@@ -201,7 +202,8 @@ export const updateEntryStatus = async (req: AuthenticatedRequest, res: Response
       return res.status(400).json({ error: "status must be OPEN or DONE" });
     }
 
-    if (!(await ownedEntry(id, req.userId!))) {
+    const owned = await ownedEntry(id, req.userId!);
+    if (!owned) {
       return res.status(404).json({ error: "Entry not found" });
     }
 
@@ -222,7 +224,12 @@ export const updateEntryStatus = async (req: AuthenticatedRequest, res: Response
       return updated;
     }, ENTRY_TRANSACTION_OPTIONS);
 
-    return res.status(200).json(entry);
+    // A status change is a save, so ENTRY_UPDATED rules apply here too —
+    // otherwise "when an entry is marked done" would depend on which of the
+    // two endpoints the UI happened to use.
+    const automated = await runEntryAutomation(id, owned.projectId, req.userId!, "ENTRY_UPDATED");
+
+    return res.status(200).json(automated ?? entry);
   } catch (error: any) {
     if (error.code === "P2025") {
       return res.status(404).json({ error: "Entry not found" });
@@ -305,7 +312,13 @@ export const createEntry = async (req: AuthenticatedRequest, res: Response) => {
       return created;
     }, ENTRY_TRANSACTION_OPTIONS);
 
-    return res.status(201).json(entry);
+    // US26. Deliberately after the commit above: the entry is the user's
+    // work and must survive a broken rule, so automation can only ever add
+    // to a save that has already succeeded. runEntryAutomation never throws
+    // and returns null when nothing changed.
+    const automated = await runEntryAutomation(entry.id, projectId, req.userId!, "ENTRY_CREATED");
+
+    return res.status(201).json(automated ?? entry);
   } catch (error: any) {
     console.error("Failed to create entry:", error);
     return res.status(400).json({ error: error.errors || error.message });
@@ -406,7 +419,10 @@ export const updateEntry = async (req: AuthenticatedRequest, res: Response) => {
       return after;
     }, ENTRY_TRANSACTION_OPTIONS);
 
-    return res.status(200).json(entry);
+    // US26 — "I save an entry". Same placement and same reasoning as create.
+    const automated = await runEntryAutomation(id, existing.projectId, req.userId!, "ENTRY_UPDATED");
+
+    return res.status(200).json(automated ?? entry);
   } catch (error: any) {
     console.error("Failed to update entry:", error);
     return res.status(400).json({ error: error.errors || error.message });

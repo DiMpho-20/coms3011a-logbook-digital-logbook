@@ -25,6 +25,14 @@ enum EntryFieldType {
   COMPUTED
 }
 
+// US26 — the entry events an automation rule can listen for. Deliberately
+// only the two the story names ("I create an entry", "I save an entry");
+// recurrence is US27 and reminders are US28, and neither belongs here.
+enum AutomationTrigger {
+  ENTRY_CREATED
+  ENTRY_UPDATED
+}
+
 enum EntryStatus {
   OPEN
   DONE
@@ -74,6 +82,7 @@ model User {
   tags                    Tag[]
   googleCalendarConnection GoogleCalendarConnection?
   customStatistics        CustomStatistic[]
+  automationRules         AutomationRule[]
   reminders               Reminder[]
   reminderSettings        ReminderSettings?
   twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
@@ -135,6 +144,7 @@ model Project {
   recurrenceRules RecurrenceRule[]
   tags        ProjectTag[]
   customStatistics CustomStatistic[]
+  automationRules  AutomationRule[]
 
   @@unique([userId, name])
   @@map("projects")
@@ -389,4 +399,42 @@ model CustomStatistic {
   /// owner, so this is the same guarantee with one less column to drift.
   @@unique([projectId, name])
   @@map("custom_statistics")
+}
+
+// --- AUTOMATION RULES (US26) ---
+// "As a student, I want rules to automatically apply when an entry is
+// captured, so that repetitive information can be generated or updated
+// automatically."
+//
+// A rule is data, never code: conditions and action are validated JSON that
+// application logic interprets. Nothing here is ever evaluated as a program.
+//
+// conditions is an array combined with AND, each entry either an attribute of
+// the entry itself or one of the project's custom fields referenced by its
+// stable id. action is a single tagged object. Both shapes are enforced by
+// Zod on the way in and re-checked against the project on the way out, so a
+// row that has gone stale (its field archived, its tag deleted) reports why
+// rather than acting on the wrong thing.
+//
+// userId is carried alongside projectId to match CustomStatistic above; a
+// project has exactly one owner, so it is redundant but consistent.
+model AutomationRule {
+  id         String            @id @default(uuid()) @db.Uuid
+  userId     String            @map("user_id") @db.Uuid
+  projectId  String            @map("project_id") @db.Uuid
+  name       String            @db.VarChar(100)
+  trigger    AutomationTrigger
+  conditions Json
+  action     Json
+  enabled    Boolean           @default(true)
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  // Every entry save loads this project's enabled rules and nothing else.
+  @@index([projectId, enabled])
+  @@map("automation_rules")
 }
