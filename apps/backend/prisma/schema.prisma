@@ -78,6 +78,7 @@ model User {
   reminderSettings        ReminderSettings?
   twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
   pushSubscriptions       PushSubscription[]
+  dashboardLayout         DashboardLayout?
 
   @@map("users")
 }
@@ -367,6 +368,19 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+// US19 — the panels on a student's dashboard, in the order they arranged
+// them. Built-in panels are named ("activity"); a saved statistic is
+// "stat:<projectId>:<statisticId>". No row means the default dashboard.
+model DashboardLayout {
+  userId    String   @id @map("user_id") @db.Uuid
+  panels    String[] @default([]) @db.VarChar(100)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("dashboard_layouts")
 }
 
 // The student's reminder rules. No row means the defaults below.
