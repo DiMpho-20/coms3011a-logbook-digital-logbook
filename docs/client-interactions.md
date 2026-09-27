@@ -315,6 +315,48 @@ The Intermediate user stories themselves have been completed and integrated into
 
 ---
 
+## [Date: 2026-09-25] — Client Meeting & Feature Feedback
+
+* **Channel:** Client meeting.
+
+* **Feedback:**
+
+  * The client suggested adding a **streak** feature to show users their consistency in creating logbook entries.
+  * The application should show the **number of entries per month** so users can track their activity over time.
+  * The client suggested adding **progress tracking** to the dashboard, allowing users to see the progress of their entries over time.
+  * The client suggested **ranking tags**, such as showing the most-used tags and how many entries use each tag.
+  * The client suggested allowing users to **compare different weeks** when viewing their statistics and progress.
+  * Users should be given the **option to choose which statistics they want to see**, rather than having a fixed set of statistics.
+  * The dashboard should give users more **freedom to customise what they want to see**, allowing them to select the information and statistics that are most relevant to them.
+  * The client suggested adding **more filtering options** to make it easier for users to find and analyse their entries.
+  * The client suggested an **auto-completion/auto-compilation feature** where repeatedly creating similar entries could automatically suggest or complete information based on previous entries.
+  * The client suggested exploring **expressions/custom statistics**. The team will ask **Branden** for clarification on how expressions should work and what functionality is expected.
+  * The first note regarding checking entries over a specified period was discussed as a possible consideration rather than a confirmed feature requirement.
+
+* **Bug Tracking:**
+
+  * The team discussed using **MantisBT** for bug tracking.
+  * It was agreed **not to use MantisBT**, as the available workspace is shared and would not provide the team with a suitable dedicated space for managing the project's bugs.
+  * The team instead created a **dedicated project in Gitea** that will be used as the project's bug tracker.
+  * Bugs and issues will be recorded and managed within the Gitea project to keep the team's bug-tracking process centralised with the project repository.
+
+* **Action Taken / Planned Actions:**
+
+  * Add a **streak** feature to track user consistency.
+  * Add **monthly entry counts** to the statistics/dashboard functionality.
+  * Investigate adding **progress tracking** for entries over time.
+  * Implement **tag ranking/usage statistics**, including most-used tags and the number of entries associated with each tag.
+  * Add functionality to **compare statistics across different weeks**.
+  * Allow users to **select the statistics** they want displayed.
+  * Provide users with **customisable dashboard options** so they can choose what information is displayed.
+  * Expand the available **entry filtering options**.
+  * Investigate and design the **auto-completion/auto-compilation** feature for repeated or similar entries.
+  * Ask **Branden** for clarification on the expected **expression/custom statistics** functionality.
+  * Use the newly created **Gitea project as the project's bug tracker** instead of MantisBT.
+  * Continue documenting client feedback and decisions as project evidence.
+
+---
+
 ## 7. Summary
 
 The majority of client requirements for the Intermediate phase were already established during the Sprint 1 client meetings. As a result, the team required only limited follow-up interaction during this phase.

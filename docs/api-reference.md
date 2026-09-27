@@ -881,6 +881,39 @@ Update any subset of the rules. `dueSoonDays` 0–30, `staleDays` 1–365,
 
 ---
 
+## Dashboard layout (`/api/dashboard`) 🔒
+
+US18/US19. The panels on the caller's dashboard, in the order they arranged
+them, saved to their account so the layout is the same on every device. A
+built-in panel is named by its id (`"activity"`, `"recent-entries"`, …). A
+saved statistic (US17) is `"stat:<projectId>:<statisticId>"`, and the
+dashboard reads its value from `GET /projects/:projectId/custom-statistics/:id`.
+The frontend skips ids it doesn't know, so the server only checks their format.
+
+### `GET /api/dashboard/layout`
+
+**Response `200`:** `{ "panels": ["tags", "stat:<uuid>:<uuid>"], "updatedAt": "..." }`,
+or `{ "panels": null, "updatedAt": null }` when the caller has never saved one
+(the default dashboard). An empty array is a saved, empty dashboard.
+
+---
+
+### `PUT /api/dashboard/layout`
+
+Replace the saved layout. **Body:** `{ "panels": ["recent-entries", "activity"] }`
+(at most 50, each once).
+
+**Response `200`:** the saved layout.
+**Errors:** `400` (not an array, unknown id format, duplicates, too many)
+
+---
+
+### `DELETE /api/dashboard/layout`
+
+Go back to the default dashboard. **Response `204`:** No content.
+
+---
+
 ## Push notifications (`/api/push`) 🔒
 
 Web push for reminders. When `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` are

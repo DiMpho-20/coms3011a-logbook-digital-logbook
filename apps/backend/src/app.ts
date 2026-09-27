@@ -11,6 +11,7 @@ import customStatisticRoutes from "./routes/customStatistic.routes.js";
 import automationRuleRoutes from "./routes/automationRule.routes.js";
 import reminderRoutes from "./routes/reminder.routes.js";
 import pushRoutes from "./routes/push.routes.js";
+import dashboardRoutes from "./routes/dashboard.routes.js";
 import { authLimiter, nonNegativeIntFromEnv } from "./middleware/rateLimit.middleware.js";
 
 const app = express();
@@ -47,6 +48,7 @@ app.use("/api/google-calendar", googleCalendarRoutes);
 app.use("/api", tagRoutes);
 app.use("/api", reminderRoutes);
 app.use("/api", pushRoutes);
+app.use("/api", dashboardRoutes);
 
 // ── Utility routes ────────────────────────────────────────────────────
 app.get("/", (_req, res) => {

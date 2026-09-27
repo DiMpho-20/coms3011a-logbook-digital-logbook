@@ -20,6 +20,13 @@ vi.mock("../../api", () => ({
     fieldsByProject: {},
     projectsNeedingFields: [],
   }),
+  // US19: layouts are saved to the account. Null = never saved.
+  fetchDashboardLayout: vi.fn().mockResolvedValue(null),
+  saveDashboardLayout: vi.fn().mockResolvedValue(undefined),
+  resetDashboardLayout: vi.fn().mockResolvedValue(undefined),
+  // US18: saved statistics offered as panels.
+  fetchProjectStatistics: vi.fn().mockResolvedValue([]),
+  fetchProjectStatistic: vi.fn(),
 }));
 
 import DashboardPage from "../../pages/DashboardPage";
@@ -195,5 +202,99 @@ describe("DashboardPage", () => {
     expect(
       await screen.findByText(/no active projects/i),
     ).toBeInTheDocument();
+  });
+  // ── US19: the layout is saved to the account ───────────────────────────
+
+  it("shows the layout saved to the account, even on a new device", async () => {
+    const { fetchDashboardLayout } = await import("../../api");
+    vi.mocked(fetchDashboardLayout).mockResolvedValueOnce(["tags", "activity"]);
+    renderDashboard();
+
+    const tags = await screen.findByRole("region", { name: "Tags" });
+    const activity = screen.getByRole("region", { name: "Activity" });
+    expect(tags.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText("Recent Entries")).not.toBeInTheDocument();
+  });
+
+  it("saves a changed layout to the account", async () => {
+    const { saveDashboardLayout } = await import("../../api");
+    const user = userEvent.setup();
+    renderDashboard();
+
+    await user.click(await screen.findByRole("button", { name: /customize dashboard/i }));
+    await user.click(screen.getByRole("checkbox", { name: /activity/i }));
+    await user.click(screen.getByRole("button", { name: /save dashboard/i }));
+
+    await waitFor(() => expect(saveDashboardLayout).toHaveBeenCalled());
+    expect(vi.mocked(saveDashboardLayout).mock.calls.at(-1)![0]).not.toContain("activity");
+  });
+
+  it("warns when the layout couldn't be saved to the account", async () => {
+    const { saveDashboardLayout } = await import("../../api");
+    vi.mocked(saveDashboardLayout).mockRejectedValueOnce(new Error("offline"));
+    const user = userEvent.setup();
+    renderDashboard();
+
+    await user.click(await screen.findByRole("button", { name: /customize dashboard/i }));
+    await user.click(screen.getByRole("button", { name: /save dashboard/i }));
+
+    expect(await screen.findByText(/couldn't be saved to your account/i)).toBeInTheDocument();
+  });
+
+  // ── US18: saved statistics as dashboard panels ─────────────────────────
+
+  const PROJECT = "11111111-1111-4111-8111-111111111111";
+  const STAT = "22222222-2222-4222-8222-222222222222";
+  const statistic = {
+    id: STAT, projectId: PROJECT, name: "Average hours", expression: "avg(Hours)",
+    value: 3.456, error: null, createdAt: "2026-09-27T00:00:00Z", updatedAt: "2026-09-27T00:00:00Z",
+  };
+
+  async function withStatisticProject() {
+    const api = await import("../../api");
+    vi.mocked(api.fetchProjects).mockResolvedValueOnce([
+      { id: PROJECT, name: "Thesis", status: "ACTIVE", description: null },
+    ] as any);
+    return api;
+  }
+
+  it("adds a saved statistic to the dashboard as a panel", async () => {
+    const api = await withStatisticProject();
+    vi.mocked(api.fetchProjectStatistics).mockResolvedValueOnce([statistic]);
+    const user = userEvent.setup();
+    renderDashboard();
+
+    await user.click(await screen.findByRole("button", { name: /customize dashboard/i }));
+    await user.click(await screen.findByRole("checkbox", { name: /average hours/i }));
+    await user.click(screen.getByRole("button", { name: /save dashboard/i }));
+
+    const panel = await screen.findByRole("region", { name: "Average hours" });
+    expect(panel).toHaveTextContent((3.46).toLocaleString());
+    expect(panel).toHaveTextContent("Average hours · Thesis");
+    expect(vi.mocked(api.saveDashboardLayout).mock.calls.at(-1)![0]).toContain(`stat:${PROJECT}:${STAT}`);
+  });
+
+  it("shows a saved statistic's current value when the dashboard opens", async () => {
+    const api = await withStatisticProject();
+    vi.mocked(api.fetchDashboardLayout).mockResolvedValueOnce([`stat:${PROJECT}:${STAT}`]);
+    vi.mocked(api.fetchProjectStatistic).mockResolvedValueOnce({ ...statistic, value: 12 });
+    renderDashboard();
+
+    expect(await screen.findByText("12")).toBeInTheDocument();
+    expect(api.fetchProjectStatistic).toHaveBeenCalledWith(PROJECT, STAT);
+  });
+
+  it("offers to remove the panel of a statistic that was deleted", async () => {
+    const api = await withStatisticProject();
+    vi.mocked(api.fetchDashboardLayout).mockResolvedValueOnce([`stat:${PROJECT}:${STAT}`, "tags"]);
+    vi.mocked(api.fetchProjectStatistic).mockRejectedValueOnce({ response: { status: 404 } });
+    const user = userEvent.setup();
+    renderDashboard();
+
+    expect(await screen.findByText("This statistic was deleted")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /remove panel/i }));
+
+    expect(screen.queryByText("This statistic was deleted")).not.toBeInTheDocument();
+    await waitFor(() => expect(vi.mocked(api.saveDashboardLayout).mock.calls.at(-1)![0]).toEqual(["tags"]));
   });
 });
