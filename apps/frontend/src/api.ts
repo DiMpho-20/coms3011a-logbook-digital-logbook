@@ -26,6 +26,7 @@
   ReminderStatusFilter,
   CreateReminderInput,
   UpdateReminderInput,
+  CustomStatistic,
 } from "@logbook/shared";
 import { api } from "./api/client";
 import { getPendingEntries, isOfflineRequest, queueEntry, removePendingEntriesForProject } from "./lib/offlineEntries";
@@ -66,6 +67,7 @@ export type {
   Reminder,
   ReminderSettings,
   ReminderStatusFilter,
+  CustomStatistic,
 };
 
 /**
@@ -488,6 +490,31 @@ export async function savePushSubscription(subscription: PushSubscriptionJSON): 
 
 export async function removePushSubscription(endpoint: string): Promise<void> {
   await api.delete("/push/subscriptions", { data: { endpoint } });
+}
+
+// ── Dashboard (US18/US19) ────────────────────────────────────────────────
+
+/** The saved panel order; null until the student saves a layout. */
+export async function fetchDashboardLayout(): Promise<string[] | null> {
+  return (await api.get("/dashboard/layout")).data.panels;
+}
+
+export async function saveDashboardLayout(panels: string[]): Promise<void> {
+  await api.put("/dashboard/layout", { panels });
+}
+
+export async function resetDashboardLayout(): Promise<void> {
+  await api.delete("/dashboard/layout");
+}
+
+/** A project's saved statistics (US17), read so they can be shown as dashboard panels. */
+export async function fetchProjectStatistics(projectId: string): Promise<CustomStatistic[]> {
+  return (await api.get(`/projects/${projectId}/custom-statistics`)).data;
+}
+
+/** One saved statistic with its current value. */
+export async function fetchProjectStatistic(projectId: string, statisticId: string): Promise<CustomStatistic> {
+  return (await api.get(`/projects/${projectId}/custom-statistics/${statisticId}`)).data;
 }
 
 // ── Backup and restore ───────────────────────────────────────────────────

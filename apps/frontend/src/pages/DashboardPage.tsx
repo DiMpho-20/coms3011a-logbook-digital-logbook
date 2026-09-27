@@ -10,12 +10,16 @@ import {
   ChevronDown,
   ChevronUp,
   GripVertical,
+  Sigma,
 } from "lucide-react";
 
 import {
   fetchProjects,
   fetchEntryFields,
   fetchAllEntries,
+  fetchProjectStatistic,
+  fetchProjectStatistics,
+  type CustomStatistic,
   type Project,
   type Entry,
   type EntryField,
@@ -30,12 +34,18 @@ import TagList from "../components/TagList";
 import Modal from "../components/Modal";
 import {
   DASHBOARD_PANELS,
+  isBuiltInPanel,
   loadDashboardPanels,
-  saveDashboardPanels,
+  parseStatisticPanel,
+  persistDashboardPanels,
+  resetDashboardPanels,
+  statisticPanelId,
+  syncDashboardPanels,
+  type BuiltInPanelId,
   type DashboardPanelId,
 } from "../lib/dashboardPreferences";
 
-const DASHBOARD_PANEL_DETAILS: Record<DashboardPanelId, { title: string; description: string }> = {
+const DASHBOARD_PANEL_DETAILS: Record<BuiltInPanelId, { title: string; description: string }> = {
   "active-projects": { title: "Active projects", description: "Your number of active projects" },
   "entries-this-week": { title: "Entries this week", description: "Entries created in the last seven days" },
   "total-time-logged": { title: "Total time logged", description: "Time logged across your active projects" },
@@ -121,6 +131,67 @@ function ActivityChart({ data }: { data: { label: string; value: number }[] }) {
   );
 }
 
+// ── Saved statistic panel (US18) ─────────────────────────────────────────
+
+/** What a statistic panel shows: the statistic, or why it can't be shown. */
+type StatisticState =
+  | { status: "loading" }
+  | { status: "ready"; statistic: CustomStatistic }
+  | { status: "missing" }
+  | { status: "failed" };
+
+function formatStatisticValue(value: number): string {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function StatisticPanel({
+  state,
+  projectName,
+  onRemove,
+}: {
+  state: StatisticState | undefined;
+  projectName: string;
+  onRemove: () => void;
+}) {
+  const statistic = state?.status === "ready" ? state.statistic : null;
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-start gap-3 h-full">
+      <div className="p-2 rounded-lg bg-violet-50 text-violet-600">
+        <Sigma className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        {!state || state.status === "loading" ? (
+          <>
+            <Skeleton className="h-5 w-14" />
+            <Skeleton className="mt-1 h-3 w-28" />
+          </>
+        ) : statistic ? (
+          <>
+            <p className="text-lg font-bold text-slate-900">
+              {statistic.value === null ? "—" : formatStatisticValue(statistic.value)}
+            </p>
+            <p className="text-[11px] font-medium text-slate-500 truncate">
+              {statistic.name} · {projectName}
+            </p>
+            {statistic.error && <p className="mt-1 text-[11px] text-amber-700">{statistic.error}</p>}
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-slate-700">
+              {state.status === "missing" ? "This statistic was deleted" : "Couldn't load this statistic"}
+            </p>
+            {state.status === "missing" && (
+              <button onClick={onRemove} className="mt-1 text-xs font-medium text-blue-600 hover:text-blue-700">
+                Remove panel
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 function entrySummary(entry: Entry, fields: EntryField[]): string {
@@ -176,6 +247,11 @@ export default function DashboardPage() {
   const [arrangingPanels, setArrangingPanels] = useState(false);
   const [draggedPanel, setDraggedPanel] = useState<DashboardPanelId | null>(null);
   const [dragOverPanel, setDragOverPanel] = useState<DashboardPanelId | null>(null);
+  // Saved statistics on the dashboard, by panel id.
+  const [statistics, setStatistics] = useState<Record<string, StatisticState>>({});
+  // Every saved statistic the picker can offer; null until the picker loads them.
+  const [availableStatistics, setAvailableStatistics] = useState<CustomStatistic[] | null>(null);
+  const [layoutSaveFailed, setLayoutSaveFailed] = useState(false);
   const [displayName] = useState(
     () => (typeof window !== "undefined" ? localStorage.getItem("logbook-name") : null) || "Student"
   );
@@ -234,6 +310,37 @@ export default function DashboardPage() {
       cancelled = true;
     };
   }, []);
+
+  // The page opens with this device's copy of the layout; the one saved on
+  // the server (from any device) replaces it once it arrives.
+  useEffect(() => {
+    let cancelled = false;
+    syncDashboardPanels().then((panels) => {
+      if (!cancelled && panels) setSelectedPanels(panels);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch the current value of each saved statistic on the dashboard.
+  useEffect(() => {
+    const unloaded = selectedPanels.filter((panel) => parseStatisticPanel(panel) && !(panel in statistics));
+    if (unloaded.length === 0) return;
+    setStatistics((current) => ({
+      ...current,
+      ...Object.fromEntries(unloaded.map((panel) => [panel, { status: "loading" } as StatisticState])),
+    }));
+    unloaded.forEach((panel) => {
+      const { projectId, statisticId } = parseStatisticPanel(panel)!;
+      fetchProjectStatistic(projectId, statisticId)
+        .then((statistic): StatisticState => ({ status: "ready", statistic }))
+        .catch((error): StatisticState =>
+          error?.response?.status === 404 ? { status: "missing" } : { status: "failed" }
+        )
+        .then((state) => setStatistics((current) => ({ ...current, [panel]: state })));
+    });
+  }, [selectedPanels, statistics]);
 
   // ── Derived data ────────────────────────────────────────────────────────
 
@@ -314,9 +421,44 @@ export default function DashboardPage() {
 
   if (loading) return <LoadingState message="Loading dashboard..." />;
 
+  const persist = (panels: DashboardPanelId[]) => {
+    persistDashboardPanels(panels).then((saved) => setLayoutSaveFailed(!saved));
+  };
   const openPanelPicker = () => {
     setDraftPanels(selectedPanels);
     setPanelPickerOpen(true);
+    if (availableStatistics === null) {
+      // Statistics are saved per project, so ask each active project.
+      Promise.allSettled(
+        projects.filter((p) => p.status === "ACTIVE").map((p) => fetchProjectStatistics(p.id))
+      ).then((results) => {
+        const found = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+        setAvailableStatistics(found);
+        setStatistics((current) => ({
+          ...current,
+          ...Object.fromEntries(
+            found.map((statistic) => [
+              statisticPanelId(statistic.projectId, statistic.id),
+              { status: "ready", statistic } as StatisticState,
+            ])
+          ),
+        }));
+      });
+    }
+  };
+  const panelDetail = (panel: DashboardPanelId): { title: string; description: string } => {
+    if (isBuiltInPanel(panel)) return DASHBOARD_PANEL_DETAILS[panel];
+    const state = statistics[panel];
+    const projectName = projectNames[parseStatisticPanel(panel)?.projectId ?? ""] ?? "a project";
+    return {
+      title: state?.status === "ready" ? state.statistic.name : "Saved statistic",
+      description: `Your saved statistic in ${projectName}`,
+    };
+  };
+  const removePanel = (panel: DashboardPanelId) => {
+    const next = selectedPanels.filter((item) => item !== panel);
+    setSelectedPanels(next);
+    persist(next);
   };
   const toggleDraftPanel = (panel: DashboardPanelId) => {
     setDraftPanels((current) =>
@@ -325,7 +467,7 @@ export default function DashboardPage() {
   };
   const savePanelSelection = () => {
     setSelectedPanels(draftPanels);
-    saveDashboardPanels(draftPanels);
+    persist(draftPanels);
     setPanelPickerOpen(false);
   };
   const moveDraftPanel = (panel: DashboardPanelId, direction: -1 | 1) => {
@@ -342,7 +484,8 @@ export default function DashboardPage() {
     const defaults = [...DASHBOARD_PANELS];
     setDraftPanels(defaults);
     setSelectedPanels(defaults);
-    saveDashboardPanels(defaults);
+    resetDashboardPanels();
+    setLayoutSaveFailed(false);
     setPanelPickerOpen(false);
   };
   const moveSavedPanel = (panel: DashboardPanelId, destination: DashboardPanelId) => {
@@ -355,7 +498,7 @@ export default function DashboardPage() {
       // A removed item shifts a later destination left by one. Insert before
       // the panel it was dropped onto, matching the visual drop target.
       next.splice(fromIndex < destinationIndex ? destinationIndex - 1 : destinationIndex, 0, panel);
-      saveDashboardPanels(next);
+      persist(next);
       return next;
     });
   };
@@ -369,6 +512,16 @@ export default function DashboardPage() {
   };
 
   const renderPanel = (panel: DashboardPanelId) => {
+    const saved = parseStatisticPanel(panel);
+    if (saved) {
+      return (
+        <StatisticPanel
+          state={statistics[panel]}
+          projectName={projectNames[saved.projectId] ?? "Unknown project"}
+          onRemove={() => removePanel(panel)}
+        />
+      );
+    }
     switch (panel) {
       case "active-projects":
         return <StatCard icon={FolderKanban} label="Active Projects" value={stats.activeCount} color="blue" />;
@@ -528,6 +681,12 @@ export default function DashboardPage() {
         </p>
       )}
 
+      {layoutSaveFailed && (
+        <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Your layout is saved on this device, but couldn't be saved to your account. It will show here, but not on your other devices yet.
+        </p>
+      )}
+
       {arrangingPanels && (
         <p className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
           Drag a panel onto another panel to move it. Changes are saved automatically.
@@ -572,7 +731,7 @@ export default function DashboardPage() {
                 setDragOverPanel(null);
               }}
               className={`${customPanelWidth(index)} ${arrangingPanels ? "relative cursor-grab active:cursor-grabbing" : ""} ${dragOverPanel === panel ? "rounded-lg ring-2 ring-blue-500 ring-offset-2" : ""}`}
-              aria-label={DASHBOARD_PANEL_DETAILS[panel].title}
+              aria-label={panelDetail(panel).title}
             >
               {arrangingPanels && (
                 <span className="absolute right-2 top-2 z-10 rounded bg-white/90 p-1 text-slate-400 shadow-sm" aria-hidden="true">
@@ -594,11 +753,17 @@ export default function DashboardPage() {
       )}
 
       <Modal open={panelPickerOpen} onClose={() => setPanelPickerOpen(false)} title="Customize dashboard" wide>
-        <p className="mb-4 text-sm text-slate-500">Choose the statistics and information you want to monitor, then use the arrows to arrange selected panels. Your layout is saved to this device.</p>
+        <p className="mb-4 text-sm text-slate-500">Choose the statistics and information you want to monitor, then use the arrows to arrange selected panels. Your layout is saved to your account, so it's the same on every device.</p>
         <fieldset className="space-y-2">
           <legend className="sr-only">Dashboard panels</legend>
-          {[...draftPanels, ...DASHBOARD_PANELS.filter((panel) => !draftPanels.includes(panel))].map((panel) => {
-            const detail = DASHBOARD_PANEL_DETAILS[panel];
+          {[
+            ...draftPanels,
+            ...DASHBOARD_PANELS.filter((panel) => !draftPanels.includes(panel)),
+            ...(availableStatistics ?? [])
+              .map((statistic) => statisticPanelId(statistic.projectId, statistic.id))
+              .filter((panel) => !draftPanels.includes(panel)),
+          ].map((panel) => {
+            const detail = panelDetail(panel);
             const panelIndex = draftPanels.indexOf(panel);
             const selected = panelIndex >= 0;
             return (
@@ -637,6 +802,13 @@ export default function DashboardPage() {
             );
           })}
         </fieldset>
+        <p className="mt-3 text-xs text-slate-500">
+          {availableStatistics === null
+            ? "Loading your saved statistics…"
+            : availableStatistics.length === 0
+              ? "Statistics you save on the Stats page can be added here too."
+              : "Your saved statistics from the Stats page are listed with the other panels."}
+        </p>
         <div className="mt-5 flex items-center justify-between gap-3">
           <button onClick={restoreDefaultLayout} className="text-sm font-medium text-blue-600 hover:text-blue-700">Restore defaults</button>
           <div className="flex gap-2">
