@@ -47,12 +47,16 @@ describe("DashboardPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the stat cards", async () => {
+  it("does not repeat the statistics the Statistics page already shows", async () => {
+    // The client asked for this at the 2026-09-18 meeting: the dashboard was
+    // duplicating a feature that already has its own page in the side
+    // navigation. Asserting the absence keeps it removed.
     renderDashboard();
+    await screen.findByText(/Test Student/);
 
-    expect(await screen.findByText("Active Projects")).toBeInTheDocument();
-    expect(screen.getByText("Entries This Week")).toBeInTheDocument();
-    expect(screen.getByText("Total Time Logged")).toBeInTheDocument();
+    expect(screen.queryByText("Active Projects")).not.toBeInTheDocument();
+    expect(screen.queryByText("Entries This Week")).not.toBeInTheDocument();
+    expect(screen.queryByText("Total Time Logged")).not.toBeInTheDocument();
   });
 
   it("renders the New Project button", async () => {
@@ -76,7 +80,7 @@ describe("DashboardPage", () => {
 
     firstRender.unmount();
     renderDashboard();
-    expect(await screen.findByText("Active Projects")).toBeInTheDocument();
+    expect(await screen.findByText(/Test Student/)).toBeInTheDocument();
     expect(screen.queryByText("Activity")).not.toBeInTheDocument();
   });
 
@@ -110,7 +114,7 @@ describe("DashboardPage", () => {
 
     expect(screen.queryByRole("dialog", { name: /customize dashboard/i })).not.toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem("logbook-dashboard-panels") || "[]")).toEqual([
-      "active-projects", "entries-this-week", "total-time-logged", "deadline-reminders",
+      "deadline-reminders",
       "activity", "current-projects", "tags", "recent-entries",
     ]);
     const activity = screen.getByText("Activity");
@@ -170,7 +174,7 @@ describe("DashboardPage", () => {
     const { fetchAllEntries } = await import("../../api");
     renderDashboard();
 
-    await screen.findByText("Active Projects");
+    await screen.findByText(/Test Student/);
     await waitFor(() => expect(fetchAllEntries).toHaveBeenCalled());
 
     expect(vi.mocked(fetchAllEntries).mock.calls[0][0]).toMatchObject({

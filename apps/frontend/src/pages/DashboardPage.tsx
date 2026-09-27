@@ -1,9 +1,6 @@
 import { useState, useEffect, useMemo, type DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FolderKanban,
-  ListChecks,
-  Clock,
   Plus,
   FolderOpen,
   LayoutDashboard,
@@ -22,7 +19,6 @@ import {
 } from "../api";
 import { formatDuration, getGreeting, localDateKey, entryDateKey } from "../lib/utils";
 import PageHeader from "../components/PageHeader";
-import StatCard from "../components/StatCard";
 import DeadlineReminders from "../components/DeadlineReminders";
 import LoadingState from "../components/LoadingState";
 import Skeleton from "../components/Skeleton";
@@ -36,9 +32,7 @@ import {
 } from "../lib/dashboardPreferences";
 
 const DASHBOARD_PANEL_DETAILS: Record<DashboardPanelId, { title: string; description: string }> = {
-  "active-projects": { title: "Active projects", description: "Your number of active projects" },
-  "entries-this-week": { title: "Entries this week", description: "Entries created in the last seven days" },
-  "total-time-logged": { title: "Total time logged", description: "Time logged across your active projects" },
+
   "deadline-reminders": { title: "Deadline reminders", description: "Upcoming due dates from your entries" },
   activity: { title: "Activity", description: "A seven-day view of time logged" },
   "current-projects": { title: "Current projects", description: "Your active projects and their logged time" },
@@ -237,21 +231,6 @@ export default function DashboardPage() {
 
   // ── Derived data ────────────────────────────────────────────────────────
 
-  const stats = useMemo(() => {
-    const now = new Date();
-    const weekAgo = new Date(now);
-    weekAgo.setDate(now.getDate() - 7);
-
-    const weekEntries = allEntries.filter((e) => new Date(e.createdAt) >= weekAgo);
-    const totalMinutes = allEntries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
-
-    return {
-      activeCount: projects.filter((p) => p.status === "ACTIVE").length,
-      weekCount: weekEntries.length,
-      totalMinutes,
-    };
-  }, [allEntries, projects]);
-
   // Activity chart: last 7 days
   const activityData = useMemo(() => {
     const days: { label: string; dateKey: string; value: number }[] = [];
@@ -370,12 +349,7 @@ export default function DashboardPage() {
 
   const renderPanel = (panel: DashboardPanelId) => {
     switch (panel) {
-      case "active-projects":
-        return <StatCard icon={FolderKanban} label="Active Projects" value={stats.activeCount} color="blue" />;
-      case "entries-this-week":
-        return <StatCard icon={ListChecks} label="Entries This Week" value={stats.weekCount} color="emerald" loading={entriesLoading} />;
-      case "total-time-logged":
-        return <StatCard icon={Clock} label="Total Time Logged" value={formatDuration(stats.totalMinutes)} color="orange" loading={entriesLoading} />;
+
       case "deadline-reminders":
         return entriesLoading ? (
           <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-2">
@@ -536,11 +510,6 @@ export default function DashboardPage() {
 
       {usesDefaultLayout && !arrangingPanels ? (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {renderPanel("active-projects")}
-            {renderPanel("entries-this-week")}
-            {renderPanel("total-time-logged")}
-          </div>
           {renderPanel("deadline-reminders")}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <div className="lg:col-span-3">{renderPanel("activity")}</div>

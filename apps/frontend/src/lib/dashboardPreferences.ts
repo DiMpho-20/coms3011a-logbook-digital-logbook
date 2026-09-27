@@ -1,8 +1,14 @@
 /** The panels a student can add to their personal dashboard. */
+/**
+ * The client asked for the dashboard's statistics to go: the application has a
+ * dedicated Statistics page in the side navigation, and repeating the same
+ * aggregates on the dashboard duplicated it (client meeting, 2026-09-18).
+ * "active-projects", "entries-this-week" and "total-time-logged" were removed
+ * here rather than merely hidden, so they cannot come back through a saved
+ * layout — loadDashboardPanels already discards ids it does not recognise, so a
+ * student who had arranged them simply keeps the rest of their arrangement.
+ */
 export const DASHBOARD_PANELS = [
-  "active-projects",
-  "entries-this-week",
-  "total-time-logged",
   "deadline-reminders",
   "activity",
   "current-projects",
