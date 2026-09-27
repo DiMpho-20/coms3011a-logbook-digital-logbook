@@ -306,6 +306,7 @@ The Intermediate user stories themselves have been completed and integrated into
   * Investigate and migrate the application deployment to **Vercel** to address the application's performance issues.
   * Set up **MantisBT** and use it as the team's formal bug-tracking system.
   * Remove the duplicated statistics section from the dashboard while keeping the dedicated statistics functionality accessible through the side navigation.
+    * **Done (2026-09-27).** The dashboard's three statistics panels — Active Projects, Entries This Week and Total Time Logged — were removed, and the Statistics page in the side navigation is unchanged. The activity chart was kept: it shows the last seven days as working context rather than repeating a figure the Statistics page reports.
   * Add the missing **tags table** to the database and ensure that tags are correctly integrated with logbook entries.
   * Investigate and resolve possible frontend–backend communication glitches and performance issues.
   * Document the project's **internal APIs**, including endpoints, requests, responses, and their purpose.

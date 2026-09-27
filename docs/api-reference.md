@@ -351,6 +351,27 @@ id in braces:
 - The web app lets people write `{Field name}` and converts names to ids
   before calling the API. The API itself only accepts ids.
 
+#### Field names are unique within a project
+
+A project cannot have two live fields with the same name. The comparison
+ignores case and surrounding whitespace, so `Hours`, `hours` and `  Hours  `
+are the same name, and both creating and renaming are checked. A field that
+has been removed is archived rather than deleted, and an archived name is
+released for reuse.
+
+The rule is enforced by a partial unique index on
+`(project_id, lower(name)) WHERE archived_at IS NULL`, not only by the API
+check — the API check is a read followed by a write and would race under
+concurrent requests, so two simultaneous creations of the same name resolve
+to one `201` and one `409` rather than two fields.
+
+Duplicates used to be allowed, and the consequence was not cosmetic. A US16
+expression such as `SUM({Double hours})` is refused as ambiguous, which made
+the field unusable in statistics, and a US26 automation rule offered two
+identically-labelled fields the student could not tell apart.
+
+**Errors:** `409` (a live field in this project already has that name)
+
 ---
 
 ### `GET /api/projects/:projectId/entry-fields`
