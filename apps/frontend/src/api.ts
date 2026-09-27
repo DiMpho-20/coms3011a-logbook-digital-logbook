@@ -439,6 +439,11 @@ export async function fetchReminders(status: ReminderStatusFilter = "pending"): 
   return (await api.get("/reminders", { params: { status } })).data;
 }
 
+/** Pending reminders whose time has been reached. */
+export async function fetchDueReminders(): Promise<Reminder[]> {
+  return (await api.get("/reminders", { params: { status: "pending", due: "true" } })).data;
+}
+
 /** How many pending reminders have reached their time. */
 export async function fetchDueReminderCount(): Promise<number> {
   return (await api.get("/reminders/count")).data.due;

@@ -5,7 +5,13 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { exportLogbook, fetchProjects, importLogbook, type Project } from "../api";
+import { exportLogbook, fetchDueReminders, fetchProjects, importLogbook, type Project } from "../api";
+import {
+  disableReminderNotifications,
+  enableReminderNotifications,
+  notificationsSupported,
+  reminderNotificationsEnabled,
+} from "../lib/reminderNotifications";
 import { api } from "../api/client";
 
 // -- types --
@@ -74,6 +80,63 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       {children}
+    </div>
+  );
+}
+
+/** Turns system notifications for newly due reminders on or off on this device. */
+function ReminderNotificationToggle() {
+  const [enabled, setEnabled] = useState(reminderNotificationsEnabled);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  if (!notificationsSupported()) {
+    return <p className="text-sm text-slate-500">This browser can't show notifications.</p>;
+  }
+
+  const toggle = async () => {
+    setMessage("");
+    if (enabled) {
+      disableReminderNotifications();
+      setEnabled(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      const on = await enableReminderNotifications(await fetchDueReminders());
+      setEnabled(on);
+      if (!on) {
+        setMessage(
+          Notification.permission === "denied"
+            ? "Notifications are blocked for this site. Allow them in your browser's site settings, then try again."
+            : "Notifications weren't allowed."
+        );
+      }
+    } catch {
+      setMessage("Couldn't turn on notifications. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1">
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={enabled}
+          disabled={busy}
+          onChange={toggle}
+          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+        />
+        <span>
+          <span className="block text-sm font-medium text-slate-700">Notify me on this device</span>
+          <span className="block text-sm text-slate-500">
+            Shows a system notification when a reminder falls due, while the logbook is open in a tab.
+          </span>
+        </span>
+      </label>
+      {message && <p className="text-sm text-amber-700">{message}</p>}
     </div>
   );
 }
@@ -696,6 +759,7 @@ export default function SettingsPage() {
         >
           Manage reminder rules
         </Link>
+        <ReminderNotificationToggle />
       </Section>
 
       {/* 4. Logbook Preferences */}

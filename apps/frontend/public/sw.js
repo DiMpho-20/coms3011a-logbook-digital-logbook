@@ -17,6 +17,20 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Clicking a reminder notification brings an open logbook tab forward, or
+// opens one, on the page the notification points to.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || "/", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+      if (open) return open.focus().then((w) => (w || open).navigate(url));
+      return self.clients.openWindow(url);
+    })
+  );
+});
+
 async function putInCache(request, response) {
   if (response.ok) {
     const cache = await caches.open(CACHE);

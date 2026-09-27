@@ -19,7 +19,8 @@ import {
   Bell,
 } from "lucide-react";
 import { clearOfflineCache } from "../lib/offlineCache";
-import { fetchDueReminderCount, REMINDERS_CHANGED_EVENT } from "../api";
+import { fetchDueReminderCount, fetchDueReminders, REMINDERS_CHANGED_EVENT } from "../api";
+import { notifyNewDueReminders, reminderNotificationsEnabled } from "../lib/reminderNotifications";
 
 /** How often the due-reminder badge re-checks while the app is open. */
 const REMINDER_POLL_MS = 5 * 60_000;
@@ -27,14 +28,22 @@ const REMINDER_POLL_MS = 5 * 60_000;
 /**
  * Pending reminders whose time has come. Polls so a reminder that falls due
  * while the app sits open still shows up, and refreshes straight away when
- * the reminders page changes something.
+ * the reminders page changes something. When device notifications are on,
+ * each newly due reminder also gets a system notification.
  */
 function useDueReminderCount(): number {
   const [count, setCount] = useState(0);
   useEffect(() => {
     let cancelled = false;
     const refresh = () => {
-      fetchDueReminderCount()
+      // With notifications on, the full list is needed to spot new ones.
+      const due = reminderNotificationsEnabled()
+        ? fetchDueReminders().then(async (list) => {
+            await notifyNewDueReminders(list);
+            return list.length;
+          })
+        : fetchDueReminderCount();
+      due
         .then((n) => { if (!cancelled) setCount(n); })
         .catch(() => {});
     };
