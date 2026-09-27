@@ -52,7 +52,7 @@ const createEntry = async (body: Record<string, unknown> = {}) => {
   return res.body;
 };
 
-const tagNames = (entry: { tags?: { name: string }[] }) => (entry.tags ?? []).map((tag) => tag.name).sort();
+const tagNames = (entry: { tags?: string[] }) => [...(entry.tags ?? [])].sort();
 
 const versionCount = (entryId: string) => prisma.entryVersion.count({ where: { entryId } });
 
@@ -402,10 +402,10 @@ describe("history", () => {
 
     const res = await request(app).get(`/api/entries/${entry.id}/versions`).set(owner);
     expect(res.status).toBe(200);
-    expect(res.body.length).toBeGreaterThanOrEqual(2);
+    expect(res.body.versions.length).toBeGreaterThanOrEqual(2);
 
-    const latest = res.body[res.body.length - 1];
-    expect(latest.snapshot.tags.map((tag: { name: string }) => tag.name)).toContain(`long-session-${ts}`);
+    const latest = res.body.versions[res.body.versions.length - 1];
+    expect(latest.snapshot.tags).toContain(`long-session-${ts}`);
   });
 
   it("adds no version when no rule matched", async () => {
