@@ -148,6 +148,27 @@ All routes are prefixed with `/api`. Protected routes require a `Bearer <token>`
 | `PUT` | `/api/entries/:id` | Yes | Update entry |
 | `DELETE` | `/api/entries/:id` | Yes | Delete entry |
 
+### Automation Rules
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/projects/:projectId/automation-rules` | Yes | Create an entry rule (US26) |
+| `GET` | `/api/projects/:projectId/automation-rules` | Yes | List the project's rules, in execution order |
+| `GET` | `/api/projects/:projectId/automation-rules/:id` | Yes | Read one rule |
+| `PATCH` | `/api/projects/:projectId/automation-rules/:id` | Yes | Edit a rule (any subset of fields) |
+| `DELETE` | `/api/projects/:projectId/automation-rules/:id` | Yes | Delete a rule |
+
+Rules run automatically when an entry is captured or updated — after the
+save commits, so a broken rule can never cost the user their work. The full
+rule language (triggers, conditions, actions and their deliberate
+limitations) is documented in the
+[API reference](../../docs/api-reference.md#automation-rules).
+
+> This table lists the core endpoints. The full surface — tags, entry
+> versions and restore, archiving, statistics, reminders, recurring
+> entries, custom statistics, Google Calendar — is documented in
+> [docs/api-reference.md](../../docs/api-reference.md).
+
 ### Utility
 
 | Method | Endpoint | Auth | Description |
