@@ -246,11 +246,15 @@ model PasswordReset {
 }
 ```
 
-### Do you need a migration for auth? **No.**
+### Do you need a migration for auth?
 
-- The 2FA columns — `two_factor_secret` (nullable varchar) and `is_two_factor_enabled` (boolean, default `false`) — **already exist** on the `users` table.
-- This project applies schema changes with **`npx prisma db push`** rather than the migration workflow (the register endpoint's error message even points developers at `db push`). The single committed migration in `prisma/migrations/`, `20260908000000_entry_format_versions`, belongs to the entry-format feature, not authentication.
-- Both 2FA columns are nullable / default-false, so they are **fully backward compatible** — existing rows and older code paths are unaffected.
+The auth columns and tables are part of the database baseline. The project
+uses the **Prisma Migrate** workflow: the whole schema — including
+`two_factor_secret`, `is_two_factor_enabled`, `password_resets` and
+`two_factor_recovery_codes` — is created by the single squashed baseline
+`prisma/migrations/0_init` (`npx prisma migrate deploy` from
+`apps/backend/`). See the [backend README](README.md) for the current
+setup steps.
 
 ---
 

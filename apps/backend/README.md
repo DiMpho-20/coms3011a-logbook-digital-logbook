@@ -86,8 +86,10 @@ Optional (for email sending):
 ```bash
 cd apps/backend
 npx prisma generate
-npx prisma db push
+npx prisma migrate deploy
 ```
+
+The migration history is a single squashed baseline (`prisma/migrations/0_init`), so `migrate deploy` creates the whole schema on an empty database. Make future schema changes with `npx prisma migrate dev --name <change>`, which generates a dated migration alongside the schema edit.
 
 ### 4. Run the server
 

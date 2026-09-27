@@ -164,7 +164,7 @@ cd coms3011a-logbook-digital-logbook
 npm install
 cp apps/backend/.env.example apps/backend/.env
 
-npx prisma db push --schema=apps/backend/prisma/schema.prisma
+cd apps/backend && npx prisma migrate deploy && cd ../..
 npm run dev --workspace=backend   # Terminal 1
 npm run dev --workspace=frontend  # Terminal 2
 ```

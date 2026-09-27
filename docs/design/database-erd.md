@@ -230,12 +230,17 @@ Development Plan.
 
 ### How changes are applied
 
-During development the schema is managed with **`npx prisma db push`**
-(schema → database, no migration history). The single committed SQL
-migration, `prisma/migrations/20260908000000_entry_format_versions.sql`,
-documents the Sprint 2 schema change that introduced rich field types,
-soft-retired fields, and entry-format snapshots; it is written
-idempotently (`IF NOT EXISTS`) so it can be re-run safely.
+The schema is managed with **Prisma Migrate**. On 2026-09-27 the accumulated
+migration history was squashed into a single baseline,
+`prisma/migrations/0_init/migration.sql`, generated with
+`prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma`
+and verified to reproduce the live schema exactly (a drift diff reports no
+differences, and deploying it to an empty database creates every table).
+`npx prisma migrate deploy` therefore bootstraps a fresh environment
+end-to-end. New schema changes are made by editing `schema.prisma` and
+running `npx prisma migrate dev --name <change>`, which adds a dated
+migration on top of the baseline. The incremental migrations that the
+baseline replaced remain visible in the git history.
 
 ### Deployment
 
