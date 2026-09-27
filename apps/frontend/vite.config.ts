@@ -28,10 +28,11 @@ export default defineConfig({
     setupFiles: ['./src/test-setup.ts'],
     css: false,
     include: ['src/**/__tests__/**/*.{test,spec}.{ts,tsx}'],
-    // Stays comfortably above the 5s Testing Library ceiling set in
-    // src/test-setup.ts, so a slow-but-passing find reports its own result
-    // rather than being killed by the per-test clock first.
-    testTimeout: 10_000,
+    // Stays comfortably above the Testing Library ceiling set in
+    // src/test-setup.ts (15s), so a slow-but-passing find reports its own
+    // result rather than being killed by the per-test clock first. Raised
+    // with that ceiling on 2026-09-27; the two must move together.
+    testTimeout: 30_000,
     coverage: {
       provider: 'v8',
       // text for the CI log, lcov for the uploaded artifact.
@@ -51,6 +52,10 @@ export default defineConfig({
         'src/test-setup.ts',
         'src/main.tsx',
         'src/**/*.d.ts',
+        // Stylesheets have no statements to cover, and the v8 provider hands
+        // them to rolldown as JavaScript: index.css opens with an @import,
+        // which fails to parse and prints an error into every run.
+        'src/**/*.css',
       ],
     },
   },
