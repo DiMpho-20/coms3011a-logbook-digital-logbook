@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import { affectedComputedFields, calculateComputedValues } from "./computedFields.js";
 
 export type SnapshotField = {
@@ -21,25 +21,65 @@ type EntryFormatVersionResult = {
   createdAt: Date;
 };
 
-/** Store an immutable copy of the active format after every format change. */
-export async function createFormatVersion(prisma: PrismaClient, projectId: string): Promise<EntryFormatVersionResult> {
-  const fields = await prisma.entryField.findMany({
-    where: { projectId, archivedAt: null },
-    orderBy: { createdAt: "asc" },
-  });
-  const latest = await prisma.entryFormatVersion.findFirst({
-    where: { projectId },
-    orderBy: { version: "desc" },
-  });
-  const snapshot: SnapshotField[] = fields.map((field) => ({
-    id: field.id, projectId: field.projectId, name: field.name, type: field.type,
-    required: field.required, formula: field.formula, archivedAt: null,
-    createdAt: field.createdAt.toISOString(), updatedAt: field.updatedAt.toISOString(),
-  }));
+/** A collision on the (project_id, version) unique constraint. */
+function isVersionCollision(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
 
-  const created = await prisma.entryFormatVersion.create({
-    data: { projectId, version: (latest?.version ?? 0) + 1, fields: snapshot },
-  });
+/**
+ * Store an immutable copy of the active format after every format change.
+ *
+ * BUG-001. Two fields created at the same moment used to read the same
+ * "latest version" and both try to write version + 1, so one of them failed
+ * with a unique-constraint error and the user saw their field rejected for no
+ * reason they could see.
+ *
+ * Worth being precise about what fixes it. The transaction is NOT the fix on
+ * its own: under PostgreSQL's default READ COMMITTED isolation two
+ * concurrent transactions can still both read the same maximum and still
+ * collide. What the transaction buys is a consistent snapshot — the fields
+ * written into the version are the fields that existed when the version
+ * number was chosen. The retry is what actually resolves the race: the loser
+ * of the collision reads again, now sees the winner's row, and takes the next
+ * number.
+ *
+ * The attempt cap exists so a genuinely broken constraint surfaces as an
+ * error instead of spinning. Under contention each retry is one short
+ * transaction, and a project only ever has one writer per field change, so in
+ * practice a second attempt is already rare and a third is unheard of.
+ */
+const MAX_VERSION_ATTEMPTS = 5;
+
+export async function createFormatVersion(prisma: PrismaClient, projectId: string): Promise<EntryFormatVersionResult> {
+  let created;
+
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      created = await prisma.$transaction(async (tx) => {
+        const fields = await tx.entryField.findMany({
+          where: { projectId, archivedAt: null },
+          orderBy: { createdAt: "asc" },
+        });
+        const latest = await tx.entryFormatVersion.findFirst({
+          where: { projectId },
+          orderBy: { version: "desc" },
+        });
+        const snapshot: SnapshotField[] = fields.map((field) => ({
+          id: field.id, projectId: field.projectId, name: field.name, type: field.type,
+          required: field.required, formula: field.formula, archivedAt: null,
+          createdAt: field.createdAt.toISOString(), updatedAt: field.updatedAt.toISOString(),
+        }));
+
+        return tx.entryFormatVersion.create({
+          data: { projectId, version: (latest?.version ?? 0) + 1, fields: snapshot },
+        });
+      }, { maxWait: 10_000, timeout: 20_000 });
+      break;
+    } catch (error) {
+      if (isVersionCollision(error) && attempt < MAX_VERSION_ATTEMPTS) continue;
+      throw error;
+    }
+  }
 
   return {
     id: created.id,
