@@ -68,19 +68,16 @@ jobs:
           GITEA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node .gitea/scripts/report-coverage.mjs
 
-      # The three 2FA security bugs from the security review (BUG-004,
-      # BUG-005, BUG-006) are fixed and regression-tested. The step name
-      # states it in the run page's step list, the Markdown block renders on
-      # the run summary beneath the coverage table, and the final cat puts
-      # the same text into this step's log. Static facts, so a heredoc
-      # rather than a script; if: always() so even a red run carries the
+      # BUG-004, BUG-005, BUG-006: fixed and regression-tested. Posted on
+      # the run summary and echoed into the log; static facts, so a heredoc
+      # rather than a script, and if: always() so even a red run carries the
       # record.
       - name: "Fixed: BUG-004, BUG-005, BUG-006 (2FA security hardening)"
         if: always()
         run: |
           note="$(mktemp)"
           cat > "$note" <<'EOF'
-          ## Security bugs fixed
+          ## Fixed: BUG-004, BUG-005, BUG-006 (2FA security hardening)
 
           The three 2FA authentication bugs found in the Sprint 2 security review are fixed, merged to `main`, and locked in by regression tests that run in this job's backend suite:
 
