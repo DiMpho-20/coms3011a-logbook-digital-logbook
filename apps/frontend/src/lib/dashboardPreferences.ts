@@ -5,10 +5,15 @@ export const DASHBOARD_PANELS = [
   "active-projects",
   "entries-this-week",
   "total-time-logged",
+  "entry-streak",
   "deadline-reminders",
   "activity",
   "current-projects",
+  "entry-progress",
+  "monthly-entries",
+  "week-comparison",
   "tags",
+  "tag-ranking",
   "recent-entries",
 ] as const;
 

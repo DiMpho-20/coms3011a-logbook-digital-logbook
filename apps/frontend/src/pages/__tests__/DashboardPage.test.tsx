@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
@@ -30,6 +30,7 @@ vi.mock("../../api", () => ({
 }));
 
 import DashboardPage from "../../pages/DashboardPage";
+import { localDateKey } from "../../lib/utils";
 
 function renderDashboard() {
   localStorage.setItem("logbook-name", "Test Student");
@@ -117,8 +118,9 @@ describe("DashboardPage", () => {
 
     expect(screen.queryByRole("dialog", { name: /customize dashboard/i })).not.toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem("logbook-dashboard-panels") || "[]")).toEqual([
-      "active-projects", "entries-this-week", "total-time-logged", "deadline-reminders",
-      "activity", "current-projects", "tags", "recent-entries",
+      "active-projects", "entries-this-week", "total-time-logged", "entry-streak", "deadline-reminders",
+      "activity", "current-projects", "entry-progress", "monthly-entries", "week-comparison",
+      "tags", "tag-ranking", "recent-entries",
     ]);
     const activity = screen.getByText("Activity");
     const deadlines = screen.getByText("Deadlines");
@@ -154,6 +156,43 @@ describe("DashboardPage", () => {
     const savedPanels = JSON.parse(localStorage.getItem("logbook-dashboard-panels") || "[]");
     expect(savedPanels.indexOf("activity")).toBeLessThan(savedPanels.indexOf("tags"));
     expect(transfer.setData).toHaveBeenCalledWith("text/plain", "activity");
+  });
+
+  // ── Insight panels: streak, monthly counts, progress, tags, weeks ─────
+
+  it("shows the streak, progress, monthly, tag-ranking and week-comparison panels", async () => {
+    const { fetchAllEntries } = await import("../../api");
+    const day = (offset: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() - offset);
+      return localDateKey(d);
+    };
+    const make = (id: string, date: string, tags: string[]) => ({
+      id, projectId: "p1", durationMinutes: 30, entryDate: `${date}T00:00:00.000Z`,
+      createdAt: `${date}T08:00:00.000Z`, updatedAt: `${date}T08:00:00.000Z`,
+      dueDate: null, values: {}, format: null, tags, status: "OPEN", completedAt: null,
+    });
+    vi.mocked(fetchAllEntries).mockResolvedValueOnce({
+      entries: [make("e1", day(0), ["lab", "essay"]), make("e2", day(1), ["lab"]), make("e3", day(2), ["lab"])],
+      truncated: false,
+      fieldsByProject: {},
+      projectsNeedingFields: [],
+    } as any);
+    renderDashboard();
+
+    expect(await screen.findByText("3 days")).toBeInTheDocument();
+    expect(screen.getByText("Entry Streak")).toBeInTheDocument();
+    expect(screen.getByText("Progress Over Time")).toBeInTheDocument();
+    expect(screen.getByText("Entries per Month")).toBeInTheDocument();
+
+    const ranking = screen.getByText("Tag Ranking").closest(".bg-white") as HTMLElement;
+    expect(within(ranking).getByText("1. lab")).toBeInTheDocument();
+    expect(within(ranking).getByText("3 entries")).toBeInTheDocument();
+    expect(within(ranking).getByText("2. essay")).toBeInTheDocument();
+
+    const weeks = screen.getByText("Compare weeks").closest(".bg-white") as HTMLElement;
+    expect(within(weeks).getAllByRole("combobox")).toHaveLength(2);
+    expect(within(weeks).getByRole("rowheader", { name: "Entries" })).toBeInTheDocument();
   });
 
   it("renders the Activity chart section", async () => {

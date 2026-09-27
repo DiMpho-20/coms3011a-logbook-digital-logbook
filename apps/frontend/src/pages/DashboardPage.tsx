@@ -11,6 +11,7 @@ import {
   ChevronUp,
   GripVertical,
   Sigma,
+  Flame,
 } from "lucide-react";
 
 import {
@@ -32,6 +33,16 @@ import LoadingState from "../components/LoadingState";
 import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
 import Modal from "../components/Modal";
+import BarChart from "../components/BarChart";
+import TrendChart from "../components/TrendChart";
+import WeekComparison from "../components/WeekComparison";
+import {
+  entryStreaks,
+  monthlyEntryCounts,
+  tagRanking,
+  weeklyProgress,
+  type EntryStreaks,
+} from "../lib/dashboardInsights";
 import {
   DASHBOARD_PANELS,
   isBuiltInPanel,
@@ -49,10 +60,15 @@ const DASHBOARD_PANEL_DETAILS: Record<BuiltInPanelId, { title: string; descripti
   "active-projects": { title: "Active projects", description: "Your number of active projects" },
   "entries-this-week": { title: "Entries this week", description: "Entries created in the last seven days" },
   "total-time-logged": { title: "Total time logged", description: "Time logged across your active projects" },
+  "entry-streak": { title: "Entry streak", description: "How many days in a row you've logged an entry" },
   "deadline-reminders": { title: "Deadline reminders", description: "Upcoming due dates from your entries" },
   activity: { title: "Activity", description: "A seven-day view of time logged" },
   "current-projects": { title: "Current projects", description: "Your active projects and their logged time" },
+  "entry-progress": { title: "Progress over time", description: "Your running total of entries, week by week" },
+  "monthly-entries": { title: "Entries per month", description: "How many entries you logged in each of the last six months" },
+  "week-comparison": { title: "Compare weeks", description: "Put any two of the last twelve weeks side by side" },
   tags: { title: "Tags", description: "Tags used in your projects and entries" },
+  "tag-ranking": { title: "Tag ranking", description: "Your most-used tags and how many entries use each" },
   "recent-entries": { title: "Recent entries", description: "Your latest logbook entries" },
 };
 
@@ -186,6 +202,35 @@ function StatisticPanel({
               </button>
             )}
           </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Entry streak panel ───────────────────────────────────────────────────
+
+function dayCount(days: number): string {
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
+function StreakCard({ streaks, loading }: { streaks: EntryStreaks; loading: boolean }) {
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-center gap-3 h-full">
+      <div className={`p-2 rounded-lg ${streaks.current > 0 ? "bg-orange-50 text-orange-500" : "bg-slate-100 text-slate-400"}`}>
+        <Flame className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-lg font-bold text-slate-900">
+          {loading ? <Skeleton className="h-5 w-14 align-middle" /> : dayCount(streaks.current)}
+        </p>
+        <p className="text-[11px] font-medium text-slate-500">Entry Streak</p>
+        {!loading && (
+          <p className="text-[11px] text-slate-400 truncate">
+            {streaks.current > 0 && !streaks.loggedToday
+              ? "Log an entry today to keep it going"
+              : `Longest: ${dayCount(streaks.longest)}`}
+          </p>
         )}
       </div>
     </div>
@@ -419,6 +464,12 @@ export default function DashboardPage() {
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   }, [projects, allEntries]);
 
+  // Insight panels: streak, monthly counts, progress, tag ranking.
+  const streaks = useMemo(() => entryStreaks(allEntries), [allEntries]);
+  const monthlyCounts = useMemo(() => monthlyEntryCounts(allEntries), [allEntries]);
+  const progress = useMemo(() => weeklyProgress(allEntries), [allEntries]);
+  const tagRanks = useMemo(() => tagRanking(allEntries), [allEntries]);
+
   if (loading) return <LoadingState message="Loading dashboard..." />;
 
   const persist = (panels: DashboardPanelId[]) => {
@@ -529,6 +580,80 @@ export default function DashboardPage() {
         return <StatCard icon={ListChecks} label="Entries This Week" value={stats.weekCount} color="emerald" loading={entriesLoading} />;
       case "total-time-logged":
         return <StatCard icon={Clock} label="Total Time Logged" value={formatDuration(stats.totalMinutes)} color="orange" loading={entriesLoading} />;
+      case "entry-streak":
+        return <StreakCard streaks={streaks} loading={entriesLoading} />;
+      case "entry-progress": {
+        const thisWeek = progress[progress.length - 1];
+        const lastWeek = progress[progress.length - 2];
+        return (
+          <div className="bg-white rounded-lg border border-slate-200 h-full">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Progress Over Time</h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">Total entries logged — last 8 weeks</p>
+              </div>
+              {!entriesLoading && (
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-bold text-slate-900 tabular-nums">{thisWeek.total}</p>
+                  <p className="text-[11px] text-slate-400">
+                    {thisWeek.entries} this week · {lastWeek.entries} last week
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="p-4">
+              {entriesLoading ? <Skeleton className="h-[160px] w-full" /> : thisWeek.total === 0 ? (
+                <p className="py-12 text-center text-sm text-slate-400">No entries yet. Your progress will show here.</p>
+              ) : (
+                <TrendChart
+                  data={progress.map((w) => ({ label: w.label, value: w.total }))}
+                  formatValue={(v) => `${v} ${v === 1 ? "entry" : "entries"}`}
+                />
+              )}
+            </div>
+          </div>
+        );
+      }
+      case "monthly-entries":
+        return (
+          <div className="bg-white rounded-lg border border-slate-200 h-full">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h2 className="text-sm font-semibold text-slate-900">Entries per Month</h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Last 6 months</p>
+            </div>
+            <div className="p-4">
+              {entriesLoading ? <Skeleton className="h-[160px] w-full" /> : (
+                <BarChart data={monthlyCounts.map((m) => ({ label: m.label, value: m.count }))} />
+              )}
+            </div>
+          </div>
+        );
+      case "week-comparison":
+        return entriesLoading ? (
+          <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : <WeekComparison entries={allEntries} />;
+      case "tag-ranking":
+        return (
+          <div className="bg-white rounded-lg border border-slate-200 h-full">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h2 className="text-sm font-semibold text-slate-900">Tag Ranking</h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Entries using each tag</p>
+            </div>
+            <div className="p-4">
+              {entriesLoading ? <Skeleton className="h-[160px] w-full" /> : tagRanks.length === 0 ? (
+                <p className="text-sm text-slate-400">No tagged entries yet. Tag your entries to see which you use most.</p>
+              ) : (
+                <BarChart
+                  data={tagRanks.slice(0, 8).map((t, i) => ({ label: `${i + 1}. ${t.name}`, value: t.entries }))}
+                  formatValue={(v) => `${v} ${v === 1 ? "entry" : "entries"}`}
+                />
+              )}
+            </div>
+          </div>
+        );
       case "deadline-reminders":
         return entriesLoading ? (
           <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-2">
@@ -695,15 +820,24 @@ export default function DashboardPage() {
 
       {usesDefaultLayout && !arrangingPanels ? (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {renderPanel("active-projects")}
             {renderPanel("entries-this-week")}
             {renderPanel("total-time-logged")}
+            {renderPanel("entry-streak")}
           </div>
           {renderPanel("deadline-reminders")}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <div className="lg:col-span-3">{renderPanel("activity")}</div>
             <div className="lg:col-span-2">{renderPanel("current-projects")}</div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3">{renderPanel("entry-progress")}</div>
+            <div className="lg:col-span-2">{renderPanel("monthly-entries")}</div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3">{renderPanel("week-comparison")}</div>
+            <div className="lg:col-span-2">{renderPanel("tag-ranking")}</div>
           </div>
           {renderPanel("tags")}
           {renderPanel("recent-entries")}
