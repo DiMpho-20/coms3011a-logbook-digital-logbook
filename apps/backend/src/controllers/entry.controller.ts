@@ -9,6 +9,7 @@ import { cleanTagNames, resolveTagIds } from "../utils/tags.js";
 import { validateEntryValues, findMissingRequiredField, isEmptyValue } from "../utils/entryValues.js";
 import type { SnapshotField } from "../utils/entryFormat.js";
 
+
 /**
  * Resolve a project the caller actually owns. requireAuth proves the caller
  * holds a valid token; it says nothing about whose project this is, so every
@@ -462,5 +463,35 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
   } catch (error) {
     console.error("Failed to list entries:", error);
     return res.status(500).json({ error: "Failed to list entries" });
+  }
+};
+
+export const getOpenEntries = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+
+    // Find the user's projects, then all their OPEN entries in one query.
+    const entries = await prisma.logbookEntry.findMany({
+      where: {
+        status: "OPEN",
+        project: { userId },
+      },
+      include: {
+        values: { include: { field: true } },
+        formatVersion: true,
+        project: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const shaped = entries.map((entry) => ({
+      ...formatEntry(entry),
+      projectName: entry.project.name,
+    }));
+
+    return res.status(200).json(shaped);
+  } catch (error) {
+    console.error("Failed to fetch open entries:", error);
+    return res.status(500).json({ error: "Failed to fetch open entries" });
   }
 };
