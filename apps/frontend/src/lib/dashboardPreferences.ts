@@ -12,10 +12,15 @@ import { fetchDashboardLayout, resetDashboardLayout, saveDashboardLayout } from 
  * student who had arranged them simply keeps the rest of their arrangement.
  */
 export const DASHBOARD_PANELS = [
+  "entry-streak",
   "deadline-reminders",
   "activity",
   "current-projects",
+  "entry-progress",
+  "monthly-entries",
+  "week-comparison",
   "tags",
+  "tag-ranking",
   "recent-entries",
 ] as const;
 
