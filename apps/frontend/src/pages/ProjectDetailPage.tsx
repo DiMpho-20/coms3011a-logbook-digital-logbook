@@ -52,6 +52,7 @@ import TagInput, { type TagInputHandle } from "../components/TagInput";
 import ChecklistInput from "../components/ChecklistInput";
 import EntryHistoryModal from "../components/EntryHistoryModal";
 import DeleteProjectModal from "../components/DeleteProjectModal";
+import AutomationRules from "../components/AutomationRules";
 import { formulaIdsToNames, previewComputedValues } from "../lib/formulas";
 import { SYNC_EVENT } from "../lib/offlineEntries";
 import { resolveSyncedId } from "../lib/offlineProjects";
@@ -542,6 +543,10 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Automation Rules (US26) — project configuration, so it sits beside
+          the entry format rather than among the entries it acts on. */}
+      {id && <AutomationRules projectId={id} />}
 
       {/* Entries */}
       <div className="bg-white rounded-lg border border-slate-200">
