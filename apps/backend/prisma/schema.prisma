@@ -153,6 +153,12 @@ model Project {
 
 // --- ENTRY FIELDS ---
 
+// NOTE: entry_fields also carries a unique index on (project_id, lower(name))
+// WHERE archived_at IS NULL, added in 20260927140000_unique_entry_field_names.
+// Prisma's schema language cannot express a functional or partial unique index,
+// so it is declared in SQL only. `migrate deploy` applies and keeps it; a future
+// `migrate diff` will not know it exists, so do not let a regenerated baseline
+// silently drop it.
 model EntryField {
   id        String         @id @default(uuid()) @db.Uuid
   projectId String         @map("project_id") @db.Uuid
