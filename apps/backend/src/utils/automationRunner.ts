@@ -52,6 +52,36 @@ import {
  * in runEntryAutomation.
  */
 
+/**
+ * Reduce the matched actions to the writes actually worth making.
+ *
+ * Status is a single scalar, so when several rules set it only the last one
+ * can survive — keeping just that one is what makes "the later rule wins"
+ * true rather than accidental, and it is safe precisely because every rule was
+ * evaluated against the same snapshot and none of them saw the others.
+ *
+ * That surviving write is then dropped if the entry already has that status.
+ * Applying it anyway would rewrite completedAt and append a version recording
+ * no change, which is what a rule whose action satisfies its own condition
+ * would do on every single save.
+ *
+ * Tag actions are left in rule order and need no collapsing: they address
+ * different tags, and an add and a remove of the same tag resolve the same way
+ * — last write wins.
+ */
+function collapseActions(planned: AutomationAction[], ctx: RuleEvaluationContext): AutomationAction[] {
+  const lastStatusIndex = planned.reduce(
+    (found, action, index) => (action.type === "SET_STATUS" ? index : found),
+    -1
+  );
+
+  return planned.filter((action, index) => {
+    if (action.type !== "SET_STATUS") return true;
+    if (index !== lastStatusIndex) return false;
+    return action.status !== ctx.status;
+  });
+}
+
 export type AutomationTrigger = "ENTRY_CREATED" | "ENTRY_UPDATED";
 
 type RuleRow = {
@@ -149,10 +179,11 @@ export async function runEntryAutomation(
       }
     }
 
-    if (planned.length === 0) return null;
+    const actions = collapseActions(planned, context);
+    if (actions.length === 0) return null;
 
     const after = await prisma.$transaction(async (tx) => {
-      for (const action of planned) {
+      for (const action of actions) {
         switch (action.type) {
           case "ADD_TAG":
             // EntryTag's primary key is (entryId, tagId), so this is a no-op
