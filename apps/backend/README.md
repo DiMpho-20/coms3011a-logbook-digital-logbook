@@ -130,6 +130,7 @@ All routes are prefixed with `/api`. Protected routes require a `Bearer <token>`
 | `GET` | `/api/projects/:id` | Yes | Get a project with entry fields |
 | `PUT` | `/api/projects/:id` | Yes | Update project |
 | `PATCH` | `/api/projects/:id/status` | Yes | Toggle status (ACTIVE/ARCHIVED) |
+| `DELETE` | `/api/projects/:id` | Yes | Permanently delete a project and everything in it |
 | `GET` | `/api/projects/:id/time-summary` | Yes | Aggregate time stats |
 
 ### Entry Fields
