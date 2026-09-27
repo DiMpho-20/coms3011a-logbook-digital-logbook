@@ -281,39 +281,58 @@ no reason. Once a few runs have established where the project actually sits, a
 floor at or slightly below the current figure is worth adding, so coverage can
 only go up.
 
-### A known limitation of the CI database link
+### The CI database link, and the ETIMEDOUT failures
 
 The backend suites run against the hosted Neon database over the public
-internet. From the CI runner that link is not perfectly reliable: on several
-runs a single fixture's first write has failed with `ETIMEDOUT` — a transport
-error, raised before the statement ever reaches Postgres — while every other
-suite in the same run read and wrote to that same database without trouble.
+internet. For several weeks CI failed repeatedly with `ETIMEDOUT` — a
+transport error, raised before the statement ever reached Postgres — landing
+on an arbitrary query in an arbitrary suite while everything around it read
+and wrote to the same database without trouble.
 
-It is not an application defect and not a failing assertion. The same file
-passes consistently on a developer machine; only the runner sees it. Two
-explanations were tested and ruled out by measurement rather than argument:
-capping the worker count cut peak concurrency threefold and the failure did not
-move, which rules out connection-pool pressure; and other suites complete
-database writes seconds *before* the failure in the same run, which rules out
-a cold start of the serverless compute.
+**This was diagnosed and fixed in `src/prisma.ts`.** An earlier version of
+this section concluded it was unfixable infrastructure. That conclusion was
+wrong, and it is worth recording why, because the measurements behind it were
+sound.
 
-What the suite does about it: `entriesListing.test.ts` retries its setup
-writes when — and only when — they fail with a transport-level code
-(`ETIMEDOUT`, `ECONNRESET`, `ECONNREFUSED`, `EPIPE`, or Prisma's `P1001`,
+Two explanations were tested and ruled out by measurement: capping the worker
+count cut peak concurrency threefold and the failure did not move, which ruled
+out connection-pool pressure; and other suites completed writes seconds
+*before* the failure in the same run, which ruled out a cold start of the
+serverless compute. Both of those remain true. The mistake was treating
+"not concurrency, not cold start" as "nothing we control".
+
+The actual cause was a default. `PrismaPg` was constructed with a connection
+string and nothing else, so every `pg.Pool` default applied — including
+`keepAlive: false`. `DATABASE_URL` points at Neon's `-pooler` endpoint, which
+is PgBouncer in transaction mode; it recycles and drops client connections that
+have gone quiet, as does any NAT on the path out of a CI runner. With no TCP
+keepalive nothing notices. The socket looks open to this process, the next
+query is written to a connection the far end has already discarded, and it
+fails only once the kernel stops retransmitting.
+
+That explains every part of the signature: an `ETIMEDOUT` on an *established*
+connection rather than a refusal or an auth error; a landing spot that moves
+between unrelated models; independence from worker count, since a single quiet
+connection is enough; and why a developer machine never sees it, because a
+local run is short and the link is not doing minutes of intermittent work.
+
+The pool is now configured explicitly: `keepAlive` on with a ten-second initial
+delay, a finite `connectionTimeoutMillis` so a request that cannot get a
+connection fails visibly instead of hanging for ever, an `idleTimeoutMillis`
+that retires our connections before the pooler does, and `max: 5` per pool so
+four worker processes cannot open forty connections for latency-bound work.
+
+The retry in `entriesListing.test.ts` is kept as a belt-and-braces measure.
+It retries setup writes when — and only when — they fail with a transport-level
+code (`ETIMEDOUT`, `ECONNRESET`, `ECONNREFUSED`, `EPIPE`, or Prisma's `P1001`,
 `P1002`, `P1017`). Every other error, a constraint violation included, is
-rethrown on the first attempt, so the retry cannot disguise a real bug. The
-retried writes are idempotent by construction: the user fixture upserts
-rather than creates, because a write that times out at the transport may
-still have landed, and the entry seed is guarded by a row count, because
-inserting those rows twice would corrupt the counts the suite asserts.
+rethrown on the first attempt, so the retry cannot disguise a real bug. Its
+writes are idempotent by construction: the user fixture upserts rather than
+creates, because a write that times out at the transport may still have landed,
+and the entry seed is guarded by a row count.
 
-If it recurs despite the retries, treat it as infrastructure rather than
-code. The durable fix is to run CI against a database reachable on the
-runner's own network instead of across the public internet; that is an
-infrastructure decision, not a change to this repository. A run affected by
-it still publishes honest numbers — the backend figure simply excludes the
-38 lines that file uniquely covers, and `coverage/combined` is withheld
-entirely unless both workspaces reported.
+If `ETIMEDOUT` recurs after this, it is a new problem and not the one described
+here — start by checking whether the pool options above are still in place.
 
 ---
 
