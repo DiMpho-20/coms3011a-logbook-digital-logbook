@@ -258,7 +258,7 @@ describe("createFormatVersion", () => {
     fields: any[],
     latestVersion: { version: number } | null,
   ) {
-    return {
+    const client = {
       entryField: {
         findMany: vi.fn().mockResolvedValue(fields),
       },
@@ -266,6 +266,13 @@ describe("createFormatVersion", () => {
         findFirst: vi.fn().mockResolvedValue(latestVersion),
         create: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: "fv-1", ...data })),
       },
+    };
+    // createFormatVersion reads and writes inside one transaction (BUG-001);
+    // run the callback against the same client so the assertions on the spies
+    // above still see every query it makes.
+    return {
+      ...client,
+      $transaction: (run: (tx: unknown) => unknown) => run(client),
     } as any;
   }
 
