@@ -284,55 +284,61 @@ only go up.
 ### The CI database link, and the ETIMEDOUT failures
 
 The backend suites run against the hosted Neon database over the public
-internet. For several weeks CI failed repeatedly with `ETIMEDOUT` — a
-transport error, raised before the statement ever reached Postgres — landing
-on an arbitrary query in an arbitrary suite while everything around it read
-and wrote to the same database without trouble.
+internet. CI has failed repeatedly with `ETIMEDOUT` — a transport error,
+raised before the statement ever reached Postgres — landing on an arbitrary
+query while everything around it read and wrote to the same database without
+trouble.
 
-**This was diagnosed and fixed in `src/prisma.ts`.** An earlier version of
-this section concluded it was unfixable infrastructure. That conclusion was
-wrong, and it is worth recording why, because the measurements behind it were
-sound.
+This section has now been wrong twice, so it records what was ruled out as
+carefully as what was tried.
 
-Two explanations were tested and ruled out by measurement: capping the worker
-count cut peak concurrency threefold and the failure did not move, which ruled
-out connection-pool pressure; and other suites completed writes seconds
-*before* the failure in the same run, which ruled out a cold start of the
-serverless compute. Both of those remain true. The mistake was treating
-"not concurrency, not cold start" as "nothing we control".
+**Ruled out by measurement.** Capping the worker count cut peak concurrency
+threefold and the failure did not move, which rules out connection-pool
+pressure. Other suites complete writes seconds *before* a failure in the same
+run, which rules out a cold start of the serverless compute.
 
-The actual cause was a default. `PrismaPg` was constructed with a connection
-string and nothing else, so every `pg.Pool` default applied — including
-`keepAlive: false`. `DATABASE_URL` points at Neon's `-pooler` endpoint, which
-is PgBouncer in transaction mode; it recycles and drops client connections that
-have gone quiet, as does any NAT on the path out of a CI runner. With no TCP
-keepalive nothing notices. The socket looks open to this process, the next
-query is written to a connection the far end has already discarded, and it
-fails only once the kernel stops retransmitting.
+**Tried and did not work.** The pool was created with a connection string and
+nothing else, so every `pg.Pool` default applied, including `keepAlive: false`.
+Enabling keepalive looked like the answer — `DATABASE_URL` points at Neon's
+`-pooler` endpoint, which drops connections that go quiet. It did not fix it:
+the next run went from three failures to eight. `keepAlive` is kept because it
+is right for a long-lived pool against a pooler, but it is not the cause. A
+speculative `max: 5` added at the same time was removed again; it had no
+evidence behind it and the run got slower.
 
-That explains every part of the signature: an `ETIMEDOUT` on an *established*
-connection rather than a refusal or an auth error; a landing spot that moves
-between unrelated models; independence from worker count, since a single quiet
-connection is enough; and why a developer machine never sees it, because a
-local run is short and the link is not doing minutes of intermittent work.
+**What the evidence actually showed.** In the run of 2026-09-27 every one of
+the eight failures was a *read* that timed out: four in `loadHistory`'s
+`findFirst`, three in the `findUniqueOrThrow` that takes the pre-edit snapshot
+in `updateEntry`, one in `getEntries`' `findMany`. Several surfaced not as an
+error but as a wrong answer downstream — an entry stuck at version 1, a time
+summary reading 30 instead of 90 — because the read failed inside a handler
+that carried on regardless.
 
-The pool is now configured explicitly: `keepAlive` on with a ten-second initial
-delay, a finite `connectionTimeoutMillis` so a request that cannot get a
-connection fails visibly instead of hanging for ever, an `idleTimeoutMillis`
-that retires our connections before the pooler does, and `max: 5` per pool so
-four worker processes cannot open forty connections for latency-bound work.
+**The fix that follows from that.** `utils/readRetry.ts` retries an operation
+only when both hold: it is one of the eight idempotent reads, and it failed
+with a transport code (`ETIMEDOUT`, `ECONNRESET`, `ECONNREFUSED`, `EPIPE`, or
+Prisma's `P1001`, `P1002`, `P1017`). Up to three attempts, with a growing
+pause. It is applied to every query through a Prisma client extension in
+`prisma.ts`.
 
-The retry in `entriesListing.test.ts` is kept as a belt-and-braces measure.
-It retries setup writes when — and only when — they fail with a transport-level
-code (`ETIMEDOUT`, `ECONNRESET`, `ECONNREFUSED`, `EPIPE`, or Prisma's `P1001`,
-`P1002`, `P1017`). Every other error, a constraint violation included, is
-rethrown on the first attempt, so the retry cannot disguise a real bug. Its
-writes are idempotent by construction: the user fixture upserts rather than
-creates, because a write that times out at the transport may still have landed,
-and the entry seed is guarded by a row count.
+Three things it deliberately never does: retry a write, because one that timed
+out at the transport may still have landed; retry raw SQL, because
+`$queryRawUnsafe` could be anything; and retry an error the database actually
+returned, so a constraint violation is still raised on the first attempt and
+cannot be hidden. `readRetry.test.ts` holds each of those as its own test.
 
-If `ETIMEDOUT` recurs after this, it is a new problem and not the one described
-here — start by checking whether the pool options above are still in place.
+This is also right beyond CI. A student should not see a 500 because one TCP
+connection went quiet between two of their queries, and a question asked twice
+returns the same answer.
+
+The retry in `entriesListing.test.ts` predates this and is kept; its setup
+writes are idempotent by construction, since the user fixture upserts and the
+entry seed is guarded by a row count.
+
+If `ETIMEDOUT` still reaches an assertion after this, the next thing to
+examine is load rather than connections: the suite runs for eight minutes
+against a free-tier instance, and `automationEngine` alone accounts for six of
+those.
 
 ---
 
