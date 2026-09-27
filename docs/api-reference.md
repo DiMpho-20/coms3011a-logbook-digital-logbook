@@ -904,6 +904,132 @@ Stop pushing to a device. **Body:** `{ "endpoint": "..." }`
 
 **Response `204`:** No content. Devices the push service reports as gone
 (`404`/`410`) are removed automatically.
+---
+
+## Automation Rules (`/api/projects/:projectId/automation-rules`) 🔒
+
+US26. An automation rule watches one project's entries and applies an action
+when its conditions hold. Rules run automatically when an entry is saved —
+after `POST .../entries`, `PUT /api/entries/:id` and
+`PATCH /api/entries/:id/status` — once the save has committed. Automation
+never fails a save: a broken rule is logged and skipped, and the user's work
+always survives.
+
+Rule object:
+```json
+{
+  "id": "...",
+  "projectId": "...",
+  "name": "Long session",
+  "trigger": "ENTRY_CREATED",
+  "conditions": [
+    { "source": "ATTRIBUTE", "attribute": "durationMinutes", "operator": "GTE", "value": 240 }
+  ],
+  "action": { "type": "ADD_TAG", "tagId": "..." },
+  "enabled": true,
+  "invalidReason": null,
+  "createdAt": "2026-09-27T10:00:00.000Z",
+  "updatedAt": "2026-09-27T10:00:00.000Z"
+}
+```
+
+`invalidReason` is `null` while the rule can run. A rule can go stale after it
+is written — its field archived, its tag deleted — and then carries a human-
+readable reason instead; the runner refuses to act on exactly these rules, so
+a stale rule is inert rather than misfiring.
+
+### `POST /api/projects/:projectId/automation-rules`
+
+Create a rule. `name` (≤100 chars, unique per project), `trigger`
+(`ENTRY_CREATED` | `ENTRY_UPDATED`), `conditions` (1–10, ANDed), `action`,
+`enabled` (optional, default `true`). See
+[Semantics and deliberate limitations](#semantics-and-deliberate-limitations)
+for the condition and action shapes.
+
+**Response `201`:** the rule.
+**Errors:** `400` (malformed rule, or a `fieldId`/`tagId` that does not
+belong to this project or its owner), `404` (project not found, or not the
+caller's), `409` (duplicate name)
+
+---
+
+### `GET /api/projects/:projectId/automation-rules`
+
+List the project's rules in execution order (oldest first, tie-broken by id)
+— the same order the runner applies them.
+
+**Response `200`:** array of rules.
+
+---
+
+### `GET /api/projects/:projectId/automation-rules/:id`
+
+**Response `200`:** the rule.
+**Errors:** `404` (rule not found, or not the caller's)
+
+---
+
+### `PATCH /api/projects/:projectId/automation-rules/:id`
+
+Change any subset of `name`, `trigger`, `conditions`, `action`, `enabled`.
+When conditions or action are supplied, the rule is validated **as it will be
+after the edit** — swapping only the action can invalidate conditions that
+were fine, and vice versa.
+
+**Response `200`:** the updated rule.
+**Errors:** `400` (malformed or invalid rule), `404` (rule not found, or not
+the caller's), `409` (duplicate name)
+
+---
+
+### `DELETE /api/projects/:projectId/automation-rules/:id`
+
+**Response `200`:** `{ "message": "Rule deleted" }`
+**Errors:** `404` (rule not found, or not the caller's)
+
+---
+
+### Semantics and deliberate limitations
+
+**Triggers.** `ENTRY_CREATED` fires on entry creation; `ENTRY_UPDATED` fires
+on every later save, including a status-only change through
+`PATCH /entries/:id/status` — so "when an entry is marked done" works no
+matter which endpoint the UI reaches for.
+
+**Conditions** are a flat AND list over either an entry attribute
+(`durationMinutes`, `status`) or a project field (`fieldId`). Comparison
+operators: `EQ`, `NEQ`, `GT`, `GTE`, `LT`, `LTE`; presence/truth operators:
+`IS_EMPTY`, `IS_NOT_EMPTY`, `IS_TRUE`, `IS_FALSE`. Which operators apply is
+gated by what the condition reads — NUMBER/COMPUTED fields get the
+comparisons, TEXT/LINK get equality and presence, BOOLEAN gets
+`IS_TRUE`/`IS_FALSE`. `DATE`, `TAGS`, `CHECKLIST` and `REFERENCE` fields
+cannot be used in conditions at all: a stored `EntryValue` holds whatever
+string passed `Date.parse`, so two dates meaning the same day could compare
+unequal, and the story needs no date rules. Numeric parsing follows the same
+strictness as statistics: `"12kg"` is not 12, a blank is not 0, and a value
+that cannot be parsed makes the comparison false rather than coercing it.
+
+**Actions** are `ADD_TAG`, `REMOVE_TAG` and `SET_STATUS` only. There is
+deliberately no action that writes a field value (it would collide with
+COMPUTED fields and required-field validation), none that sets a date, and
+none that creates entries — that last would let one rule spawn unbounded
+entries and would interact badly with offline replay. `SET_STATUS` maintains
+`completedAt` exactly as a manual status change does.
+
+**Ordering and idempotency.** Rules run oldest-first; when several rules set
+the status, the last one wins. Every action is idempotent — `ADD_TAG` inserts
+against the entry-tag composite key, `REMOVE_TAG` is a delete, `SET_STATUS`
+skips a no-op write — so the offline queue replaying a capture cannot
+double-apply a rule.
+
+**No cascades.** Each pass evaluates every rule against one snapshot taken
+before any action runs, and actions write directly rather than re-entering
+the save handlers, so a rule's action cannot feed another rule's condition —
+within the same pass or a later one.
+
+**History.** `toSnapshot()` covers tags and status, so what automation did is
+recorded as a further entry version: the user's save is version *n*,
+automation's effect is *n+1*, visible and revertable in the history UI.
 
 ---
 

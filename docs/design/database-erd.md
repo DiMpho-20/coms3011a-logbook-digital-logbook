@@ -27,6 +27,7 @@ erDiagram
     PROJECT ||--o{ ENTRY_FIELD : defines
     PROJECT ||--o{ ENTRY_FORMAT_VERSION : snapshots
     PROJECT ||--o{ LOGBOOK_ENTRY : contains
+    PROJECT ||--o{ AUTOMATION_RULE : automates
     LOGBOOK_ENTRY }o--o| ENTRY_FORMAT_VERSION : "pinned to"
     LOGBOOK_ENTRY ||--o{ ENTRY_VALUE : has
     ENTRY_FIELD ||--o{ ENTRY_VALUE : defines
@@ -103,6 +104,19 @@ erDiagram
         datetime expires_at
         datetime created_at
     }
+
+    AUTOMATION_RULE {
+        uuid id PK
+        uuid user_id FK
+        uuid project_id FK
+        string name
+        enum trigger "ENTRY_CREATED, ENTRY_UPDATED"
+        jsonb conditions "AND list, 1-10"
+        jsonb action "ADD_TAG, REMOVE_TAG or SET_STATUS"
+        boolean enabled "default true"
+        datetime created_at
+        datetime updated_at
+    }
 ```
 
 ### Enums
@@ -112,6 +126,7 @@ erDiagram
 | `ProjectStatus` | `ACTIVE`, `ARCHIVED` | `projects.status` |
 | `EntryFieldType` | `TEXT`, `NUMBER`, `DATE`, `BOOLEAN`, `TAGS`, `CHECKLIST`, `LINK`, `REFERENCE`, `COMPUTED` | `entry_fields.type` |
 | `EntryStatus` | `OPEN`, `DONE` | `logbook_entries.status` |
+| `AutomationTrigger` | `ENTRY_CREATED`, `ENTRY_UPDATED` | `automation_rules.trigger` |
 
 ### Constraints
 
@@ -119,6 +134,7 @@ erDiagram
 - `PROJECT(user_id, name)` — Unique. A student cannot have two projects with the same name.
 - `ENTRY_VALUE(entry_id, field_id)` — Unique. One value per field per entry.
 - `ENTRY_FORMAT_VERSION(project_id, version)` — Unique. Version numbers increment per project.
+- `AUTOMATION_RULE(project_id, name)` — Unique. A project cannot have two rules with the same name.
 - All foreign keys use `ON DELETE CASCADE` for full account erasure, except `logbook_entries.format_version_id`, which uses `ON DELETE SET NULL` — deleting a snapshot must not destroy entries.
 
 ## Main Entities
@@ -222,20 +238,44 @@ Stores a password-reset request for a user. Each record contains a
 unique, time-limited token sent to the user's email, and an
 `expires_at` timestamp so that reset links become invalid after a
 short period. Tokens are single-use: all of a user's reset records are
-deleted in the same transaction that updates the password. This
+deleted in the same transaction that updates the password. Only a
+SHA-256 digest of the token is stored, never the token itself. This
 supports the **US00.3 – Reset Password** user story defined in the
 Development Plan.
+
+### Automation Rule
+
+US26. A rule that watches one project's entries and applies an action —
+add a tag, remove a tag, or set the entry's status — when its conditions
+hold. Rules are evaluated when an entry is captured or updated, after
+the save commits, so a broken rule can never cost the user their work.
+
+`conditions` and `action` are stored as **JSONB** rather than normalised
+tables: a rule is read whole, written whole, and never queried by its
+parts, so splitting it would add joins without adding a query. `user_id`
+sits alongside `project_id` (as it does for `custom_statistics`) — it is
+redundant, since a project has one owner, but it keeps ownership checks
+single-column. The `@@index(project_id, enabled)` is the only index an
+entry save needs: the runner reads a project's enabled rules and
+evaluates them in memory against the entry it just loaded. See the
+"Automation Rules" section of the [API reference](../api-reference.md)
+for the rule language and its deliberate limitations.
 
 ## Schema Changes Over Time
 
 ### How changes are applied
 
-During development the schema is managed with **`npx prisma db push`**
-(schema → database, no migration history). The single committed SQL
-migration, `prisma/migrations/20260908000000_entry_format_versions.sql`,
-documents the Sprint 2 schema change that introduced rich field types,
-soft-retired fields, and entry-format snapshots; it is written
-idempotently (`IF NOT EXISTS`) so it can be re-run safely.
+The schema is managed with **Prisma Migrate**. On 2026-09-27 the accumulated
+migration history was squashed into a single baseline,
+`prisma/migrations/0_init/migration.sql`, generated with
+`prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma`
+and verified to reproduce the live schema exactly (a drift diff reports no
+differences, and deploying it to an empty database creates every table).
+`npx prisma migrate deploy` therefore bootstraps a fresh environment
+end-to-end. New schema changes are made by editing `schema.prisma` and
+running `npx prisma migrate dev --name <change>`, which adds a dated
+migration on top of the baseline. The incremental migrations that the
+baseline replaced remain visible in the git history.
 
 ### Deployment
 
@@ -253,6 +293,18 @@ strings never leave the environment configuration.
 | Rich field types, `formula`, `archived_at` | 2 | `entry_fields` |
 | Entry format versioning (`entry_format_versions`, `format_version_id`) | 2 | new table + `logbook_entries` |
 | Entry status tracking (`status`, `completed_at`) | 2 | `logbook_entries` |
+| Tags (`tags`, `project_tags`, `entry_tags`) | 2 | new tables |
+| Entry versions and archive (`entry_versions`, `archived_at`) | 2 | new table + `logbook_entries` |
+| Custom statistics | 2 | new table |
+| Reminders (`reminders`, `reminder_settings`) | 2 | new tables |
+| Recurring entries (`recurrence_rules`, `recurrence_rule_id`) | 2 | new table + `logbook_entries` |
+| Auth hardening — `two_factor_recovery_codes`, SHA-256 token digests | 2 | new table + `password_resets`, `users` |
+| Automation rules (`automation_rules`, `AutomationTrigger` enum) | 2 | new table + enum |
+| Migration history squashed into the `0_init` baseline | 2 | `_prisma_migrations` |
+
+The change-history rows above summarise work that arrived as eight dated
+migrations and was folded into the baseline on 2026-09-27; each original
+migration is still visible in the git history.
 
 The authoritative source for the current schema is
 `apps/backend/prisma/schema.prisma` in the repository.

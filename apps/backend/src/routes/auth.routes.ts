@@ -150,7 +150,7 @@ router.post("/register", registerLimiter, async (req: Request, res: Response) =>
   } catch (err) {
     console.error("POST /auth/register failed:", err);
     return res.status(500).json({
-      error: "Registration failed. The database may need to be migrated. Run `npx prisma db push` in the backend folder.",
+      error: "Registration failed. The database may need to be migrated. Run `npx prisma migrate deploy` in the backend folder.",
     });
   }
 });

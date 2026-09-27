@@ -27,84 +27,94 @@ logic like saved-filter persistence).
 
 ## What We Test
 
-### Backend — 100 tests across 4 files
+842 tests in total: 494 backend across 26 files, 348 frontend across 23
+files. Per-file detail for the backend lives in
+[`apps/backend/TESTING.md`](../apps/backend/TESTING.md); the summaries
+below cover the whole monorepo.
 
-#### 1. Core API (`api.test.ts` — 27 tests)
+### Backend — 494 tests across 26 files
 
-- Health and database connectivity
-- Project CRUD: create, list, read, update, archive/unarchive, 404/409/400 error paths
-- Entry fields: creation per type, listing, inclusion in project reads
-- Entries: creation with/without dates, update, delete, time-summary aggregation
+- **Core API & infrastructure (50):** `api.test.ts` (27) — health, project
+  CRUD, entry fields, entries, time summaries; plus `projectDelete` (6),
+  `purgeDeletedAccounts` (6), `rateLimit` (6, BUG-003) and `jwtSecret`
+  (5, BUG-002)
+- **Authentication & security (91):** `auth.test.ts` (33) — registration,
+  login, route protection, the 2FA lifecycle, password reset, account
+  deletion; `authCrypto.test.ts` (28) — AES-256-GCM round-trip, tamper and
+  wrong-key rejection, token hashing, recovery-code generation;
+  `twoFactorSecurity.test.ts` (21) — the encrypted secrets, the
+  `2fa-pending` hand-off token and the recovery-code lifecycle as HTTP
+  behaviour (BUG-004/005/006); `entryOwnership.test.ts` (9, BUG-011)
+- **Entries, fields and versions (71):** `entryValidation` (17),
+  `entryHistory` (18 — US20/21/22/30), `entriesListing` (14),
+  `blankNumericValues` (6, BUG-012), `tags` (13), `recurringEntries` (3,
+  US27)
+- **Statistics & expressions (109):** `sprint2` (22 — entry status US13,
+  group and timeline stats US11/US12), `stats` (10),
+  `customStatistics` (27, US17), `expressions` (28),
+  `expressionStats` (22)
+- **Automation, integrations and utilities (173):**
+  `automationEngine.test.ts` (51 — rule CRUD, triggers, conditions,
+  actions, history, no-looping, ownership; US26),
+  `automationRules.test.ts` (28 — the pure evaluator), `googleCalendar`
+  (13) and `googleCalendarSync` (7) — the OAuth hand-off and the
+  idempotent due-date mirror (FEAT-001), `reminders` (42, US28),
+  `utils` (32 — computed fields, formulas, auth utils, format versions)
 
-#### 2. Authentication & Security (`auth.test.ts` — 29 tests)
+### Frontend — 348 tests across 23 files
 
-- **Registration:** happy path, duplicate email (409), weak password (400), invalid email (400)
-- **Login:** valid credentials return a JWT; wrong password and unknown email both return the *identical* error (no account enumeration); unverified accounts blocked with 403
-- **Route protection:** missing token → 401, invalid token → 401
-- **2FA full lifecycle, in order:** status check → setup (secret + QR data URL) → wrong code rejected → valid code enables → already-enabled rejected → login returns `requiresTwoFactor` with *no* token → `/login/2fa` rejects bad code, accepts valid code and issues JWT, rejects malformed code → disable rejects wrong password → disable with correct password → login back to normal
-- **Password reset:** anti-enumeration behaviour (same message for known and unknown emails), invalid token rejected (400), full end-to-end reset (old password stops working, new one works, all reset tokens consumed)
-- **Account deletion:** wrong password rejected; correct password permanently erases the user
+#### API client, offline queue and import/export (72 tests)
 
-#### 3. Sprint 2 Features (`sprint2.test.ts` — 22 tests)
+- **`client.test.ts` (10)** — the axios interceptors: 401 clears the
+  session and redirects to `/login?expired=1` on protected routes but not
+  on credential routes or non-401 errors; the stored token is attached to
+  outgoing requests
+- **`api.test.ts` (26)** — project and field requests, `fetchEntries`
+  with the offline queue, `createEntry`, `fetchAllEntries`, and the
+  export/import round-trip
+- **`offlineCache.test.ts` (7), `offlineEntries.test.ts` (18),
+  `offlineProjects.test.ts` (11)** — the offline layer: cache reads and
+  expiry, queueing entries and projects, and syncing them back
 
-- **Entry status tracking (US13):** default `OPEN`, mark `DONE` sets `completedAt`, reopening clears it, invalid status → 400, unknown entry → 404, `?status=` filter (Open Work view), `?dueBefore=` filter (overdue buckets)
-- **Field statistics (US11):** `sum`, `avg`, and `count` aggregations with *verified arithmetic* (60 + 45 + 90 = 195, avg = 65), group-by with per-group values and descending order, all validation errors (missing field, bad operation, non-NUMBER metric, unknown fields)
-- **Timeline statistics (US11/US12):** day and month bucketing with verified counts, ascending date order, invalid bucket / non-DATE field / unknown field errors
+#### Component behaviour (81 tests)
 
-#### 4. Backend Utilities (`utils.test.ts` — 22 tests)
+- **`EntryForm.test.tsx` (9)** — dynamic fields, validation errors,
+  submit behaviour
+- **`displayComponents.test.tsx` (18)** — StatusBadge, TagList, EntryCard,
+  ProjectCard
+- **`interactiveComponents.test.tsx` (26)** — Modal, Stopwatch, TagInput,
+  ChecklistInput
+- **`ProtectedRoute.test.tsx` (3)** — redirect without a token, render
+  with one
+- **`AutomationRules.test.tsx` (25)** — the US26 rule builder: listing,
+  creating, editing, and the operator vocabulary the UI offers
 
-- **calculateComputedValues (7):** empty fields, simple addition, nested parentheses, missing values default to 0, invalid formula characters throw, non-finite result throws, computed-to-computed references
-- **validateFormula (5):** valid numeric references, constants and operators, non-numeric field rejected, unknown field rejected, invalid characters rejected
-- **Auth utils (7):** bcrypt hashPassword round-trip, comparePassword match and mismatch, JWT generation, extraction, invalid-token rejection, tampered-token rejection
-- **createFormatVersion (3):** version 1 from scratch, increment from latest, archived fields excluded from snapshot
+#### Pages (151 tests)
 
-### Frontend — 51 tests across 7 files
+- **`DashboardPage.test.tsx` (12)** — greeting, stat cards, charts,
+  empty states
+- **`LoginPage.test.tsx` (5)** / **`RegisterPage.test.tsx` (7)** — the
+  session-expired banner, form presence, client-side validation
+- **`ProjectsPage.test.tsx` (21)** — loading, listing, creating, editing,
+  archiving
+- **`EntriesPage.test.tsx` (18)** — the timeline, saved filters, loading
+  states
+- **`OpenWorkPage.test.tsx` (17)** — gathering open work, sorting it into
+  overdue buckets, the calendar link, marking work done
+- **`CalendarPage.test.tsx` (14)** — month navigation, entries on a day,
+  project switching
+- **`StatsPage.test.tsx` (44)** — time per project, group and total
+  statistics, over-time charts, custom expressions, saved statistics
+- **`RemindersPage.test.tsx` (13)** — viewing, completing and dismissing
+  reminders, creating one, the rules behind them (US28 AT1–AT4)
 
-#### 5. API Client (`client.test.ts` — 10 tests)
+#### Pure logic (44 tests)
 
-- **401 interceptor — protected routes:** clears session and redirects to `/login?expired=1`; does NOT redirect if already on `/login`
-- **401 interceptor — credential routes (excluded):** leaves session intact for `/auth/login`, `/auth/login/2fa`, `/auth/account`, `/auth/2fa/disable`
-- **Non-401 errors:** does not clear session on 500 or 404
-- **Request interceptor:** attaches stored token to outgoing requests; omits header when no token is stored
-
-#### 6. Saved Filters (`savedFilters.test.ts` — 12 tests)
-
-- **loadSavedFilters (4):** empty localStorage, invalid JSON, non-array value, valid data
-- **persistSavedFilters (1):** writes JSON under the correct key
-- **saveFilter (4):** adds new filter, trims name, preserves existing, persists to localStorage
-- **deleteFilter (3):** removes matching filter, leaves others intact, persists deletion
-
-#### 7. Protected Route (`ProtectedRoute.test.tsx` — 3 tests)
-
-- Redirects to `/login` when no token is stored
-- Renders children when a token is present
-- Renders wrapped children directly when passed via the children prop
-
-#### 8. Entry Form (`EntryForm.test.tsx` — 8 tests)
-
-- Renders duration input, submit button, and project selector (hidden when preset)
-- Renders dynamic fields from the fields prop
-- Shows validation errors for missing duration and empty required fields
-- Calls createEntry and onSave on successful submission
-- Renders the stopwatch component
-
-#### 9. Login Page (`LoginPage.test.tsx` — 5 tests)
-
-- Renders session-expired banner when URL has `?expired=1`; does NOT render on plain `/login`
-- Renders email, password fields, and submit button
-- Shows validation error for malformed email and empty password
-
-#### 10. Register Page (`RegisterPage.test.tsx` — 7 tests)
-
-- Renders full name, email, password fields and Create Account button
-- Renders link to sign in for existing users
-- Client-side validation: short full name, short password, invalid email, password without uppercase
-
-#### 11. Dashboard Page (`DashboardPage.test.tsx` — 6 tests)
-
-- Renders greeting with user's name
-- Renders stat cards, New Entry and New Project buttons, Activity chart, Current Projects sections
-- Shows "No active projects" when all projects are archived
+- **`savedFilters.test.ts` (14)** — saved-filter persistence in
+  localStorage
+- **`formulas.test.ts` (16)** — the computed-field formula helpers
+- **`utils.test.ts` (11)** — date keys, formatting, streaks
+- **`dashboardPreferences.test.ts` (3)** — dashboard panel preferences
 
 Test files live in `apps/backend/src/__tests__/` and
 `apps/frontend/src/**/__tests__/` in the repository.
@@ -270,8 +280,8 @@ suite in the same run read and wrote to that same database without trouble.
 It is not an application defect and not a failing assertion. The same file
 passes consistently on a developer machine; only the runner sees it. Two
 explanations were tested and ruled out by measurement rather than argument:
-capping the worker count cut peak concurrency threefold and the failure did
-not move, which rules out connection-pool pressure; and other suites complete
+capping the worker count cut peak concurrency threefold and the failure did not
+move, which rules out connection-pool pressure; and other suites complete
 database writes seconds *before* the failure in the same run, which rules out
 a cold start of the serverless compute.
 
@@ -333,139 +343,84 @@ published on this site.
 
 ## Proof of Passing Runs
 
-**Run date: 2026-09-15 · 151 / 151 tests passing · 11 / 11 test files passing**
+**Run date: 2026-09-27 · 842 / 842 tests passing · 49 / 49 test files passing**
 
-### Backend (100 tests, 4 files)
+### Backend (494 tests, 26 files)
 
-```text
- ✓ src/__tests__/utils.test.ts (22 tests)
-     ✓ calculateComputedValues > returns an empty object when there are no COMPUTED fields
-     ✓ calculateComputedValues > evaluates a simple addition formula
-     ✓ calculateComputedValues > evaluates nested expressions with parentheses
-     ✓ calculateComputedValues > defaults missing values to 0
-     ✓ calculateComputedValues > throws on invalid formula characters
-     ✓ calculateComputedValues > throws when formula result is not finite
-     ✓ calculateComputedValues > allows computed fields to reference other computed fields
-     ✓ validateFormula > accepts a valid formula referencing numeric fields
-     ✓ validateFormula > accepts a formula with constants and operators
-     ✓ validateFormula > rejects a formula that references a non-numeric field
-     ✓ validateFormula > rejects a formula that references an unknown field
-     ✓ validateFormula > rejects a formula with invalid characters
-     ✓ auth utils > hashPassword returns a bcrypt hash string
-     ✓ auth utils > comparePassword returns true for matching password
-     ✓ auth utils > comparePassword returns false for wrong password
-     ✓ auth utils > generateToken produces a valid JWT string
-     ✓ auth utils > verifyToken extracts the userId from a valid token
-     ✓ auth utils > verifyToken returns null for an invalid token
-     ✓ auth utils > verifyToken returns null for a tampered token
-     ✓ createFormatVersion > creates version 1 when no previous versions exist
-     ✓ createFormatVersion > increments version from the latest
-     ✓ createFormatVersion > excludes archived fields from the snapshot
-
- ✓ src/__tests__/api.test.ts (27 tests)
-     ✓ Health endpoints > GET /api/health returns ok
-     ✓ Health endpoints > GET /api/db-check connects to database
-     ✓ Projects CRUD > POST /api/projects creates a project
-     ✓ Projects CRUD > POST /api/projects rejects duplicate name → 409
-     ✓ Projects CRUD > POST /api/projects rejects missing name → 400
-     ✓ Projects CRUD > GET /api/projects lists user projects
-     ✓ Projects CRUD > GET /api/projects/:id returns project with entryFields
-     ✓ Projects CRUD > GET /api/projects/:id returns 404 for unknown id
-     ✓ Projects CRUD > PUT /api/projects/:id updates the project
-     ✓ Projects CRUD > PUT /api/projects/:id rejects rename to duplicate → 409
-     ✓ Projects CRUD > PATCH /api/projects/:id/status toggles to ARCHIVED
-     ✓ Projects CRUD > PATCH /api/projects/:id/status toggles back to ACTIVE
-     ✓ Projects CRUD > PATCH /api/projects/:id/status rejects invalid status → 400
-     ✓ Projects CRUD > GET /api/projects/:id/time-summary returns zero for new project
-     ✓ Entry Fields CRUD > POST /api/projects/:id/entry-fields creates a field
-     ✓ Entry Fields CRUD > POST creates a NUMBER field
-     ✓ Entry Fields CRUD > GET /api/projects/:id/entry-fields lists fields
-     ✓ Entry Fields CRUD > GET /api/projects/:id now includes the created fields
-     ✓ Entries CRUD > POST /api/projects/:id/entries creates an entry with values
-     ✓ Entries CRUD > POST creates entry without optional dates
-     ✓ Entries CRUD > GET /api/projects/:id/entries lists entries
-     ✓ Entries CRUD > PUT /api/entries/:id updates duration and values
-     ✓ Entries CRUD > PUT /api/entries/:id updates dates
-     ✓ Entries CRUD > GET /api/projects/:id/time-summary reflects entries
-     ✓ Entries CRUD > DELETE /api/entries/:id deletes the entry
-     ✓ Entries CRUD > DELETE /api/entries/:id returns 404 for unknown id
-     ✓ Cleanup > deletes test project and cascades all related data
-
- ✓ src/__tests__/auth.test.ts (29 tests)
-     ✓ Registration > POST /auth/register creates a user → 201
-     ✓ Registration > POST /auth/register rejects duplicate email → 409
-     ✓ Registration > POST /auth/register rejects a weak password → 400
-     ✓ Registration > POST /auth/register rejects an invalid email → 400
-     ✓ Login > POST /auth/login returns a JWT for valid credentials
-     ✓ Login > POST /auth/login rejects a wrong password → 401
-     ✓ Login > POST /auth/login rejects an unknown email → 401 (same message)
-     ✓ Login > POST /auth/login blocks unverified accounts → 403
-     ✓ Auth middleware > rejects requests without a token → 401
-     ✓ Auth middleware > rejects requests with an invalid token → 401
-     ✓ 2FA lifecycle > reports 2FA disabled initially
-     ✓ 2FA lifecycle > POST /2fa/setup returns a secret and QR code
-     ✓ 2FA lifecycle > POST /2fa/verify-setup rejects an incorrect code → 400
-     ✓ 2FA lifecycle > POST /2fa/verify-setup accepts a valid code and enables 2FA
-     ✓ 2FA lifecycle > reports 2FA enabled after verification
-     ✓ 2FA lifecycle > POST /2fa/setup rejects when already enabled → 400
-     ✓ 2FA lifecycle > login with 2FA enabled returns requiresTwoFactor and no token
-     ✓ 2FA lifecycle > POST /login/2fa rejects an invalid code → 401
-     ✓ 2FA lifecycle > POST /login/2fa accepts a valid code and issues a JWT
-     ✓ 2FA lifecycle > POST /login/2fa rejects a malformed code → 400
-     ✓ 2FA lifecycle > POST /2fa/disable rejects a wrong password → 401
-     ✓ 2FA lifecycle > POST /2fa/disable with correct password disables 2FA
-     ✓ 2FA lifecycle > login works normally again after 2FA is disabled
-     ✓ Password reset > POST /forgot-password returns the same message for unknown emails
-     ✓ Password reset > POST /forgot-password returns the same message for real emails
-     ✓ Password reset > POST /reset-password rejects an invalid token → 400
-     ✓ Password reset > resets the password end-to-end with a valid token
-     ✓ Account deletion > DELETE /auth/account rejects a wrong password → 401
-     ✓ Account deletion > DELETE /auth/account with correct password erases the account
-
- ✓ src/__tests__/sprint2.test.ts (22 tests)
-     ✓ Entry status tracking > creates an entry with default OPEN status
-     ✓ Entry status tracking > PATCH /entries/:id/status marks entry DONE and sets completedAt
-     ✓ Entry status tracking > PATCH /entries/:id/status back to OPEN clears completedAt
-     ✓ Entry status tracking > PATCH /entries/:id/status rejects invalid status → 400
-     ✓ Entry status tracking > PATCH /entries/:id/status returns 404 for unknown id
-     ✓ Entry status tracking > GET entries supports ?status= filter (open work view)
-     ✓ Entry status tracking > GET entries supports ?dueBefore= filter (overdue buckets)
-     ✓ Stats grouping > sums a NUMBER field across entries
-     ✓ Stats grouping > averages a NUMBER field
-     ✓ Stats grouping > counts entries with a TEXT metric field
-     ✓ Stats grouping > groups a NUMBER metric by a TEXT field
-     ✓ Stats grouping > rejects missing metricFieldId → 400
-     ✓ Stats grouping > rejects an unsupported operation → 400
-     ✓ Stats grouping > rejects sum on a non-NUMBER field → 400
-     ✓ Stats grouping > returns 404 for an unknown metric field
-     ✓ Stats grouping > returns 404 for an unknown group-by field
-     ✓ Stats timeline > buckets entry counts by day using a DATE field
-     ✓ Stats timeline > supports month bucketing
-     ✓ Stats timeline > rejects an invalid bucket → 400
-     ✓ Stats timeline > rejects a non-DATE field → 400
-     ✓ Stats timeline > rejects a missing dateFieldId → 400
-     ✓ Stats timeline > returns 404 for an unknown date field
-
- Test Files  4 passed (4)
-      Tests  100 passed (100)
-   Duration  90.55s
-```
-
-### Frontend (51 tests, 7 files)
+Captured from `npm run test:coverage --workspace=apps/backend` (run with two
+workers against the remote database — per-file times are wall-clock and
+include queue time on their worker):
 
 ```text
- ✓ src/lib/__tests__/savedFilters.test.ts (12 tests)
- ✓ src/components/__tests__/ProtectedRoute.test.tsx (3 tests)
- ✓ src/components/__tests__/EntryForm.test.tsx (8 tests)
- ✓ src/pages/__tests__/DashboardPage.test.tsx (6 tests)
- ✓ src/api/__tests__/client.test.ts (10 tests)
- ✓ src/pages/__tests__/RegisterPage.test.tsx (7 tests)
- ✓ src/pages/__tests__/LoginPage.test.tsx (5 tests)
+ ✓ src/__tests__/api.test.ts (27 tests) 54026ms
+ ✓ src/__tests__/auth.test.ts (33 tests) 24812ms
+ ✓ src/__tests__/authCrypto.test.ts (28 tests) 31ms
+ ✓ src/__tests__/automationEngine.test.ts (51 tests) 361444ms
+ ✓ src/__tests__/automationRules.test.ts (28 tests) 25ms
+ ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 53990ms
+ ✓ src/__tests__/customStatistics.test.ts (27 tests) 63990ms
+ ✓ src/__tests__/entriesListing.test.ts (14 tests) 31717ms
+ ✓ src/__tests__/entryHistory.test.ts (18 tests) 192194ms
+ ✓ src/__tests__/entryOwnership.test.ts (9 tests) 31710ms
+ ✓ src/__tests__/entryValidation.test.ts (17 tests) 183807ms
+ ✓ src/__tests__/expressions.test.ts (28 tests) 25ms
+ ✓ src/__tests__/expressionStats.test.ts (22 tests) 37849ms
+ ✓ src/__tests__/googleCalendar.test.ts (13 tests) 106ms
+ ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 18ms
+ ✓ src/__tests__/jwtSecret.test.ts (5 tests) 287ms
+ ✓ src/__tests__/projectDelete.test.ts (6 tests) 41543ms
+ ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 9364ms
+ ✓ src/__tests__/rateLimit.test.ts (6 tests) 138ms
+ ✓ src/__tests__/recurringEntries.test.ts (3 tests) 13ms
+ ✓ src/__tests__/reminders.test.ts (42 tests) 244793ms
+ ✓ src/__tests__/sprint2.test.ts (22 tests) 56670ms
+ ✓ src/__tests__/stats.test.ts (10 tests) 133622ms
+ ✓ src/__tests__/tags.test.ts (13 tests) 69031ms
+ ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 23410ms
+ ✓ src/__tests__/utils.test.ts (32 tests) 926ms
 
- Test Files  7 passed (7)
-      Tests  51 passed (51)
-   Duration  44.77s
+ Test Files  26 passed (26)
+      Tests  494 passed (494)
+   Duration  834.72s (transform 3.24s, setup 513ms, import 36.52s, tests 1615.54s, environment 4ms)
 ```
+
+### Frontend (348 tests, 23 files)
+
+```text
+ ✓ src/components/__tests__/AutomationRules.test.tsx (25 tests) 5919ms
+ ✓ src/pages/__tests__/EntriesPage.test.tsx (18 tests) 5748ms
+ ✓ src/pages/__tests__/RemindersPage.test.tsx (13 tests) 5344ms
+ ✓ src/pages/__tests__/ProjectsPage.test.tsx (21 tests) 7432ms
+ ✓ src/pages/__tests__/DashboardPage.test.tsx (12 tests) 8843ms
+ ✓ src/pages/__tests__/CalendarPage.test.tsx (14 tests) 11287ms
+ ✓ src/pages/__tests__/StatsPage.test.tsx (44 tests) 19703ms
+ ✓ src/components/__tests__/interactiveComponents.test.tsx (26 tests) 3328ms
+ ✓ src/pages/__tests__/OpenWorkPage.test.tsx (17 tests) 4004ms
+ ✓ src/pages/__tests__/RegisterPage.test.tsx (7 tests) 4516ms
+ ✓ src/components/__tests__/EntryForm.test.tsx (9 tests) 2459ms
+ ✓ src/pages/__tests__/LoginPage.test.tsx (5 tests) 2952ms
+ ✓ src/components/__tests__/displayComponents.test.tsx (18 tests) 2654ms
+ ✓ src/components/__tests__/ProtectedRoute.test.tsx (3 tests) 248ms
+ ✓ src/lib/__tests__/offlineEntries.test.ts (18 tests) 236ms
+ ✓ src/lib/__tests__/offlineProjects.test.ts (11 tests) 99ms
+ ✓ src/lib/__tests__/utils.test.ts (11 tests) 56ms
+ ✓ src/__tests__/api.test.ts (26 tests) 191ms
+ ✓ src/api/__tests__/client.test.ts (10 tests) 68ms
+ ✓ src/lib/__tests__/savedFilters.test.ts (14 tests) 55ms
+ ✓ src/lib/__tests__/formulas.test.ts (16 tests) 51ms
+ ✓ src/lib/__tests__/offlineCache.test.ts (7 tests) 51ms
+ ✓ src/lib/__tests__/dashboardPreferences.test.ts (3 tests) 43ms
+
+ Test Files  23 passed (23)
+      Tests  348 passed (348)
+```
+
+### Coverage (V8 provider, from the coverage runs of the same day)
+
+| Suite | Statements | Branches | Functions | Lines |
+|---|---|---|---|---|
+| Backend | 85.32% | 80.04% | 92.98% | 85.95% |
+| Frontend | 52.56% | 47.04% | 52.5% | 53.38% |
 
 ---
 
@@ -495,13 +450,13 @@ in action:
 ## Future Work
 
 - **Test isolation:** move to a per-run schema or transaction-rollback strategy so backend suites can't observe each other's data at all.
-- **Rate-limiting tests** once auth rate limiting is implemented.
 
 ### Completed
 
 - **CI gate** — the Gitea Actions workflow now runs both backend and frontend test suites on every push to protected branches (main, Dineo, Alondwe, Wendy).
-- **Backend unit tests** — 22 utils tests cover computedFields, auth, and entryFormat.
-- **Frontend component and UI tests** — 51 tests across 7 files cover saved-filter persistence, the 401 session-clearing interceptor, ProtectedRoute redirects, LoginPage/RegisterPage/DashboardPage validation and rendering, and EntryForm behaviour.
+- **Backend unit tests** — utils tests cover computedFields, auth, and entryFormat.
+- **Frontend component and UI tests** — page-level tests cover the dashboard, login/register, projects, entries timeline, open work, calendar, statistics and reminders pages, alongside the component and offline-layer suites.
+- **Rate-limiting tests** — `rateLimit.test.ts` locks in the BUG-003 fix.
 
 ---
 

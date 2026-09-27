@@ -1,7 +1,7 @@
 # BUG-006: 2FA Login Steps Not Cryptographically Linked
 
 **Severity:** Medium (Security)
-**Status:** Open
+**Status:** Fixed
 **Component:** Backend — `apps/backend/src/routes/auth.routes.ts`
 **Labels:** bug, security, 2fa
 
@@ -29,3 +29,28 @@ Step 2 independently verifies the TOTP code and issues a JWT without checking wh
 
 ## Related
 - BUG-003 (no rate limiting) and BUG-004 (unencrypted secrets) compound this issue
+
+## Resolution
+
+Fixed in `acdcf58` ("Encrypt TOTP secrets, hash single-use tokens, add 2FA
+recovery codes").
+
+`POST /api/auth/login` now issues a five-minute, purpose-scoped
+`twoFactorToken` (`purpose: "2fa-pending"`, signed with `JWT_SECRET`) when the
+password verifies, and `POST /api/auth/login/2fa` refuses to proceed without
+it. The account is identified solely by that token — an email address in the
+request body is no longer accepted — so step 2 can only follow a completed
+step 1 for the same sign-in. The auth middleware (`verifyToken` in
+`src/utils/auth.ts`) rejects any purpose-scoped token as a session, so the
+hand-off token can never be replayed against protected routes.
+
+The window is deliberately five minutes: it is a hand-off between two halves
+of one sign-in, not a session, and only has to cover the time it takes to
+read a code off a phone.
+
+Regression coverage is in
+`apps/backend/src/__tests__/twoFactorSecurity.test.ts`: five refusal cases
+(no token, the old email-based contract, a session token submitted as the
+hand-off, a token minted for a different purpose, a tampered token), plus
+the positive completion and the not-a-session check. AUTHENTICATION.md
+documents the two-step flow.

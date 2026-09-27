@@ -34,34 +34,48 @@ This document explains everything about how the Digital Logbook backend is teste
 
 ## What We Test
 
-### 1. Core API (`api.test.ts` — 27 tests)
+494 tests across 26 files. The original four Sprint 2 files are still here; the suite has grown around them feature by feature, and most newer files are named after the bug or user story they lock in.
 
-- Health and database connectivity
-- Project CRUD: create, list, read, update, archive/unarchive, 404/409/400 error paths
-- Entry fields: creation per type, listing, inclusion in project reads
-- Entries: creation with/without dates, update, delete, time-summary aggregation
+### Core API & infrastructure
 
-### 2. Authentication & Security (`auth.test.ts` — 29 tests)
+- **`api.test.ts` (27)** — health and database connectivity; project CRUD with 404/409/400 error paths; entry-field creation per type; entry CRUD with and without dates; time-summary aggregation
+- **`projectDelete.test.ts` (6)** — the delete-project endpoint: cascade behaviour, ownership, archived projects
+- **`purgeDeletedAccounts.test.ts` (6)** — the 30-day grace-period purge job: expired accounts erased, scheduled ones untouched, idempotent re-runs
+- **`rateLimit.test.ts` (6)** — BUG-003: the limiter throttles once its window is spent, and the feature switch turns it off
+- **`jwtSecret.test.ts` (5)** — BUG-002: the JWT secret is random per-process in development and the server refuses to start in production without one
 
-- **Registration:** happy path, duplicate email (409), weak password (400), invalid email (400)
-- **Login:** valid credentials return a JWT; wrong password and unknown email both return the *identical* error (no account enumeration); unverified accounts blocked with 403
-- **Route protection:** missing token → 401, invalid token → 401
-- **2FA full lifecycle, in order:** status check → setup (secret + QR data URL) → wrong code rejected → valid code enables → already-enabled rejected → login returns `requiresTwoFactor` with *no* token → `/login/2fa` rejects bad code, accepts valid code and issues JWT, rejects malformed code → disable rejects wrong password → disable with correct password → login back to normal
-- **Password reset:** anti-enumeration behaviour (same message for known and unknown emails), invalid token rejected (400), full end-to-end reset (old password stops working, new one works, all reset tokens consumed)
-- **Account deletion:** wrong password rejected; correct password permanently erases the user
+### Authentication & security
 
-### 3. Sprint 2 Features (`sprint2.test.ts` — 22 tests)
+- **`auth.test.ts` (33)** — registration, login (identical errors for unknown email and wrong password), route protection, the full 2FA lifecycle, password reset with anti-enumeration, account deletion
+- **`authCrypto.test.ts` (28)** — BUG-004/005 cryptography in isolation: AES-256-GCM round-trip, fresh IV per encryption, tamper and wrong-key rejection, envelope-vs-plaintext detection, refusal to encrypt without a key, token hashing, recovery-code generation
+- **`twoFactorSecurity.test.ts` (21)** — BUG-004/005/006 as behaviour over HTTP: secrets stored as envelopes, the `2fa-pending` hand-off token (five refusal cases, including the old email-based contract and a session token submitted in its place), recovery-code issue/spend/replay/regenerate/discard
+- **`entryOwnership.test.ts` (9)** — BUG-011: another user's entries and statistics are unreachable, and the owner is unaffected
 
-- **Entry status tracking (US13):** default `OPEN`, mark `DONE` sets `completedAt`, reopening clears it, invalid status → 400, unknown entry → 404, `?status=` filter (Open Work view), `?dueBefore=` filter (overdue buckets)
-- **Field statistics (US11):** `sum`, `avg`, and `count` aggregations with *verified arithmetic* (60 + 45 + 90 = 195, avg = 65), group-by with per-group values and descending order, all validation errors (missing field, bad operation, non-NUMBER metric, unknown fields)
-- **Timeline statistics (US11/US12):** day and month bucketing with verified counts, ascending date order, invalid bucket / non-DATE field / unknown field errors
+### Entries, fields and versions
 
-### 4. Backend Utilities (`utils.test.ts` — 22 tests)
+- **`entryValidation.test.ts` (17)** — server-side value validation per field type, and format migration backfilling existing entries
+- **`entryHistory.test.ts` (18)** — US20 editing preserves the previous version, US21 viewing an entry as it was on a date, US22 restoring a version, US30 archiving, and cross-user history unreachability
+- **`entriesListing.test.ts` (14)** — the flat entries listing: ownership, filters, ordering, limit and response shape
+- **`blankNumericValues.test.ts` (6)** — BUG-012: a blank numeric field is not stored, and aggregations survive a non-numeric row
+- **`tags.test.ts` (13)** — project tags, entry tags, and the tag endpoints
+- **`recurringEntries.test.ts` (3)** — recurring-entry patterns (US27)
 
-- **calculateComputedValues (7):** empty fields, simple addition, nested parentheses, missing values default to 0, invalid formula characters throw, non-finite result throws, computed-to-computed references
-- **validateFormula (5):** valid numeric references, constants and operators, non-numeric field rejected, unknown field rejected, invalid characters rejected
-- **Auth utils (7):** bcrypt hashPassword round-trip, comparePassword match and mismatch, JWT generation, extraction, invalid-token rejection, tampered-token rejection
-- **createFormatVersion (3):** version 1 from scratch, increment from latest, archived fields excluded from snapshot
+### Statistics & expressions
+
+- **`sprint2.test.ts` (22)** — entry status tracking (US13), group statistics (US11), timeline statistics (US11/US12)
+- **`stats.test.ts` (10)** — aggregating COMPUTED fields, counting non-numeric fields, statistics updating after entries change
+- **`customStatistics.test.ts` (27)** — US17: saving, reading, changing and removing custom statistics, and values that follow the data
+- **`expressions.test.ts` (28)** — the expression language: aggregate functions, arithmetic, refusals, `aggregatesUsed`
+- **`expressionStats.test.ts` (22)** — the expression statistics endpoint: results and rejections
+
+### Automation, integrations, utilities
+
+- **`automationEngine.test.ts` (51)** — US26 end-to-end: rule CRUD and validation, triggers, conditions against real entries, actions, history, the no-looping guarantee, broken rules never costing the user their entry, ownership
+- **`automationRules.test.ts` (28)** — US26's pure evaluator: conditions on entry attributes and custom fields, failing closed, combining conditions, operators offered per field type, `describeRuleProblem`
+- **`googleCalendar.test.ts` (13)** — FEAT-001: OAuth state, token encryption, connect and callback (including forged-state rejection)
+- **`googleCalendarSync.test.ts` (7)** — FEAT-001: the idempotent due-date mirror — create, update, remove, convergence on re-run
+- **`reminders.test.ts` (42)** — US28: reminder helpers, reminders generated from entries, manual reminders, viewing, completing and dismissing, settings
+- **`utils.test.ts` (32)** — calculateComputedValues, validateFormula, affectedComputedFields, computed chains, auth utils, createFormatVersion
 
 ---
 
@@ -69,10 +83,32 @@ This document explains everything about how the Digital Logbook backend is teste
 
 ```
 apps/backend/src/__tests__/
-├── api.test.ts      # 27 tests — core API (projects, fields, entries)
-├── auth.test.ts     # 29 tests — register, login, 2FA, reset, deletion
-├── sprint2.test.ts  # 22 tests — entry status, stats group, stats timeline
-└── utils.test.ts    # 22 tests — computedFields, auth, entryFormat utils
+├── api.test.ts                 #  27 — core API (projects, fields, entries)
+├── auth.test.ts                #  33 — register, login, 2FA lifecycle, reset, deletion
+├── authCrypto.test.ts          #  28 — TOTP encryption, token hashing, recovery codes (unit)
+├── automationEngine.test.ts    #  51 — automation rules end-to-end (US26)
+├── automationRules.test.ts     #  28 — the pure rule evaluator (US26)
+├── blankNumericValues.test.ts  #   6 — BUG-012 regression
+├── customStatistics.test.ts    #  27 — saved statistics (US17)
+├── entriesListing.test.ts      #  14 — flat listing, filters, ordering
+├── entryHistory.test.ts        #  18 — versions, as-of views, restore, archive
+├── entryOwnership.test.ts      #   9 — BUG-011 regression
+├── entryValidation.test.ts     #  17 — value validation, backfill
+├── expressions.test.ts         #  28 — expression language (unit)
+├── expressionStats.test.ts     #  22 — expression statistics endpoint
+├── googleCalendar.test.ts      #  13 — OAuth connect and callback (FEAT-001)
+├── googleCalendarSync.test.ts  #   7 — the due-date mirror (FEAT-001)
+├── jwtSecret.test.ts           #   5 — BUG-002 regression
+├── projectDelete.test.ts       #   6 — project deletion
+├── purgeDeletedAccounts.test.ts#   6 — deletion grace-period purge
+├── rateLimit.test.ts           #   6 — BUG-003 regression
+├── recurringEntries.test.ts    #   3 — recurring entries (US27)
+├── reminders.test.ts           #  42 — reminders (US28)
+├── sprint2.test.ts             #  22 — entry status, stats group, stats timeline
+├── stats.test.ts               #  10 — computed-field aggregation
+├── tags.test.ts                #  13 — project and entry tags
+├── twoFactorSecurity.test.ts   #  21 — 2FA hardening as behaviour
+└── utils.test.ts               #  32 — computedFields, auth, entryFormat utils
 ```
 
 Shared conventions across the files:
@@ -105,13 +141,21 @@ it("PATCH /entries/:id/status marks entry DONE and sets completedAt", async () =
 
 The JWT in `H` is generated by the same `generateToken` helper the login endpoint uses, so protected routes are exercised through the real `requireAuth` middleware.
 
-For 2FA, tests produce genuine TOTP codes:
+For 2FA, tests produce genuine TOTP codes — and exercise the real two-step contract, including the hand-off token that links the steps (BUG-006):
 
 ```ts
+// Step 1: the password verifies, but no session is issued yet.
+const pending = await request(app).post("/api/auth/login").send({
+  email: TFA_EMAIL,
+  password: TEST_PASSWORD,
+});
+expect(pending.body.requiresTwoFactor).toBe(true);
+
+// Step 2: a genuinely valid code, plus the pending token from step 1.
 const code = generateSync({ secret });   // same library the server verifies with
 const res = await request(app).post("/api/auth/login/2fa").send({
-  email: TFA_EMAIL,
-  token: code,
+  twoFactorToken: pending.body.twoFactorToken,
+  code,
 });
 expect(res.body.token).toBeTruthy();      // real JWT issued
 ```
@@ -160,123 +204,47 @@ Prerequisites: a reachable `DATABASE_URL` in `apps/backend/.env` and a regenerat
 
 ## Proof of Passing Runs
 
-**Run date: 2026-09-15 · 100 / 100 tests passing · 4 / 4 test files passing**
+**Run date: 2026-09-27 · 494 / 494 tests passing · 26 / 26 test files passing**
 
-Captured verbatim from `npm run test --workspace=apps/backend --reporter=verbose`:
+Captured from `npm run test:coverage --workspace=apps/backend` (run with two
+workers against the remote database — per-file times are wall-clock and
+include the time a file spent queued behind its worker's previous file):
 
 ```text
- ✓ src/__tests__/utils.test.ts (22 tests)
-     ✓ calculateComputedValues > returns an empty object when there are no COMPUTED fields
-     ✓ calculateComputedValues > evaluates a simple addition formula
-     ✓ calculateComputedValues > evaluates nested expressions with parentheses
-     ✓ calculateComputedValues > defaults missing values to 0
-     ✓ calculateComputedValues > throws on invalid formula characters
-     ✓ calculateComputedValues > throws when formula result is not finite
-     ✓ calculateComputedValues > allows computed fields to reference other computed fields
-     ✓ validateFormula > accepts a valid formula referencing numeric fields
-     ✓ validateFormula > accepts a formula with constants and operators
-     ✓ validateFormula > rejects a formula that references a non-numeric field
-     ✓ validateFormula > rejects a formula that references an unknown field
-     ✓ validateFormula > rejects a formula with invalid characters
-     ✓ auth utils > hashPassword returns a bcrypt hash string
-     ✓ auth utils > comparePassword returns true for matching password
-     ✓ auth utils > comparePassword returns false for wrong password
-     ✓ auth utils > generateToken produces a valid JWT string
-     ✓ auth utils > verifyToken extracts the userId from a valid token
-     ✓ auth utils > verifyToken returns null for an invalid token
-     ✓ auth utils > verifyToken returns null for a tampered token
-     ✓ createFormatVersion > creates version 1 when no previous versions exist
-     ✓ createFormatVersion > increments version from the latest
-     ✓ createFormatVersion > excludes archived fields from the snapshot
+ ✓ src/__tests__/api.test.ts (27 tests) 54026ms
+ ✓ src/__tests__/auth.test.ts (33 tests) 24812ms
+ ✓ src/__tests__/authCrypto.test.ts (28 tests) 31ms
+ ✓ src/__tests__/automationEngine.test.ts (51 tests) 361444ms
+ ✓ src/__tests__/automationRules.test.ts (28 tests) 25ms
+ ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 53990ms
+ ✓ src/__tests__/customStatistics.test.ts (27 tests) 63990ms
+ ✓ src/__tests__/entriesListing.test.ts (14 tests) 31717ms
+ ✓ src/__tests__/entryHistory.test.ts (18 tests) 192194ms
+ ✓ src/__tests__/entryOwnership.test.ts (9 tests) 31710ms
+ ✓ src/__tests__/entryValidation.test.ts (17 tests) 183807ms
+ ✓ src/__tests__/expressions.test.ts (28 tests) 25ms
+ ✓ src/__tests__/expressionStats.test.ts (22 tests) 37849ms
+ ✓ src/__tests__/googleCalendar.test.ts (13 tests) 106ms
+ ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 18ms
+ ✓ src/__tests__/jwtSecret.test.ts (5 tests) 287ms
+ ✓ src/__tests__/projectDelete.test.ts (6 tests) 41543ms
+ ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 9364ms
+ ✓ src/__tests__/rateLimit.test.ts (6 tests) 138ms
+ ✓ src/__tests__/recurringEntries.test.ts (3 tests) 13ms
+ ✓ src/__tests__/reminders.test.ts (42 tests) 244793ms
+ ✓ src/__tests__/sprint2.test.ts (22 tests) 56670ms
+ ✓ src/__tests__/stats.test.ts (10 tests) 133622ms
+ ✓ src/__tests__/tags.test.ts (13 tests) 69031ms
+ ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 23410ms
+ ✓ src/__tests__/utils.test.ts (32 tests) 926ms
 
- ✓ src/__tests__/api.test.ts (27 tests)
-     ✓ Health endpoints > GET /api/health returns ok
-     ✓ Health endpoints > GET /api/db-check connects to database
-     ✓ Projects CRUD > POST /api/projects creates a project
-     ✓ Projects CRUD > POST /api/projects rejects duplicate name → 409
-     ✓ Projects CRUD > POST /api/projects rejects missing name → 400
-     ✓ Projects CRUD > GET /api/projects lists user projects
-     ✓ Projects CRUD > GET /api/projects/:id returns project with entryFields
-     ✓ Projects CRUD > GET /api/projects/:id returns 404 for unknown id
-     ✓ Projects CRUD > PUT /api/projects/:id updates the project
-     ✓ Projects CRUD > PUT /api/projects/:id rejects rename to duplicate → 409
-     ✓ Projects CRUD > PATCH /api/projects/:id/status toggles to ARCHIVED
-     ✓ Projects CRUD > PATCH /api/projects/:id/status toggles back to ACTIVE
-     ✓ Projects CRUD > PATCH /api/projects/:id/status rejects invalid status → 400
-     ✓ Projects CRUD > GET /api/projects/:id/time-summary returns zero for new project
-     ✓ Entry Fields CRUD > POST /api/projects/:id/entry-fields creates a field
-     ✓ Entry Fields CRUD > POST creates a NUMBER field
-     ✓ Entry Fields CRUD > GET /api/projects/:id/entry-fields lists fields
-     ✓ Entry Fields CRUD > GET /api/projects/:id now includes the created fields
-     ✓ Entries CRUD > POST /api/projects/:id/entries creates an entry with values
-     ✓ Entries CRUD > POST creates entry without optional dates
-     ✓ Entries CRUD > GET /api/projects/:id/entries lists entries
-     ✓ Entries CRUD > PUT /api/entries/:id updates duration and values
-     ✓ Entries CRUD > PUT /api/entries/:id updates dates
-     ✓ Entries CRUD > GET /api/projects/:id/time-summary reflects entries
-     ✓ Entries CRUD > DELETE /api/entries/:id deletes the entry
-     ✓ Entries CRUD > DELETE /api/entries/:id returns 404 for unknown id
-     ✓ Cleanup > deletes test project and cascades all related data
-
- ✓ src/__tests__/auth.test.ts (29 tests)
-     ✓ Registration > POST /auth/register creates a user → 201
-     ✓ Registration > POST /auth/register rejects duplicate email → 409
-     ✓ Registration > POST /auth/register rejects a weak password → 400
-     ✓ Registration > POST /auth/register rejects an invalid email → 400
-     ✓ Login > POST /auth/login returns a JWT for valid credentials
-     ✓ Login > POST /auth/login rejects a wrong password → 401
-     ✓ Login > POST /auth/login rejects an unknown email → 401 (same message)
-     ✓ Login > POST /auth/login blocks unverified accounts → 403
-     ✓ Auth middleware > rejects requests without a token → 401
-     ✓ Auth middleware > rejects requests with an invalid token → 401
-     ✓ 2FA lifecycle > reports 2FA disabled initially
-     ✓ 2FA lifecycle > POST /2fa/setup returns a secret and QR code
-     ✓ 2FA lifecycle > POST /2fa/verify-setup rejects an incorrect code → 400
-     ✓ 2FA lifecycle > POST /2fa/verify-setup accepts a valid code and enables 2FA
-     ✓ 2FA lifecycle > reports 2FA enabled after verification
-     ✓ 2FA lifecycle > POST /2fa/setup rejects when already enabled → 400
-     ✓ 2FA lifecycle > login with 2FA enabled returns requiresTwoFactor and no token
-     ✓ 2FA lifecycle > POST /login/2fa rejects an invalid code → 401
-     ✓ 2FA lifecycle > POST /login/2fa accepts a valid code and issues a JWT
-     ✓ 2FA lifecycle > POST /login/2fa rejects a malformed code → 400
-     ✓ 2FA lifecycle > POST /2fa/disable rejects a wrong password → 401
-     ✓ 2FA lifecycle > POST /2fa/disable with correct password disables 2FA
-     ✓ 2FA lifecycle > login works normally again after 2FA is disabled
-     ✓ Password reset > POST /forgot-password returns the same message for unknown emails
-     ✓ Password reset > POST /forgot-password returns the same message for real emails
-     ✓ Password reset > POST /reset-password rejects an invalid token → 400
-     ✓ Password reset > resets the password end-to-end with a valid token
-     ✓ Account deletion > DELETE /auth/account rejects a wrong password → 401
-     ✓ Account deletion > DELETE /auth/account with correct password erases the account
-
- ✓ src/__tests__/sprint2.test.ts (22 tests)
-     ✓ Entry status tracking > creates an entry with default OPEN status
-     ✓ Entry status tracking > PATCH /entries/:id/status marks entry DONE and sets completedAt
-     ✓ Entry status tracking > PATCH /entries/:id/status back to OPEN clears completedAt
-     ✓ Entry status tracking > PATCH /entries/:id/status rejects invalid status → 400
-     ✓ Entry status tracking > PATCH /entries/:id/status returns 404 for unknown id
-     ✓ Entry status tracking > GET entries supports ?status= filter (open work view)
-     ✓ Entry status tracking > GET entries supports ?dueBefore= filter (overdue buckets)
-     ✓ Stats grouping > sums a NUMBER field across entries
-     ✓ Stats grouping > averages a NUMBER field
-     ✓ Stats grouping > counts entries with a TEXT metric field
-     ✓ Stats grouping > groups a NUMBER metric by a TEXT field
-     ✓ Stats grouping > rejects missing metricFieldId → 400
-     ✓ Stats grouping > rejects an unsupported operation → 400
-     ✓ Stats grouping > rejects sum on a non-NUMBER field → 400
-     ✓ Stats grouping > returns 404 for an unknown metric field
-     ✓ Stats grouping > returns 404 for an unknown group-by field
-     ✓ Stats timeline > buckets entry counts by day using a DATE field
-     ✓ Stats timeline > supports month bucketing
-     ✓ Stats timeline > rejects an invalid bucket → 400
-     ✓ Stats timeline > rejects a non-DATE field → 400
-     ✓ Stats timeline > rejects a missing dateFieldId → 400
-     ✓ Stats timeline > returns 404 for an unknown date field
-
- Test Files  4 passed (4)
-      Tests  100 passed (100)
-   Duration  90.55s
+ Test Files  26 passed (26)
+      Tests  494 passed (494)
+   Duration  834.72s (transform 3.24s, setup 513ms, import 36.52s, tests 1615.54s, environment 4ms)
 ```
+
+**Coverage (V8 provider):** 85.32% statements · 80.04% branches · 92.98%
+functions · 85.95% lines.
 
 ---
 
@@ -295,12 +263,12 @@ Writing these tests surfaced two real issues — this is the regression rule in 
 ## Future Work
 
 - **Test isolation:** move to a per-run schema or transaction-rollback strategy so suites can't observe each other's data at all.
-- **Rate-limiting tests** once auth rate limiting is implemented.
 
 ### Completed
 
 - **CI gate** — the Gitea Actions workflow now runs both backend and frontend test suites on every push to main, Dineo, Alondwe, and Wendy branches.
 - **Backend unit tests** — 22 utils tests cover computedFields, auth, and entryFormat.
+- **Rate-limiting tests** — `rateLimit.test.ts` locks in the BUG-003 fix.
 
 ---
 
