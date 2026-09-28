@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { CloudOff, KeyRound, Menu, X } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { pendingEntryCount, SYNC_EVENT } from "../lib/offlineEntries";
 import { pendingProjectCount, pendingProjectErrors } from "../lib/offlineProjects";
+import { isQuickCaptureKey, lastProjectId } from "../lib/quickCapture";
+import { fetchProjects } from "../api";
 
 function describePending(projects: number, entries: number): string {
   const parts = [];
@@ -14,6 +16,28 @@ function describePending(projects: number, entries: number): string {
 
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navigate = useNavigate();
+
+  // N anywhere opens a new entry on the project the student last worked in,
+  // or their first active project (issue #92). The project page opens the
+  // form when it sees ?new=1.
+  useEffect(() => {
+    const onKey = async (e: KeyboardEvent) => {
+      if (!isQuickCaptureKey(e)) return;
+      e.preventDefault();
+      let projectId = lastProjectId();
+      if (!projectId) {
+        try {
+          projectId = (await fetchProjects()).find((p) => p.status === "ACTIVE")?.id ?? null;
+        } catch {
+          projectId = null;
+        }
+      }
+      navigate(projectId ? `/projects/${projectId}?new=1` : "/projects");
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [navigate]);
   // Left behind by a sign-in that spent a 2FA recovery code. Read on mount and
   // cleared in an effect rather than in the initializer, so StrictMode's double
   // invocation in development cannot swallow it.

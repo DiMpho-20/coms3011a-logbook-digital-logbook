@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Clock,
@@ -41,6 +41,7 @@ import {
   type ChecklistItem,
 } from "../api";
 import { formatDuration, todayISO, defaultValuesForFields, isEmptyValue, entryDateKey } from "../lib/utils";
+import { forgetProject, isSaveShortcut, rememberProject } from "../lib/quickCapture";
 import StatCard from "../components/StatCard";
 import EntryCard from "../components/EntryCard";
 import Modal from "../components/Modal";
@@ -89,6 +90,8 @@ function dateHeading(dateStr: string): string {
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const entryFormRef = useRef<HTMLDivElement>(null);
 
   // Entry view, history dialog and bulk selection (US20-22, US30)
   const [entryView, setEntryView] = useState<EntryView>("active");
@@ -170,6 +173,7 @@ export default function ProjectDetailPage() {
       setSelectedIds(new Set());
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load project.";
+      forgetProject(id);
       setError(msg);
     } finally {
       setLoading(false);
@@ -179,6 +183,31 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // The project N returns to (issue #92).
+  useEffect(() => {
+    if (id) rememberProject(id);
+  }, [id]);
+
+  // Arriving from the N shortcut: open a new entry once the project is here,
+  // then drop the flag so a reload or Back does not open it again.
+  useEffect(() => {
+    if (searchParams.get("new") !== "1" || !project || project.id !== id) return;
+    setEditingEntry(null);
+    setEntryModalOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, project, id]);
+
+  // Put the cursor in the first field, so capture needs no mouse.
+  useEffect(() => {
+    if (!entryModalOpen) return;
+    const frame = requestAnimationFrame(() => {
+      entryFormRef.current?.querySelector<HTMLElement>("input, textarea, select")?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [entryModalOpen]);
 
   // Populate (or reset) form fields whenever the modal opens
   useEffect(() => {
@@ -582,6 +611,8 @@ export default function ProjectDetailPage() {
             )}
             <button
               onClick={openNewEntryModal}
+              title="New entry (N)"
+              aria-keyshortcuts="N"
               className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
             >
               <Plus className="h-3.5 w-3.5" /> New Entry
@@ -676,7 +707,15 @@ export default function ProjectDetailPage() {
         onClose={closeEntryModal}
         title={editingEntry ? "Edit Entry" : "New Entry"}
       >
-        <div className="space-y-4">
+        <div
+          ref={entryFormRef}
+          className="space-y-4"
+          onKeyDown={(e) => {
+            if (!isSaveShortcut(e)) return;
+            e.preventDefault();
+            if (!entrySubmitting) void handleEntrySubmit();
+          }}
+        >
           {entryError && (
             <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {entryError}
@@ -857,7 +896,8 @@ export default function ProjectDetailPage() {
           )}
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <span className="mr-auto text-[11px] text-slate-400">Ctrl+Enter to save</span>
             <button
               type="button"
               onClick={closeEntryModal}

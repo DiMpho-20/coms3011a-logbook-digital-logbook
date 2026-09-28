@@ -140,6 +140,12 @@ The form supports:
 
 The form is designed to allow students to capture logbook information quickly without requiring a fixed format for every project.
 
+Capture works from the keyboard alone:
+
+* **N**, pressed anywhere in the app while not typing in a field, opens a new entry on the project the student last worked in (or their first active project).
+* The cursor starts in the first field of the form.
+* **Ctrl+Enter** (Cmd+Enter on a Mac) saves the entry.
+
 *See the [wireframe](../Logbook%20wireframe.pdf) and [mockup](DigitalLogbook%20mockup.pdf) for the original entry form layout.*
 
 ### 8. Entry Format Management
