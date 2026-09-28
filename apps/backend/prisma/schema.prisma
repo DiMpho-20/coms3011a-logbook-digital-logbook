@@ -25,9 +25,39 @@ enum EntryFieldType {
   COMPUTED
 }
 
+// US26 — the entry events an automation rule can listen for. Deliberately
+// only the two the story names ("I create an entry", "I save an entry");
+// recurrence is US27 and reminders are US28, and neither belongs here.
+enum AutomationTrigger {
+  ENTRY_CREATED
+  ENTRY_UPDATED
+}
+
 enum EntryStatus {
   OPEN
   DONE
+}
+
+enum RecurrencePattern {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ReminderStatus {
+  PENDING
+  COMPLETED
+  DISMISSED
+}
+
+// MANUAL reminders are set by the student; the rest are generated from
+// their reminder rules (US28).
+enum ReminderSource {
+  MANUAL
+  DUE_SOON
+  OVERDUE
+  STALE
+  DAILY_LOG
 }
 
 // --- USER ENTITY (Person 1) ---
@@ -51,6 +81,13 @@ model User {
   projects                Project[]
   tags                    Tag[]
   googleCalendarConnection GoogleCalendarConnection?
+  customStatistics        CustomStatistic[]
+  automationRules         AutomationRule[]
+  reminders               Reminder[]
+  reminderSettings        ReminderSettings?
+  twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
+  pushSubscriptions       PushSubscription[]
+  dashboardLayout         DashboardLayout?
 
   @@map("users")
 }
@@ -69,6 +106,27 @@ model PasswordReset {
   @@map("password_resets")
 }
 
+// --- 2FA RECOVERY CODES (BUG-005) ---
+// A single-use way back in when the authenticator device is gone. Only the
+// SHA-256 digest is stored: the codes themselves are shown to the user once,
+// at the moment they are generated, and cannot be recovered afterwards.
+// Spent codes are kept with usedAt set rather than deleted, so "3 of 10
+// remaining" stays answerable and a reused code is refused rather than simply
+// not found.
+model TwoFactorRecoveryCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash") @db.VarChar(64)
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, codeHash])
+  @@index([userId])
+  @@map("two_factor_recovery_codes")
+}
+
 // --- PROJECT ENTITY ---
 
 model Project {
@@ -85,14 +143,24 @@ model Project {
   entryFields EntryField[]
   formatVersions EntryFormatVersion[]
   entries     LogbookEntry[]
+  recurrenceRules RecurrenceRule[]
   tags        ProjectTag[]
+  customStatistics CustomStatistic[]
+  automationRules  AutomationRule[]
 
   @@unique([userId, name])
+  @@index([userId])
   @@map("projects")
 }
 
 // --- ENTRY FIELDS ---
 
+// NOTE: entry_fields also carries a unique index on (project_id, lower(name))
+// WHERE archived_at IS NULL, added in 20260927140000_unique_entry_field_names.
+// Prisma's schema language cannot express a functional or partial unique index,
+// so it is declared in SQL only. `migrate deploy` applies and keeps it; a future
+// `migrate diff` will not know it exists, so do not let a regenerated baseline
+// silently drop it.
 model EntryField {
   id        String         @id @default(uuid()) @db.Uuid
   projectId String         @map("project_id") @db.Uuid
@@ -108,6 +176,7 @@ model EntryField {
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
 
+  @@index([projectId])
   @@map("entry_fields")
 }
 
@@ -124,14 +193,73 @@ model LogbookEntry {
   status          EntryStatus  @default(OPEN)
   completedAt     DateTime?    @map("completed_at")
   formatVersionId String?      @map("format_version_id") @db.Uuid
+  // Set when the entry is moved to the archive (US30); null means active.
+  archivedAt      DateTime?    @map("archived_at")
+  recurrenceRuleId String?     @map("recurrence_rule_id") @db.Uuid
 
 
   project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   values  EntryValue[]
   formatVersion EntryFormatVersion? @relation(fields: [formatVersionId], references: [id], onDelete: SetNull)
   tags    EntryTag[]
+  versions EntryVersion[]
+  reminders Reminder[]
+  recurrenceRule RecurrenceRule? @relation(fields: [recurrenceRuleId], references: [id], onDelete: SetNull)
 
+  @@index([projectId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([projectId, status])
   @@map("logbook_entries")
+}
+
+// A recurrence stores a stable template instead of copying from the most
+// recently generated entry. This keeps the pattern predictable even when a
+// student edits or completes one occurrence.
+model RecurrenceRule {
+  id                String            @id @default(uuid()) @db.Uuid
+  projectId         String            @map("project_id") @db.Uuid
+  pattern           RecurrencePattern
+  enabled           Boolean           @default(true)
+  nextOccurrence    DateTime          @map("next_occurrence")
+  until             DateTime?
+  durationMinutes   Int               @map("duration_minutes")
+  dueDateOffsetDays Int?              @map("due_date_offset_days")
+  values            Json              @map("template_values")
+  tags              String[]          @default([]) @map("template_tags")
+  formatVersionId   String?           @map("format_version_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  project Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  entries LogbookEntry[]
+
+  @@index([enabled, nextOccurrence])
+  @@map("recurrence_rules")
+}
+
+// --- ENTRY VERSIONS (US20-22) ---
+// One row per saved state of an entry, written when it is created, edited or
+// restored. Rows are never updated or deleted, so an edit can't overwrite
+// what the entry said before. `snapshot` holds the entry exactly as the API
+// returned it at that point, field names included, so a historical version
+// still reads correctly after the project's fields are renamed or removed.
+
+model EntryVersion {
+  id                  String   @id @default(uuid()) @db.Uuid
+  entryId             String   @map("entry_id") @db.Uuid
+  version             Int
+  // CREATED, UPDATED or RESTORED
+  reason              String   @db.VarChar(20)
+  restoredFromVersion Int?     @map("restored_from_version")
+  snapshot            Json
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  entry LogbookEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, version])
+  @@index([entryId])
+  @@map("entry_versions")
 }
 
 // Immutable snapshots let entries retain the format that was current when
@@ -162,6 +290,8 @@ model EntryValue {
   field   EntryField   @relation(fields: [fieldId], references: [id], onDelete: Cascade)
 
   @@unique([entryId, fieldId])
+  @@index([fieldId])
+  @@index([entryId])
   @@map("entry_values")
 }
 
@@ -181,6 +311,7 @@ model Tag {
   entries  EntryTag[]
 
   @@unique([userId, name])
+  @@index([userId])
   @@map("tags")
 }
 
@@ -216,4 +347,145 @@ model GoogleCalendarConnection {
   updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// --- REMINDERS (US28) ---
+// A generated reminder carries a ruleKey naming the rule and the condition
+// that fired it (e.g. "due-soon:<entryId>:2026-10-01"). The unique index
+// means the same condition only ever produces one reminder, so dismissing it
+// sticks, while a changed due date is a new condition and a new reminder.
+
+model Reminder {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  entryId     String?        @map("entry_id") @db.Uuid
+  source      ReminderSource @default(MANUAL)
+  ruleKey     String?        @map("rule_key") @db.VarChar(255)
+  title       String         @db.VarChar(255)
+  note        String?        @db.Text
+  remindAt    DateTime       @map("remind_at")
+  status      ReminderStatus @default(PENDING)
+  completedAt DateTime?      @map("completed_at")
+  dismissedAt DateTime?      @map("dismissed_at")
+  // When a push notification went out for it; null until then.
+  pushedAt    DateTime?      @map("pushed_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entry LogbookEntry? @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ruleKey])
+  @@index([userId, status, remindAt])
+  @@map("reminders")
+}
+
+// A browser or device that asked for push notifications. The endpoint and
+// keys come from the browser's PushSubscription.
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  endpoint  String   @unique @db.Text
+  p256dh    String   @db.VarChar(255)
+  auth      String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// US19 — the panels on a student's dashboard, in the order they arranged
+// them. Built-in panels are named ("activity"); a saved statistic is
+// "stat:<projectId>:<statisticId>". No row means the default dashboard.
+model DashboardLayout {
+  userId    String   @id @map("user_id") @db.Uuid
+  panels    String[] @default([]) @db.VarChar(100)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("dashboard_layouts")
+}
+
+// The student's reminder rules. No row means the defaults below.
+model ReminderSettings {
+  userId          String   @id @map("user_id") @db.Uuid
+  dueSoonEnabled  Boolean  @default(true) @map("due_soon_enabled")
+  dueSoonDays     Int      @default(1) @map("due_soon_days")
+  overdueEnabled  Boolean  @default(true) @map("overdue_enabled")
+  staleEnabled    Boolean  @default(false) @map("stale_enabled")
+  staleDays       Int      @default(7) @map("stale_days")
+  dailyLogEnabled Boolean  @default(false) @map("daily_log_enabled")
+  dailyLogTime    String   @default("18:00") @map("daily_log_time") @db.VarChar(5)
+  // IANA zone the student's calendar days are counted in, e.g. "Africa/Johannesburg".
+  timeZone        String   @default("UTC") @map("time_zone") @db.VarChar(64)
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reminder_settings")
+}
+
+/// US17 — a statistic the owner wrote themselves. Only the definition is
+/// stored; the value is worked out from current entries every time it is
+/// read, so a saved statistic keeps up with the data instead of going stale.
+model CustomStatistic {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  name       String   @db.VarChar(100)
+  /// The exact expression the owner saved, in US16 syntax.
+  expression String   @db.VarChar(500)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  /// Unique per project rather than per user: a project has exactly one
+  /// owner, so this is the same guarantee with one less column to drift.
+  @@unique([projectId, name])
+  @@map("custom_statistics")
+}
+
+// --- AUTOMATION RULES (US26) ---
+// "As a student, I want rules to automatically apply when an entry is
+// captured, so that repetitive information can be generated or updated
+// automatically."
+//
+// A rule is data, never code: conditions and action are validated JSON that
+// application logic interprets. Nothing here is ever evaluated as a program.
+//
+// conditions is an array combined with AND, each entry either an attribute of
+// the entry itself or one of the project's custom fields referenced by its
+// stable id. action is a single tagged object. Both shapes are enforced by
+// Zod on the way in and re-checked against the project on the way out, so a
+// row that has gone stale (its field archived, its tag deleted) reports why
+// rather than acting on the wrong thing.
+//
+// userId is carried alongside projectId to match CustomStatistic above; a
+// project has exactly one owner, so it is redundant but consistent.
+model AutomationRule {
+  id         String            @id @default(uuid()) @db.Uuid
+  userId     String            @map("user_id") @db.Uuid
+  projectId  String            @map("project_id") @db.Uuid
+  name       String            @db.VarChar(100)
+  trigger    AutomationTrigger
+  conditions Json
+  action     Json
+  enabled    Boolean           @default(true)
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  // Every entry save loads this project's enabled rules and nothing else.
+  @@index([projectId, enabled])
+  @@map("automation_rules")
 }
