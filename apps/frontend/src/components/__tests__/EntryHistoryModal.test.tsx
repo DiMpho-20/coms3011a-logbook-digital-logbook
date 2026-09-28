@@ -163,7 +163,7 @@ describe("EntryHistoryModal — comparing an older version", () => {
       versions: [
         version(1, {
           snapshot: snapshot({
-            values: { [NOTES]: "", done: true, list: [{ label: "Draft", checked: true }], ref: { label: "Ticket 7" } },
+            values: { [NOTES]: "", done: true, list: [{ label: "Draft", checked: true }], ref: { id: "t7", label: "Ticket 7" } },
           }),
         }),
         version(2, {
