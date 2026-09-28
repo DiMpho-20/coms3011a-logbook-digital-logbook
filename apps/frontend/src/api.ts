@@ -3,6 +3,7 @@
   ProjectWithFields,
   EntryField,
   EntryFieldValue,
+  EntryReference,
   Entry,
   TimeSummary,
   ProjectStatus,
@@ -582,6 +583,21 @@ function isBackup(value: unknown): value is LogbookBackup {
         && !Array.isArray(entry.values)));
 }
 
+/**
+ * Point an imported reference at the project recreated from the backup.
+ * A backup stores no project ids, but a project reference carries the
+ * project's name, which is unique per student. Anything that cannot be
+ * matched (an entry reference, or a project not in the backup) was already
+ * a broken link, so it is left out rather than failing the whole import.
+ */
+function remapReference(value: unknown, projectIdByName: Map<string, string>): EntryReference | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const ref = value as Partial<EntryReference>;
+  if ((ref.kind ?? "project") !== "project" || typeof ref.label !== "string") return null;
+  const id = projectIdByName.get(ref.label);
+  return id ? { id, label: ref.label, kind: "project" } : null;
+}
+
 export async function importLogbook(value: unknown): Promise<{ projects: number; entries: number }> {
   if (!isBackup(value)) {
     throw new Error("This is not a valid Digital Logbook backup file.");
@@ -592,6 +608,11 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
 
   let importedProjects = 0;
   let importedEntries = 0;
+
+  // Every project and its fields first, then the entries, so an entry can
+  // refer to a project that comes later in the file.
+  const created: { project: (typeof value.projects)[number]; id: string; fieldIds: Map<string, string> }[] = [];
+  const projectIdByName = new Map<string, string>();
   for (const project of value.projects) {
     const createdProject = await createProject({
       name: project.name,
@@ -599,6 +620,7 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
       status: project.status,
     });
     importedProjects++;
+    projectIdByName.set(project.name, createdProject.id);
     const fieldIds = new Map<string, string>();
     for (const field of orderForSaving(project.fields)) {
       // A COMPUTED field's formula embeds the ids of the fields it reads
@@ -620,6 +642,11 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
       });
       fieldIds.set(field.id, createdField.id);
     }
+    created.push({ project, id: createdProject.id, fieldIds });
+  }
+
+  for (const { project, id: projectId, fieldIds } of created) {
+    const referenceFields = new Set(project.fields.filter((f) => f.type === "REFERENCE").map((f) => f.id));
     for (const entry of project.entries) {
       if (!Number.isInteger(entry.durationMinutes) || entry.durationMinutes < 0 || !entry.values) {
         throw new Error(`Backup contains an invalid entry in "${project.name}".`);
@@ -627,9 +654,16 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
       const values: Record<string, EntryFieldValue> = {};
       for (const [oldFieldId, entryValue] of Object.entries(entry.values)) {
         const newFieldId = fieldIds.get(oldFieldId);
-        if (newFieldId) values[newFieldId] = entryValue;
+        if (!newFieldId) continue;
+        if (referenceFields.has(oldFieldId)) {
+          // A reference holds the old id of what it points at (issue #90).
+          const remapped = remapReference(entryValue, projectIdByName);
+          if (remapped) values[newFieldId] = remapped;
+          continue;
+        }
+        values[newFieldId] = entryValue;
       }
-      await createEntry(createdProject.id, {
+      await createEntry(projectId, {
         durationMinutes: entry.durationMinutes,
         values,
         ...(entry.entryDate && { entryDate: entry.entryDate }),
