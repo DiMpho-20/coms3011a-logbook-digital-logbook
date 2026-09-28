@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── computedFields ──────────────────────────────────────────────────────
 import {
+  affectedComputedFields,
   calculateComputedValues,
   validateFormula,
 } from "../utils/computedFields.js";
@@ -86,15 +87,95 @@ describe("validateFormula", () => {
   });
 
   it("rejects a formula that references a non-numeric field", () => {
-    expect(() => validateFormula("{name}", fields)).toThrow(/numeric fields/);
+    expect(() => validateFormula("{name}", fields)).toThrow(/numeric or computed fields/);
   });
 
   it("rejects a formula that references an unknown field", () => {
-    expect(() => validateFormula("{unknown}", fields)).toThrow(/numeric fields/);
+    expect(() => validateFormula("{unknown}", fields)).toThrow(/numeric or computed fields/);
   });
 
   it("rejects a formula with invalid characters", () => {
     expect(() => validateFormula("{hours} + abc", fields)).toThrow(/arithmetic operators/);
+  });
+
+  it("accepts a formula that uses another computed field", () => {
+    const withTotal = [...fields, { id: "pay", type: "COMPUTED", formula: "{hours} * {rate}" }];
+    expect(() => validateFormula("{pay} * 1.15", withTotal)).not.toThrow();
+  });
+
+  it("rejects a computed field that uses itself", () => {
+    const withTotal = [...fields, { id: "pay", type: "COMPUTED", formula: "{hours} * {rate}" }];
+    expect(() => validateFormula("{pay} + 1", withTotal, "pay")).toThrow(/numeric or computed fields/);
+  });
+
+  it("rejects computed fields that depend on each other in a loop", () => {
+    const loop = [
+      ...fields,
+      { id: "a", type: "COMPUTED", formula: "{hours} * 2" },
+      { id: "b", type: "COMPUTED", formula: "{a} + 1" },
+    ];
+    // Editing a to read b would make a → b → a.
+    expect(() => validateFormula("{b} * 2", loop, "a")).toThrow(/loop/);
+  });
+});
+
+describe("affectedComputedFields", () => {
+  const fields: Field[] = [
+    { id: "hours", type: "NUMBER", formula: null },
+    { id: "pay", type: "COMPUTED", formula: "{hours} * 50" },
+    { id: "withTax", type: "COMPUTED", formula: "{pay} * 1.15" },
+    { id: "rounded", type: "COMPUTED", formula: "{withTax} + 0" },
+    { id: "unrelated", type: "COMPUTED", formula: "2 * 3" },
+  ];
+
+  it("includes a computed field and everything that uses it, however indirectly", () => {
+    expect(affectedComputedFields("pay", fields).sort()).toEqual(["pay", "rounded", "withTax"]);
+  });
+
+  it("gives only the dependents for a number field", () => {
+    expect(affectedComputedFields("hours", fields).sort()).toEqual(["pay", "rounded", "withTax"]);
+  });
+
+  it("is empty when nothing depends on the field", () => {
+    expect(affectedComputedFields("hours", [{ id: "hours", type: "NUMBER", formula: null }])).toEqual([]);
+  });
+});
+
+describe("calculateComputedValues — chains", () => {
+  it("works out a computed field used before it is defined", () => {
+    const fields: Field[] = [
+      { id: "a", type: "NUMBER", formula: null },
+      { id: "quadruple", type: "COMPUTED", formula: "{double} * 2" },
+      { id: "double", type: "COMPUTED", formula: "{a} * 2" },
+    ];
+    expect(calculateComputedValues(fields, { a: 5 })).toEqual({ quadruple: 20, double: 10 });
+  });
+
+  it("ignores a stale stored value for a computed field it depends on", () => {
+    const fields: Field[] = [
+      { id: "a", type: "NUMBER", formula: null },
+      { id: "double", type: "COMPUTED", formula: "{a} * 2" },
+      { id: "quadruple", type: "COMPUTED", formula: "{double} * 2" },
+    ];
+    expect(calculateComputedValues(fields, { a: 5, double: 999 })).toEqual({ double: 10, quadruple: 20 });
+  });
+
+  it("limits the result to the requested fields", () => {
+    const fields: Field[] = [
+      { id: "a", type: "NUMBER", formula: null },
+      { id: "double", type: "COMPUTED", formula: "{a} * 2" },
+      { id: "quadruple", type: "COMPUTED", formula: "{double} * 2" },
+      { id: "broken", type: "COMPUTED", formula: "1 / {a}" },
+    ];
+    expect(calculateComputedValues(fields, { a: 0 }, ["quadruple"])).toEqual({ quadruple: 0 });
+  });
+
+  it("throws on a loop rather than recursing forever", () => {
+    const fields: Field[] = [
+      { id: "x", type: "COMPUTED", formula: "{y} + 1" },
+      { id: "y", type: "COMPUTED", formula: "{x} + 1" },
+    ];
+    expect(() => calculateComputedValues(fields, {})).toThrow(/refers back/);
   });
 });
 
@@ -177,7 +258,7 @@ describe("createFormatVersion", () => {
     fields: any[],
     latestVersion: { version: number } | null,
   ) {
-    return {
+    const client = {
       entryField: {
         findMany: vi.fn().mockResolvedValue(fields),
       },
@@ -185,6 +266,13 @@ describe("createFormatVersion", () => {
         findFirst: vi.fn().mockResolvedValue(latestVersion),
         create: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: "fv-1", ...data })),
       },
+    };
+    // createFormatVersion reads and writes inside one transaction (BUG-001);
+    // run the callback against the same client so the assertions on the spies
+    // above still see every query it makes.
+    return {
+      ...client,
+      $transaction: (run: (tx: unknown) => unknown) => run(client),
     } as any;
   }
 

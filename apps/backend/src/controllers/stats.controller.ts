@@ -1,6 +1,9 @@
 import { Response } from "express";
 import prisma from "../prisma.js";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
+import { ExpressionError } from "../utils/expressions.js";
+import { evaluateExpressionForProject } from "../utils/expressionEvaluation.js";
+import { evaluateExpressionSchema } from "../schemas/expression.schema.js";
 
 /**
  * These handlers aggregate an owner's data, so they must establish who the
@@ -185,5 +188,47 @@ export const timelineStats = async (req: AuthenticatedRequest, res: Response) =>
   } catch (error: any) {
     console.error("timelineStats failed:", error);
     return res.status(500).json({ error: error.message || "Failed to compute timeline" });
+  }
+};
+
+// POST /projects/:projectId/stats/expression
+// Body: { expression }  e.g. "SUM(hours) / COUNT()"
+//
+// US16. Scope is one project: the statistics page already works a project
+// at a time, the ownership check is the same one the other two handlers
+// use, and a project-wide answer is what "an expression over their own
+// entries" means here. Every entry of that project takes part, archived
+// ones included, because that is what group and timeline already do.
+// POST /projects/:projectId/stats/expression
+// Body: { expression }  e.g. "SUM(hours) / COUNT()"
+//
+// US16. Scope is one project: the statistics page already works a project
+// at a time, the ownership check is the same one the other two handlers
+// use, and a project-wide answer is what "an expression over their own
+// entries" means here. Every entry of that project takes part, archived
+// ones included, because that is what group and timeline already do.
+//
+// The evaluation itself lives in utils/expressionEvaluation.ts, shared with
+// saved statistics (US17) so there is one implementation, not two.
+export const evaluateExpression = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const projectId = String(req.params.projectId);
+    if (!(await ownedProject(projectId, req.userId!))) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const parsed = evaluateExpressionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
+    }
+
+    return res.json({ value: await evaluateExpressionForProject(projectId, parsed.data.expression) });
+  } catch (error: any) {
+    if (error instanceof ExpressionError) {
+      return res.status(400).json({ error: error.message });
+    }
+    // Anything else is ours, not theirs: log it and say nothing specific.
+    console.error("evaluateExpression failed:", error);
+    return res.status(500).json({ error: "Failed to evaluate the expression" });
   }
 };

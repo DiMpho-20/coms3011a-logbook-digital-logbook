@@ -307,3 +307,238 @@
 | 3     | I have previously exported logbook data | I choose to import the data     | The system accepts the exported file                          | Pass       |
 | 4     | I import valid logbook data             | The import completes            | The imported projects and entries are available in my logbook | Pass       |
 | 5     | I attempt to import invalid data        | The system processes the import | The system informs me that the data cannot be imported        | Pass       |
+
+
+# Sprint 3 – User Stories
+
+# Digital Logbook – Advanced User Stories
+
+## US16 – Define Custom Expressions
+
+**User Story:** As a student, I want to write an expression over my logbook entries, so that I can calculate information specific to my own data without relying only on built-in statistics.
+
+### Acceptance Tests
+
+| **#** | **Given**                                 | **When**                           | **Then**                                                       | **Status** |
+| ----- | ----------------------------------------- | ---------------------------------- | -------------------------------------------------------------- | ---------- |
+| 1     | I have logbook entries with custom fields | I create a custom expression       | I can define an expression using my entry data                 | Pass       |
+| 2     | I am defining a custom expression         | I reference fields from my entries | The system allows the expression to use available entry fields | Pass       |
+| 3     | I have defined a valid expression         | I run the expression               | The system calculates a result from my logbook data            | Pass       |
+| 4     | I have defined an invalid expression      | I attempt to run it                | The system indicates that the expression cannot be evaluated   | Pass       |
+| 5     | I have a valid custom expression          | I change the underlying entry data | The calculated result reflects the updated data                | Pass       |
+
+---
+
+## US17 – Save Custom Statistics
+
+**User Story:** As a student, I want to save a custom expression as a statistic, so that it appears alongside the built-in statistics in my logbook.
+
+### Acceptance Tests
+
+| **#** | **Given**                                | **When**                          | **Then**                                                       | **Status** |
+| ----- | ---------------------------------------- | --------------------------------- | -------------------------------------------------------------- | ---------- |
+| 1     | I have created a valid custom expression | I choose to save it               | The system saves the expression as a custom statistic          | Pass       |
+| 2     | I have saved a custom statistic          | I view my statistics              | The saved statistic is displayed alongside built-in statistics | Pass       |
+| 3     | I have a saved custom statistic          | I open the statistic              | The statistic displays its calculated result                   | Pass       |
+| 4     | I have a saved custom statistic          | The underlying entry data changes | The statistic reflects the updated data                        | Pass       |
+| 5     | I have a saved custom statistic          | I remove the statistic            | The custom statistic is no longer displayed                    | Pass       |
+
+---
+
+## US18 – Create a Custom Dashboard
+
+**User Story:** As a student, I want to create a dashboard containing the statistics and information I choose, so that I can monitor the parts of my logbook that matter to me.
+
+### Acceptance Tests
+
+| **#** | **Given**                      | **When**                          | **Then**                                           | **Status** |
+| ----- | ------------------------------ | --------------------------------- | -------------------------------------------------- | ---------- |
+| 1     | I am viewing my logbook        | I create a dashboard              | A new personal dashboard is created                | Pass       |
+| 2     | I have available statistics    | I add a statistic to my dashboard | The statistic is displayed as a dashboard panel    | Pass       |
+| 3     | I have a dashboard             | I add multiple panels             | All selected panels are displayed on the dashboard | Pass       |
+| 4     | I have a dashboard with panels | I remove a panel                  | The selected panel is removed from the dashboard   | Pass       |
+| 5     | I have configured my dashboard | I open the dashboard              | My selected panels are displayed                   | Pass       |
+
+---
+
+## US19 – Arrange and Persist Dashboard Layout
+
+**User Story:** As a student, I want to arrange and save the position of my dashboard panels, so that my dashboard remains configured the way I prefer.
+
+### Acceptance Tests
+
+| **#** | **Given**                        | **When**                            | **Then**                                                  | **Status** |
+| ----- | -------------------------------- | ----------------------------------- | --------------------------------------------------------- | ---------- |
+| 1     | I have multiple dashboard panels | I rearrange the panels              | The panels move to the selected positions                 | Pass       |
+| 2     | I have arranged my dashboard     | I save the dashboard                | The selected layout is stored                             | Pass       |
+| 3     | I have saved a dashboard layout  | I leave and return to the dashboard | The saved panel arrangement is preserved                  | Pass       |
+| 4     | I have a saved dashboard         | I change the layout                 | The updated arrangement replaces the previous arrangement | Pass       |
+
+---
+
+## US20 – Preserve Entry Version History
+
+**User Story:** As a student, I want corrections to preserve previous versions of an entry, so that I can see what the entry said before it was changed.
+
+### Acceptance Tests
+
+| **#** | **Given**                              | **When**                   | **Then**                                               | **Status** |
+| ----- | -------------------------------------- | -------------------------- | ------------------------------------------------------ | ---------- |
+| 1     | I have an existing logbook entry       | I edit the entry           | The system preserves the previous version              | Pass       |
+| 2     | I have edited an entry                 | I view its version history | The previous version is available                      | Pass       |
+| 3     | I have multiple versions of an entry   | I view the version history | The versions are displayed in chronological order      | Pass       |
+| 4     | I have an entry with previous versions | I view the current entry   | The latest version is displayed as the current version | Pass       |
+
+---
+
+## US21 – View an Entry as It Existed on a Given Date
+
+**User Story:** As a student, I want to view an entry as it existed on a particular date, so that I can see the historical state of my record.
+
+### Acceptance Tests
+
+| **#** | **Given**                                | **When**                            | **Then**                                              | **Status** |
+| ----- | ---------------------------------------- | ----------------------------------- | ----------------------------------------------------- | ---------- |
+| 1     | I have an entry with version history     | I select a date from its history    | The system shows the version applicable to that date  | Pass       |
+| 2     | I have multiple versions of an entry     | I select an earlier date            | The corresponding previous version is displayed       | Pass       |
+| 3     | I am viewing a historical version        | I compare it with the current entry | The historical values remain unchanged                | Pass       |
+| 4     | I select a date before the entry existed | I request the historical view       | The system indicates that the entry did not yet exist | Pass       |
+
+---
+
+## US22 – Restore a Previous Entry Version
+
+**User Story:** As a student, I want to restore an entry to a previous version, so that I can undo an unwanted correction without losing the version history.
+
+### Acceptance Tests
+
+| **#** | **Given**                              | **When**                    | **Then**                                       | **Status** |
+| ----- | -------------------------------------- | --------------------------- | ---------------------------------------------- | ---------- |
+| 1     | I have an entry with multiple versions | I select a previous version | I am given an option to restore that version   | Pass       |
+| 2     | I have selected a previous version     | I confirm the restoration   | The selected version becomes the current entry | Pass       |
+| 3     | I restore a previous version           | I view the entry history    | The previous versions are still preserved      | Pass       |
+| 4     | I restore a previous version           | I view the current entry    | The restored values are displayed              | Pass       |
+
+---
+
+## US23 – Search Custom Fields
+
+**User Story:** As a student, I want search to include my custom fields, so that I can find entries based on information stored in my custom entry format.
+
+### Acceptance Tests
+
+| **#** | **Given**                                 | **When**                          | **Then**                                                  | **Status** |
+| ----- | ----------------------------------------- | --------------------------------- | --------------------------------------------------------- | ---------- |
+| 1     | I have entries containing custom fields   | I search for a custom field value | Entries containing the matching value are returned        | Pass       |
+| 2     | I have entries with different field types | I search using a custom field     | The system searches the relevant field values             | Pass       |
+| 3     | I search for a value not present          | I perform the search              | No unrelated entries are returned                         | Pass       |
+| 4     | I have entries across multiple projects   | I search a custom field           | Matching entries from the relevant projects are displayed | Pass       |
+
+---
+
+## US24 – Combine Search Filters
+
+**User Story:** As a student, I want to combine multiple search filters, so that I can narrow my results using several conditions at once.
+
+### Acceptance Tests
+
+| **#** | **Given**                                  | **When**             | **Then**                                                      | **Status** |
+| ----- | ------------------------------------------ | -------------------- | ------------------------------------------------------------- | ---------- |
+| 1     | I have multiple logbook entries            | I apply one filter   | Only entries matching that filter are displayed               | Pass       |
+| 2     | I have multiple logbook entries            | I apply two filters  | Only entries matching both filters are displayed              | Pass       |
+| 3     | I have applied multiple filters            | I remove one filter  | The results update using the remaining filters                | Pass       |
+| 4     | I have applied multiple filters            | I clear all filters  | The unfiltered search results are displayed                   | Pass       |
+| 5     | I combine project and custom-field filters | I perform the search | The system returns entries satisfying the selected conditions | Pass       |
+
+---
+
+## US25 – Rank Search Results by Relevance
+
+**User Story:** As a student, I want search results to be ranked by relevance, so that the most useful matching entries appear first.
+
+### Acceptance Tests
+
+| **#** | **Given**                                        | **When**             | **Then**                                                     | **Status** |
+| ----- | ------------------------------------------------ | -------------------- | ------------------------------------------------------------ | ---------- |
+| 1     | I have multiple entries matching a search        | I perform the search | The matching entries are displayed in an ordered result list | Pass       |
+| 2     | I search for a term appearing in several entries | I view the results   | More relevant matches appear before less relevant matches    | Pass       |
+| 3     | I perform a search with no matches               | I view the results   | The system indicates that no matching entries were found     | Pass       |
+| 4     | I apply search filters                           | I view the results   | The relevance ordering is applied to the filtered results    | Pass       |
+
+---
+
+## US26 – Apply Rules When Capturing Entries
+
+**User Story:** As a student, I want rules to automatically apply when an entry is captured, so that repetitive information can be generated or updated automatically.
+
+### Acceptance Tests
+
+| **#** | **Given**                         | **When**                  | **Then**                                   | **Status** |
+| ----- | --------------------------------- | ------------------------- | ------------------------------------------ | ---------- |
+| 1     | I have configured an entry rule   | I create an entry         | The rule is evaluated during entry capture | Pass       |
+| 2     | A rule condition is satisfied     | I save an entry           | The configured rule action is applied      | Pass       |
+| 3     | A rule condition is not satisfied | I save an entry           | The rule action is not applied             | Pass       |
+| 4     | I have multiple configured rules  | I create an entry         | The applicable rules are processed         | Pass       |
+| 5     | I have configured an entry rule   | I edit or remove the rule | The rule is updated or removed as selected | Pass       |
+
+---
+
+## US27 – Create Recurring Entries
+
+**User Story:** As a student, I want to configure entries to recur automatically, so that I do not have to repeatedly create the same entries manually.
+
+### Acceptance Tests
+
+| **#** | **Given**                           | **When**                       | **Then**                                          | **Status** |
+| ----- | ----------------------------------- | ------------------------------ | ------------------------------------------------- | ---------- |
+| 1     | I am creating an entry              | I configure it as recurring    | I can specify a recurrence pattern                | Pass       |
+| 2     | I have configured a recurring entry | The recurrence date is reached | A new entry is generated according to the pattern | Pass       |
+| 3     | I have a recurring entry            | I view my entries              | The generated entries are displayed in my logbook | Pass       |
+| 4     | I have a recurring entry            | I disable the recurrence       | No further entries are automatically generated    | Pass       |
+
+---
+
+## US28 – Generate Automatic Reminders
+
+**User Story:** As a student, I want the logbook to generate reminders based on my entries and configured rules, so that important actions are not forgotten.
+
+### Acceptance Tests
+
+| **#** | **Given**                                            | **When**                     | **Then**                                             | **Status** |
+| ----- | ---------------------------------------------------- | ---------------------------- | ---------------------------------------------------- | ---------- |
+| 1     | I have an entry with a reminder condition            | The condition is reached     | The system generates a reminder                      | Pass       |
+| 2     | I have a reminder configured                         | The reminder time is reached | I can see the reminder                               | Pass       |
+| 3     | I have multiple reminders                            | I view my reminders          | The relevant reminders are displayed                 | Pass       |
+| 4     | I have completed the work associated with a reminder | I view the reminder          | The reminder can be marked as completed or dismissed | Pass       |
+
+---
+
+## US29 – Maintain Query Performance for Large Logbooks
+
+**User Story:** As a student, I want the logbook to remain fast when querying a large number of entries, so that performance does not significantly degrade as my record grows.
+
+### Acceptance Tests
+
+| **#** | **Given**                                | **When**               | **Then**                                                          | **Status** |
+| ----- | ---------------------------------------- | ---------------------- | ----------------------------------------------------------------- | ---------- |
+| 1     | I have a large number of logbook entries | I open my entries      | The entries are retrieved without excessive delay                 | Pass       |
+| 2     | I have a large number of entries         | I search my logbook    | Search results are returned without excessive delay               | Pass       |
+| 3     | I have a large number of entries         | I apply filters        | Filtered results are returned without excessive delay             | Pass       |
+| 4     | I have many years of historical entries  | I query recent entries | Recent entries can be retrieved efficiently                       | Pass       |
+| 5     | I have a large logbook                   | I view statistics      | Statistics remain usable without significant performance problems | Pass       |
+
+---
+
+## US30 – Archive Old Entries
+
+**User Story:** As a student, I want old entries to be archived, so that historical records are retained without interfering with normal logbook use.
+
+### Acceptance Tests
+
+| **#** | **Given**                  | **When**                       | **Then**                                                     | **Status** |
+| ----- | -------------------------- | ------------------------------ | ------------------------------------------------------------ | ---------- |
+| 1     | I have old logbook entries | I choose to archive them       | The selected entries are moved to the archive                | Pass       |
+| 2     | I have archived entries    | I view my active entries       | The archived entries are not shown as active entries         | Pass       |
+| 3     | I have archived entries    | I access my archive            | The archived entries remain available                        | Pass       |
+| 4     | I have an archived entry   | I restore the entry            | The entry becomes available in my active logbook             | Pass       |
+| 5     | I have archived entries    | I search my historical records | The archived entries can still be retrieved when appropriate | Pass       |

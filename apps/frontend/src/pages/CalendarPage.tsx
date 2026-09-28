@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { api } from "../api/client";
 import Modal from "../components/Modal";
+import GoogleCalendarSync from "../components/GoogleCalendarSync";
 import { entryDateKey } from "../lib/utils";
 
 type Entry = {
@@ -53,7 +54,10 @@ export default function CalendarPage() {
     api.get("/projects").then((res) => {
       setProjects(res.data);
       if (!params.get("project") && res.data.length > 0) {
-        setParams({ project: res.data[0].id });
+        setParams((prev) => {
+          prev.set("project", res.data[0].id);
+          return prev;
+        }, { replace: true });
       }
       setLoadingProjects(false);
     }).catch(() => setLoadingProjects(false));
@@ -82,9 +86,6 @@ export default function CalendarPage() {
 
   const todayKey = ymd(new Date());
 
-  if (loadingProjects) return <p className="text-sm text-slate-500">Loading projects…</p>;
-  if (projects.length === 0) return <p className="text-sm text-slate-500">No projects yet.</p>;
-
   const monthLabel = cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
   const openDayEntries = openDay ? entriesByDate[openDay] ?? [] : [];
 
@@ -95,111 +96,121 @@ export default function CalendarPage() {
         <h1 className="text-xl font-semibold text-slate-900">Calendar</h1>
       </div>
 
-      <div>
-        <label className="block text-[11px] font-medium text-slate-500 mb-1">Project</label>
-        <select
-          value={selectedProjectId}
-          onChange={(e) => setParams({ project: e.target.value })}
-          className="w-full max-w-sm border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800"
-        >
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-      </div>
+      <GoogleCalendarSync />
 
-      <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-          <button
-            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-slate-900">{monthLabel}</span>
-            {loadingEntries && <Loader2 className="h-3.5 w-3.5 text-slate-400 animate-spin" />}
-            <button
-              onClick={() => setCursor(new Date())}
-              className="text-[11px] text-cyan-700 hover:underline font-medium"
+      {loadingProjects ? (
+        <p className="text-sm text-slate-500">Loading projects…</p>
+      ) : projects.length === 0 ? (
+        <p className="text-sm text-slate-500">No projects yet.</p>
+      ) : (
+        <>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">Project</label>
+            <select
+              value={selectedProjectId}
+              onChange={(e) => setParams({ project: e.target.value })}
+              className="w-full max-w-sm border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800"
             >
-              Today
-            </button>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
           </div>
-          <button
-            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
 
-        <div className="grid grid-cols-7 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <div key={d} className="px-3 py-2 text-center border-b border-slate-100">{d}</div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-7">
-          {grid.map((day) => {
-            const key = ymd(day);
-            const inMonth = day.getMonth() === cursor.getMonth();
-            const isToday = key === todayKey;
-            const dayEntries = entriesByDate[key] ?? [];
-            const hasEntries = dayEntries.length > 0;
-            return (
-              <div
-                key={key}
-                className={`min-h-[90px] border-b border-r border-slate-100 p-1.5 ${
-                  inMonth ? "bg-white" : "bg-slate-50/60"
-                }`}
+          <div className="rounded-lg border border-slate-200 bg-white">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+              <button
+                onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
+                className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600"
               >
-                <div className="flex items-center justify-between mb-1">
-                  <button
-                    onClick={() => hasEntries && setOpenDay(key)}
-                    disabled={!hasEntries}
-                    className={`text-[11px] font-medium ${
-                      hasEntries ? "cursor-pointer hover:underline" : "cursor-default"
-                    } ${
-                      isToday
-                        ? "bg-cyan-600 text-white rounded-full w-5 h-5 flex items-center justify-center"
-                        : inMonth
-                        ? "text-slate-700"
-                        : "text-slate-400"
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-slate-900">{monthLabel}</span>
+                {loadingEntries && <Loader2 className="h-3.5 w-3.5 text-slate-400 animate-spin" />}
+                <button
+                  onClick={() => setCursor(new Date())}
+                  className="text-[11px] text-cyan-700 hover:underline font-medium"
+                >
+                  Today
+                </button>
+              </div>
+              <button
+                onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
+                className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-7 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                <div key={d} className="px-3 py-2 text-center border-b border-slate-100">{d}</div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7">
+              {grid.map((day) => {
+                const key = ymd(day);
+                const inMonth = day.getMonth() === cursor.getMonth();
+                const isToday = key === todayKey;
+                const dayEntries = entriesByDate[key] ?? [];
+                const hasEntries = dayEntries.length > 0;
+                return (
+                  <div
+                    key={key}
+                    className={`min-h-[90px] border-b border-r border-slate-100 p-1.5 ${
+                      inMonth ? "bg-white" : "bg-slate-50/60"
                     }`}
                   >
-                    {day.getDate()}
-                  </button>
-                  {hasEntries && (
-                    <span className="text-[9px] font-semibold text-slate-400">
-                      {dayEntries.length}
-                    </span>
-                  )}
-                </div>
-                <div className="space-y-0.5">
-                  {dayEntries.slice(0, 2).map((e) => (
-                    <button
-                      key={e.id}
-                      onClick={() => setOpenDay(key)}
-                      className="block w-full text-left truncate text-[10px] rounded px-1 py-0.5 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 transition"
-                    >
-                      {e.durationMinutes}m
-                    </button>
-                  ))}
-                  {dayEntries.length > 2 && (
-                    <button
-                      onClick={() => setOpenDay(key)}
-                      className="block w-full text-left text-[9px] text-cyan-700 hover:underline px-1"
-                    >
-                      +{dayEntries.length - 2} more
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                    <div className="flex items-center justify-between mb-1">
+                      <button
+                        onClick={() => hasEntries && setOpenDay(key)}
+                        disabled={!hasEntries}
+                        className={`text-[11px] font-medium ${
+                          hasEntries ? "cursor-pointer hover:underline" : "cursor-default"
+                        } ${
+                          isToday
+                            ? "bg-cyan-600 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                            : inMonth
+                            ? "text-slate-700"
+                            : "text-slate-400"
+                        }`}
+                      >
+                        {day.getDate()}
+                      </button>
+                      {hasEntries && (
+                        <span className="text-[9px] font-semibold text-slate-400">
+                          {dayEntries.length}
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-0.5">
+                      {dayEntries.slice(0, 2).map((e) => (
+                        <button
+                          key={e.id}
+                          onClick={() => setOpenDay(key)}
+                          className="block w-full text-left truncate text-[10px] rounded px-1 py-0.5 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 transition"
+                        >
+                          {e.durationMinutes}m
+                        </button>
+                      ))}
+                      {dayEntries.length > 2 && (
+                        <button
+                          onClick={() => setOpenDay(key)}
+                          className="block w-full text-left text-[9px] text-cyan-700 hover:underline px-1"
+                        >
+                          +{dayEntries.length - 2} more
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
 
       <Modal
         open={!!openDay}

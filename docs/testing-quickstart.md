@@ -39,25 +39,27 @@ npm run test:coverage --workspace=apps/frontend
 ```
 
 The end of the output is a table. Read the `All files` row — the last number
-is **% Lines**, the number coverage is measured on:
+is **% Lines**, the number coverage is measured on. Backend example, from the
+2026-09-27 run:
 
 ```text
 File      | % Stmts | % Branch | % Funcs | % Lines
-All files |   77.95 |    67.15 |   85.95 |   78.51
+All files |   84.78 |    79.68 |   92.12 |   85.43
 ```
 
 ## 4. The 50% rule
 
 The project **must stay above 50% combined coverage** — that is the figure the
-marking rubric reads. Where it stands today:
+marking rubric reads. Where it stands (2026-09-27, 863 tests):
 
 | Workspace | % Lines |
 |---|---|
-| Backend | ~78% |
-| Frontend | ~44% |
-| **Combined** | **~53%** |
+| Backend | ~85% |
+| Frontend | ~54% |
+| **Combined** | **~65%** |
 
-It sits only a few points above the bar, so test the code you add — an
-untested feature pulls it down. After you push, CI runs both suites and
-publishes `coverage/backend`, `coverage/frontend` and `coverage/combined` on
-your commit in Gitea; a red run blocks the merge.
+The margin over the bar is real but not free: the frontend is the lower of
+the two, so untested frontend code moves the combined figure most — test the
+code you add. After you push, CI runs both suites and publishes
+`coverage/backend`, `coverage/frontend` and `coverage/combined` on your
+commit in Gitea; a red run blocks the merge.

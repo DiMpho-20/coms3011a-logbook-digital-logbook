@@ -32,6 +32,17 @@ From the repository root (installs all workspace packages):
 npm install
 ```
 
+Then build the shared package once:
+
+```bash
+npm run build --workspace=packages/shared
+```
+
+`@logbook/shared` ships compiled JavaScript and declarations rather than
+TypeScript source, so both apps resolve it through `packages/shared/dist`.
+Until it is built, the backend and frontend will report that they cannot find
+the module. Re-run it after changing anything in `packages/shared/src`.
+
 ### 4. Configure environment variables
 
 Create `apps/backend/.env` from the example file:
@@ -60,10 +71,10 @@ The backend uses Prisma 7 with a `prisma.config.ts` file that reads the `DATABAS
 ```bash
 cd apps/backend
 npx prisma generate
-npx prisma db push
+npx prisma migrate deploy
 ```
 
-> This creates all tables (`users`, `projects`, `entry_fields`, `entries`, `password_resets`) in your Neon database. Use `npx prisma db push --force-reset` if you need to clear existing data during development.
+> The migration history was squashed on 2026-09-27 into a single baseline, `prisma/migrations/0_init`, which creates the entire schema — all eighteen tables, enums, unique indexes and foreign keys — on an empty database. `npx prisma migrate deploy` therefore bootstraps a fresh Neon project end-to-end; there is no longer any need for `prisma db push`, and new schema changes should arrive as dated migrations (`npx prisma migrate dev --name <change>`).
 
 ### 6. Run development servers
 

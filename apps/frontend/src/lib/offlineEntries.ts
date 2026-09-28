@@ -72,6 +72,12 @@ export function syncPendingEntries(): Promise<number> {
     const remaining: PendingEntry[] = [];
 
     for (const item of pending) {
+      // Its project was also created offline and hasn't reached the server
+      // yet; the entry waits until remapPendingEntries gives it the real id.
+      if (item.entry.projectId.startsWith("offline-")) {
+        remaining.push(item);
+        continue;
+      }
       try {
         await api.post(`/projects/${item.entry.projectId}/entries`, item.payload);
         synced++;
@@ -89,6 +95,36 @@ export function syncPendingEntries(): Promise<number> {
   })().finally(() => { activeSync = null; });
 
   return activeSync;
+}
+
+/**
+ * Once a project created offline has synced, its queued entries still point
+ * at the temporary project and field ids. `ids` maps each temporary id to
+ * the one the server assigned, and is applied to both.
+ */
+export function remapPendingEntries(ids: Record<string, string>) {
+  const pending = readPending();
+  let changed = false;
+  const remapped = pending.map((item) => {
+    const projectId = ids[item.entry.projectId];
+    if (!projectId) return item;
+    changed = true;
+    const values = Object.fromEntries(
+      Object.entries(item.payload.values).map(([fieldId, value]) => [ids[fieldId] ?? fieldId, value])
+    );
+    return {
+      entry: { ...item.entry, projectId, values },
+      payload: { ...item.payload, values },
+    };
+  });
+  if (changed) writePending(remapped);
+}
+
+/** Drop every queued entry for a project that has been deleted. */
+export function removePendingEntriesForProject(projectId: string) {
+  const pending = readPending();
+  const remaining = pending.filter((item) => item.entry.projectId !== projectId);
+  if (remaining.length !== pending.length) writePending(remaining);
 }
 
 export function startOfflineSync() {

@@ -1,4 +1,7 @@
-name: Build and Push Backend Application
+# CI only: installs, typechecks, lints, tests and builds. It deploys nothing —
+# the backend goes to Render and the frontend to Cloudflare Pages by hand
+# (see the deployment guides).
+name: CI - Test and Build
 
 on:
   push:
@@ -23,6 +26,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Must come before every typecheck, lint and build below: the backend and
+      # the frontend both resolve @logbook/shared through its package.json, which
+      # now points at dist. Without this step they resolve to nothing.
+      - name: Build shared package
+        run: npm run build --workspace=packages/shared
 
       - name: Generate Prisma Client
         run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
@@ -64,6 +73,31 @@ jobs:
         env:
           GITEA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node .gitea/scripts/report-coverage.mjs
+
+      # BUG-004, BUG-005, BUG-006: fixed and regression-tested. Posted on
+      # the run summary and echoed into the log; static facts, so a heredoc
+      # rather than a script, and if: always() so even a red run carries the
+      # record.
+      - name: "Fixed: BUG-004, BUG-005, BUG-006 (2FA security hardening)"
+        if: always()
+        run: |
+          note="$(mktemp)"
+          cat > "$note" <<'EOF'
+          ## Fixed: BUG-004, BUG-005, BUG-006 (2FA security hardening)
+
+          The three 2FA authentication bugs found in the Sprint 2 security review are fixed, merged to `main`, and locked in by regression tests that run in this job's backend suite:
+
+          | Bug | Fixed in | What the fix does | Regression tests |
+          |---|---|---|---|
+          | BUG-004 — TOTP secrets stored unencrypted | `acdcf58` | Secrets are stored as AES-256-GCM envelopes (`v1.<iv>.<tag>.<ciphertext>`) under `TWO_FACTOR_ENCRYPTION_KEY`; setup returns 503 rather than store plaintext without the key | `authCrypto.test.ts` — 28 tests |
+          | BUG-005 — No 2FA recovery codes | `acdcf58` + `74dfa9f` | Ten single-use recovery codes, issued exactly once at enable, stored as SHA-256 digests and spent atomically; regeneration is password-gated and invalidates every earlier code | `twoFactorSecurity.test.ts` — 21 tests |
+          | BUG-006 — 2FA login steps not cryptographically linked | `acdcf58` | Step 1 issues a five-minute purpose-scoped `2fa-pending` hand-off token; step 2 identifies the account solely by that token, and the auth middleware refuses it as a session | `twoFactorSecurity.test.ts` — refusal cases |
+
+          Full write-ups with reproduction steps: `.gitea/issues/BUG-004-unencrypted-totp-secrets.md`, `.gitea/issues/BUG-005-no-2fa-recovery-codes.md` and `.gitea/issues/BUG-006-2fa-steps-not-linked.md`. Design rationale: `apps/backend/AUTHENTICATION.md`.
+          EOF
+          cat "$note" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+          cat "$note"
+          rm -f "$note"
 
       # Pinned to v3: v4 of this action needs an artifact backend that Gitea
       # runners do not all provide. continue-on-error keeps a runner without

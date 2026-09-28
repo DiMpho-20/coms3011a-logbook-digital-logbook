@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Clock, AlertTriangle, Pencil, Trash2 } from "lucide-react";
+import { Clock, AlertTriangle, Pencil, Trash2, History, Archive, ArchiveRestore, Repeat2 } from "lucide-react";
 import { formatDuration, isEmptyValue } from "../lib/utils";
 import TagList from "./TagList";
 import type { ChecklistItem, Entry, EntryField } from "../api";
@@ -15,6 +15,15 @@ interface EntryCardProps {
   onDelete?: (entry: Entry) => void;
   /** When provided, checklist items render as tickable checkboxes that save immediately, without opening edit. */
   onToggleChecklistItem?: (entry: Entry, field: EntryField, itemIndex: number) => void;
+  /** When provided, shows a button that opens this entry's version history. */
+  onHistory?: (entry: Entry) => void;
+  /** When provided, shows an archive button (or restore-from-archive, for an archived entry). */
+  onArchive?: (entry: Entry) => void;
+  /** When provided, shows a checkbox for picking this entry, e.g. to archive several at once. */
+  selected?: boolean;
+  onSelect?: (entry: Entry, selected: boolean) => void;
+  /** Disables every future occurrence in this entry's recurrence series. */
+  onDisableRecurrence?: (entry: Entry) => void;
 }
 
 export default function EntryCard({
@@ -25,7 +34,15 @@ export default function EntryCard({
   onEdit,
   onDelete,
   onToggleChecklistItem,
+  onHistory,
+  onArchive,
+  selected = false,
+  onSelect,
+  onDisableRecurrence,
 }: EntryCardProps) {
+  // Entries still queued on this device have no server history or archive state yet.
+  const isQueued = entry.id.startsWith("offline-");
+  const isArchived = Boolean(entry.archivedAt);
   const entryDate = new Date(entry.createdAt);
   const timeStr = entryDate.toLocaleTimeString(undefined, {
     hour: "2-digit",
@@ -50,6 +67,21 @@ export default function EntryCard({
     }`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
+          {onSelect && !isQueued && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={(e) => onSelect(entry, e.target.checked)}
+              className="rounded"
+              aria-label="Select entry"
+            />
+          )}
+          {isArchived && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+              <Archive className="h-3 w-3" />
+              Archived
+            </span>
+          )}
           {showProject && projectName && (
             <Link
               to={`/projects/${entry.projectId}`}
@@ -69,9 +101,56 @@ export default function EntryCard({
               Overdue
             </span>
           )}
+          {entry.recurrence && (
+            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
+              entry.recurrence.enabled
+                ? "bg-violet-50 text-violet-700 border-violet-100"
+                : "bg-slate-100 text-slate-500 border-slate-200"
+            }`}>
+              <Repeat2 className="h-3 w-3" />
+              {entry.recurrence.pattern.toLowerCase()}{entry.recurrence.enabled ? "" : " (stopped)"}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[11px] text-slate-400">{timeStr}</span>
+          {onHistory && !isQueued && (
+            <button
+              type="button"
+              onClick={() => onHistory(entry)}
+              className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
+              aria-label="Entry history"
+              title="Version history"
+            >
+              <History className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {onArchive && !isQueued && (
+            <button
+              type="button"
+              onClick={() => onArchive(entry)}
+              className={`p-1 rounded-md transition ${
+                isArchived
+                  ? "text-emerald-600 hover:bg-emerald-50"
+                  : "text-slate-400 hover:text-amber-600 hover:bg-amber-50"
+              }`}
+              aria-label={isArchived ? "Restore entry from archive" : "Archive entry"}
+              title={isArchived ? "Restore from archive" : "Archive entry"}
+            >
+              {isArchived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+            </button>
+          )}
+          {onDisableRecurrence && entry.recurrence?.enabled && !isQueued && (
+            <button
+              type="button"
+              onClick={() => onDisableRecurrence(entry)}
+              className="p-1 rounded-md text-slate-400 hover:text-violet-700 hover:bg-violet-50 transition"
+              aria-label="Stop recurrence"
+              title="Stop future occurrences"
+            >
+              <Repeat2 className="h-3.5 w-3.5" />
+            </button>
+          )}
           {onEdit && (
             <button
               type="button"

@@ -59,7 +59,58 @@ export function generateToken(userId: string): string {
 // Verify JWT token from authorization header
 export function verifyToken(token: string): { userId: string } | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as { userId: string };
+    const payload = jwt.verify(token, JWT_SECRET) as { userId?: string; purpose?: string };
+    // Purpose-scoped tokens (e.g. OAuth state, which travels in URLs) share
+    // the signing key but must never be accepted as a session.
+    if (payload.purpose !== undefined || typeof payload.userId !== "string") return null;
+    return payload as { userId: string };
+  } catch {
+    return null;
+  }
+}
+
+/** Bind a short-lived third-party OAuth callback to the user who started it. */
+export function generateOAuthState(userId: string): string {
+  return jwt.sign({ userId, purpose: "oauth-state" }, JWT_SECRET, { expiresIn: "10m" });
+}
+
+/** Returns the initiating user only for an unexpired, correctly-scoped state. */
+export function verifyOAuthState(state: string): string | null {
+  try {
+    const payload = jwt.verify(state, JWT_SECRET) as { userId?: string; purpose?: string };
+    return payload.purpose === "oauth-state" && typeof payload.userId === "string"
+      ? payload.userId
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Bind the second step of a two-factor login to the first (BUG-006).
+ *
+ * /login/2fa used to take an email address and a TOTP code. Nothing in that
+ * request proved the password step had ever happened, so possession of a code
+ * alone was enough to obtain a session: two-factor authentication had become a
+ * substitute for the password rather than an addition to it. This token is
+ * issued only after the password verifies, and /login/2fa will not proceed
+ * without one.
+ *
+ * Five minutes is deliberately short. It is a hand-off between two halves of
+ * one sign-in, not a session, and the window only has to cover the time it
+ * takes to read a code off a phone.
+ */
+export function generateTwoFactorPendingToken(userId: string): string {
+  return jwt.sign({ userId, purpose: "2fa-pending" }, JWT_SECRET, { expiresIn: "5m" });
+}
+
+/** Returns the user who completed the password step, or null for anything else. */
+export function verifyTwoFactorPendingToken(token: string): string | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId?: string; purpose?: string };
+    return payload.purpose === "2fa-pending" && typeof payload.userId === "string"
+      ? payload.userId
+      : null;
   } catch {
     return null;
   }

@@ -8,6 +8,9 @@ import { calculateComputedValues } from "../utils/computedFields.js";
 import { cleanTagNames, resolveTagIds } from "../utils/tags.js";
 import { validateEntryValues, findMissingRequiredField, isEmptyValue } from "../utils/entryValues.js";
 import type { SnapshotField } from "../utils/entryFormat.js";
+import { ensureBaselineVersion, recordVersion, sameSnapshot, toSnapshot } from "../utils/entryVersions.js";
+import { dueDateOffsetDays, materializeDueRecurringEntries, nextRecurrenceDate } from "../utils/recurringEntries.js";
+import { runEntryAutomation } from "../utils/automationRunner.js";
 
 
 /**
@@ -23,14 +26,22 @@ async function ownedProject(projectId: string, userId: string) {
 }
 
 /** Resolve an entry the caller owns, reached through the owning project. */
-async function ownedEntry(entryId: string, userId: string) {
+export async function ownedEntry(entryId: string, userId: string) {
   return prisma.logbookEntry.findFirst({ where: { id: entryId, project: { userId } } });
 }
 
-const ENTRY_INCLUDE = {
+/**
+ * Saving an entry and its version is several round trips to Neon, and
+ * Prisma's default 5s transaction limit has been exceeded on a slow
+ * connection — failing an edit that was otherwise fine.
+ */
+export const ENTRY_TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 20_000 };
+
+export const ENTRY_INCLUDE = {
   values: { include: { field: true } },
   formatVersion: true,
   tags: { include: { tag: true } },
+  recurrenceRule: true,
 } as const;
 
 /**
@@ -92,7 +103,7 @@ function mergeEntryFields(snapshotFields: SnapshotField[], values: { fieldId: st
 }
 
 /** Shape a Prisma LogbookEntry (with included values) into the API response. */
-function formatEntry(entry: {
+export function formatEntry(entry: {
   id: string;
   projectId: string;
   durationMinutes: number;
@@ -104,7 +115,9 @@ function formatEntry(entry: {
   formatVersion?: { version: number; fields: unknown } | null;
   status: string;
   completedAt: Date | null;
+  archivedAt?: Date | null;
   tags?: { tag: { name: string } }[];
+  recurrenceRule?: { id: string; pattern: string; enabled: boolean; nextOccurrence: Date; until: Date | null } | null;
 }): Entry {
   // Legacy entries predate snapshots entirely, so this starts from an empty
   // list rather than null — mergeEntryFields then derives their whole field
@@ -121,11 +134,30 @@ function formatEntry(entry: {
     values: flattenValues(entry.values),
     status: entry.status as "OPEN" | "DONE",
     completedAt: entry.completedAt?.toISOString() ?? null,
+    archivedAt: entry.archivedAt?.toISOString() ?? null,
+    recurrence: entry.recurrenceRule
+      ? {
+          id: entry.recurrenceRule.id,
+          pattern: entry.recurrenceRule.pattern as "DAILY" | "WEEKLY" | "MONTHLY",
+          enabled: entry.recurrenceRule.enabled,
+          nextOccurrence: entry.recurrenceRule.nextOccurrence.toISOString(),
+          until: entry.recurrenceRule.until?.toISOString() ?? null,
+        }
+      : null,
     tags: (entry.tags ?? []).map((t) => t.tag.name).sort(),
     format: fields.length ? { version: entry.formatVersion?.version ?? 0, fields: fields as any } : null,
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString(),
   };
+}
+
+// Archived entries stay out of the normal logbook (US30): listings leave them
+// out unless asked for them alone ("only") or alongside active ones ("include").
+const ARCHIVED_FILTERS = ["exclude", "only", "include"];
+
+function parseArchivedFilter(value: unknown): string | null {
+  const filter = value === undefined || value === "" ? "exclude" : String(value).toLowerCase();
+  return ARCHIVED_FILTERS.includes(filter) ? filter : null;
 }
 
 // ── GET /projects/:projectId/entries ─────────────────────────────────────
@@ -136,9 +168,16 @@ export const getEntries = async (req: AuthenticatedRequest, res: Response) => {
     if (!(await ownedProject(projectId, req.userId!))) {
       return res.status(404).json({ error: "Project not found" });
     }
+    await materializeDueRecurringEntries(req.userId!);
     const { status, dueBefore } = req.query;
+    const archived = parseArchivedFilter(req.query.archived);
+    if (!archived) {
+      return res.status(400).json({ error: `archived must be one of ${ARCHIVED_FILTERS.join(", ")}` });
+    }
 
     const where: any = { projectId };
+    if (archived === "exclude") where.archivedAt = null;
+    if (archived === "only") where.archivedAt = { not: null };
     if (status === "OPEN" || status === "DONE") where.status = status;
     if (dueBefore) where.dueDate = { lte: new Date(String(dueBefore)) };
 
@@ -164,20 +203,34 @@ export const updateEntryStatus = async (req: AuthenticatedRequest, res: Response
       return res.status(400).json({ error: "status must be OPEN or DONE" });
     }
 
-    if (!(await ownedEntry(id, req.userId!))) {
+    const owned = await ownedEntry(id, req.userId!);
+    if (!owned) {
       return res.status(404).json({ error: "Entry not found" });
     }
 
-    const entry = await prisma.logbookEntry.update({
-      where: { id },
-      data: {
-        status,
-        completedAt: status === "DONE" ? new Date() : null,
-      },
-      include: ENTRY_INCLUDE,
-    });
+    const entry = await prisma.$transaction(async (tx) => {
+      const before = formatEntry(await tx.logbookEntry.findUniqueOrThrow({ where: { id }, include: ENTRY_INCLUDE }));
+      await ensureBaselineVersion(tx, before);
+      const updated = formatEntry(await tx.logbookEntry.update({
+        where: { id },
+        data: {
+          status,
+          completedAt: status === "DONE" ? new Date() : null,
+        },
+        include: ENTRY_INCLUDE,
+      }));
+      if (!sameSnapshot(toSnapshot(before), toSnapshot(updated))) {
+        await recordVersion(tx, id, toSnapshot(updated), "UPDATED");
+      }
+      return updated;
+    }, ENTRY_TRANSACTION_OPTIONS);
 
-    return res.status(200).json(formatEntry(entry));
+    // A status change is a save, so ENTRY_UPDATED rules apply here too —
+    // otherwise "when an entry is marked done" would depend on which of the
+    // two endpoints the UI happened to use.
+    const automated = await runEntryAutomation(id, owned.projectId, req.userId!, "ENTRY_UPDATED");
+
+    return res.status(200).json(automated ?? entry);
   } catch (error: any) {
     if (error.code === "P2025") {
       return res.status(404).json({ error: "Entry not found" });
@@ -213,32 +266,60 @@ export const createEntry = async (req: AuthenticatedRequest, res: Response) => {
     const latestFormat = await prisma.entryFormatVersion.findFirst({ where: { projectId }, orderBy: { version: "desc" } });
     const tagNames = cleanTagNames(validated.tags);
     const tagIds = await resolveTagIds(prisma, project.userId, tagNames);
-    const entry = await prisma.logbookEntry.create({
-      data: {
-        projectId,
-        formatVersionId: latestFormat?.id,
-        durationMinutes: validated.durationMinutes,
-        entryDate: validated.entryDate,
-        dueDate: validated.dueDate,
-        values: {
-          // A field the user did not fill in gets no row at all. Writing ""
-          // for it used to reach (mv.value)::numeric in the statistics
-          // queries and fail the whole aggregation with 22P02 (BUG-012), and
-          // it contradicted backfillNewField, which deliberately refuses to
-          // fabricate a value for a field an entry never recorded.
-          create: Object.entries({ ...suppliedValues, ...computedValues })
-            .filter(([, value]) => !isEmptyValue(value))
-            .map(([fieldId, value]) => ({
-              fieldId,
-              value: typeof value === "object" ? JSON.stringify(value) : String(value),
-            })),
+    const entry = await prisma.$transaction(async (tx) => {
+      const recurrenceRule = validated.recurrence
+        ? await tx.recurrenceRule.create({
+            data: {
+              projectId,
+              pattern: validated.recurrence.pattern,
+              until: validated.recurrence.until,
+              nextOccurrence: nextRecurrenceDate(validated.entryDate ?? new Date(), validated.recurrence.pattern),
+              durationMinutes: validated.durationMinutes,
+              dueDateOffsetDays: dueDateOffsetDays(validated.entryDate ?? new Date(), validated.dueDate),
+              values: { ...suppliedValues, ...computedValues } as Prisma.InputJsonValue,
+              tags: tagNames,
+              formatVersionId: latestFormat?.id,
+            },
+          })
+        : null;
+      const created = formatEntry(await tx.logbookEntry.create({
+        data: {
+          projectId,
+          formatVersionId: latestFormat?.id,
+          durationMinutes: validated.durationMinutes,
+          entryDate: validated.entryDate,
+          dueDate: validated.dueDate,
+          recurrenceRuleId: recurrenceRule?.id,
+          values: {
+            // A field the user did not fill in gets no row at all. Writing ""
+            // for it used to reach (mv.value)::numeric in the statistics
+            // queries and fail the whole aggregation with 22P02 (BUG-012), and
+            // it contradicted backfillNewField, which deliberately refuses to
+            // fabricate a value for a field an entry never recorded.
+            create: Object.entries({ ...suppliedValues, ...computedValues })
+              .filter(([, value]) => !isEmptyValue(value))
+              .map(([fieldId, value]) => ({
+                fieldId,
+                value: typeof value === "object" ? JSON.stringify(value) : String(value),
+              })),
+          },
+          tags: { create: tagIds.map((tagId) => ({ tagId })) },
         },
-        tags: { create: tagIds.map((tagId) => ({ tagId })) },
-      },
-      include: ENTRY_INCLUDE,
-    });
+        include: ENTRY_INCLUDE,
+      }));
+      // Version 1 is dated exactly when the entry was, so a historical view
+      // at the moment of creation already finds it.
+      await recordVersion(tx, created.id, toSnapshot(created), "CREATED", { createdAt: new Date(created.createdAt) });
+      return created;
+    }, ENTRY_TRANSACTION_OPTIONS);
 
-    return res.status(201).json(formatEntry(entry));
+    // US26. Deliberately after the commit above: the entry is the user's
+    // work and must survive a broken rule, so automation can only ever add
+    // to a save that has already succeeded. runEntryAutomation never throws
+    // and returns null when nothing changed.
+    const automated = await runEntryAutomation(entry.id, projectId, req.userId!, "ENTRY_CREATED");
+
+    return res.status(201).json(automated ?? entry);
   } catch (error: any) {
     console.error("Failed to create entry:", error);
     return res.status(400).json({ error: error.errors || error.message });
@@ -263,6 +344,13 @@ export const updateEntry = async (req: AuthenticatedRequest, res: Response) => {
     const tagNames = validated.tags !== undefined ? cleanTagNames(validated.tags) : undefined;
     const tagIds =
       tagNames !== undefined ? await resolveTagIds(prisma, existing.project.userId, tagNames) : undefined;
+
+    // An entry from before version history existed gets its pre-edit state
+    // saved first, so this edit never overwrites the only copy. Done outside
+    // the transaction to keep it short; saving the current state is harmless
+    // even if the edit below then fails.
+    const before = formatEntry(await prisma.logbookEntry.findUniqueOrThrow({ where: { id }, include: ENTRY_INCLUDE }));
+    await ensureBaselineVersion(prisma, before);
 
     const entry = await prisma.$transaction(async (tx: any) => {
       // Build the data object for fields that were provided
@@ -322,17 +410,20 @@ export const updateEntry = async (req: AuthenticatedRequest, res: Response) => {
         }
       }
 
-      return tx.logbookEntry.findUnique({
+      const after = formatEntry(await tx.logbookEntry.findUnique({
         where: { id },
         include: ENTRY_INCLUDE,
-      });
-    });
+      }));
+      if (!sameSnapshot(toSnapshot(before), toSnapshot(after))) {
+        await recordVersion(tx, id, toSnapshot(after), "UPDATED");
+      }
+      return after;
+    }, ENTRY_TRANSACTION_OPTIONS);
 
-    if (!entry) {
-      return res.status(404).json({ error: "Entry not found" });
-    }
+    // US26 — "I save an entry". Same placement and same reasoning as create.
+    const automated = await runEntryAutomation(id, existing.projectId, req.userId!, "ENTRY_UPDATED");
 
-    return res.status(200).json(formatEntry(entry));
+    return res.status(200).json(automated ?? entry);
   } catch (error: any) {
     console.error("Failed to update entry:", error);
     return res.status(400).json({ error: error.errors || error.message });
@@ -381,6 +472,7 @@ function parseDateParam(value: unknown, label: string): Date | undefined {
 export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.userId!;
+    await materializeDueRecurringEntries(userId);
 
     const projectStatus = String(req.query.projectStatus ?? "ALL").toUpperCase();
     if (!PROJECT_STATUSES.includes(projectStatus)) {
@@ -410,6 +502,11 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
 
     const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
 
+    const archived = parseArchivedFilter(req.query.archived);
+    if (!archived) {
+      return res.status(400).json({ error: `archived must be one of ${ARCHIVED_FILTERS.join(", ")}` });
+    }
+
     // Ordered and limited in SQL, because COALESCE(entry_date, created_at) is
     // the date the interface actually shows — a backdated entry belongs in the
     // week it visibly sits in, not the week it was typed. Prisma's orderBy
@@ -419,6 +516,8 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
     if (projectStatus !== "ALL") conditions.push(Prisma.sql`p.status::text = ${projectStatus}`);
     if (from) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) >= ${from}`);
     if (to) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) <= ${to}`);
+    if (archived === "exclude") conditions.push(Prisma.sql`le.archived_at IS NULL`);
+    if (archived === "only") conditions.push(Prisma.sql`le.archived_at IS NOT NULL`);
 
     const rows = await prisma.$queryRaw<{ id: string }[]>`
       SELECT le.id

@@ -3,8 +3,15 @@ import {
   User, Palette, Bell, BookOpen, Download, Upload, Trash2,
   Check, Sun, Moon, Monitor, Shield, ShieldCheck, X,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { exportLogbook, fetchProjects, importLogbook, type Project } from "../api";
+import { exportLogbook, fetchDueReminders, fetchProjects, importLogbook, type Project } from "../api";
+import {
+  disableReminderNotifications,
+  enableReminderNotifications,
+  notificationsSupported,
+  reminderNotificationMode,
+} from "../lib/reminderNotifications";
 import { api } from "../api/client";
 
 // -- types --
@@ -15,12 +22,6 @@ type SortOrder = "newest" | "oldest";
 type WeekStart = "monday" | "sunday";
 type TimeFormat = "12h" | "24h";
 type AccentColor = "blue" | "emerald" | "violet" | "amber" | "rose";
-
-interface NotifSettings {
-  dailyReminder: boolean;
-  reminderTime: string;
-  dueDateReminders: boolean;
-}
 
 interface LogbookPrefs {
   defaultProjectId: string;
@@ -33,7 +34,6 @@ interface LogbookPrefs {
 const DEFAULTS = {
   theme: "system" as Theme,
   accent: "blue" as AccentColor,
-  notif: { dailyReminder: false, reminderTime: "18:00", dueDateReminders: true } as NotifSettings,
   logbook: { defaultProjectId: "", defaultView: "timeline", defaultSort: "newest", weekStartsOn: "monday", timeFormat: "24h" } as LogbookPrefs,
 };
 
@@ -63,29 +63,6 @@ function applyAccent(color: AccentColor) {
 
 // -- reusable small components --
 
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <label className="flex items-center justify-between gap-3 cursor-pointer">
-      <span className="text-sm text-slate-700">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative w-10 h-5 rounded-full transition shrink-0 ${
-          checked ? "bg-blue-600" : "bg-slate-300"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 h-4 w-4 bg-white rounded-full shadow transition-transform ${
-            checked ? "translate-x-5" : ""
-          }`}
-        />
-      </button>
-    </label>
-  );
-}
-
 function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
     <section className="bg-white rounded-lg border border-slate-200">
@@ -103,6 +80,67 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       {children}
+    </div>
+  );
+}
+
+/** Turns system notifications for newly due reminders on or off on this device. */
+function ReminderNotificationToggle() {
+  const [mode, setMode] = useState(reminderNotificationMode);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const enabled = mode !== null;
+
+  if (!notificationsSupported()) {
+    return <p className="text-sm text-slate-500">This browser can't show notifications.</p>;
+  }
+
+  const toggle = async () => {
+    setMessage("");
+    setBusy(true);
+    if (enabled) {
+      await disableReminderNotifications();
+      setMode(null);
+      setBusy(false);
+      return;
+    }
+    try {
+      const on = await enableReminderNotifications(await fetchDueReminders());
+      setMode(reminderNotificationMode());
+      if (!on) {
+        setMessage(
+          Notification.permission === "denied"
+            ? "Notifications are blocked for this site. Allow them in your browser's site settings, then try again."
+            : "Notifications weren't allowed."
+        );
+      }
+    } catch {
+      setMessage("Couldn't turn on notifications. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1">
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={enabled}
+          disabled={busy}
+          onChange={toggle}
+          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+        />
+        <span>
+          <span className="block text-sm font-medium text-slate-700">Notify me on this device</span>
+          <span className="block text-sm text-slate-500">
+            {mode === "in-app"
+              ? "Shows a system notification when a reminder falls due, while the logbook is open in a tab. This browser can't receive notifications with the app closed."
+              : "Shows a system notification when a reminder falls due, even when the logbook is closed."}
+          </span>
+        </span>
+      </label>
+      {message && <p className="text-sm text-amber-700">{message}</p>}
     </div>
   );
 }
@@ -127,8 +165,6 @@ export default function SettingsPage() {
   const [theme, setTheme] = useState<Theme>(() => load("logbook-theme", DEFAULTS.theme));
   const [accent, setAccent] = useState<AccentColor>(() => load("logbook-accent", DEFAULTS.accent));
 
-  // Notifications
-  const [notif, setNotif] = useState<NotifSettings>(() => load("logbook-notif", DEFAULTS.notif));
 
   // Logbook
   const [logbook, setLogbook] = useState<LogbookPrefs>(() => load("logbook-prefs", DEFAULTS.logbook));
@@ -149,11 +185,18 @@ export default function SettingsPage() {
   const [twoFALoading, setTwoFALoading] = useState(false);
   const [disable2FAPassword, setDisable2FAPassword] = useState("");
   const [showDisable2FA, setShowDisable2FA] = useState(false);
+  // Shown exactly once, straight after they are generated. The server keeps
+  // only digests, so if the user navigates away without saving these they
+  // are gone for good and a fresh set has to be issued.
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [recoveryCodesRemaining, setRecoveryCodesRemaining] = useState(0);
+  const [showRegenerateCodes, setShowRegenerateCodes] = useState(false);
+  const [regeneratePassword, setRegeneratePassword] = useState("");
+  const [codesCopied, setCodesCopied] = useState(false);
 
   // Persist appearance on change
   useEffect(() => { save("logbook-theme", theme); applyTheme(theme); }, [theme]);
   useEffect(() => { save("logbook-accent", accent); applyAccent(accent); }, [accent]);
-  useEffect(() => { save("logbook-notif", notif); }, [notif]);
   useEffect(() => { save("logbook-prefs", logbook); }, [logbook]);
 
   // Load projects for default project selector
@@ -163,7 +206,13 @@ export default function SettingsPage() {
 
   // Load 2FA status
   useEffect(() => {
-    api.get("/auth/2fa/status").then((res) => setIs2FAEnabled(res.data.isTwoFactorEnabled)).catch(() => {});
+    api
+      .get("/auth/2fa/status")
+      .then((res) => {
+        setIs2FAEnabled(res.data.isTwoFactorEnabled);
+        setRecoveryCodesRemaining(res.data.recoveryCodesRemaining ?? 0);
+      })
+      .catch(() => {});
   }, []);
 
   // -- handlers --
@@ -265,7 +314,6 @@ export default function SettingsPage() {
     setEmail("");
     setTheme("system");
     setAccent("blue");
-    setNotif(DEFAULTS.notif);
     setLogbook(DEFAULTS.logbook);
   };
 
@@ -295,12 +343,14 @@ export default function SettingsPage() {
     }
     setTwoFALoading(true);
     try {
-      await api.post("/auth/2fa/verify-setup", { token: twoFACode });
+      const res = await api.post("/auth/2fa/verify-setup", { token: twoFACode });
       setIs2FAEnabled(true);
       setShow2FASetup(false);
       setTwoFACode("");
       setTwoFASecret("");
       setTwoFAQrCode("");
+      setRecoveryCodes(res.data.recoveryCodes ?? []);
+      setRecoveryCodesRemaining((res.data.recoveryCodes ?? []).length);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || "Invalid code.";
       setTwoFAError(msg);
@@ -321,12 +371,65 @@ export default function SettingsPage() {
       setIs2FAEnabled(false);
       setShowDisable2FA(false);
       setDisable2FAPassword("");
+      setRecoveryCodes([]);
+      setRecoveryCodesRemaining(0);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to disable 2FA.";
       setTwoFAError(msg);
     } finally {
       setTwoFALoading(false);
     }
+  };
+
+  const handleRegenerateCodes = async () => {
+    setTwoFAError("");
+    if (!regeneratePassword) {
+      setTwoFAError("Password is required");
+      return;
+    }
+    setTwoFALoading(true);
+    try {
+      const res = await api.post("/auth/2fa/recovery-codes", { password: regeneratePassword });
+      setRecoveryCodes(res.data.recoveryCodes ?? []);
+      setRecoveryCodesRemaining((res.data.recoveryCodes ?? []).length);
+      setShowRegenerateCodes(false);
+      setRegeneratePassword("");
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        "Failed to generate new recovery codes.";
+      setTwoFAError(msg);
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  const handleCopyCodes = async () => {
+    try {
+      await navigator.clipboard.writeText(recoveryCodes.join("\n"));
+      setCodesCopied(true);
+      setTimeout(() => setCodesCopied(false), 2000);
+    } catch {
+      // Clipboard access can be refused; the codes are on screen regardless.
+      setTwoFAError("Could not copy automatically — please select and copy the codes manually.");
+    }
+  };
+
+  const handleDownloadCodes = () => {
+    const body = [
+      "Digital Logbook — two-factor recovery codes",
+      `Generated ${new Date().toLocaleString()}`,
+      "",
+      "Each code works once. Keep them somewhere you can reach without your phone.",
+      "",
+      ...recoveryCodes,
+    ].join("\n");
+    const url = URL.createObjectURL(new Blob([body], { type: "text/plain" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "logbook-recovery-codes.txt";
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -373,6 +476,45 @@ export default function SettingsPage() {
 
           {twoFAError && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{twoFAError}</p>
+          )}
+
+          {/* Recovery codes — shown once, at the moment they are generated */}
+          {recoveryCodes.length > 0 && (
+            <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-3">
+              <h3 className="text-sm font-semibold text-amber-900 mb-1">
+                Save your recovery codes
+              </h3>
+              <p className="text-xs text-amber-800 mb-3">
+                Each code works once, and lets you sign in if you lose your
+                authenticator device. This is the only time they will be shown —
+                store them somewhere you can reach without your phone.
+              </p>
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-sm text-slate-800 bg-white border border-amber-200 rounded-md p-3 mb-3">
+                {recoveryCodes.map((code) => (
+                  <li key={code}>{code}</li>
+                ))}
+              </ul>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyCodes}
+                  className="border border-amber-300 text-amber-900 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-amber-100 transition"
+                >
+                  {codesCopied ? "Copied" : "Copy"}
+                </button>
+                <button
+                  onClick={handleDownloadCodes}
+                  className="border border-amber-300 text-amber-900 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-amber-100 transition"
+                >
+                  Download
+                </button>
+                <button
+                  onClick={() => setRecoveryCodes([])}
+                  className="ml-auto bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                >
+                  I have saved them
+                </button>
+              </div>
+            </div>
           )}
 
           {/* 2FA Setup Modal */}
@@ -462,14 +604,72 @@ export default function SettingsPage() {
             </button>
           )}
 
+          {is2FAEnabled && showRegenerateCodes && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-3">
+              <h3 className="text-sm font-semibold text-slate-800 mb-1">
+                Generate new recovery codes
+              </h3>
+              <p className="text-xs text-slate-500 mb-3">
+                Your existing codes will stop working immediately.
+              </p>
+              <input
+                type="password"
+                value={regeneratePassword}
+                onChange={(e) => setRegeneratePassword(e.target.value)}
+                placeholder="Confirm your password"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleRegenerateCodes}
+                  disabled={twoFALoading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition disabled:opacity-50"
+                >
+                  {twoFALoading ? "Generating..." : "Generate new codes"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRegenerateCodes(false);
+                    setRegeneratePassword("");
+                    setTwoFAError("");
+                  }}
+                  className="border border-slate-200 text-slate-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-slate-100 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           {is2FAEnabled && !showDisable2FA && (
-            <button
-              onClick={() => setShowDisable2FA(true)}
-              className="flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-50 transition"
-            >
-              <Shield className="h-3.5 w-3.5" />
-              Disable 2FA
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setShowDisable2FA(true)}
+                className="flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-50 transition"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Disable 2FA
+              </button>
+              {!showRegenerateCodes && (
+                <button
+                  onClick={() => setShowRegenerateCodes(true)}
+                  className="border border-slate-200 text-slate-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-slate-100 transition"
+                >
+                  Regenerate recovery codes
+                </button>
+              )}
+              <span
+                className={`text-xs ${
+                  recoveryCodesRemaining === 0 ? "text-red-600" : "text-slate-500"
+                }`}
+              >
+                {recoveryCodesRemaining === 0
+                  ? "No recovery codes left"
+                  : `${recoveryCodesRemaining} recovery code${
+                      recoveryCodesRemaining === 1 ? "" : "s"
+                    } remaining`}
+              </span>
+            </div>
           )}
         </div>
 
@@ -552,31 +752,18 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      {/* 3. Notifications */}
-      <Section icon={Bell} title="Notifications">
-        <Toggle
-          label="Daily logbook reminder"
-          checked={notif.dailyReminder}
-          onChange={(v) => setNotif({ ...notif, dailyReminder: v })}
-        />
-        {notif.dailyReminder && (
-          <Field label="Reminder time">
-            <input
-              type="time"
-              value={notif.reminderTime}
-              onChange={(e) => setNotif({ ...notif, reminderTime: e.target.value })}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 w-40"
-            />
-          </Field>
-        )}
-        <Toggle
-          label="Due-date reminders"
-          checked={notif.dueDateReminders}
-          onChange={(v) => setNotif({ ...notif, dueDateReminders: v })}
-        />
-        <p className="text-[11px] text-slate-400">
-          Browser notifications will be requested when this feature is activated.
+      {/* 3. Reminders — the rules live on the server, with the reminders themselves */}
+      <Section icon={Bell} title="Reminders">
+        <p className="text-sm text-slate-600">
+          Due-date, overdue, stalled-entry and daily logbook reminders are configured with your reminders.
         </p>
+        <Link
+          to="/reminders"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+        >
+          Manage reminder rules
+        </Link>
+        <ReminderNotificationToggle />
       </Section>
 
       {/* 4. Logbook Preferences */}

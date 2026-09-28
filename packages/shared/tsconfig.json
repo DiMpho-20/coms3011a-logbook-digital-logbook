@@ -1,0 +1,25 @@
+{
+  // The shared package ships compiled JavaScript and declarations, not source.
+  //
+  // It used to point main/types/exports straight at src/index.ts, which had two
+  // consequences. The backend's `tsc` build failed with TS6059, because a
+  // TypeScript file outside its rootDir was pulled into the program — invisible
+  // to `tsc --noEmit`, which ignores rootDir, so the typecheck passed while the
+  // build could not. And `node dist/index.js` could never have run, because the
+  // emitted import of "@logbook/shared" resolves to a .ts file Node cannot load.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src"]
+}

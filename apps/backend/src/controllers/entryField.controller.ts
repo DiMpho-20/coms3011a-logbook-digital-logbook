@@ -1,6 +1,7 @@
 import { Response } from "express";
+import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
-import { createFormatVersion, backfillNewField } from "../utils/entryFormat.js";
+import { createFormatVersion, backfillNewField, recalculateComputedFields } from "../utils/entryFormat.js";
 import { validateFormula } from "../utils/computedFields.js";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 
@@ -8,6 +9,39 @@ const VALID_TYPES = ["TEXT", "NUMBER", "DATE", "BOOLEAN", "TAGS", "CHECKLIST", "
 
 async function ownedProject(projectId: string, userId: string) {
   return prisma.project.findFirst({ where: { id: projectId, userId } });
+}
+
+const DUPLICATE_NAME = "A field with that name already exists in this project.";
+
+/**
+ * Whether the project already has a live field by this name.
+ *
+ * Case-insensitive, because "Hours" and "hours" are the same field to
+ * everybody but a byte comparison. Archived fields are ignored, so removing a
+ * field releases its name.
+ *
+ * This is the friendly check, not the authoritative one — it is a read
+ * followed by a write and races exactly the way BUG-001 did. The partial
+ * unique index added in 20260927140000_unique_entry_field_names is what makes
+ * the rule true; the P2002 handlers below turn the loser of that race into the
+ * same message rather than a raw constraint error.
+ */
+async function nameTaken(projectId: string, name: string, excludeId?: string): Promise<boolean> {
+  const clash = await prisma.entryField.findFirst({
+    where: {
+      projectId,
+      archivedAt: null,
+      name: { equals: name, mode: "insensitive" },
+      ...(excludeId && { id: { not: excludeId } }),
+    },
+    select: { id: true },
+  });
+  return clash !== null;
+}
+
+/** The unique index on (project_id, lower(name)) rejected the write. */
+function isDuplicateName(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
 export const createEntryField = async (req: AuthenticatedRequest, res: Response) => {
@@ -18,12 +52,16 @@ export const createEntryField = async (req: AuthenticatedRequest, res: Response)
     if ((type === "COMPUTED") !== Boolean(formula?.trim())) return res.status(400).json({ error: "Computed fields require a formula; other fields cannot have one" });
     if (!(await ownedProject(projectId, req.userId!))) return res.status(404).json({ error: "Project not found" });
     const existing = await prisma.entryField.findMany({ where: { projectId, archivedAt: null } });
+    if (await nameTaken(projectId, name.trim())) return res.status(409).json({ error: DUPLICATE_NAME });
     if (type === "COMPUTED") validateFormula(formula, existing);
     const field = await prisma.entryField.create({ data: { projectId, name: name.trim(), type, required: type === "COMPUTED" ? false : Boolean(required), formula: type === "COMPUTED" ? formula.trim() : null } });
     await backfillNewField(prisma, projectId, field);
     await createFormatVersion(prisma, projectId);
     return res.status(201).json(field);
-  } catch (error: any) { return res.status(400).json({ error: error.message || "Failed to create entry field" }); }
+  } catch (error: any) {
+    if (isDuplicateName(error)) return res.status(409).json({ error: DUPLICATE_NAME });
+    return res.status(400).json({ error: error.message || "Failed to create entry field" });
+  }
 };
 
 export const getEntryFields = async (req: AuthenticatedRequest, res: Response) => {
@@ -41,6 +79,11 @@ export const updateEntryField = async (req: AuthenticatedRequest, res: Response)
     if (!field) return res.status(404).json({ error: "Entry field not found" });
     const { name, type, required, formula } = req.body;
     if (name !== undefined && !String(name).trim()) return res.status(400).json({ error: "Field name cannot be empty" });
+    // A rename has to obey the same rule a creation does, or the constraint is
+    // only half enforced and a duplicate arrives through the back door.
+    if (name !== undefined && (await nameTaken(field.projectId, String(name).trim(), id))) {
+      return res.status(409).json({ error: DUPLICATE_NAME });
+    }
     if (type !== undefined && !VALID_TYPES.includes(type)) return res.status(400).json({ error: "A valid field type is required" });
 
     // Changing a type would reinterpret every value already stored for this
@@ -60,24 +103,36 @@ export const updateEntryField = async (req: AuthenticatedRequest, res: Response)
       : null;
     if (nextType === "COMPUTED") {
       if (!nextFormula) return res.status(400).json({ error: "Computed fields require a formula" });
-      validateFormula(nextFormula, allFields);
+      validateFormula(nextFormula, allFields, id);
     } else if (formula !== undefined) {
       return res.status(400).json({ error: "Only computed fields can have a formula" });
     }
 
-    const updated = await prisma.entryField.update({
-      where: { id },
-      data: {
-        ...(name !== undefined && { name: String(name).trim() }),
-        ...(type !== undefined && { type }),
-        ...(required !== undefined && { required: nextType === "COMPUTED" ? false : Boolean(required) }),
-        ...(type !== undefined && nextType === "COMPUTED" && required === undefined && { required: false }),
-        ...(type !== undefined || formula !== undefined ? { formula: nextFormula } : {}),
-      },
-    });
+    // A new formula (or a field that has just become computed) changes the
+    // result on every existing entry, and on every computed field that uses
+    // this one. Rewriting them in the same transaction as the field means
+    // the stored results never disagree with the formula (issue #88).
+    const resultsChange = nextType === "COMPUTED" && (field.type !== "COMPUTED" || nextFormula !== field.formula);
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.entryField.update({
+        where: { id },
+        data: {
+          ...(name !== undefined && { name: String(name).trim() }),
+          ...(type !== undefined && { type }),
+          ...(required !== undefined && { required: nextType === "COMPUTED" ? false : Boolean(required) }),
+          ...(type !== undefined && nextType === "COMPUTED" && required === undefined && { required: false }),
+          ...(type !== undefined || formula !== undefined ? { formula: nextFormula } : {}),
+        },
+      });
+      if (resultsChange) await recalculateComputedFields(tx, field.projectId, id);
+      return saved;
+    }, { maxWait: 10_000, timeout: 30_000 });
     await createFormatVersion(prisma, field.projectId);
     return res.json(updated);
-  } catch (error: any) { return res.status(400).json({ error: error.message || "Failed to update entry field" }); }
+  } catch (error: any) {
+    if (isDuplicateName(error)) return res.status(409).json({ error: DUPLICATE_NAME });
+    return res.status(400).json({ error: error.message || "Failed to update entry field" });
+  }
 };
 
 export const deleteEntryField = async (req: AuthenticatedRequest, res: Response) => {

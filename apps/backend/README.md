@@ -86,8 +86,10 @@ Optional (for email sending):
 ```bash
 cd apps/backend
 npx prisma generate
-npx prisma db push
+npx prisma migrate deploy
 ```
+
+The migration history is a single squashed baseline (`prisma/migrations/0_init`), so `migrate deploy` creates the whole schema on an empty database. Make future schema changes with `npx prisma migrate dev --name <change>`, which generates a dated migration alongside the schema edit.
 
 ### 4. Run the server
 
@@ -128,6 +130,7 @@ All routes are prefixed with `/api`. Protected routes require a `Bearer <token>`
 | `GET` | `/api/projects/:id` | Yes | Get a project with entry fields |
 | `PUT` | `/api/projects/:id` | Yes | Update project |
 | `PATCH` | `/api/projects/:id/status` | Yes | Toggle status (ACTIVE/ARCHIVED) |
+| `DELETE` | `/api/projects/:id` | Yes | Permanently delete a project and everything in it |
 | `GET` | `/api/projects/:id/time-summary` | Yes | Aggregate time stats |
 
 ### Entry Fields
@@ -145,6 +148,27 @@ All routes are prefixed with `/api`. Protected routes require a `Bearer <token>`
 | `POST` | `/api/projects/:projectId/entries` | Yes | Create entry with field values |
 | `PUT` | `/api/entries/:id` | Yes | Update entry |
 | `DELETE` | `/api/entries/:id` | Yes | Delete entry |
+
+### Automation Rules
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/projects/:projectId/automation-rules` | Yes | Create an entry rule (US26) |
+| `GET` | `/api/projects/:projectId/automation-rules` | Yes | List the project's rules, in execution order |
+| `GET` | `/api/projects/:projectId/automation-rules/:id` | Yes | Read one rule |
+| `PATCH` | `/api/projects/:projectId/automation-rules/:id` | Yes | Edit a rule (any subset of fields) |
+| `DELETE` | `/api/projects/:projectId/automation-rules/:id` | Yes | Delete a rule |
+
+Rules run automatically when an entry is captured or updated — after the
+save commits, so a broken rule can never cost the user their work. The full
+rule language (triggers, conditions, actions and their deliberate
+limitations) is documented in the
+[API reference](../../docs/api-reference.md#automation-rules).
+
+> This table lists the core endpoints. The full surface — tags, entry
+> versions and restore, archiving, statistics, reminders, recurring
+> entries, custom statistics, Google Calendar — is documented in
+> [docs/api-reference.md](../../docs/api-reference.md).
 
 ### Utility
 

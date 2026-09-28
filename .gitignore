@@ -13,3 +13,10 @@ coverage/
 
 # Scratch files from the local AI verification relay
 .qoder-tmp-*
+
+# The shared package is compiled; only its TypeScript sources are tracked.
+# src/*.js catches an in-place `tsc` run, which is easy to do by accident and
+# leaves artifacts beside the sources they came from.
+packages/shared/dist/
+packages/shared/src/*.js
+packages/shared/src/*.d.ts

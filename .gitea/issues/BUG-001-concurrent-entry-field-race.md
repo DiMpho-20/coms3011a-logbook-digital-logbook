@@ -1,7 +1,7 @@
 # BUG-001: Concurrent Entry-Field Creation Race Condition
 
 **Severity:** High
-**Status:** Open
+**Status:** Fixed
 **Component:** Backend — `apps/backend/src/controllers/entryField.controller.ts`
 **Labels:** bug, race-condition, backend
 
@@ -42,3 +42,24 @@ Create entry fields sequentially (as the current UI does). This only affects con
 ## Related
 - `apps/backend/TESTING.md` — documented under "Bugs Found During Testing"
 - `apps/backend/src/__tests__/api.test.ts` — tests create fields sequentially to avoid this
+
+## Resolution
+
+`createFormatVersion()` now reads and writes inside a transaction, and retries
+on the unique-constraint violation (up to five attempts).
+
+It is worth being precise about which half does the work, because the obvious
+reading is wrong. A transaction alone does **not** fix this: under PostgreSQL's
+default READ COMMITTED isolation two concurrent transactions can still both
+read the same `MAX(version)` and still collide. What the transaction buys is a
+consistent snapshot — the fields stored in a version are the fields that
+existed when its number was chosen. The **retry** is what resolves the race:
+the loser reads again, now sees the winner's row, and takes the next number.
+
+The fix lives in `createFormatVersion()` itself rather than in a caller, so
+field creation, field editing and field removal are all covered — all three
+bump the format version.
+
+Covered by `apps/backend/src/__tests__/entryFieldIntegrity.test.ts`, which
+includes the concurrent reproduction from the steps above, an assertion that
+version numbers come out distinct and gapless, and the concurrent-delete case.

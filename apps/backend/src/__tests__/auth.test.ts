@@ -5,6 +5,7 @@ import { generateSync } from "otplib";
 import app from "../app.js";
 import prisma from "../prisma.js";
 import { hashPassword, generateToken } from "../utils/auth.js";
+import { hashToken } from "../utils/tokens.js";
 
 // ── Shared constants ─────────────────────────────────────────────────────
 
@@ -21,6 +22,10 @@ const TFA_EMAIL = `auth_2fa_${ts}@example.com`;
 
 let registeredUserId: string | null = null;
 let tfaToken: Record<string, string>;
+// Issued by /login once the password verifies, and required by /login/2fa.
+// Captured from the login response below rather than forged, so these tests
+// exercise the same hand-off a real client performs (BUG-006).
+let pendingTwoFactorToken = "";
 
 beforeAll(async () => {
   // Two Prisma-created users with known password hashes:
@@ -245,12 +250,15 @@ describe("2FA lifecycle", () => {
     expect(res.body.requiresTwoFactor).toBe(true);
     expect(res.body.email).toBe(TFA_EMAIL);
     expect(res.body.token).toBeUndefined();
+    expect(res.body.twoFactorToken).toBeTruthy();
+
+    pendingTwoFactorToken = res.body.twoFactorToken;
   });
 
   it("POST /login/2fa rejects an invalid code → 401", async () => {
     const res = await request(app).post("/api/auth/login/2fa").send({
-      email: TFA_EMAIL,
-      token: "123123",
+      twoFactorToken: pendingTwoFactorToken,
+      code: "123123",
     });
 
     expect(res.status).toBe(401);
@@ -260,8 +268,8 @@ describe("2FA lifecycle", () => {
   it("POST /login/2fa accepts a valid code and issues a JWT", async () => {
     const code = generateSync({ secret });
     const res = await request(app).post("/api/auth/login/2fa").send({
-      email: TFA_EMAIL,
-      token: code,
+      twoFactorToken: pendingTwoFactorToken,
+      code,
     });
 
     expect(res.status).toBe(200);
@@ -271,8 +279,8 @@ describe("2FA lifecycle", () => {
 
   it("POST /login/2fa rejects a malformed code → 400", async () => {
     const res = await request(app).post("/api/auth/login/2fa").send({
-      email: TFA_EMAIL,
-      token: "12345", // not 6 digits
+      twoFactorToken: pendingTwoFactorToken,
+      code: "12345", // neither a 6-digit code nor a recovery code
     });
 
     expect(res.status).toBe(400);
@@ -347,7 +355,8 @@ describe("Password reset", () => {
     await prisma.passwordReset.create({
       data: {
         userId: LOGIN_USER_ID,
-        tokenHash: token,
+        // The column stores a digest now, not the token itself.
+        tokenHash: hashToken(token),
         expiresAt: new Date(Date.now() + 3600000),
       },
     });
@@ -393,15 +402,74 @@ describe("Account deletion", () => {
     expect(res.status).toBe(401);
   });
 
-  it("DELETE /auth/account with correct password erases the account", async () => {
+  // Deletion has a 30-day grace period: the account is scheduled for
+  // deletion, not erased on the spot, so it can still be recovered.
+  it("DELETE /auth/account with correct password schedules deletion 30 days out", async () => {
+    const before = Date.now();
     const res = await request(app)
       .delete("/api/auth/account")
       .set(tfaToken)
       .send({ confirmPassword: TEST_PASSWORD });
 
     expect(res.status).toBe(200);
+    const scheduled = new Date(res.body.scheduledDeletionAt).getTime();
+    // Midnight 30 days from now, so between 29 and 30 whole days away.
+    const daysAway = (scheduled - before) / 86_400_000;
+    expect(daysAway).toBeGreaterThan(29);
+    expect(daysAway).toBeLessThanOrEqual(30);
 
     const user = await prisma.user.findUnique({ where: { id: TFA_USER_ID } });
-    expect(user).toBeNull();
+    expect(user).not.toBeNull();
+    expect(user!.scheduledDeletionAt?.toISOString()).toBe(res.body.scheduledDeletionAt);
+  });
+
+  it("DELETE /auth/account again keeps the original deletion date", async () => {
+    const first = await prisma.user.findUnique({ where: { id: TFA_USER_ID } });
+    const res = await request(app)
+      .delete("/api/auth/account")
+      .set(tfaToken)
+      .send({ confirmPassword: TEST_PASSWORD });
+
+    expect(res.status).toBe(200);
+    expect(res.body.scheduledDeletionAt).toBe(first!.scheduledDeletionAt!.toISOString());
+  });
+
+  it("POST /auth/account/cancel-deletion keeps the account", async () => {
+    const res = await request(app).post("/api/auth/account/cancel-deletion").set(tfaToken);
+    expect(res.status).toBe(200);
+
+    const user = await prisma.user.findUnique({ where: { id: TFA_USER_ID } });
+    expect(user!.scheduledDeletionAt).toBeNull();
+  });
+
+  it("POST /auth/account/cancel-deletion with nothing scheduled → 400", async () => {
+    const res = await request(app).post("/api/auth/account/cancel-deletion").set(tfaToken);
+    expect(res.status).toBe(400);
+  });
+
+  it("erases the account at the first login after the grace period ends", async () => {
+    const expiredId = crypto.randomUUID();
+    const expiredEmail = `auth_expired_${ts}@example.com`;
+    await prisma.user.create({
+      data: {
+        id: expiredId,
+        email: expiredEmail,
+        passwordHash: await hashPassword(TEST_PASSWORD),
+        fullName: "Expired Deletion User",
+        isEmailVerified: true,
+        scheduledDeletionAt: new Date(Date.now() - 86_400_000),
+      },
+    });
+
+    try {
+      const res = await request(app)
+        .post("/api/auth/login")
+        .send({ email: expiredEmail, password: TEST_PASSWORD });
+
+      expect(res.status).toBe(401);
+      expect(await prisma.user.findUnique({ where: { id: expiredId } })).toBeNull();
+    } finally {
+      await prisma.user.delete({ where: { id: expiredId } }).catch(() => {});
+    }
   });
 });

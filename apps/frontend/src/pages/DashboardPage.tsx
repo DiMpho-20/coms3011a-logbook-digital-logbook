@@ -1,28 +1,69 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FolderKanban,
-  ListChecks,
-  Clock,
   Plus,
   FolderOpen,
+  LayoutDashboard,
+  ChevronDown,
+  ChevronUp,
+  GripVertical,
+  Sigma,
+  Flame,
 } from "lucide-react";
 
 import {
   fetchProjects,
   fetchEntryFields,
   fetchAllEntries,
+  fetchProjectStatistic,
+  fetchProjectStatistics,
+  type CustomStatistic,
   type Project,
   type Entry,
   type EntryField,
 } from "../api";
 import { formatDuration, getGreeting, localDateKey, entryDateKey } from "../lib/utils";
 import PageHeader from "../components/PageHeader";
-import StatCard from "../components/StatCard";
 import DeadlineReminders from "../components/DeadlineReminders";
 import LoadingState from "../components/LoadingState";
 import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
+import Modal from "../components/Modal";
+import BarChart from "../components/BarChart";
+import TrendChart from "../components/TrendChart";
+import WeekComparison from "../components/WeekComparison";
+import {
+  entryStreaks,
+  monthlyEntryCounts,
+  tagRanking,
+  weeklyProgress,
+  type EntryStreaks,
+} from "../lib/dashboardInsights";
+import {
+  DASHBOARD_PANELS,
+  isBuiltInPanel,
+  loadDashboardPanels,
+  parseStatisticPanel,
+  persistDashboardPanels,
+  resetDashboardPanels,
+  statisticPanelId,
+  syncDashboardPanels,
+  type BuiltInPanelId,
+  type DashboardPanelId,
+} from "../lib/dashboardPreferences";
+
+const DASHBOARD_PANEL_DETAILS: Record<BuiltInPanelId, { title: string; description: string }> = {
+  "entry-streak": { title: "Entry streak", description: "How many days in a row you've logged an entry" },
+  "deadline-reminders": { title: "Deadline reminders", description: "Upcoming due dates from your entries" },
+  activity: { title: "Activity", description: "A seven-day view of time logged" },
+  "current-projects": { title: "Current projects", description: "Your active projects and their logged time" },
+  "entry-progress": { title: "Progress over time", description: "Your running total of entries, week by week" },
+  "monthly-entries": { title: "Entries per month", description: "How many entries you logged in each of the last six months" },
+  "week-comparison": { title: "Compare weeks", description: "Put any two of the last twelve weeks side by side" },
+  tags: { title: "Tags", description: "Tags used in your projects and entries" },
+  "tag-ranking": { title: "Tag ranking", description: "Your most-used tags and how many entries use each" },
+  "recent-entries": { title: "Recent entries", description: "Your latest logbook entries" },
+};
 
 // ── SVG Sparkline ────────────────────────────────────────────────────────
 function ActivityChart({ data }: { data: { label: string; value: number }[] }) {
@@ -99,6 +140,96 @@ function ActivityChart({ data }: { data: { label: string; value: number }[] }) {
   );
 }
 
+// ── Saved statistic panel (US18) ─────────────────────────────────────────
+
+/** What a statistic panel shows: the statistic, or why it can't be shown. */
+type StatisticState =
+  | { status: "loading" }
+  | { status: "ready"; statistic: CustomStatistic }
+  | { status: "missing" }
+  | { status: "failed" };
+
+function formatStatisticValue(value: number): string {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function StatisticPanel({
+  state,
+  projectName,
+  onRemove,
+}: {
+  state: StatisticState | undefined;
+  projectName: string;
+  onRemove: () => void;
+}) {
+  const statistic = state?.status === "ready" ? state.statistic : null;
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-start gap-3 h-full">
+      <div className="p-2 rounded-lg bg-violet-50 text-violet-600">
+        <Sigma className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        {!state || state.status === "loading" ? (
+          <>
+            <Skeleton className="h-5 w-14" />
+            <Skeleton className="mt-1 h-3 w-28" />
+          </>
+        ) : statistic ? (
+          <>
+            <p className="text-lg font-bold text-slate-900">
+              {statistic.value === null ? "—" : formatStatisticValue(statistic.value)}
+            </p>
+            <p className="text-[11px] font-medium text-slate-500 truncate">
+              {statistic.name} · {projectName}
+            </p>
+            {statistic.error && <p className="mt-1 text-[11px] text-amber-700">{statistic.error}</p>}
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-slate-700">
+              {state.status === "missing" ? "This statistic was deleted" : "Couldn't load this statistic"}
+            </p>
+            {state.status === "missing" && (
+              <button onClick={onRemove} className="mt-1 text-xs font-medium text-blue-600 hover:text-blue-700">
+                Remove panel
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Entry streak panel ───────────────────────────────────────────────────
+
+function dayCount(days: number): string {
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
+function StreakCard({ streaks, loading }: { streaks: EntryStreaks; loading: boolean }) {
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-center gap-3 h-full">
+      <div className={`p-2 rounded-lg ${streaks.current > 0 ? "bg-orange-50 text-orange-500" : "bg-slate-100 text-slate-400"}`}>
+        <Flame className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-lg font-bold text-slate-900">
+          {loading ? <Skeleton className="h-5 w-14 align-middle" /> : dayCount(streaks.current)}
+        </p>
+        <p className="text-[11px] font-medium text-slate-500">Entry Streak</p>
+        {!loading && (
+          <p className="text-[11px] text-slate-400 truncate">
+            {streaks.current > 0 && !streaks.loggedToday
+              ? "Log an entry today to keep it going"
+              : `Longest: ${dayCount(streaks.longest)}`}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 function entrySummary(entry: Entry, fields: EntryField[]): string {
@@ -148,6 +279,17 @@ export default function DashboardPage() {
   const [entriesLoading, setEntriesLoading] = useState(true);
   const [loadFailures, setLoadFailures] = useState(0);
   const [truncated, setTruncated] = useState(false);
+  const [selectedPanels, setSelectedPanels] = useState<DashboardPanelId[]>(loadDashboardPanels);
+  const [panelPickerOpen, setPanelPickerOpen] = useState(false);
+  const [draftPanels, setDraftPanels] = useState<DashboardPanelId[]>(selectedPanels);
+  const [arrangingPanels, setArrangingPanels] = useState(false);
+  const [draggedPanel, setDraggedPanel] = useState<DashboardPanelId | null>(null);
+  const [dragOverPanel, setDragOverPanel] = useState<DashboardPanelId | null>(null);
+  // Saved statistics on the dashboard, by panel id.
+  const [statistics, setStatistics] = useState<Record<string, StatisticState>>({});
+  // Every saved statistic the picker can offer; null until the picker loads them.
+  const [availableStatistics, setAvailableStatistics] = useState<CustomStatistic[] | null>(null);
+  const [layoutSaveFailed, setLayoutSaveFailed] = useState(false);
   const [displayName] = useState(
     () => (typeof window !== "undefined" ? localStorage.getItem("logbook-name") : null) || "Student"
   );
@@ -207,22 +349,38 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // ── Derived data ────────────────────────────────────────────────────────
-
-  const stats = useMemo(() => {
-    const now = new Date();
-    const weekAgo = new Date(now);
-    weekAgo.setDate(now.getDate() - 7);
-
-    const weekEntries = allEntries.filter((e) => new Date(e.createdAt) >= weekAgo);
-    const totalMinutes = allEntries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
-
-    return {
-      activeCount: projects.filter((p) => p.status === "ACTIVE").length,
-      weekCount: weekEntries.length,
-      totalMinutes,
+  // The page opens with this device's copy of the layout; the one saved on
+  // the server (from any device) replaces it once it arrives.
+  useEffect(() => {
+    let cancelled = false;
+    syncDashboardPanels().then((panels) => {
+      if (!cancelled && panels) setSelectedPanels(panels);
+    });
+    return () => {
+      cancelled = true;
     };
-  }, [allEntries, projects]);
+  }, []);
+
+  // Fetch the current value of each saved statistic on the dashboard.
+  useEffect(() => {
+    const unloaded = selectedPanels.filter((panel) => parseStatisticPanel(panel) && !(panel in statistics));
+    if (unloaded.length === 0) return;
+    setStatistics((current) => ({
+      ...current,
+      ...Object.fromEntries(unloaded.map((panel) => [panel, { status: "loading" } as StatisticState])),
+    }));
+    unloaded.forEach((panel) => {
+      const { projectId, statisticId } = parseStatisticPanel(panel)!;
+      fetchProjectStatistic(projectId, statisticId)
+        .then((statistic): StatisticState => ({ status: "ready", statistic }))
+        .catch((error): StatisticState =>
+          error?.response?.status === 404 ? { status: "missing" } : { status: "failed" }
+        )
+        .then((state) => setStatistics((current) => ({ ...current, [panel]: state })));
+    });
+  }, [selectedPanels, statistics]);
+
+  // ── Derived data ────────────────────────────────────────────────────────
 
   // Activity chart: last 7 days
   const activityData = useMemo(() => {
@@ -284,7 +442,293 @@ export default function DashboardPage() {
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   }, [projects, allEntries]);
 
+  // Insight panels: streak, monthly counts, progress, tag ranking.
+  const streaks = useMemo(() => entryStreaks(allEntries), [allEntries]);
+  const monthlyCounts = useMemo(() => monthlyEntryCounts(allEntries), [allEntries]);
+  const progress = useMemo(() => weeklyProgress(allEntries), [allEntries]);
+  const tagRanks = useMemo(() => tagRanking(allEntries), [allEntries]);
+
   if (loading) return <LoadingState message="Loading dashboard..." />;
+
+  const persist = (panels: DashboardPanelId[]) => {
+    persistDashboardPanels(panels).then((saved) => setLayoutSaveFailed(!saved));
+  };
+  const openPanelPicker = () => {
+    setDraftPanels(selectedPanels);
+    setPanelPickerOpen(true);
+    if (availableStatistics === null) {
+      // Statistics are saved per project, so ask each active project.
+      Promise.allSettled(
+        projects.filter((p) => p.status === "ACTIVE").map((p) => fetchProjectStatistics(p.id))
+      ).then((results) => {
+        const found = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+        setAvailableStatistics(found);
+        setStatistics((current) => ({
+          ...current,
+          ...Object.fromEntries(
+            found.map((statistic) => [
+              statisticPanelId(statistic.projectId, statistic.id),
+              { status: "ready", statistic } as StatisticState,
+            ])
+          ),
+        }));
+      });
+    }
+  };
+  const panelDetail = (panel: DashboardPanelId): { title: string; description: string } => {
+    if (isBuiltInPanel(panel)) return DASHBOARD_PANEL_DETAILS[panel];
+    const state = statistics[panel];
+    const projectName = projectNames[parseStatisticPanel(panel)?.projectId ?? ""] ?? "a project";
+    return {
+      title: state?.status === "ready" ? state.statistic.name : "Saved statistic",
+      description: `Your saved statistic in ${projectName}`,
+    };
+  };
+  const removePanel = (panel: DashboardPanelId) => {
+    const next = selectedPanels.filter((item) => item !== panel);
+    setSelectedPanels(next);
+    persist(next);
+  };
+  const toggleDraftPanel = (panel: DashboardPanelId) => {
+    setDraftPanels((current) =>
+      current.includes(panel) ? current.filter((item) => item !== panel) : [...current, panel]
+    );
+  };
+  const savePanelSelection = () => {
+    setSelectedPanels(draftPanels);
+    persist(draftPanels);
+    setPanelPickerOpen(false);
+  };
+  const moveDraftPanel = (panel: DashboardPanelId, direction: -1 | 1) => {
+    setDraftPanels((current) => {
+      const from = current.indexOf(panel);
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= current.length) return current;
+      const next = [...current];
+      [next[from], next[to]] = [next[to], next[from]];
+      return next;
+    });
+  };
+  const restoreDefaultLayout = () => {
+    const defaults = [...DASHBOARD_PANELS];
+    setDraftPanels(defaults);
+    setSelectedPanels(defaults);
+    resetDashboardPanels();
+    setLayoutSaveFailed(false);
+    setPanelPickerOpen(false);
+  };
+  const moveSavedPanel = (panel: DashboardPanelId, destination: DashboardPanelId) => {
+    setSelectedPanels((current) => {
+      const fromIndex = current.indexOf(panel);
+      const destinationIndex = current.indexOf(destination);
+      if (fromIndex < 0 || destinationIndex < 0 || fromIndex === destinationIndex) return current;
+      const next = [...current];
+      next.splice(fromIndex, 1);
+      // A removed item shifts a later destination left by one. Insert before
+      // the panel it was dropped onto, matching the visual drop target.
+      next.splice(fromIndex < destinationIndex ? destinationIndex - 1 : destinationIndex, 0, panel);
+      persist(next);
+      return next;
+    });
+  };
+  const handlePanelDrop = (destination: DashboardPanelId, event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    const panelFromTransfer = event.dataTransfer.getData("text/plain") as DashboardPanelId;
+    const panel = panelFromTransfer || draggedPanel;
+    if (panel && selectedPanels.includes(panel)) moveSavedPanel(panel, destination);
+    setDraggedPanel(null);
+    setDragOverPanel(null);
+  };
+
+  const renderPanel = (panel: DashboardPanelId) => {
+    const saved = parseStatisticPanel(panel);
+    if (saved) {
+      return (
+        <StatisticPanel
+          state={statistics[panel]}
+          projectName={projectNames[saved.projectId] ?? "Unknown project"}
+          onRemove={() => removePanel(panel)}
+        />
+      );
+    }
+    switch (panel) {
+      case "entry-streak":
+        return <StreakCard streaks={streaks} loading={entriesLoading} />;
+      case "entry-progress": {
+        const thisWeek = progress[progress.length - 1];
+        const lastWeek = progress[progress.length - 2];
+        return (
+          <div className="bg-white rounded-lg border border-slate-200 h-full">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Progress Over Time</h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">Total entries logged — last 8 weeks</p>
+              </div>
+              {!entriesLoading && (
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-bold text-slate-900 tabular-nums">{thisWeek.total}</p>
+                  <p className="text-[11px] text-slate-400">
+                    {thisWeek.entries} this week · {lastWeek.entries} last week
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="p-4">
+              {entriesLoading ? <Skeleton className="h-[160px] w-full" /> : thisWeek.total === 0 ? (
+                <p className="py-12 text-center text-sm text-slate-400">No entries yet. Your progress will show here.</p>
+              ) : (
+                <TrendChart
+                  data={progress.map((w) => ({ label: w.label, value: w.total }))}
+                  formatValue={(v) => `${v} ${v === 1 ? "entry" : "entries"}`}
+                />
+              )}
+            </div>
+          </div>
+        );
+      }
+      case "monthly-entries":
+        return (
+          <div className="bg-white rounded-lg border border-slate-200 h-full">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h2 className="text-sm font-semibold text-slate-900">Entries per Month</h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Last 6 months</p>
+            </div>
+            <div className="p-4">
+              {entriesLoading ? <Skeleton className="h-[160px] w-full" /> : (
+                <BarChart data={monthlyCounts.map((m) => ({ label: m.label, value: m.count }))} />
+              )}
+            </div>
+          </div>
+        );
+      case "week-comparison":
+        return entriesLoading ? (
+          <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : <WeekComparison entries={allEntries} />;
+      case "tag-ranking":
+        return (
+          <div className="bg-white rounded-lg border border-slate-200 h-full">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h2 className="text-sm font-semibold text-slate-900">Tag Ranking</h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Entries using each tag</p>
+            </div>
+            <div className="p-4">
+              {entriesLoading ? <Skeleton className="h-[160px] w-full" /> : tagRanks.length === 0 ? (
+                <p className="text-sm text-slate-400">No tagged entries yet. Tag your entries to see which you use most.</p>
+              ) : (
+                <BarChart
+                  data={tagRanks.slice(0, 8).map((t, i) => ({ label: `${i + 1}. ${t.name}`, value: t.entries }))}
+                  formatValue={(v) => `${v} ${v === 1 ? "entry" : "entries"}`}
+                />
+              )}
+            </div>
+          </div>
+        );
+      case "deadline-reminders":
+        return entriesLoading ? (
+          <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-3 w-56" />
+          </div>
+        ) : <DeadlineReminders entries={allEntries} projectNames={projectNames} />;
+      case "activity":
+        return (
+          <div className="bg-white rounded-lg border border-slate-200">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h2 className="text-sm font-semibold text-slate-900">Activity</h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Minutes logged — last 7 days</p>
+            </div>
+            <div className="p-4"><ActivityChart data={activityData} /></div>
+          </div>
+        );
+      case "current-projects":
+        return (
+          <div className="bg-white rounded-lg border border-slate-200">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-900">Current Projects</h2>
+              <button onClick={() => navigate("/projects")} className="text-xs text-blue-600 hover:text-blue-700 font-medium">View all</button>
+            </div>
+            <div className="p-4">
+              {projectTimeData.length === 0 ? (
+                <div className="text-center py-8">
+                  <FolderOpen className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-400">No active projects.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {projectTimeData.map((project) => (
+                    <button key={project.id} onClick={() => navigate(`/projects/${project.id}`)} className="w-full flex items-center gap-3 py-2 px-3 -mx-3 rounded-lg hover:bg-slate-50 transition text-left group">
+                      <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate group-hover:text-blue-600 transition">{project.name}</p>
+                        <TagList tags={project.tags} className="mt-1" />
+                      </div>
+                      <span className="text-xs font-medium text-slate-500 shrink-0">{formatDuration(project.minutes)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      case "tags":
+        return (
+          <div className="bg-white rounded-lg border border-slate-200">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-900">Tags</h2>
+              <button onClick={() => navigate("/entries")} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Browse entries</button>
+            </div>
+            <div className="p-4">
+              {tagStats.length === 0 ? <p className="text-sm text-slate-400">No tags yet. Add a tag to a project or entry to see it here.</p> : (
+                <div className="flex flex-wrap gap-2">
+                  {tagStats.map((tag) => (
+                    <span key={tag.name} className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                      {tag.name}<span className="px-1.5 py-0.5 rounded-full bg-white/70 text-[10px] font-semibold text-blue-600">{tag.count}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      case "recent-entries":
+        return (
+          <div className="bg-white rounded-lg border border-slate-200">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-900">Recent Entries</h2>
+              <button onClick={() => navigate("/entries")} className="text-xs text-blue-600 hover:text-blue-700 font-medium">View all</button>
+            </div>
+            {recentEntries.length === 0 ? <div className="text-center py-12"><p className="text-sm text-slate-400">No entries yet. Start logging work to see activity here.</p></div> : (
+              <div className="divide-y divide-slate-100">
+                {recentEntries.map((entry) => (
+                  <div key={entry.id} className="px-4 py-3 hover:bg-slate-50/50 transition">
+                    <div className="flex items-center gap-4">
+                      <span className="text-[11px] font-medium text-slate-400 w-16 shrink-0">{relativeDay(entry.entryDate || entry.createdAt)}</span>
+                      <span className="text-sm text-slate-800 flex-1 min-w-0 truncate">{entrySummary(entry, fieldsByProject[entry.projectId] || [])}</span>
+                      <span className="text-xs font-medium text-slate-600 shrink-0 w-16 text-right">{formatDuration(entry.durationMinutes)}</span>
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 shrink-0">{projectNames[entry.projectId] || "Unknown"}</span>
+                    </div>
+                    <TagList tags={entry.tags} className="mt-1.5 ml-[72px]" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+    }
+  };
+
+  const usesDefaultLayout = selectedPanels.length === DASHBOARD_PANELS.length
+    && selectedPanels.every((panel, index) => panel === DASHBOARD_PANELS[index]);
+  const customPanelWidth = (index: number) => {
+    // Every custom panel gets half a desktop row. If a panel is left without a
+    // neighbour after removals, let it use the whole row rather than retaining
+    // an empty grid slot from a removed panel.
+    const isUnpairedLastPanel = selectedPanels.length % 2 === 1 && index === selectedPanels.length - 1;
+    return selectedPanels.length === 1 || isUnpairedLastPanel ? "lg:col-span-6" : "lg:col-span-3";
+  };
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -293,31 +737,32 @@ export default function DashboardPage() {
         title={`${getGreeting()}, ${displayName} \u{1F44B}`}
         subtitle="Here's what you've been working on."
         action={
-          <button
-            onClick={() => navigate("/projects")}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-          >
-            <Plus className="h-4 w-4" /> New Project
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setArrangingPanels((current) => !current)}
+              className={`flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium transition ${arrangingPanels ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-300 hover:bg-slate-50 text-slate-700"}`}
+            >
+              <GripVertical className="h-4 w-4" /> {arrangingPanels ? "Done arranging" : "Arrange panels"}
+            </button>
+            <button
+              onClick={openPanelPicker}
+              className="flex items-center gap-2 border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition"
+            >
+              <LayoutDashboard className="h-4 w-4" /> Customize dashboard
+            </button>
+            <button
+              onClick={() => navigate("/projects")}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+            >
+              <Plus className="h-4 w-4" /> New Project
+            </button>
+          </div>
         }
       />
 
       {/* ── 2. Key Statistics ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard icon={FolderKanban} label="Active Projects" value={stats.activeCount} color="blue" />
-        <StatCard icon={ListChecks} label="Entries This Week" value={stats.weekCount} color="emerald" loading={entriesLoading} />
-        <StatCard icon={Clock} label="Total Time Logged" value={formatDuration(stats.totalMinutes)} color="orange" loading={entriesLoading} />
-      </div>
 
       {/* ── Deadline Reminders ─────────────────────────────────────────── */}
-      {entriesLoading ? (
-        <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-2">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-3 w-56" />
-        </div>
-      ) : (
-        <DeadlineReminders entries={allEntries} projectNames={projectNames} />
-      )}
 
       {truncated && (
         <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -333,138 +778,146 @@ export default function DashboardPage() {
         </p>
       )}
 
-      {/* ── 3. Activity + Projects ──────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Activity Chart — 3/5 */}
-        <div className="lg:col-span-3 bg-white rounded-lg border border-slate-200">
-          <div className="px-4 py-3 border-b border-slate-100">
-            <h2 className="text-sm font-semibold text-slate-900">Activity</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">Minutes logged — last 7 days</p>
-          </div>
-          <div className="p-4">
-            <ActivityChart data={activityData} />
-          </div>
-        </div>
+      {layoutSaveFailed && (
+        <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Your layout is saved on this device, but couldn't be saved to your account. It will show here, but not on your other devices yet.
+        </p>
+      )}
 
-        {/* Current Projects — 2/5 */}
-        <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200">
-          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">Current Projects</h2>
-            <button
-              onClick={() => navigate("/projects")}
-              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+      {arrangingPanels && (
+        <p className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          Drag a panel onto another panel to move it. Changes are saved automatically.
+        </p>
+      )}
+
+      {usesDefaultLayout && !arrangingPanels ? (
+        <>
+          {renderPanel("entry-streak")}
+          {renderPanel("deadline-reminders")}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3">{renderPanel("activity")}</div>
+            <div className="lg:col-span-2">{renderPanel("current-projects")}</div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3">{renderPanel("entry-progress")}</div>
+            <div className="lg:col-span-2">{renderPanel("monthly-entries")}</div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3">{renderPanel("week-comparison")}</div>
+            <div className="lg:col-span-2">{renderPanel("tag-ranking")}</div>
+          </div>
+          {renderPanel("tags")}
+          {renderPanel("recent-entries")}
+        </>
+      ) : selectedPanels.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
+          {selectedPanels.map((panel, index) => (
+            <section
+              key={panel}
+              draggable={arrangingPanels}
+              onDragStart={(event) => {
+                event.dataTransfer.setData("text/plain", panel);
+                event.dataTransfer.effectAllowed = "move";
+                setDraggedPanel(panel);
+              }}
+              onDragOver={(event) => {
+                if (!arrangingPanels || draggedPanel === panel) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                setDragOverPanel(panel);
+              }}
+              onDrop={(event) => arrangingPanels && handlePanelDrop(panel, event)}
+              onDragEnd={() => {
+                setDraggedPanel(null);
+                setDragOverPanel(null);
+              }}
+              className={`${customPanelWidth(index)} ${arrangingPanels ? "relative cursor-grab active:cursor-grabbing" : ""} ${dragOverPanel === panel ? "rounded-lg ring-2 ring-blue-500 ring-offset-2" : ""}`}
+              aria-label={panelDetail(panel).title}
             >
-              View all
-            </button>
-          </div>
-          <div className="p-4">
-            {projectTimeData.length === 0 ? (
-              <div className="text-center py-8">
-                <FolderOpen className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-sm text-slate-400">No active projects.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {projectTimeData.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => navigate(`/projects/${p.id}`)}
-                    className="w-full flex items-center gap-3 py-2 px-3 -mx-3 rounded-lg hover:bg-slate-50 transition text-left group"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 truncate group-hover:text-blue-600 transition">
-                        {p.name}
-                      </p>
-                      <TagList tags={p.tags} className="mt-1" />
-                    </div>
-                    <span className="text-xs font-medium text-slate-500 shrink-0">
-                      {formatDuration(p.minutes)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── 4. Tags ──────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-lg border border-slate-200">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">Tags</h2>
-          <button
-            onClick={() => navigate("/entries")}
-            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Browse entries
-          </button>
-        </div>
-        <div className="p-4">
-          {tagStats.length === 0 ? (
-            <p className="text-sm text-slate-400">
-              No tags yet. Add a tag to a project or entry to see it here.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {tagStats.map((t) => (
-                <span
-                  key={t.name}
-                  className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100"
-                >
-                  {t.name}
-                  <span className="px-1.5 py-0.5 rounded-full bg-white/70 text-[10px] font-semibold text-blue-600">
-                    {t.count}
-                  </span>
+              {arrangingPanels && (
+                <span className="absolute right-2 top-2 z-10 rounded bg-white/90 p-1 text-slate-400 shadow-sm" aria-hidden="true">
+                  <GripVertical className="h-4 w-4" />
                 </span>
-              ))}
-            </div>
-          )}
+              )}
+              {renderPanel(panel)}
+            </section>
+          ))}
         </div>
-      </div>
+      )}
 
-      {/* ── 5. Recent Entries ───────────────────────────────────────────── */}
-      <div className="bg-white rounded-lg border border-slate-200">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">Recent Entries</h2>
-          <button
-            onClick={() => navigate("/entries")}
-            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-          >
-            View all
-          </button>
+      {selectedPanels.length === 0 && (
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+          <h2 className="text-sm font-semibold text-slate-800">Your dashboard is ready to customise</h2>
+          <p className="mt-1 text-sm text-slate-500">Choose statistics or information panels to start building your view.</p>
+          <button onClick={openPanelPicker} className="mt-4 text-sm font-medium text-blue-600 hover:text-blue-700">Choose panels</button>
         </div>
-        {recentEntries.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-sm text-slate-400">No entries yet. Start logging work to see activity here.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {recentEntries.map((entry) => (
-              <div
-                key={entry.id}
-                className="px-4 py-3 hover:bg-slate-50/50 transition"
-              >
-                <div className="flex items-center gap-4">
-                  <span className="text-[11px] font-medium text-slate-400 w-16 shrink-0">
-                    {relativeDay(entry.entryDate || entry.createdAt)}
+      )}
+
+      <Modal open={panelPickerOpen} onClose={() => setPanelPickerOpen(false)} title="Customize dashboard" wide>
+        <p className="mb-4 text-sm text-slate-500">Choose the statistics and information you want to monitor, then use the arrows to arrange selected panels. Your layout is saved to your account, so it's the same on every device.</p>
+        <fieldset className="space-y-2">
+          <legend className="sr-only">Dashboard panels</legend>
+          {[
+            ...draftPanels,
+            ...DASHBOARD_PANELS.filter((panel) => !draftPanels.includes(panel)),
+            ...(availableStatistics ?? [])
+              .map((statistic) => statisticPanelId(statistic.projectId, statistic.id))
+              .filter((panel) => !draftPanels.includes(panel)),
+          ].map((panel) => {
+            const detail = panelDetail(panel);
+            const panelIndex = draftPanels.indexOf(panel);
+            const selected = panelIndex >= 0;
+            return (
+              <div key={panel} className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+                <label className="flex flex-1 cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => toggleDraftPanel(panel)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-slate-800">{detail.title}</span>
+                    <span className="block text-xs text-slate-500">{detail.description}</span>
                   </span>
-                  <span className="text-sm text-slate-800 flex-1 min-w-0 truncate">
-                    {entrySummary(entry, fieldsByProject[entry.projectId] || [])}
-                  </span>
-                  <span className="text-xs font-medium text-slate-600 shrink-0 w-16 text-right">
-                    {formatDuration(entry.durationMinutes)}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 shrink-0">
-                    {projectNames[entry.projectId] || "Unknown"}
-                  </span>
-                </div>
-                <TagList tags={entry.tags} className="mt-1.5 ml-[72px]" />
+                </label>
+                {selected && (
+                  <div className="flex shrink-0 flex-col" aria-label={`${detail.title} position`}>
+                    <button
+                      type="button"
+                      onClick={() => moveDraftPanel(panel, -1)}
+                      disabled={panelIndex === 0}
+                      aria-label={`Move ${detail.title} up`}
+                      className="rounded p-1 text-slate-500 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-30"
+                    ><ChevronUp className="h-4 w-4" /></button>
+                    <button
+                      type="button"
+                      onClick={() => moveDraftPanel(panel, 1)}
+                      disabled={panelIndex === draftPanels.length - 1}
+                      aria-label={`Move ${detail.title} down`}
+                      className="rounded p-1 text-slate-500 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-30"
+                    ><ChevronDown className="h-4 w-4" /></button>
+                  </div>
+                )}
               </div>
-            ))}
+            );
+          })}
+        </fieldset>
+        <p className="mt-3 text-xs text-slate-500">
+          {availableStatistics === null
+            ? "Loading your saved statistics…"
+            : availableStatistics.length === 0
+              ? "Statistics you save on the Stats page can be added here too."
+              : "Your saved statistics from the Stats page are listed with the other panels."}
+        </p>
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <button onClick={restoreDefaultLayout} className="text-sm font-medium text-blue-600 hover:text-blue-700">Restore defaults</button>
+          <div className="flex gap-2">
+            <button onClick={() => setPanelPickerOpen(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button onClick={savePanelSelection} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Save dashboard</button>
           </div>
-        )}
-      </div>
+        </div>
+      </Modal>
     </div>
   );
 }
