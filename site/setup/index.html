@@ -446,6 +446,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#push-notifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Push notifications
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#commit-convention" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -552,6 +574,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../testing/" class="md-nav__link">
         
   
@@ -560,6 +609,33 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Quickstart
   
 
     
@@ -991,6 +1067,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#push-notifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Push notifications
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#commit-convention" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1063,29 +1161,108 @@
 <p>From the repository root (installs all workspace packages):</p>
 <div class="highlight"><pre><span></span><code>npm<span class="w"> </span>install
 </code></pre></div>
+<p>Then build the shared package once:</p>
+<div class="highlight"><pre><span></span><code>npm<span class="w"> </span>run<span class="w"> </span>build<span class="w"> </span>--workspace<span class="o">=</span>packages/shared
+</code></pre></div>
+<p><code>@logbook/shared</code> ships compiled JavaScript and declarations rather than
+TypeScript source, and the backend resolves it through <code>packages/shared/dist</code>.
+Until it is built, the backend fails to start with
+<code>Cannot find module '…/node_modules/@logbook/shared/dist/index.js'</code>. Re-run it
+after changing anything in <code>packages/shared/src</code>, or the backend keeps using the
+old build. (The frontend reads <code>packages/shared/src</code> directly through an alias in
+<code>vite.config.ts</code>, so it does not need the build.)</p>
 <h3 id="4-configure-environment-variables">4. Configure environment variables</h3>
 <p>Create <code>apps/backend/.env</code> from the example file:</p>
 <div class="highlight"><pre><span></span><code>cp<span class="w"> </span>apps/backend/.env.example<span class="w"> </span>apps/backend/.env
 </code></pre></div>
-<p>Edit <code>apps/backend/.env</code> and set the following variables:</p>
-<div class="highlight"><pre><span></span><code># Get your connection string from the Neon dashboard → Connection Details.
-# It contains your database password — treat it as a secret and never commit it.
-DATABASE_URL=postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require
-
-PORT=3000
-APP_URL=http://localhost:5173
+<p>Then edit <code>apps/backend/.env</code>. The example is a template, not working values:
+<strong>delete or blank every placeholder you are not replacing with a real value.</strong>
+A leftover placeholder such as <code>RESEND_API_KEY=re_xxxxxxxxxxxxx</code> makes the
+backend believe email is configured, so new accounts are no longer
+auto-verified and cannot sign in.</p>
+<p><strong>Required for local development:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATABASE_URL</code></td>
+<td>Neon connection string (Neon dashboard → Connection Details). Contains the database password.</td>
+</tr>
+<tr>
+<td><code>PORT</code></td>
+<td>Backend port, normally <code>3000</code> (the Vite proxy expects it).</td>
+</tr>
+<tr>
+<td><code>APP_URL</code></td>
+<td>Frontend URL, <code>http://localhost:5173</code> locally. Used in email links and the Google Calendar redirect.</td>
+</tr>
+<tr>
+<td><code>JWT_SECRET</code></td>
+<td>Signs login tokens. Optional locally, but without it the backend generates a new secret on every start, so <strong>every restart signs you out</strong>. Required in production, where the server refuses to start without it.</td>
+</tr>
+</tbody>
+</table>
+<p>Generate any secret in this guide with:</p>
+<div class="highlight"><pre><span></span><code>node<span class="w"> </span>-e<span class="w"> </span><span class="s2">"console.log(require('crypto').randomBytes(48).toString('hex'))"</span>
 </code></pre></div>
+<p><strong>Optional, per feature:</strong> leave these unset and the feature is simply off.</p>
+<table>
+<thead>
+<tr>
+<th>Variable(s)</th>
+<th>Feature</th>
+<th>Without it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RESEND_API_KEY</code>, <code>RESEND_FROM</code></td>
+<td>Email via <a href="https://resend.com">Resend</a> (recommended)</td>
+<td>Accounts are auto-verified; links are logged to the backend console</td>
+</tr>
+<tr>
+<td><code>GMAIL_USER</code>, <code>GMAIL_APP_PASSWORD</code></td>
+<td>Email via Gmail SMTP (used only when Resend is not set)</td>
+<td>As above</td>
+</tr>
+<tr>
+<td><code>TWO_FACTOR_ENCRYPTION_KEY</code></td>
+<td>Encrypts 2FA secrets</td>
+<td>Enabling 2FA returns <code>503</code>. Never change it once set: existing 2FA users would be locked out</td>
+</tr>
+<tr>
+<td><code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>, <code>GOOGLE_REDIRECT_URI</code>, <code>GOOGLE_TOKEN_ENCRYPTION_KEY</code></td>
+<td>Google Calendar sync</td>
+<td>The Calendar page reports that Google Calendar is not configured</td>
+</tr>
+<tr>
+<td><code>VAPID_PUBLIC_KEY</code>, <code>VAPID_PRIVATE_KEY</code> (and optionally <code>VAPID_SUBJECT</code>)</td>
+<td>Push notifications for reminders (see <a href="#push-notifications">Push notifications</a>)</td>
+<td>Reminders stay in-app only; the backend logs <code>VAPID keys not set</code> on start</td>
+</tr>
+<tr>
+<td><code>RATE_LIMIT_*</code>, <code>RATE_LIMIT_DISABLED</code>, <code>TRUST_PROXY_HOPS</code></td>
+<td>Rate-limit tuning</td>
+<td>Sensible defaults apply; see the comments in <code>.env.example</code></td>
+</tr>
+</tbody>
+</table>
 <blockquote>
-<p><strong>Warning:</strong> Never commit <code>.env</code> files with real credentials to the repository, and never paste real connection strings into documentation — the docs site is publicly accessible.</p>
+<p><strong>Warning:</strong> Never commit <code>.env</code> files with real credentials to the repository, and never paste real connection strings or keys into documentation — the docs site is publicly accessible. <code>.env</code> is already listed in <code>.gitignore</code>.</p>
 </blockquote>
 <h3 id="5-set-up-the-database-schema">5. Set up the database schema</h3>
 <p>The backend uses Prisma 7 with a <code>prisma.config.ts</code> file that reads the <code>DATABASE_URL</code> from your <code>.env</code>. All Prisma commands must be run from inside the <code>apps/backend/</code> directory:</p>
 <div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>apps/backend
 npx<span class="w"> </span>prisma<span class="w"> </span>generate
-npx<span class="w"> </span>prisma<span class="w"> </span>db<span class="w"> </span>push
+npx<span class="w"> </span>prisma<span class="w"> </span>migrate<span class="w"> </span>deploy
 </code></pre></div>
 <blockquote>
-<p>This creates all tables (<code>users</code>, <code>projects</code>, <code>entry_fields</code>, <code>entries</code>, <code>password_resets</code>) in your Neon database. Use <code>npx prisma db push --force-reset</code> if you need to clear existing data during development.</p>
+<p>The migration history was squashed on 2026-09-27 into a baseline, <code>prisma/migrations/0_init</code>, which creates the core schema (eighteen tables, enums, unique indexes and foreign keys) on an empty database. Dated migrations after it add the rest — push subscriptions, dashboard layouts, and unique entry-field names — for twenty tables in all. <code>npx prisma migrate deploy</code> applies them in order, so it bootstraps a fresh Neon project end-to-end; there is no need for <code>prisma db push</code>, and new schema changes should arrive as dated migrations (<code>npx prisma migrate dev --name &lt;change&gt;</code>).</p>
 </blockquote>
 <h3 id="6-run-development-servers">6. Run development servers</h3>
 <p>You need <strong>both</strong> servers running simultaneously:</p>
@@ -1098,8 +1275,9 @@ npx<span class="w"> </span>prisma<span class="w"> </span>db<span class="w"> </sp
 <p>The frontend proxies <code>/api/*</code> requests to <code>http://localhost:3000</code> via the Vite config.</p>
 <p>Open <a href="http://localhost:5173">http://localhost:5173</a> in your browser to use the app.</p>
 <blockquote>
-<p><strong>Note:</strong> Both servers must be running. Without the backend, all API calls return a <code>502 Bad Gateway</code>.</p>
+<p><strong>Note:</strong> Both servers must be running. Without the backend, the Vite terminal logs <code>http proxy error: /api/… ECONNREFUSED</code> and every request fails — see <a href="#troubleshooting">Troubleshooting</a>.</p>
 </blockquote>
+<p>When the backend starts you will see a <code>SECURITY WARNING</code> from <code>pg</code> about SSL modes. It is harmless; changing <code>sslmode=require</code> to <code>sslmode=verify-full</code> in <code>DATABASE_URL</code> silences it without changing behaviour.</p>
 <h2 id="project-scripts">Project Scripts</h2>
 <table>
 <thead>
@@ -1116,9 +1294,14 @@ npx<span class="w"> </span>prisma<span class="w"> </span>db<span class="w"> </sp
 <td>Start backend with hot reload (<code>tsx watch</code>)</td>
 </tr>
 <tr>
-<td><code>npm run dev</code></td>
-<td><code>apps/frontend</code></td>
-<td>Start Vite dev server</td>
+<td><code>npm run build</code></td>
+<td><code>apps/backend</code></td>
+<td>Compile TypeScript to <code>dist/</code></td>
+</tr>
+<tr>
+<td><code>npm run start</code></td>
+<td><code>apps/backend</code></td>
+<td>Run the compiled backend (<code>dist/index.js</code>)</td>
 </tr>
 <tr>
 <td><code>npm run typecheck</code></td>
@@ -1128,7 +1311,7 @@ npx<span class="w"> </span>prisma<span class="w"> </span>db<span class="w"> </sp
 <tr>
 <td><code>npm run test</code></td>
 <td><code>apps/backend</code></td>
-<td>Run Vitest integration tests</td>
+<td>Run the Vitest suite (against the database in <code>.env</code>)</td>
 </tr>
 <tr>
 <td><code>npm run test:watch</code></td>
@@ -1136,9 +1319,44 @@ npx<span class="w"> </span>prisma<span class="w"> </span>db<span class="w"> </sp
 <td>Run tests in watch mode</td>
 </tr>
 <tr>
-<td><code>npm run build</code></td>
+<td><code>npm run test:coverage</code></td>
 <td><code>apps/backend</code></td>
-<td>Compile TypeScript to <code>dist/</code></td>
+<td>Run tests with a coverage report</td>
+</tr>
+<tr>
+<td><code>npm run build</code></td>
+<td><code>packages/shared</code></td>
+<td>Compile the shared package to <code>dist/</code></td>
+</tr>
+<tr>
+<td><code>npm run dev</code></td>
+<td><code>apps/frontend</code></td>
+<td>Start Vite dev server</td>
+</tr>
+<tr>
+<td><code>npm run build</code></td>
+<td><code>apps/frontend</code></td>
+<td>Type-check and build the production bundle to <code>dist/</code></td>
+</tr>
+<tr>
+<td><code>npm run preview</code></td>
+<td><code>apps/frontend</code></td>
+<td>Serve the production build locally</td>
+</tr>
+<tr>
+<td><code>npm run test</code></td>
+<td><code>apps/frontend</code></td>
+<td>Run the Vitest + Testing Library suite (jsdom, no backend needed)</td>
+</tr>
+<tr>
+<td><code>npm run test:watch</code></td>
+<td><code>apps/frontend</code></td>
+<td>Run tests in watch mode</td>
+</tr>
+<tr>
+<td><code>npm run test:coverage</code></td>
+<td><code>apps/frontend</code></td>
+<td>Run tests with a coverage report</td>
 </tr>
 <tr>
 <td><code>npm run lint</code></td>
@@ -1158,30 +1376,90 @@ npx<span class="w"> </span>prisma<span class="w"> </span>db<span class="w"> </sp
 <p><strong>Note:</strong> The backend does not have a separate <code>lint</code> script. The root-level <code>npm run lint</code> command uses <code>--if-present</code>, so it will skip the backend gracefully.</p>
 </blockquote>
 <h2 id="testing">Testing</h2>
-<p>The backend includes 27 integration tests using Vitest and Supertest that exercise all API endpoints (projects, entries, entry fields) against the live Neon database.</p>
+<p>Both apps use <a href="https://vitest.dev">Vitest</a>.</p>
+<ul>
+<li><strong>Backend</strong> (<code>apps/backend/src/__tests__/</code>): integration tests using Supertest, one file per area (auth, entries, statistics, reminders, push, automation rules and so on). They run against the database in <code>apps/backend/.env</code>, so that file must be set up first.</li>
+<li><strong>Frontend</strong> (<code>apps/frontend/src/**/__tests__/</code>): component, page and library tests using Testing Library in jsdom. They mock the API and need no backend.</li>
+</ul>
 <div class="highlight"><pre><span></span><code><span class="c1"># Run all tests</span>
 npm<span class="w"> </span>run<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--workspace<span class="o">=</span>backend
+npm<span class="w"> </span>run<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--workspace<span class="o">=</span>frontend
+
+<span class="c1"># Run one area only (matches file names)</span>
+npm<span class="w"> </span>run<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--workspace<span class="o">=</span>backend<span class="w"> </span>--<span class="w"> </span>automation
 
 <span class="c1"># Run tests in watch mode</span>
 npm<span class="w"> </span>run<span class="w"> </span>test:watch<span class="w"> </span>--workspace<span class="o">=</span>backend
 </code></pre></div>
-<p>Tests are located in <code>apps/backend/src/__tests__/api.test.ts</code>.</p>
+<p>See <a href="../testing/">Testing</a> for the test strategy.</p>
 <h2 id="shared-types-package">Shared Types Package</h2>
 <p>The <code>@logbook/shared</code> package (<code>packages/shared/</code>) contains TypeScript interfaces, Zod validation schemas, and types shared between frontend and backend. It is linked via npm workspaces (<code>"@logbook/shared": "*"</code>).</p>
 <p>After modifying shared types:
-1. Restart both dev servers
-2. Regenerate the Prisma client if the schema changed: run <code>npx prisma generate</code> from <code>apps/backend/</code></p>
+1. Rebuild the package: <code>npm run build --workspace=packages/shared</code>
+2. Restart both dev servers</p>
+<p>After changing <code>apps/backend/prisma/schema.prisma</code>, regenerate the Prisma client with <code>npx prisma generate</code> from <code>apps/backend/</code>.</p>
 <h2 id="authentication-email">Authentication &amp; Email</h2>
 <p>The app uses JWT-based authentication with email verification and optional two-factor authentication (2FA):</p>
 <ul>
 <li><strong>Registration</strong> creates a user with an unverified email</li>
-<li><strong>Email verification</strong> — a verification link is sent via Gmail SMTP (if configured)</li>
+<li><strong>Email verification</strong> — a verification link is sent by email (if configured)</li>
 <li><strong>Login</strong> is blocked until the email is verified</li>
 <li><strong>Password reset</strong> — reset link sent via email</li>
-<li><strong>Two-factor authentication (2FA)</strong> — TOTP-based 2FA using <code>otplib</code>. Users can enable/disable 2FA in Settings. When enabled, a QR code is generated for authenticator app setup.</li>
+<li><strong>Two-factor authentication (2FA)</strong> — TOTP-based 2FA using <code>otplib</code>, with recovery codes. Users can enable/disable 2FA in Settings. When enabled, a QR code is generated for authenticator app setup. Requires <code>TWO_FACTOR_ENCRYPTION_KEY</code>.</li>
 </ul>
-<p><strong>Dev mode (no Gmail credentials):</strong> accounts are automatically verified so you can develop without email setup. The verification link is logged to the backend console.</p>
-<p><strong>Production mode:</strong> set <code>GMAIL_USER</code> and <code>GMAIL_APP_PASSWORD</code> in <code>.env</code> to enable real email sending.</p>
+<p><strong>Dev mode (no email provider):</strong> accounts are automatically verified so you can develop without email setup. The verification link is logged to the backend console.</p>
+<p><strong>Real email:</strong> set <code>RESEND_API_KEY</code> and <code>RESEND_FROM</code> (recommended), or <code>GMAIL_USER</code> and <code>GMAIL_APP_PASSWORD</code>. If both are set, Resend is used.</p>
+<h2 id="push-notifications">Push notifications</h2>
+<p>Reminders can notify a device even when the logbook is closed, using web push.</p>
+<ol>
+<li>Generate a key pair once: <code>npx web-push generate-vapid-keys</code>.</li>
+<li>Put the pair in <code>VAPID_PUBLIC_KEY</code> and <code>VAPID_PRIVATE_KEY</code> — the <strong>same pair</strong> everywhere (local <code>.env</code> and the Render environment). A browser subscribed with one public key cannot receive pushes signed with another, and changing the keys cuts off every existing subscription.</li>
+<li>In the app, turn on <strong>Settings → Reminders → Notify me on this device</strong> and allow notifications when the browser asks. If it was already on before the keys were set, turn it off and on again.</li>
+</ol>
+<p><strong>Push only works in a production build.</strong> The service worker that receives pushes is registered only when <code>import.meta.env.PROD</code> is true, so under <code>npm run dev</code> the app falls back to in-app notifications: they appear only while a logbook tab is open, and the tab checks for due reminders every five minutes. Test real push against the deployed site, with the logbook tab closed but the browser still running.</p>
+<p>If notifications never appear, check in order: the browser's site permission for notifications (<code>Notification.permission</code> in the console should be <code>"granted"</code>), the operating system's notification settings for the browser (including Do Not Disturb), and — on the deployed site — that the backend is awake, since Render's free tier sleeps when idle and pushes are only sent while it runs. On iPhone, push requires the app to be added to the home screen. Notification sound is controlled by the operating system, not the app.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Login says <strong>"Invalid email or password."</strong> with correct details, and the Vite terminal shows <code>http proxy error … ECONNREFUSED</code></td>
+<td>The backend is not running, so the frontend gets no response and falls back to that message</td>
+<td>Start the backend (<code>npm run dev --workspace=backend</code>) and check it prints <code>Backend running on http://localhost:3000</code></td>
+</tr>
+<tr>
+<td>Backend fails with <code>Cannot find module '…/@logbook/shared/dist/index.js'</code></td>
+<td>The shared package has not been built</td>
+<td><code>npm run build --workspace=packages/shared</code>, then start the backend again</td>
+</tr>
+<tr>
+<td>You are signed out every time the backend restarts; the backend logs <code>JWT_SECRET is not set</code></td>
+<td>No <code>JWT_SECRET</code>, so a new one is generated per process</td>
+<td>Set <code>JWT_SECRET</code> in <code>apps/backend/.env</code></td>
+</tr>
+<tr>
+<td>New accounts cannot sign in: "Please verify your email address"</td>
+<td>A real or placeholder email key is set, so auto-verification is off</td>
+<td>Use the emailed link, or remove the placeholder <code>RESEND_*</code>/<code>GMAIL_*</code> values for local development</td>
+</tr>
+<tr>
+<td>Enabling 2FA returns an error about an encryption key</td>
+<td><code>TWO_FACTOR_ENCRYPTION_KEY</code> is not set</td>
+<td>Set it and restart the backend</td>
+</tr>
+<tr>
+<td>VS Code shows "An environment file is configured but terminal environment injection is disabled"</td>
+<td>A notice from the Python extension, unrelated to this project</td>
+<td>Ignore it; the backend loads <code>.env</code> itself</td>
+</tr>
+</tbody>
+</table>
 <h2 id="commit-convention">Commit Convention</h2>
 <p>All commits must follow <a href="https://www.conventionalcommits.org/">Conventional Commits</a> format:</p>
 <div class="highlight"><pre><span></span><code>&lt;type&gt;: &lt;description&gt;

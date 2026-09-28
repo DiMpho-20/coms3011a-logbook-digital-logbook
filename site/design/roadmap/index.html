@@ -345,6 +345,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../testing/" class="md-nav__link">
         
   
@@ -353,6 +380,33 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Quickstart
   
 
     
@@ -743,10 +797,54 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#m7-release-and-demonstration" class="md-nav__link">
+  <a href="#m7-statistics-and-expressions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        M7 – Release and demonstration
+        M7 – Statistics and expressions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m8-personal-dashboard-and-automation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M8 – Personal dashboard and automation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m9-record-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M9 – Record history
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m10-search-and-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M10 – Search and performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m11-release-and-demonstration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M11 – Release and demonstration
       
     </span>
   </a>
@@ -763,17 +861,6 @@
     <span class="md-ellipsis">
       
         Dependency map
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#advanced-scope" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Advanced scope
       
     </span>
   </a>
@@ -975,10 +1062,54 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#m7-release-and-demonstration" class="md-nav__link">
+  <a href="#m7-statistics-and-expressions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        M7 – Release and demonstration
+        M7 – Statistics and expressions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m8-personal-dashboard-and-automation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M8 – Personal dashboard and automation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m9-record-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M9 – Record history
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m10-search-and-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M10 – Search and performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m11-release-and-demonstration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M11 – Release and demonstration
       
     </span>
   </a>
@@ -995,17 +1126,6 @@
     <span class="md-ellipsis">
       
         Dependency map
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#advanced-scope" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Advanced scope
       
     </span>
   </a>
@@ -1046,10 +1166,12 @@
 product brief to the user stories, team work areas, dependencies, testing and
 release activities. A milestone is only complete when its acceptance tests pass
 in the integrated application.</p>
-<p>The agreed scope contains the Basic user stories (US00.1–US06) and
-Intermediate user stories (US07–US15). The brief names an <strong>Advanced</strong> section,
-but provides no Advanced user stories; that scope must be agreed before it is
-scheduled.</p>
+<p>The agreed scope contains the Basic user stories (US00.1–US06), the
+Intermediate user stories (US07–US15), and the Advanced user stories
+(US22–US37). The brief's <strong>Advanced</strong> section gave requirements but no user
+stories, so the team wrote the Advanced stories and acceptance tests
+themselves at the start of Sprint 3 and tracked them as Gitea issues #94–#109
+under the <code>Sprint 3 - Advanced Logbook</code> milestone.</p>
 <h2 id="delivery-at-a-glance">Delivery at a glance</h2>
 <pre class="mermaid"><code>flowchart LR
     F["Foundation&lt;br/&gt;repository, frontend, API, database"] --&gt; S1["Sprint 1: Core logbook&lt;br/&gt;US00.1–US06"]
@@ -1059,8 +1181,14 @@ scheduled.</p>
     P1 --&gt; I["Integration &amp; acceptance testing"]
     P2 --&gt; I
     P3 --&gt; I
-    I --&gt; R["Release / demonstration"]
-    R --&gt; A["Advanced scope&lt;br/&gt;to be agreed"]</code></pre>
+    I --&gt; A1["Sprint 3A: Statistics &amp; expressions&lt;br/&gt;US22–US24"]
+    I --&gt; A2["Sprint 3B: Dashboard &amp; automation&lt;br/&gt;US25–US28"]
+    I --&gt; A3["Sprint 3C: Record history&lt;br/&gt;US29–US32"]
+    I --&gt; A4["Sprint 3D: Search &amp; performance&lt;br/&gt;US33–US37"]
+    A1 --&gt; R["Release / demonstration"]
+    A2 --&gt; R
+    A3 --&gt; R
+    A4 --&gt; R</code></pre>
 <h2 id="milestones-and-status">Milestones and status</h2>
 <table>
 <thead>
@@ -1091,39 +1219,67 @@ scheduled.</p>
 <td>M2 – Core logbook</td>
 <td>US01–US06: projects, formats, entries, time, archiving, browsing/filtering</td>
 <td>Whole team</td>
-<td>Complete, subject to regression testing</td>
+<td>Complete</td>
 <td>Core acceptance tests pass</td>
 </tr>
 <tr>
 <td>M3 – Rich entry formats</td>
 <td>US07–US10: rich fields, editable/versioned formats, computed fields</td>
 <td>Person 1</td>
-<td>Implemented; acceptance testing in progress</td>
+<td>Complete</td>
 <td>Rich-field, format-history and computed-field tests pass</td>
 </tr>
 <tr>
 <td>M4 – Statistics and views</td>
 <td>US11–US13: custom-field analysis, calendar/board views, due/unfinished work</td>
 <td>Person 2</td>
-<td>In progress</td>
-<td>Statistics, view and due-date acceptance tests pass</td>
+<td>Complete</td>
+<td>Statistics, view and due-date tests pass</td>
 </tr>
 <tr>
 <td>M5 – Resilience and portability</td>
 <td>US14–US15: offline capture/sync, export/import</td>
 <td>Person 3</td>
-<td>In progress</td>
-<td>Offline/reconnect and backup/restore tests pass</td>
+<td>Complete</td>
+<td>Offline and export/import tests pass</td>
 </tr>
 <tr>
 <td>M6 – Integration and quality</td>
 <td>Cross-feature integration, regression, responsive and usability testing</td>
 <td>Person 4 with all members</td>
-<td>Planned / ongoing alongside M3–M5</td>
-<td>Test results, defect fixes and a clean build</td>
+<td>Ongoing</td>
+<td>Test results, defect fixes and a clean CI build</td>
 </tr>
 <tr>
-<td>M7 – Release</td>
+<td>M7 – Statistics and expressions</td>
+<td>US22–US24: custom expressions, saved statistics, automation rules</td>
+<td>Member 1</td>
+<td>Complete</td>
+<td>Expression, statistic and automation tests pass</td>
+</tr>
+<tr>
+<td>M8 – Dashboard and automation</td>
+<td>US25–US28: custom dashboard, persisted layout, recurring entries, reminders</td>
+<td>Member 2</td>
+<td>Complete</td>
+<td>Dashboard, recurrence, reminder and push tests pass</td>
+</tr>
+<tr>
+<td>M9 – Record history</td>
+<td>US29–US32: version history, view as of a date, restore, archiving</td>
+<td>Member 3</td>
+<td>US29–US31 complete; US32 in progress</td>
+<td>History and restore tests pass</td>
+</tr>
+<tr>
+<td>M10 – Search and performance</td>
+<td>US33–US37: query performance, structured, combined and ranked search</td>
+<td>Member 4</td>
+<td>US33 complete; US34–US37 in backlog</td>
+<td>Performance work merged; search stories outstanding</td>
+</tr>
+<tr>
+<td>M11 – Release</td>
 <td>Deployment check, documentation, final demonstration and submission</td>
 <td>Whole team</td>
 <td>Planned</td>
@@ -1153,7 +1309,7 @@ Password, US00.4 Delete Account.</p>
 <li>Email verification and password reset.</li>
 <li>Account deletion and related data handling.</li>
 </ul>
-<p><strong>Dependency:</strong> M0. M2–M5 require authenticated ownership checks.</p>
+<p><strong>Dependency:</strong> M0. Every later milestone requires authenticated ownership checks.</p>
 <hr />
 <h3 id="m2-basic-digital-logbook">M2 – Basic digital logbook</h3>
 <p><strong>User stories:</strong> US01–US06.</p>
@@ -1164,7 +1320,7 @@ work.</p>
 <tr>
 <th>Capability</th>
 <th>User stories</th>
-<th>Planned outcome</th>
+<th>Outcome</th>
 </tr>
 </thead>
 <tbody>
@@ -1205,9 +1361,9 @@ before US04 and US06.</p>
 <thead>
 <tr>
 <th>Story</th>
-<th>Planned capability</th>
+<th>Capability</th>
 <th>Dependency</th>
-<th>Current status</th>
+<th>Status</th>
 </tr>
 </thead>
 <tbody>
@@ -1215,37 +1371,28 @@ before US04 and US06.</p>
 <td>US07</td>
 <td>Tags, checklists, links and references</td>
 <td>M2 entry formats and entries</td>
-<td>Implemented; Tags, Checklist and Link checks have passed; Reference and rich-value-display checks remain</td>
+<td>Complete</td>
 </tr>
 <tr>
 <td>US08</td>
 <td>Add, remove and rename fields in an existing format</td>
 <td>US02</td>
-<td>Implemented; acceptance testing remains</td>
+<td>Complete</td>
 </tr>
 <tr>
 <td>US09</td>
 <td>Immutable format history; older entries stay readable</td>
 <td>US08 and existing entries</td>
-<td>Implemented; acceptance testing remains</td>
+<td>Complete</td>
 </tr>
 <tr>
 <td>US10</td>
 <td>Computed number fields based on other numeric fields</td>
 <td>US02/US03</td>
-<td>Implemented; acceptance testing remains</td>
+<td>Complete</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Implementation sequence:</strong></p>
-<ol>
-<li>Extend the shared field model and database schema.</li>
-<li>Add backend validation and field CRUD operations.</li>
-<li>Add safe format snapshots whenever a format changes.</li>
-<li>Build rich-field and computed-field controls in the project and entry UI.</li>
-<li>Test field creation, entry display, field edits, historical entries and
-   formula recalculation.</li>
-</ol>
 <p><strong>Definition of done:</strong> all US07–US10 acceptance tests pass against the
 integrated database, including changes to a format after entries already exist.</p>
 <hr />
@@ -1256,7 +1403,7 @@ integrated database, including changes to a format after entries already exist.<
 <thead>
 <tr>
 <th>Story</th>
-<th>Planned capability</th>
+<th>Capability</th>
 <th>Dependency</th>
 </tr>
 </thead>
@@ -1278,15 +1425,6 @@ integrated database, including changes to a format after entries already exist.<
 </tr>
 </tbody>
 </table>
-<p><strong>Implementation sequence:</strong></p>
-<ol>
-<li>Define reusable data queries and transformations for custom-field analysis.</li>
-<li>Add charts or comparison displays without hard-coded field names.</li>
-<li>Add calendar and board representations while retaining the same underlying
-   entries as the timeline.</li>
-<li>Add unfinished/completed state and due-date filtering.</li>
-<li>Test each view with multiple projects and field types.</li>
-</ol>
 <p><strong>Definition of done:</strong> US11–US13 pass without modifying or duplicating the
 underlying entry records.</p>
 <hr />
@@ -1297,7 +1435,7 @@ underlying entry records.</p>
 <thead>
 <tr>
 <th>Story</th>
-<th>Planned capability</th>
+<th>Capability</th>
 <th>Dependency</th>
 </tr>
 </thead>
@@ -1314,16 +1452,6 @@ underlying entry records.</p>
 </tr>
 </tbody>
 </table>
-<p><strong>Implementation sequence:</strong></p>
-<ol>
-<li>Store pending entries locally with enough project/field information to
-   retry safely.</li>
-<li>Detect reconnection and synchronise without duplicating entries.</li>
-<li>Export projects, formats and entries in documented JSON/CSV forms.</li>
-<li>Validate imports and report invalid backup data clearly.</li>
-<li>Test offline creation, reconnection, duplicate protection, export and
-   restore using a separate test account or database branch.</li>
-</ol>
 <p><strong>Definition of done:</strong> no entry is lost across a connectivity interruption,
 and an exported logbook can be read and restored successfully.</p>
 <hr />
@@ -1333,26 +1461,188 @@ and an exported logbook can be read and restored successfully.</p>
 logbook.</p>
 <ul>
 <li>Apply tracked Prisma migrations to the target Neon database.</li>
-<li>Run backend/API tests, frontend production builds and linting.</li>
+<li>Run backend/API tests, frontend tests, production builds and linting in CI on every push.</li>
 <li>Test every user-story acceptance table in <code>docs/user-stories/user-stories.md</code>.</li>
 <li>Test cross-feature flows: rich/versioned formats with offline entries,
-  imported data with views/statistics, and due dates in all entry views.</li>
+  imported data with views/statistics, due dates in all entry views, and
+  automation, recurrence and restores writing entry history.</li>
 <li>Test authorisation: one student must not access another student's projects,
-  entries or exports.</li>
+  entries, statistics, rules, reminders or exports.</li>
 <li>Test error messages, empty states, responsive layouts and regression cases.</li>
 <li>Record defects, assign an owner, retest fixes and update acceptance status.</li>
 </ul>
 <p><strong>Definition of done:</strong> all required stories are marked Pass, migrations and
 deployment configuration are documented, and no known critical defect remains.</p>
 <hr />
-<h3 id="m7-release-and-demonstration">M7 – Release and demonstration</h3>
+<h3 id="m7-statistics-and-expressions">M7 – Statistics and expressions</h3>
+<p><strong>Owner:</strong> Member 1 – Custom Statistics &amp; Expressions
+<strong>User stories:</strong> US22–US24.</p>
+<table>
+<thead>
+<tr>
+<th>Story</th>
+<th>Capability</th>
+<th>Dependency</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>US22</td>
+<td>Write an expression over your own entries, evaluated safely on the server</td>
+<td>M3 custom and computed fields</td>
+<td>Complete</td>
+</tr>
+<tr>
+<td>US23</td>
+<td>Save an expression as a named statistic beside the built-in ones</td>
+<td>US22</td>
+<td>Complete</td>
+</tr>
+<tr>
+<td>US24</td>
+<td>Rules that add or remove tags or set status when an entry is saved</td>
+<td>M2 entries; tags</td>
+<td>Complete</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="m8-personal-dashboard-and-automation">M8 – Personal dashboard and automation</h3>
+<p><strong>Owner:</strong> Member 2 – Personal Dashboard &amp; Automation
+<strong>User stories:</strong> US25–US28.</p>
+<table>
+<thead>
+<tr>
+<th>Story</th>
+<th>Capability</th>
+<th>Dependency</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>US25</td>
+<td>Choose the statistics and information panels on your dashboard</td>
+<td>US23 saved statistics</td>
+<td>Complete</td>
+</tr>
+<tr>
+<td>US26</td>
+<td>Arrange the panels and keep the layout on every device</td>
+<td>US25</td>
+<td>Complete</td>
+</tr>
+<tr>
+<td>US27</td>
+<td>Entries that repeat daily, weekly or monthly</td>
+<td>M2 entry creation</td>
+<td>Complete</td>
+</tr>
+<tr>
+<td>US28</td>
+<td>Reminders from due dates, stalled work and daily logging, pushed to devices</td>
+<td>US13 due dates</td>
+<td>Complete</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="m9-record-history">M9 – Record history</h3>
+<p><strong>Owner:</strong> Member 3 – Versioning &amp; Record History
+<strong>User stories:</strong> US29–US32.</p>
+<table>
+<thead>
+<tr>
+<th>Story</th>
+<th>Capability</th>
+<th>Dependency</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>US29</td>
+<td>Every change to an entry is kept as a version</td>
+<td>M2 entries</td>
+<td>Complete</td>
+</tr>
+<tr>
+<td>US30</td>
+<td>See an entry as it was on a given date</td>
+<td>US29</td>
+<td>Complete</td>
+</tr>
+<tr>
+<td>US31</td>
+<td>Restore an earlier version, itself recorded as a new version</td>
+<td>US29</td>
+<td>Complete</td>
+</tr>
+<tr>
+<td>US32</td>
+<td>Archive old entries out of the default views without losing them</td>
+<td>M2 entries</td>
+<td>In progress</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="m10-search-and-performance">M10 – Search and performance</h3>
+<p><strong>Owner:</strong> Member 4 – Advanced Search &amp; Performance
+<strong>User stories:</strong> US33–US37.</p>
+<table>
+<thead>
+<tr>
+<th>Story</th>
+<th>Capability</th>
+<th>Dependency</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>US33</td>
+<td>Indexes, paginated entry listing and one request for open work</td>
+<td>M2 entries</td>
+<td>Complete</td>
+</tr>
+<tr>
+<td>US34</td>
+<td>Apply rules when capturing entries (overlaps with US24)</td>
+<td>US24</td>
+<td>Backlog</td>
+</tr>
+<tr>
+<td>US35</td>
+<td>Rank search results by relevance</td>
+<td>US37</td>
+<td>Backlog</td>
+</tr>
+<tr>
+<td>US36</td>
+<td>Combine several search filters</td>
+<td>US37</td>
+<td>Backlog</td>
+</tr>
+<tr>
+<td>US37</td>
+<td>Search inside custom fields</td>
+<td>M2 browsing; M3 custom fields</td>
+<td>Backlog</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="m11-release-and-demonstration">M11 – Release and demonstration</h3>
 <p><strong>Goal:</strong> deliver a stable, documented version of the agreed product.</p>
 <ol>
 <li>Merge approved feature branches into <code>main</code> through pull requests.</li>
 <li>Apply production migrations through the agreed integration process.</li>
-<li>Verify production configuration, database connectivity and authentication.</li>
+<li>Verify production configuration, database connectivity and authentication,
+   including the keys for 2FA and push notifications.</li>
 <li>Run a final demonstration: account → project → format → entry → review →
-   statistics/due work → offline/export where applicable.</li>
+   statistics/due work → offline/export → dashboard, reminders and history.</li>
 <li>Finalise architecture, setup, roadmap, user-story and testing documentation.</li>
 <li>Tag or otherwise identify the submission/release commit.</li>
 </ol>
@@ -1372,29 +1662,33 @@ deployment configuration are documented, and no known critical defect remains.</
     H --&gt; L
     E --&gt; M["US15 Export/import"]
     H --&gt; M
+    H --&gt; X["US22–US24 Expressions, statistics, rules"]
+    X --&gt; Y["US25–US26 Dashboard"]
+    E --&gt; Z["US27 Recurring entries"]
+    K --&gt; W["US28 Reminders"]
+    E --&gt; V["US29–US32 History &amp; archive"]
+    G --&gt; S["US33–US37 Search &amp; performance"]
     H --&gt; N["M6 Integration &amp; testing"]
     I --&gt; N
     J --&gt; N
-    K --&gt; N
     L --&gt; N
     M --&gt; N
-    N --&gt; O["M7 Release"]</code></pre>
-<h2 id="advanced-scope">Advanced scope</h2>
-<p>The brief contains an <strong>Advanced</strong> heading but no Advanced user stories or
-acceptance criteria. Before development begins, the team will document each
-agreed enhancement with a user story, owner, dependency, acceptance tests and
-its impact on the release plan. This prevents unapproved features from being
-presented as committed scope.</p>
+    Y --&gt; N
+    Z --&gt; N
+    W --&gt; N
+    V --&gt; N
+    S --&gt; N
+    N --&gt; O["M11 Release"]</code></pre>
 <h2 id="roadmap-completion-criteria">Roadmap completion criteria</h2>
 <p>The roadmap is complete when:</p>
 <ul>
-<li>Every agreed user story, US00.1–US15, has passed its acceptance tests.</li>
+<li>Every agreed user story, US00.1–US15 and US22–US37, has passed its
+  acceptance tests.</li>
 <li>Frontend, backend, database and migrations work together in the target
   environment.</li>
 <li>The user can safely create, find, retain, export and restore their record of
-  work.</li>
-<li>Offline, rich-format, statistics/view and due-date features do not regress
-  Basic logbook behaviour.</li>
+  work, including any past version of an entry.</li>
+<li>Advanced features do not regress Basic and Intermediate logbook behaviour.</li>
 <li>Documentation, deployment instructions and test evidence are ready for the
   final demonstration or submission.</li>
 </ul>

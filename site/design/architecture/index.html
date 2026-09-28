@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#system-architecture" class="md-skip">
+        <a href="#architecture-design" class="md-skip">
           Skip to content
         </a>
       
@@ -345,6 +345,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../testing/" class="md-nav__link">
         
   
@@ -353,6 +380,33 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Quickstart
   
 
     
@@ -524,17 +578,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#high-level-architecture" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        High-Level Architecture
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#separation-of-concerns" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -568,21 +611,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#shared-package" class="md-nav__link">
+  <a href="#shared-types" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Shared Package
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#monorepo-structure" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Monorepo Structure
+        Shared Types
       
     </span>
   </a>
@@ -770,17 +802,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#high-level-architecture" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        High-Level Architecture
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#separation-of-concerns" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -814,21 +835,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#shared-package" class="md-nav__link">
+  <a href="#shared-types" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Shared Package
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#monorepo-structure" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Monorepo Structure
+        Shared Types
       
     </span>
   </a>
@@ -852,35 +862,16 @@
 
 
 
-<h1 id="system-architecture">System Architecture</h1>
+<h1 id="architecture-design">Architecture Design</h1>
 <h2 id="overview">Overview</h2>
 <p>The Digital Logbook is designed as a non-monolithic web application consisting
 of a React frontend, an Express backend, and a PostgreSQL database.</p>
 <p>The frontend communicates with the backend through a hand-written REST API.
 The backend handles business logic, authentication, validation, and database
 access.</p>
-<h2 id="high-level-architecture">High-Level Architecture</h2>
-<div class="highlight"><pre><span></span><code>┌─────────────────┐       HTTP/REST        ┌─────────────────┐
-│                  │  ───────────────────►  │                  │
-│    Frontend      │                        │    Backend       │
-│   React + Vite   │  ◄───────────────────  │   Express API    │
-│   TypeScript     │     JSON responses     │   TypeScript     │
-│   Tailwind CSS   │                        │   Prisma ORM     │
-│                  │                        │                  │
-└─────────────────┘                        └────────┬─────────┘
-                                                    │
-                                           Prisma / pg driver
-                                                    │
-                                           ┌────────▼─────────┐
-                                           │                  │
-                                           │   PostgreSQL     │
-                                           │   (Neon hosted)  │
-                                           │                  │
-                                           └──────────────────┘
-</code></pre></div>
-<p>The frontend is a single-page application served by Vite during development
-and as static files in production. The backend is a standalone Express server.
-They communicate exclusively through JSON over HTTP.</p>
+<p>This page explains the design decisions. For the system as built (deployment,
+folder layout, data model, API areas and background jobs), see
+<a href="../../architecture/">System Architecture</a>.</p>
 <h2 id="separation-of-concerns">Separation of Concerns</h2>
 <table>
 <thead>
@@ -893,13 +884,18 @@ They communicate exclusively through JSON over HTTP.</p>
 <tbody>
 <tr>
 <td><strong>Presentation</strong></td>
-<td>UI rendering, user interaction, client-side routing</td>
+<td>UI rendering, user interaction, client-side routing, offline cache</td>
 <td>React 19, Tailwind CSS v4</td>
 </tr>
 <tr>
 <td><strong>API</strong></td>
 <td>Request handling, authentication, validation, business logic</td>
 <td>Express 5, Zod, JWT</td>
+</tr>
+<tr>
+<td><strong>Background work</strong></td>
+<td>Recurring entries, reminder pushes, account purges</td>
+<td>Jobs in the API process</td>
 </tr>
 <tr>
 <td><strong>Data Access</strong></td>
@@ -921,68 +917,58 @@ They communicate exclusively through JSON over HTTP.</p>
 <p>The frontend never accesses the database directly. All data flows through the
 backend API, ensuring consistent validation and authentication enforcement.</p>
 <h2 id="authentication-flow">Authentication Flow</h2>
-<div class="highlight"><pre><span></span><code>┌──────────┐    POST /api/auth/register     ┌──────────┐
-│  Client   │  ──────────────────────────►   │ Backend  │
-│  (React)  │                                │          │
-│           │    POST /api/auth/login         │  bcrypt  │
-│           │  ──────────────────────────►   │  verify  │
-│           │                                │          │
-│           │  ◄──────────────────────────   │          │
-│           │    JWT token (Bearer)           │          │
-│           │                                │          │
-│  Attach   │    GET /api/projects           │  JWT     │
-│  token to │  ──────────────────────────►   │  verify  │
-│  requests │                                │  middleware│
-│           │  ◄──────────────────────────   │          │
-│           │    Protected data              │          │
+<div class="highlight"><pre><span></span><code>┌──────────┐    POST /api/auth/login        ┌──────────┐
+│  Client  │  ───────────────────────────►  │ Backend  │
+│  (React) │     email + password           │  bcrypt  │
+│          │                                │  verify  │
+│          │  ◄───────────────────────────  │          │
+│          │  JWT, or "2FA required" +      │          │
+│          │  5-minute pending token        │          │
+│          │                                │          │
+│          │    POST /api/auth/login/2fa    │  TOTP or │
+│          │  ───────────────────────────►  │ recovery │
+│          │  pending token + code          │  code    │
+│          │  ◄───────────────────────────  │          │
+│          │    JWT (7 days)                │          │
+│          │                                │          │
+│  Attach  │    GET /api/projects           │ require- │
+│  token   │  ───────────────────────────►  │ Auth     │
+│          │  ◄───────────────────────────  │          │
+│          │    the user's own data         │          │
 └──────────┘                                └──────────┘
 </code></pre></div>
 <ol>
-<li>User registers with email and password.</li>
-<li>Password is hashed with bcrypt before storage.</li>
-<li>Email verification is sent via Gmail SMTP (or auto-verified in dev mode).</li>
-<li>On login, credentials are verified and a signed JWT is returned.</li>
-<li>The frontend stores the JWT in <code>localStorage</code> and attaches it to all
-   subsequent requests via an Axios interceptor.</li>
+<li>The user registers with email and password; the password is hashed with bcrypt before storage.</li>
+<li>A verification email is sent through Resend or Gmail SMTP. With no email provider configured (development), the account is verified automatically. Sign-in is refused until the email is verified.</li>
+<li>On sign-in, the password is checked. Without 2FA, a signed JWT valid for seven days is returned.</li>
+<li>With 2FA on, the backend instead returns a pending token that is valid for five minutes and good only for the second step. The client sends it with a code from the authenticator app, or a single-use recovery code, and receives the JWT. A code on its own is never enough to sign in.</li>
+<li>The frontend stores the JWT in <code>localStorage</code> and attaches it to every request through an Axios interceptor.</li>
 <li>The backend <code>requireAuth</code> middleware validates the token on protected routes.</li>
+<li>When a protected request returns <code>401</code> (the token expired or is invalid), the frontend clears the session and returns to <code>/login?expired=1</code>. A wrong password on a credential check is not treated as an expired session.</li>
 </ol>
 <h2 id="request-processing-pipeline">Request Processing Pipeline</h2>
 <p>Every API request flows through the following pipeline:</p>
-<div class="highlight"><pre><span></span><code>Request → CORS → Body Parser → Auth Middleware → Zod Validation → Controller → Prisma → Response
+<div class="highlight"><pre><span></span><code>Request → CORS → Body Parser → Rate Limit → Auth Middleware → Zod Validation → Ownership Check → Controller → Prisma → Response
 </code></pre></div>
 <ol>
-<li><strong>CORS</strong> — Allows requests from the frontend origin.</li>
-<li><strong>Body Parser</strong> — Parses JSON request bodies.</li>
-<li><strong>Auth Middleware</strong> — Verifies JWT token (skipped for public routes).</li>
-<li><strong>Zod Validation</strong> — Validates request body against defined schemas.</li>
-<li><strong>Controller</strong> — Executes business logic.</li>
-<li><strong>Prisma</strong> — Performs type-safe database operations.</li>
-<li><strong>Response</strong> — Returns JSON with appropriate status code.</li>
+<li><strong>CORS</strong>: allows requests only from the frontend origins (<code>localhost</code> and <code>*.pages.dev</code>).</li>
+<li><strong>Body Parser</strong>: parses JSON request bodies.</li>
+<li><strong>Rate Limit</strong>: applies to <code>/api/auth</code> routes, with tighter limits on sign-in, sign-up and 2FA, to slow down password guessing.</li>
+<li><strong>Auth Middleware</strong>: verifies the JWT and sets the user id (skipped for public routes).</li>
+<li><strong>Zod Validation</strong>: validates the request body against its schema (<code>400</code> on failure).</li>
+<li><strong>Ownership Check</strong>: loads the project, entry, rule or statistic named in the path only if it belongs to the signed-in user. A resource owned by someone else is reported as not found (<code>404</code>), so its existence is not revealed.</li>
+<li><strong>Controller</strong>: executes business logic.</li>
+<li><strong>Prisma</strong>: performs type-safe database operations, in a transaction where several rows must change together.</li>
+<li><strong>Response</strong>: returns JSON with the appropriate status code.</li>
 </ol>
-<h2 id="shared-package">Shared Package</h2>
-<p>The <code>@logbook/shared</code> package (<code>packages/shared/</code>) contains TypeScript types
-and Zod schemas consumed by both frontend and backend:</p>
-<ul>
-<li><strong>Types</strong> — <code>Project</code>, <code>Entry</code>, <code>EntryField</code>, <code>TimeSummary</code>, etc.</li>
-<li><strong>Input types</strong> — <code>CreateProjectInput</code>, <code>CreateEntryInput</code>, etc.</li>
-<li><strong>Auth schemas</strong> — <code>registerSchema</code>, <code>loginSchema</code>, <code>verifyEmailSchema</code>, etc.</li>
-</ul>
-<p>This eliminates type duplication and ensures both sides of the application
-agree on data shapes. Changes to a shared type are reflected immediately
-in both frontend and backend code.</p>
-<h2 id="monorepo-structure">Monorepo Structure</h2>
-<div class="highlight"><pre><span></span><code>coms3011a-logbook-digital-logbook/
-├── apps/
-│   ├── frontend/      # React SPA (Vite)
-│   └── backend/       # Express API (tsx)
-├── packages/
-│   └── shared/        # @logbook/shared (types + schemas)
-├── docs/              # MkDocs documentation
-└── package.json       # npm workspaces root
-</code></pre></div>
-<p>All packages are managed through npm workspaces. Shared dependencies are
-defined at the workspace root where possible, while package-specific
-dependencies are defined in each package's <code>package.json</code>.</p>
+<p>A valid token only proves who the caller is, not what they may touch, so the
+ownership check is a separate step on every route that names a resource.</p>
+<h2 id="shared-types">Shared Types</h2>
+<p>Types and validation schemas that both sides need live in one package,
+<code>@logbook/shared</code>, so the frontend and backend cannot disagree about data
+shapes. The frontend reads the package's source directly. The backend uses its
+compiled output, so the package must be rebuilt after a change before the
+backend sees it. See <a href="../../architecture/#8-shared-types-package">System Architecture</a>.</p>
 
 
 

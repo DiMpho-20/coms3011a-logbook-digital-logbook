@@ -345,6 +345,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../testing/" class="md-nav__link">
         
   
@@ -353,6 +380,33 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Quickstart
   
 
     
@@ -1917,6 +1971,735 @@
 <td>I attempt to import invalid data</td>
 <td>The system processes the import</td>
 <td>The system informs me that the data cannot be imported</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<h1 id="sprint-3-user-stories">Sprint 3 – User Stories</h1>
+<h1 id="digital-logbook-advanced-user-stories">Digital Logbook – Advanced User Stories</h1>
+<p>Numbered as on the Sprint 3 board (Gitea issues #94–#109).</p>
+<h2 id="us22-define-custom-expressions">US22 – Define Custom Expressions</h2>
+<p><strong>User Story:</strong> As a student, I want to write an expression over my logbook entries, so that I can calculate information specific to my own data without relying only on built-in statistics.</p>
+<h3 id="acceptance-tests_19">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have logbook entries with custom fields</td>
+<td>I create a custom expression</td>
+<td>I can define an expression using my entry data</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I am defining a custom expression</td>
+<td>I reference fields from my entries</td>
+<td>The system allows the expression to use available entry fields</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I have defined a valid expression</td>
+<td>I run the expression</td>
+<td>The system calculates a result from my logbook data</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have defined an invalid expression</td>
+<td>I attempt to run it</td>
+<td>The system indicates that the expression cannot be evaluated</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>5</td>
+<td>I have a valid custom expression</td>
+<td>I change the underlying entry data</td>
+<td>The calculated result reflects the updated data</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us23-save-custom-statistics">US23 – Save Custom Statistics</h2>
+<p><strong>User Story:</strong> As a student, I want to save a custom expression as a statistic, so that it appears alongside the built-in statistics in my logbook.</p>
+<h3 id="acceptance-tests_20">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have created a valid custom expression</td>
+<td>I choose to save it</td>
+<td>The system saves the expression as a custom statistic</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have saved a custom statistic</td>
+<td>I view my statistics</td>
+<td>The saved statistic is displayed alongside built-in statistics</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I have a saved custom statistic</td>
+<td>I open the statistic</td>
+<td>The statistic displays its calculated result</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have a saved custom statistic</td>
+<td>The underlying entry data changes</td>
+<td>The statistic reflects the updated data</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>5</td>
+<td>I have a saved custom statistic</td>
+<td>I remove the statistic</td>
+<td>The custom statistic is no longer displayed</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us24-entry-automation-rules-apply-rules-when-capturing-entries">US24 – Entry Automation Rules (Apply Rules When Capturing Entries)</h2>
+<p><strong>User Story:</strong> As a student, I want rules to automatically apply when an entry is captured, so that repetitive information can be generated or updated automatically.</p>
+<h3 id="acceptance-tests_21">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have configured an entry rule</td>
+<td>I create an entry</td>
+<td>The rule is evaluated during entry capture</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>A rule condition is satisfied</td>
+<td>I save an entry</td>
+<td>The configured rule action is applied</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>A rule condition is not satisfied</td>
+<td>I save an entry</td>
+<td>The rule action is not applied</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have multiple configured rules</td>
+<td>I create an entry</td>
+<td>The applicable rules are processed</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>5</td>
+<td>I have configured an entry rule</td>
+<td>I edit or remove the rule</td>
+<td>The rule is updated or removed as selected</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us25-create-a-custom-dashboard">US25 – Create a Custom Dashboard</h2>
+<p><strong>User Story:</strong> As a student, I want to create a dashboard containing the statistics and information I choose, so that I can monitor the parts of my logbook that matter to me.</p>
+<h3 id="acceptance-tests_22">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I am viewing my logbook</td>
+<td>I create a dashboard</td>
+<td>A new personal dashboard is created</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have available statistics</td>
+<td>I add a statistic to my dashboard</td>
+<td>The statistic is displayed as a dashboard panel</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I have a dashboard</td>
+<td>I add multiple panels</td>
+<td>All selected panels are displayed on the dashboard</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have a dashboard with panels</td>
+<td>I remove a panel</td>
+<td>The selected panel is removed from the dashboard</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>5</td>
+<td>I have configured my dashboard</td>
+<td>I open the dashboard</td>
+<td>My selected panels are displayed</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us26-arrange-and-persist-dashboard-layout">US26 – Arrange and Persist Dashboard Layout</h2>
+<p><strong>User Story:</strong> As a student, I want to arrange and save the position of my dashboard panels, so that my dashboard remains configured the way I prefer.</p>
+<h3 id="acceptance-tests_23">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have multiple dashboard panels</td>
+<td>I rearrange the panels</td>
+<td>The panels move to the selected positions</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have arranged my dashboard</td>
+<td>I save the dashboard</td>
+<td>The selected layout is stored</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I have saved a dashboard layout</td>
+<td>I leave and return to the dashboard</td>
+<td>The saved panel arrangement is preserved</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have a saved dashboard</td>
+<td>I change the layout</td>
+<td>The updated arrangement replaces the previous arrangement</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us27-create-recurring-entries">US27 – Create Recurring Entries</h2>
+<p><strong>User Story:</strong> As a student, I want to configure entries to recur automatically, so that I do not have to repeatedly create the same entries manually.</p>
+<h3 id="acceptance-tests_24">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I am creating an entry</td>
+<td>I configure it as recurring</td>
+<td>I can specify a recurrence pattern</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have configured a recurring entry</td>
+<td>The recurrence date is reached</td>
+<td>A new entry is generated according to the pattern</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I have a recurring entry</td>
+<td>I view my entries</td>
+<td>The generated entries are displayed in my logbook</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have a recurring entry</td>
+<td>I disable the recurrence</td>
+<td>No further entries are automatically generated</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us28-generate-automatic-reminders">US28 – Generate Automatic Reminders</h2>
+<p><strong>User Story:</strong> As a student, I want the logbook to generate reminders based on my entries and configured rules, so that important actions are not forgotten.</p>
+<h3 id="acceptance-tests_25">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have an entry with a reminder condition</td>
+<td>The condition is reached</td>
+<td>The system generates a reminder</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have a reminder configured</td>
+<td>The reminder time is reached</td>
+<td>I can see the reminder</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I have multiple reminders</td>
+<td>I view my reminders</td>
+<td>The relevant reminders are displayed</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have completed the work associated with a reminder</td>
+<td>I view the reminder</td>
+<td>The reminder can be marked as completed or dismissed</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us29-preserve-entry-version-history">US29 – Preserve Entry Version History</h2>
+<p><strong>User Story:</strong> As a student, I want corrections to preserve previous versions of an entry, so that I can see what the entry said before it was changed.</p>
+<h3 id="acceptance-tests_26">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have an existing logbook entry</td>
+<td>I edit the entry</td>
+<td>The system preserves the previous version</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have edited an entry</td>
+<td>I view its version history</td>
+<td>The previous version is available</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I have multiple versions of an entry</td>
+<td>I view the version history</td>
+<td>The versions are displayed in chronological order</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have an entry with previous versions</td>
+<td>I view the current entry</td>
+<td>The latest version is displayed as the current version</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us30-view-an-entry-as-it-existed-on-a-given-date">US30 – View an Entry as It Existed on a Given Date</h2>
+<p><strong>User Story:</strong> As a student, I want to view an entry as it existed on a particular date, so that I can see the historical state of my record.</p>
+<h3 id="acceptance-tests_27">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have an entry with version history</td>
+<td>I select a date from its history</td>
+<td>The system shows the version applicable to that date</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have multiple versions of an entry</td>
+<td>I select an earlier date</td>
+<td>The corresponding previous version is displayed</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I am viewing a historical version</td>
+<td>I compare it with the current entry</td>
+<td>The historical values remain unchanged</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I select a date before the entry existed</td>
+<td>I request the historical view</td>
+<td>The system indicates that the entry did not yet exist</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us31-restore-a-previous-entry-version">US31 – Restore a Previous Entry Version</h2>
+<p><strong>User Story:</strong> As a student, I want to restore an entry to a previous version, so that I can undo an unwanted correction without losing the version history.</p>
+<h3 id="acceptance-tests_28">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have an entry with multiple versions</td>
+<td>I select a previous version</td>
+<td>I am given an option to restore that version</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have selected a previous version</td>
+<td>I confirm the restoration</td>
+<td>The selected version becomes the current entry</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I restore a previous version</td>
+<td>I view the entry history</td>
+<td>The previous versions are still preserved</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I restore a previous version</td>
+<td>I view the current entry</td>
+<td>The restored values are displayed</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us32-archive-old-entries">US32 – Archive Old Entries</h2>
+<p><strong>User Story:</strong> As a student, I want old entries to be archived, so that historical records are retained without interfering with normal logbook use.</p>
+<h3 id="acceptance-tests_29">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have old logbook entries</td>
+<td>I choose to archive them</td>
+<td>The selected entries are moved to the archive</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have archived entries</td>
+<td>I view my active entries</td>
+<td>The archived entries are not shown as active entries</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I have archived entries</td>
+<td>I access my archive</td>
+<td>The archived entries remain available</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have an archived entry</td>
+<td>I restore the entry</td>
+<td>The entry becomes available in my active logbook</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>5</td>
+<td>I have archived entries</td>
+<td>I search my historical records</td>
+<td>The archived entries can still be retrieved when appropriate</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us33-maintain-query-performance-for-large-logbooks">US33 – Maintain Query Performance for Large Logbooks</h2>
+<p><strong>User Story:</strong> As a student, I want the logbook to remain fast when querying a large number of entries, so that performance does not significantly degrade as my record grows.</p>
+<h3 id="acceptance-tests_30">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have a large number of logbook entries</td>
+<td>I open my entries</td>
+<td>The entries are retrieved without excessive delay</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have a large number of entries</td>
+<td>I search my logbook</td>
+<td>Search results are returned without excessive delay</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I have a large number of entries</td>
+<td>I apply filters</td>
+<td>Filtered results are returned without excessive delay</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have many years of historical entries</td>
+<td>I query recent entries</td>
+<td>Recent entries can be retrieved efficiently</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>5</td>
+<td>I have a large logbook</td>
+<td>I view statistics</td>
+<td>Statistics remain usable without significant performance problems</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us34-apply-rules-when-capturing-entries">US34 – Apply Rules When Capturing Entries</h2>
+<p>Tracked on the board as issue #106, but it is the same story as <a href="#us24-entry-automation-rules-apply-rules-when-capturing-entries">US24</a> (issue #96). Its acceptance tests are those of US24.</p>
+<hr />
+<h2 id="us35-rank-search-results-by-relevance">US35 – Rank Search Results by Relevance</h2>
+<p><strong>User Story:</strong> As a student, I want search results to be ranked by relevance, so that the most useful matching entries appear first.</p>
+<h3 id="acceptance-tests_31">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have multiple entries matching a search</td>
+<td>I perform the search</td>
+<td>The matching entries are displayed in an ordered result list</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I search for a term appearing in several entries</td>
+<td>I view the results</td>
+<td>More relevant matches appear before less relevant matches</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I perform a search with no matches</td>
+<td>I view the results</td>
+<td>The system indicates that no matching entries were found</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I apply search filters</td>
+<td>I view the results</td>
+<td>The relevance ordering is applied to the filtered results</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us36-combine-search-filters">US36 – Combine Search Filters</h2>
+<p><strong>User Story:</strong> As a student, I want to combine multiple search filters, so that I can narrow my results using several conditions at once.</p>
+<h3 id="acceptance-tests_32">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have multiple logbook entries</td>
+<td>I apply one filter</td>
+<td>Only entries matching that filter are displayed</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have multiple logbook entries</td>
+<td>I apply two filters</td>
+<td>Only entries matching both filters are displayed</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I have applied multiple filters</td>
+<td>I remove one filter</td>
+<td>The results update using the remaining filters</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have applied multiple filters</td>
+<td>I clear all filters</td>
+<td>The unfiltered search results are displayed</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>5</td>
+<td>I combine project and custom-field filters</td>
+<td>I perform the search</td>
+<td>The system returns entries satisfying the selected conditions</td>
+<td>Pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="us37-search-custom-fields">US37 – Search Custom Fields</h2>
+<p><strong>User Story:</strong> As a student, I want search to include my custom fields, so that I can find entries based on information stored in my custom entry format.</p>
+<h3 id="acceptance-tests_33">Acceptance Tests</h3>
+<table>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Given</strong></th>
+<th><strong>When</strong></th>
+<th><strong>Then</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>I have entries containing custom fields</td>
+<td>I search for a custom field value</td>
+<td>Entries containing the matching value are returned</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>I have entries with different field types</td>
+<td>I search using a custom field</td>
+<td>The system searches the relevant field values</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>I search for a value not present</td>
+<td>I perform the search</td>
+<td>No unrelated entries are returned</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>I have entries across multiple projects</td>
+<td>I search a custom field</td>
+<td>Matching entries from the relevant projects are displayed</td>
 <td>Pass</td>
 </tr>
 </tbody>

@@ -29,7 +29,7 @@ logic like saved-filter persistence).
 
 863 tests in total: 505 backend across 27 files, 358 frontend across 24
 files. Per-file detail for the backend lives in
-[`apps/backend/TESTING.md`](../apps/backend/TESTING.md); the summaries
+[`apps/backend/TESTING.md`](https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook/src/branch/main/apps/backend/TESTING.md); the summaries
 below cover the whole monorepo.
 
 ### Backend — 505 tests across 27 files

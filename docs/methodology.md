@@ -271,8 +271,6 @@ Eleven of the sixteen stories are done. The completed stories added:
 
 ### 3.3 Sprint 3 – What Went Well
 
-> **TODO (team):** draft points to be reviewed
-
 * **Building on stored history:** Because every save writes a version record, later features could rely on it. Automation rules record what they changed as their own version, so an automatic change can be seen and undone like a manual one.
 
 * **Safe automation:** Automation rules run only after an entry has been saved, cannot trigger themselves or each other, and skip a broken rule rather than failing the save, so a misconfigured rule never costs the user their entry.
