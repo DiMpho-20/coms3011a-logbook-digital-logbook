@@ -54,30 +54,17 @@ export default function OpenWorkPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
-    try {
-      setLoading(true);
-      // Get all projects, then all open entries per project.
-      const projectsRes = await api.get("/projects");
-      const projects: { id: string; name: string }[] = projectsRes.data;
-
-      const all: Entry[] = [];
-      for (const project of projects) {
-        const res = await api.get(`/projects/${project.id}/entries`, {
-          params: { status: "OPEN" },
-        });
-        for (const entry of res.data as Entry[]) {
-          (entry as any).projectName = project.name;
-          all.push(entry);
-        }
-      }
-      setEntries(all);
-    } catch (err: any) {
-      setError(err?.response?.data?.error ?? "Failed to load open work");
-    } finally {
-      setLoading(false);
-    }
-  };
+const load = async () => {
+  try {
+    setLoading(true);
+    const res = await api.get("/me/open-entries");
+    setEntries(res.data);
+  } catch (err: any) {
+    setError(err?.response?.data?.error ?? "Failed to load open work");
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     load();

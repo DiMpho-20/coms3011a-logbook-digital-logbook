@@ -31,6 +31,9 @@ import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
 import TagFilterBar from "../components/TagFilterBar";
 
+
+const PAGE_SIZE = 20;
+
 function isEmptyFieldValue(value: unknown) {
   return value == null || value === "" || value === false || (Array.isArray(value) && value.length === 0);
 }
@@ -53,16 +56,16 @@ function valueForSearch(value: unknown): string {
   return String(value ?? "");
 }
 
+
 export default function EntriesPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [fieldsByProject, setFieldsByProject] = useState<Record<string, EntryField[]>>({});
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
-  // Entries are one request per project; the shell and filters do not need
-  // them, so they render first and the list fills in.
   const [entriesLoading, setEntriesLoading] = useState(true);
   const [loadFailures, setLoadFailures] = useState(0);
-  const [truncated, setTruncated] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Browse state
   const [filterProjectId, setFilterProjectId] = useState("all");
@@ -92,24 +95,25 @@ export default function EntriesPage() {
       if (run !== loadRunRef.current) return;
       const active = all.filter((p) => p.status === "ACTIVE");
       setProjects(active);
-      // Header, stat shells and the filter bar need nothing more.
       setLoading(false);
 
-      // One request across every active project, rather than two per
-      // project. 500 is the endpoint's cap.
+      // First page only. More is fetched on demand via loadMore.
       const listing = await fetchAllEntries(
-        { projectStatus: "ACTIVE", limit: 500, ...(archivedFilter !== "exclude" && { archived: archivedFilter }) },
+
+               {
+          projectStatus: "ACTIVE",
+          limit: PAGE_SIZE,
+          offset: 0,
+          ...(archivedFilter !== "exclude" && { archived: archivedFilter }),
+        },
+
         { pendingProjectIds: active.map((p) => p.id) }
       );
       if (run !== loadRunRef.current) return;
       setAllEntries(listing.entries);
       setFieldsByProject(listing.fieldsByProject);
-      setTruncated(listing.truncated);
+      setHasMore(listing.truncated);
 
-      // Entries carry their own format snapshot, which is what the card
-      // renders from. Only projects holding an entry without one — legacy
-      // entries, and anything still queued offline — need the live field
-      // list as a fallback.
       if (listing.projectsNeedingFields.length > 0) {
         const settled = await Promise.allSettled(
           listing.projectsNeedingFields.map(async (id) => ({ id, fields: await fetchEntryFields(id) }))
@@ -134,25 +138,39 @@ export default function EntriesPage() {
     }
   }, [archivedFilter]);
 
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const listing = await fetchAllEntries(
+        { projectStatus: "ACTIVE", limit: PAGE_SIZE, offset: allEntries.length },
+        { pendingProjectIds: projects.map((p) => p.id) }
+      );
+      setAllEntries((prev) => [...prev, ...listing.entries]);
+      setFieldsByProject((prev) => ({ ...prev, ...listing.fieldsByProject }));
+      setHasMore(listing.truncated);
+    } catch (err) {
+      console.error("Failed to load more entries:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, allEntries.length, projects]);
+
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
-  // Load saved filters once on mount
   useEffect(() => {
     setSavedFilters(loadSavedFilters());
   }, []);
 
-  // Tags available to filter by
   useEffect(() => {
     fetchTags().then((t) => setAvailableTags(t.map((tag) => tag.name))).catch(() => {});
   }, []);
 
-  // True when the current filter state differs from the defaults
   const filtersActive =
     searchQuery.trim() !== "" || filterProjectId !== "all" || filterTab !== "all" || tagFilters.length > 0;
 
-  // Applying a saved filter restores every dimension of the saved view
   const applySavedFilter = (f: SavedFilter) => {
     setSearchQuery(f.searchQuery);
     setFilterProjectId(f.filterProjectId);
@@ -163,7 +181,6 @@ export default function EntriesPage() {
     setShowSaveInput(false);
   };
 
-  // Manual filter changes deselect the active chip — the view is no longer the saved one
   const markManualChange = () => setActiveFilterId(null);
 
   const handleSaveFilter = () => {
@@ -186,7 +203,6 @@ export default function EntriesPage() {
     if (activeFilterId === id) setActiveFilterId(null);
   };
 
-  // Derived data
   const projectName = useCallback(
     (id: string) => projects.find((p) => p.id === id)?.name || "Unknown",
     [projects]
@@ -201,7 +217,6 @@ export default function EntriesPage() {
     const dateKeys = new Set(allEntries.map((e) => entryDateKey(e)));
     const streak = computeStreak(dateKeys);
 
-    // Overdue: dueDate is before today (start of day)
     const today = new Date(new Date().toDateString());
     const overdueCount = allEntries.filter(
       (e) => e.dueDate && new Date(e.dueDate) < today
@@ -214,7 +229,6 @@ export default function EntriesPage() {
     let list = [...allEntries];
     const today = new Date(new Date().toDateString());
 
-    // Tab filter
     if (filterTab === "week") {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
@@ -238,7 +252,6 @@ export default function EntriesPage() {
         return name.includes(q) || vals.includes(q) || tagText.includes(q);
       });
     }
-    // Overdue entries sort by most overdue first; otherwise use sortOrder
     if (filterTab === "overdue") {
       list.sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || ""));
     } else if (sortOrder === "oldest") {
@@ -268,7 +281,6 @@ export default function EntriesPage() {
         subtitle="Everything you've recorded across your projects."
       />
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard icon={ListChecks} label="This Week" value={stats.weekCount} color="blue" loading={entriesLoading} />
         <StatCard icon={Clock} label="Time This Week" value={formatDuration(stats.weekMinutes)} color="emerald" loading={entriesLoading} />
@@ -276,12 +288,6 @@ export default function EntriesPage() {
         <StatCard icon={CalendarDays} label="Total Entries" value={stats.total} color="slate" loading={entriesLoading} />
         <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdueCount} color="red" loading={entriesLoading} />
       </div>
-
-      {truncated && (
-        <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          Showing your most recent 500 entries. Older ones are not in this list or the figures above.
-        </p>
-      )}
 
       {loadFailures > 0 && (
         <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -299,7 +305,6 @@ export default function EntriesPage() {
         />
       ) : (
         <>
-          {/* Filter bar */}
           <div className="flex flex-wrap gap-3 items-center">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -385,7 +390,6 @@ export default function EntriesPage() {
             }}
           />
 
-          {/* Save-filter name input */}
           {showSaveInput && filtersActive && (
             <div className="flex flex-wrap gap-2 items-center">
               <input
@@ -419,7 +423,6 @@ export default function EntriesPage() {
             </div>
           )}
 
-          {/* Saved filter chips */}
           {savedFilters.length > 0 && (
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -457,7 +460,6 @@ export default function EntriesPage() {
             </div>
           )}
 
-          {/* Timeline */}
           <div className="bg-white rounded-lg border border-slate-200">
             <div className="p-6">
               {entriesLoading ? (
@@ -506,16 +508,13 @@ export default function EntriesPage() {
                 <div className="space-y-8">
                   {groupedByDate.map(([dateKey, entries]) => (
                     <div key={dateKey}>
-                      {/* Date heading */}
                       <div className="border-b border-slate-100 pb-2 mb-4">
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                           {formatDateHeading(dateKey)}
                         </p>
                       </div>
 
-                      {/* Timeline entries */}
                       <div className="relative ml-3">
-                        {/* Vertical line */}
                         <div className="absolute left-0 top-2 bottom-2 w-px bg-slate-200" />
 
                         {entries.map((entry) => {
@@ -531,8 +530,6 @@ export default function EntriesPage() {
                             entry.dueDate &&
                             new Date(entry.dueDate) < new Date(new Date().toDateString());
 
-                          // The description is the first TEXT field's value; it is
-                          // rendered below as the entry's headline.
                           const descField = fields.find((f) => f.type === "TEXT");
                           const description = descField
                             ? (entry.values?.[descField.id] as string) || ""
@@ -551,7 +548,6 @@ export default function EntriesPage() {
 
                           return (
                             <div key={entry.id} className="relative pl-8 pb-6 last:pb-0">
-                              {/* Dot */}
                               <div
                                 className={`absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 -translate-x-[5px] ${
                                   isOverdue
@@ -560,7 +556,6 @@ export default function EntriesPage() {
                                 }`}
                               />
 
-                              {/* Entry content */}
                               <div>
                                 <div className="flex items-center gap-3 mb-1">
                                   <span className="text-xs font-medium text-slate-400">
@@ -652,6 +647,18 @@ export default function EntriesPage() {
                       </div>
                     </div>
                   ))}
+
+                  {hasMore && (
+                    <div className="flex justify-center pt-2">
+                      <button
+                        onClick={loadMore}
+                        disabled={loadingMore}
+                        className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition disabled:opacity-50"
+                      >
+                        {loadingMore ? "Loading…" : "Load more"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

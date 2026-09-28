@@ -12,6 +12,7 @@ import { ensureBaselineVersion, recordVersion, sameSnapshot, toSnapshot } from "
 import { dueDateOffsetDays, materializeDueRecurringEntries, nextRecurrenceDate } from "../utils/recurringEntries.js";
 import { runEntryAutomation } from "../utils/automationRunner.js";
 
+
 /**
  * Resolve a project the caller actually owns. requireAuth proves the caller
  * holds a valid token; it says nothing about whose project this is, so every
@@ -484,6 +485,12 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
     }
     const limit = Math.min(rawLimit, MAX_ENTRY_LIMIT);
 
+    const rawOffset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+    if (!Number.isInteger(rawOffset) || rawOffset < 0) {
+      return res.status(400).json({ error: "offset must be a non-negative integer" });
+    }
+    const offset = rawOffset;
+
     let from: Date | undefined;
     let to: Date | undefined;
     try {
@@ -519,11 +526,12 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       WHERE ${Prisma.join(conditions, " AND ")}
       ORDER BY COALESCE(le.entry_date, le.created_at) DESC, le.id DESC
       LIMIT ${limit}
+      OFFSET ${offset}
     `;
 
     const ids = rows.map((r) => r.id);
     if (ids.length === 0) {
-      return res.status(200).json({ entries: [], formats: {}, limit, truncated: false });
+      return res.status(200).json({ entries: [], formats: {}, limit, offset, truncated: false });
     }
 
     const found = await prisma.logbookEntry.findMany({
@@ -556,10 +564,41 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       entries,
       formats,
       limit,
+      offset,
       truncated: ids.length === limit,
     });
   } catch (error) {
     console.error("Failed to list entries:", error);
     return res.status(500).json({ error: "Failed to list entries" });
+  }
+};
+
+export const getOpenEntries = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+
+    // Find the user's projects, then all their OPEN entries in one query.
+    const entries = await prisma.logbookEntry.findMany({
+      where: {
+        status: "OPEN",
+        project: { userId },
+      },
+      include: {
+        values: { include: { field: true } },
+        formatVersion: true,
+        project: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const shaped = entries.map((entry) => ({
+      ...formatEntry(entry),
+      projectName: entry.project.name,
+    }));
+
+    return res.status(200).json(shaped);
+  } catch (error) {
+    console.error("Failed to fetch open entries:", error);
+    return res.status(500).json({ error: "Failed to fetch open entries" });
   }
 };

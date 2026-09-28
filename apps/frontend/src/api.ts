@@ -249,6 +249,7 @@ export interface EntriesQuery {
   from?: string;
   to?: string;
   limit?: number;
+  offset?: number;
   /** Leave archived entries out (default), show only them, or include them. */
   archived?: ArchivedFilter;
 }
