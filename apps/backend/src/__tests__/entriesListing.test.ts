@@ -276,3 +276,80 @@ describe("GET /api/entries — ordering, limit and shape", () => {
     expect(badDate.status).toBe(400);
   });
 });
+
+// ── Pagination ───────────────────────────────────────────────────────────
+
+describe("GET /api/entries — pagination", () => {
+  it("returns the first page with offset 0", async () => {
+    const res = await request(app)
+      .get("/api/entries")
+      .query({ projectId: activeProjectId, limit: 1, offset: 0 })
+      .set(HA);
+
+    expect(res.status).toBe(200);
+    expect(res.body.entries).toHaveLength(1);
+    expect(res.body.limit).toBe(1);
+    expect(res.body.offset).toBe(0);
+    // 2 entries in the active project, limit 1 → more exist
+    expect(res.body.truncated).toBe(true);
+  });
+
+  it("returns the next page with offset equal to the first page size", async () => {
+    const first = await request(app)
+      .get("/api/entries")
+      .query({ projectId: activeProjectId, limit: 1, offset: 0 })
+      .set(HA);
+
+    const second = await request(app)
+      .get("/api/entries")
+      .query({ projectId: activeProjectId, limit: 1, offset: 1 })
+      .set(HA);
+
+    expect(second.status).toBe(200);
+    expect(second.body.entries).toHaveLength(1);
+    expect(second.body.offset).toBe(1);
+
+    // The two pages must contain different entries, not the same one twice.
+    expect(second.body.entries[0].id).not.toBe(first.body.entries[0].id);
+  });
+
+  it("returns an empty page when offset is past the end", async () => {
+    const res = await request(app)
+      .get("/api/entries")
+      .query({ projectId: activeProjectId, limit: 1, offset: 100 })
+      .set(HA);
+
+    expect(res.status).toBe(200);
+    expect(res.body.entries).toEqual([]);
+    expect(res.body.offset).toBe(100);
+    expect(res.body.truncated).toBe(false);
+  });
+
+  it("defaults offset to 0 when omitted", async () => {
+    const res = await request(app)
+      .get("/api/entries")
+      .query({ projectId: activeProjectId, limit: 1 })
+      .set(HA);
+
+    expect(res.status).toBe(200);
+    expect(res.body.offset).toBe(0);
+  });
+
+  it("rejects a negative offset", async () => {
+    const res = await request(app)
+      .get("/api/entries")
+      .query({ offset: -1 })
+      .set(HA);
+
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a non-numeric offset", async () => {
+    const res = await request(app)
+      .get("/api/entries")
+      .query({ offset: "abc" })
+      .set(HA);
+
+    expect(res.status).toBe(400);
+  });
+});
