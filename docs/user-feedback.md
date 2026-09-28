@@ -179,8 +179,8 @@ and the round it was validated in.
 | Round | Finding | Action taken | Commit | Validated in |
 |---|---|---|---|---|
 | R1 | Tester 5 requested saved filters on the entries page | Saved-filter feature implemented — name, save, apply, delete, persisted to localStorage | `fd68b32` feat: add saved filters on entries page | R1 (pre-emptive; shipped before feedback was collected) |
-| R1 | Testers 1 & 2 found entry-field format confusing when adding entries | Filed as Gitea issue; add inline help text and field-type hints to the entry form | *(issue filed, fix pending Sprint 3)* | — |
-| R1 | Tester 2 found calendar/board views hard to locate | Filed as Gitea issue; consider adding nav hints or a guided tour for secondary views | *(issue filed, fix pending Sprint 3)* | — |
+| R1 | Testers 1 & 2 found entry-field format confusing when adding entries | Filed as Gitea issue; add inline help text and field-type hints to the entry form | *(FEAT-002 filed; still open as of 2026-09-28)* | — |
+| R1 | Tester 2 found calendar/board views hard to locate | Filed as Gitea issue; consider adding nav hints or a guided tour for secondary views | *(FEAT-003 filed; still open as of 2026-09-28)* | — |
 | R1 | All 6 testers praised the UI and ease of use | No action needed — validates current design direction | — | — |
 
 ---
@@ -194,7 +194,7 @@ flow, where 2 of 6 testers struggled with custom field formats.
 
 **Planned actions:**
 
-1. File Gitea issues for the two pending findings (entry-field help text, view discoverability).
+1. File Gitea issues for the two pending findings (entry-field help text, view discoverability). **Done:** FEAT-002 and FEAT-003.
 2. Implement fixes in Sprint 3 and reference them in the integration table.
 3. Run a second round with the same testers to validate fixes (the "Validated in" column).
 4. Invite the client for a formal review session in Round 2.

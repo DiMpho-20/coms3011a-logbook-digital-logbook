@@ -40,23 +40,23 @@ npm run test:coverage --workspace=apps/frontend
 
 The end of the output is a table. Read the `All files` row — the last number
 is **% Lines**, the number coverage is measured on. Backend example, from the
-2026-09-27 run:
+2026-09-28 run:
 
 ```text
 File      | % Stmts | % Branch | % Funcs | % Lines
-All files |   84.78 |    79.68 |   92.12 |   85.43
+All files |   84.34 |    79.59 |   90.88 |   85.08
 ```
 
 ## 4. The 50% rule
 
 The project **must stay above 50% combined coverage** — that is the figure the
-marking rubric reads. Where it stands (2026-09-27, 863 tests):
+marking rubric reads. Where it stands (2026-09-28, 953 tests):
 
 | Workspace | % Lines |
 |---|---|
-| Backend | ~85% |
-| Frontend | ~54% |
-| **Combined** | **~65%** |
+| Backend | 85.08% (1,842 of 2,165 lines) |
+| Frontend | 58.56% (2,205 of 3,765 lines) |
+| **Combined** | **68.25%** (4,047 of 5,930 lines) |
 
 The margin over the bar is real but not free: the frontend is the lower of
 the two, so untested frontend code moves the combined figure most — test the

@@ -278,10 +278,12 @@ The following items remain as future improvements or later-phase functionality r
 
 | # | Feature                                                    | Status                    |
 | - | ---------------------------------------------------------- | ------------------------- |
-| 1 | Google Calendar API integration                            | Planned for a later phase |
-| 2 | Further improvements to notification functionality         | Future improvement        |
-| 3 | Further accessibility testing and WCAG improvements        | Future improvement        |
-| 4 | Additional automated unit tests for complex business logic | Future improvement        |
+| 1 | Google Calendar API integration                            | Done — due dates sync to Google Calendar (FEAT-001) |
+| 2 | Further improvements to notification functionality         | Done — automatic reminders with push notifications (US28) |
+| 3 | Further accessibility testing and WCAG improvements        | Future improvement (FEAT-006); a reduced-motion guard has been added |
+| 4 | Additional automated unit tests for complex business logic | Done — unit tests cover expressions, automation rules, computed fields and more |
+
+*Statuses updated 2026-09-28.*
 
 The Intermediate user stories themselves have been completed and integrated into the project.
 
@@ -304,13 +306,19 @@ The Intermediate user stories themselves have been completed and integrated into
 * **Action Taken / Planned Actions:**
 
   * Investigate and migrate the application deployment to **Vercel** to address the application's performance issues.
+    * **Status (2026-09-28).** The deployment has not moved: the frontend is still on Cloudflare Pages and the backend on Render. The slowness was tackled in the code instead — see the performance item below.
   * Set up **MantisBT** and use it as the team's formal bug-tracking system.
+    * **Superseded (2026-09-25).** The team chose a dedicated Gitea project instead; see the next meeting.
   * Remove the duplicated statistics section from the dashboard while keeping the dedicated statistics functionality accessible through the side navigation.
     * **Done (2026-09-27).** The dashboard's three statistics panels — Active Projects, Entries This Week and Total Time Logged — were removed, and the Statistics page in the side navigation is unchanged. The activity chart was kept: it shows the last seven days as working context rather than repeating a figure the Statistics page reports.
   * Add the missing **tags table** to the database and ensure that tags are correctly integrated with logbook entries.
+    * **Done.** The `tags`, `project_tags` and `entry_tags` tables exist and are part of the migration baseline.
   * Investigate and resolve possible frontend–backend communication glitches and performance issues.
+    * **Done (2026-09-28).** Pages that sent one request per project now use a single request, the Entries page loads entries in pages, and database indexes were added for the common queries (US33).
   * Document the project's **internal APIs**, including endpoints, requests, responses, and their purpose.
+    * **Done.** Every endpoint is documented in the [API Reference](api-reference.md).
   * Set up a **CI/CD pipeline** to automatically run tests and generate/check code coverage.
+    * **Done for CI.** Gitea Actions typechecks, lints, runs both test suites with coverage and posts the coverage on each commit. Deployment is still done by hand.
   * Continue documenting technical decisions and client feedback as project evidence.
 
 ---
@@ -347,12 +355,18 @@ The Intermediate user stories themselves have been completed and integrated into
   * Investigate adding **progress tracking** for entries over time.
   * Implement **tag ranking/usage statistics**, including most-used tags and the number of entries associated with each tag.
   * Add functionality to **compare statistics across different weeks**.
+    * **Done (all five above).** The dashboard offers streak, entries-per-month, progress-over-time, tag-ranking and week-comparison panels.
   * Allow users to **select the statistics** they want displayed.
   * Provide users with **customisable dashboard options** so they can choose what information is displayed.
+    * **Done (both).** Students choose and arrange their dashboard panels, including their own saved statistics, and the layout is kept on the server (US25, US26).
   * Expand the available **entry filtering options**.
+    * **Partly done.** Entries can be filtered by project, tag, week, overdue and archive state, and filters can be saved. Searching inside custom fields and combining filters are in the Sprint 3 backlog (US36, US37).
   * Investigate and design the **auto-completion/auto-compilation** feature for repeated or similar entries.
+    * **Not started.** Tag names are suggested as you type, and recurring entries (US27) cover work that repeats on a schedule, but entries are not yet completed from earlier ones.
   * Ask **Branden** for clarification on the expected **expression/custom statistics** functionality.
+    * **Done.** Custom expressions and saved statistics were delivered (US22, US23).
   * Use the newly created **Gitea project as the project's bug tracker** instead of MantisBT.
+    * **Done.** Bugs and feature requests are recorded in `.gitea/issues/` and on the Gitea board.
   * Continue documenting client feedback and decisions as project evidence.
 
 ---
