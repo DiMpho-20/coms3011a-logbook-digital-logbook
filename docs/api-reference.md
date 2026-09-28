@@ -4,7 +4,8 @@ This page documents every endpoint exposed by the Digital Logbook backend
 API. All endpoints are prefixed with `/api` and return JSON responses.
 
 **Base URL (production):**
-`https://digital-logbook-backend-latest.onrender.com/api`
+`https://digital-logbook-backend-latest.onrender.com/api` — a prefix, not an
+endpoint: request a path under it, such as `/api/health`.
 
 **Authentication:** Most endpoints require a JWT in the
 `Authorization: Bearer <token>` header. Obtain one via the
@@ -29,7 +30,7 @@ Verifies database connectivity. No authentication required.
 
 **Response `200`:**
 ```json
-{ "status": "ok", "message": "Database connected" }
+{ "status": "ok", "message": "Successfully connected to Neon PostgreSQL via Prisma", "time": "2026-09-28T14:00:00.000Z" }
 ```
 
 ---

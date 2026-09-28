@@ -9,7 +9,7 @@ A web-based digital logbook application designed to help university students kee
 | Environment | URL |
 |---|---|
 | **Live App** | <https://coms3011a-logbook.pages.dev> |
-| **API Server** | <https://digital-logbook-backend-latest.onrender.com/api> (health check: [`/api/health`](https://digital-logbook-backend-latest.onrender.com/api/health)) |
+| **API Server** | <https://digital-logbook-backend-latest.onrender.com> — endpoints are under `/api`, e.g. [`/api/health`](https://digital-logbook-backend-latest.onrender.com/api/health) |
 | **Documentation** | <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> |
 | **Gitea Repository** | <https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook> |
 

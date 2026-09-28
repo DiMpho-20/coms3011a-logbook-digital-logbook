@@ -2,7 +2,7 @@
 
 The REST API server for the Digital Logbook application. Built with Express 5, TypeScript, and Prisma ORM 7, backed by a PostgreSQL database hosted on [Neon](https://neon.tech). The same process runs the background jobs for recurring entries, reminder push notifications and account purges.
 
-Deployed on Render at <https://digital-logbook-backend-latest.onrender.com/api>.
+Deployed on Render at <https://digital-logbook-backend-latest.onrender.com>, with every endpoint under `/api` (for example [`/api/health`](https://digital-logbook-backend-latest.onrender.com/api/health)). `/api` on its own is only a prefix, so opening it shows `Cannot GET /api`.
 
 > For an in-depth guide to the authentication system (JWT, TOTP 2FA, recovery codes, password reset, security properties and known limitations), see **[AUTHENTICATION.md](AUTHENTICATION.md)**.
 >
