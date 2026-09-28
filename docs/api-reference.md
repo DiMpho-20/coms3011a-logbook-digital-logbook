@@ -563,6 +563,16 @@ Create a new logbook entry.
 
 **Response `201`:** Created entry object with `status: "OPEN"`.
 
+Each value is checked against its field's type. A **REFERENCE** value is
+`{ "id": "...", "label": "...", "kind": "project" | "entry" }` and must point
+at one of the caller's own projects (`kind: "project"`, the default when
+`kind` is missing) or entries (`kind: "entry"`). A reference to something
+that does not exist, belongs to another user, or is not the kind it declares
+is refused with `400`, e.g. `"Related to" must reference one of your
+projects.` The same check applies to `PUT /api/entries/:id`.
+
+**Errors:** `400` (invalid or missing required value, broken reference), `404` (project not found)
+
 When an entry includes `recurrence`, the original and each generated
 occurrence expose a `recurrence` object containing its rule id, pattern,
 enabled state and next occurrence. Due occurrences are generated automatically

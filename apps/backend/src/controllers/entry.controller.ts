@@ -6,7 +6,7 @@ import { createEntrySchema, updateEntrySchema } from "../schemas/entry.schema.js
 import type { Entry } from "@logbook/shared";
 import { calculateComputedValues } from "../utils/computedFields.js";
 import { cleanTagNames, resolveTagIds } from "../utils/tags.js";
-import { validateEntryValues, findMissingRequiredField, isEmptyValue } from "../utils/entryValues.js";
+import { validateEntryValues, findMissingRequiredField, isEmptyValue, findBadReference } from "../utils/entryValues.js";
 import type { SnapshotField } from "../utils/entryFormat.js";
 import { ensureBaselineVersion, recordVersion, sameSnapshot, toSnapshot } from "../utils/entryVersions.js";
 import { dueDateOffsetDays, materializeDueRecurringEntries, nextRecurrenceDate } from "../utils/recurringEntries.js";
@@ -258,6 +258,9 @@ export const createEntry = async (req: AuthenticatedRequest, res: Response) => {
     const shapeError = validateEntryValues(fields, suppliedValues);
     if (shapeError) return res.status(400).json({ error: shapeError });
 
+    const referenceError = await findBadReference(prisma, req.userId!, fields, suppliedValues);
+    if (referenceError) return res.status(400).json({ error: referenceError });
+
     const computedValues = calculateComputedValues(fields, suppliedValues);
 
     const missing = findMissingRequiredField(fields, { ...suppliedValues, ...computedValues });
@@ -370,6 +373,9 @@ export const updateEntry = async (req: AuthenticatedRequest, res: Response) => {
 
         const shapeError = validateEntryValues(fields, validated.values);
         if (shapeError) throw new Error(shapeError);
+
+        const referenceError = await findBadReference(tx, req.userId!, fields, validated.values);
+        if (referenceError) throw new Error(referenceError);
 
         const existingValues = await tx.entryValue.findMany({ where: { entryId: id } });
         const valueMap: Record<string, unknown> = Object.fromEntries(existingValues.map((value: any) => [value.fieldId, value.value]));
