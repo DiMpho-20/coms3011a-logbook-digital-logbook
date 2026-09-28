@@ -31,9 +31,9 @@ import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
 import TagFilterBar from "../components/TagFilterBar";
 
-<<<<<<< HEAD
+
 const PAGE_SIZE = 20;
-=======
+
 function isEmptyFieldValue(value: unknown) {
   return value == null || value === "" || value === false || (Array.isArray(value) && value.length === 0);
 }
@@ -55,7 +55,7 @@ function valueForSearch(value: unknown): string {
   }
   return String(value ?? "");
 }
->>>>>>> origin/main
+
 
 export default function EntriesPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -99,11 +99,14 @@ export default function EntriesPage() {
 
       // First page only. More is fetched on demand via loadMore.
       const listing = await fetchAllEntries(
-<<<<<<< HEAD
-        { projectStatus: "ACTIVE", limit: PAGE_SIZE, offset: 0 },
-=======
-        { projectStatus: "ACTIVE", limit: 500, ...(archivedFilter !== "exclude" && { archived: archivedFilter }) },
->>>>>>> origin/main
+
+               {
+          projectStatus: "ACTIVE",
+          limit: PAGE_SIZE,
+          offset: 0,
+          ...(archivedFilter !== "exclude" && { archived: archivedFilter }),
+        },
+
         { pendingProjectIds: active.map((p) => p.id) }
       );
       if (run !== loadRunRef.current) return;
@@ -532,15 +535,11 @@ export default function EntriesPage() {
                             ? (entry.values?.[descField.id] as string) || ""
                             : "";
 
-<<<<<<< HEAD
-                          const fieldChips = fields
-=======
                           // Collect non-empty custom-field values. The description
                           // field is skipped while
                           // it is showing as the headline — repeating the same text
                           // directly underneath it adds nothing.
                           const fieldValues = fields
->>>>>>> origin/main
                             .filter((f) => {
                               if (description && f.id === descField?.id) return false;
                               const v = entry.values?.[f.id];
