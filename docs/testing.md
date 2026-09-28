@@ -27,17 +27,18 @@ logic like saved-filter persistence).
 
 ## What We Test
 
-863 tests in total: 505 backend across 27 files, 358 frontend across 24
+960 tests in total: 543 backend across 30 files, 417 frontend across 27
 files. Per-file detail for the backend lives in
 [`apps/backend/TESTING.md`](https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook/src/branch/main/apps/backend/TESTING.md); the summaries
 below cover the whole monorepo.
 
-### Backend — 505 tests across 27 files
+### Backend — 543 tests across 30 files
 
-- **Core API & infrastructure (50):** `api.test.ts` (27) — health, project
+- **Core API & infrastructure (63):** `api.test.ts` (27) — health, project
   CRUD, entry fields, entries, time summaries; plus `projectDelete` (6),
-  `purgeDeletedAccounts` (6), `rateLimit` (6, BUG-003) and `jwtSecret`
-  (5, BUG-002)
+  `purgeDeletedAccounts` (6), `rateLimit` (6, BUG-003), `jwtSecret`
+  (5, BUG-002) and `readRetry` (13 — which failed reads may be retried, and
+  that writes and real database errors never are)
 - **Authentication & security (91):** `auth.test.ts` (33) — registration,
   login, route protection, the 2FA lifecycle, password reset, account
   deletion; `authCrypto.test.ts` (28) — AES-256-GCM round-trip, tamper and
@@ -45,25 +46,26 @@ below cover the whole monorepo.
   `twoFactorSecurity.test.ts` (21) — the encrypted secrets, the
   `2fa-pending` hand-off token and the recovery-code lifecycle as HTTP
   behaviour (BUG-004/005/006); `entryOwnership.test.ts` (9, BUG-011)
-- **Entries, fields and versions (71):** `entryValidation` (17),
-  `entryHistory` (18 — US29/30/31/32), `entriesListing` (14),
-  `blankNumericValues` (6, BUG-012), `tags` (13), `recurringEntries` (3,
-  US27)
+- **Entries, fields and versions (88):** `entryValidation` (17),
+  `entryHistory` (18 — US29/30/31/32), `entriesListing` (20 — including
+  paging, US33), `entryFieldIntegrity` (11 — concurrent field creation,
+  BUG-001, and unique field names), `blankNumericValues` (6, BUG-012),
+  `tags` (13), `recurringEntries` (3, US27)
 - **Statistics & expressions (109):** `sprint2` (22 — entry status US13,
   group and timeline stats US11/US12), `stats` (10),
   `customStatistics` (27, US23), `expressions` (28),
   `expressionStats` (22)
-- **Automation, integrations and utilities (184):**
+- **Automation, dashboard, integrations and utilities (192):**
   `automationEngine.test.ts` (51 — rule CRUD, triggers, conditions,
   actions, history, no-looping, ownership; US24),
-  `automationRules.test.ts` (28 — the pure evaluator), `googleCalendar`
-  (13) and `googleCalendarSync` (7) — the OAuth hand-off and the
-  idempotent due-date mirror (FEAT-001), `reminders` (42, US28),
-  `push` (11 — push subscriptions and the due-reminder delivery job,
-  US28), `utils` (32 — computed fields, formulas, auth utils, format
-  versions)
+  `automationRules.test.ts` (28 — the pure evaluator), `dashboardLayout`
+  (8 — the saved panel layout, US26), `googleCalendar` (13) and
+  `googleCalendarSync` (7) — the OAuth hand-off and the idempotent due-date
+  mirror (FEAT-001), `reminders` (42, US28), `push` (11 — push
+  subscriptions and the due-reminder delivery job, US28), `utils` (32 —
+  computed fields, formulas, auth utils, format versions)
 
-### Frontend — 358 tests across 24 files
+### Frontend — 417 tests across 27 files
 
 #### API client, offline queue and import/export (72 tests)
 
@@ -88,7 +90,7 @@ below cover the whole monorepo.
   pushing, in-app fallback when the server has push off, unsubscribe when
   turned off)
 
-#### Component behaviour (81 tests)
+#### Component behaviour (116 tests)
 
 - **`EntryForm.test.tsx` (9)** — dynamic fields, validation errors,
   submit behaviour
@@ -100,19 +102,24 @@ below cover the whole monorepo.
   with one
 - **`AutomationRules.test.tsx` (25)** — the US24 rule builder: listing,
   creating, editing, and the operator vocabulary the UI offers
+- **`EntryHistoryModal.test.tsx` (19)** — the version list, comparing an
+  older version field by field, and restoring with confirmation
+  (US29–US31)
+- **`DeleteProjectModal.test.tsx` (16)** — the typed-name guard, what the
+  dialog says, and failures
 
-#### Pages (151 tests)
+#### Pages (159 tests)
 
-- **`DashboardPage.test.tsx` (12)** — greeting, stat cards, charts,
+- **`DashboardPage.test.tsx` (19)** — greeting, chosen panels, charts,
   empty states
 - **`LoginPage.test.tsx` (5)** / **`RegisterPage.test.tsx` (7)** — the
   session-expired banner, form presence, client-side validation
 - **`ProjectsPage.test.tsx` (21)** — loading, listing, creating, editing,
   archiving
-- **`EntriesPage.test.tsx` (18)** — the timeline, saved filters, loading
-  states
-- **`OpenWorkPage.test.tsx` (17)** — gathering open work, sorting it into
-  overdue buckets, the calendar link, marking work done
+- **`EntriesPage.test.tsx` (19)** — the timeline, paging with "Load more",
+  saved filters, loading states
+- **`OpenWorkPage.test.tsx` (17)** — gathering open work in one request,
+  sorting it into overdue buckets, the calendar link, marking work done
 - **`CalendarPage.test.tsx` (14)** — month navigation, entries on a day,
   project switching
 - **`StatsPage.test.tsx` (44)** — time per project, group and total
@@ -120,13 +127,15 @@ below cover the whole monorepo.
 - **`RemindersPage.test.tsx` (13)** — viewing, completing and dismissing
   reminders, creating one, the rules behind them (US28 AT1–AT4)
 
-#### Pure logic (44 tests)
+#### Pure logic (60 tests)
 
 - **`savedFilters.test.ts` (14)** — saved-filter persistence in
   localStorage
 - **`formulas.test.ts` (16)** — the computed-field formula helpers
 - **`utils.test.ts` (11)** — date keys, formatting, streaks
-- **`dashboardPreferences.test.ts` (3)** — dashboard panel preferences
+- **`dashboardInsights.test.ts` (13)** — streaks, monthly counts, weekly
+  progress and tag ranking for the dashboard panels
+- **`dashboardPreferences.test.ts` (6)** — dashboard panel preferences
 
 Test files live in `apps/backend/src/__tests__/` and
 `apps/frontend/src/**/__tests__/` in the repository.
@@ -380,87 +389,94 @@ published on this site.
 
 ## Proof of Passing Runs
 
-**Run date: 2026-09-27 · 863 / 863 tests passing · 51 / 51 test files passing**
+**Run date: 2026-09-28 · 960 / 960 tests passing · 57 / 57 test files passing**
 
-### Backend (505 tests, 27 files)
+### Backend (543 tests, 30 files)
 
-Captured from `npm run test:coverage --workspace=apps/backend` (run against
+Captured from `npx vitest run --coverage` in `apps/backend` (run against
 the remote database with Vitest's default worker pool — per-file times are
 wall-clock and include queue time on their worker):
 
 ```text
- ✓ src/__tests__/api.test.ts (27 tests) 53374ms
- ✓ src/__tests__/auth.test.ts (33 tests) 23720ms
- ✓ src/__tests__/authCrypto.test.ts (28 tests) 30ms
- ✓ src/__tests__/automationEngine.test.ts (51 tests) 352794ms
- ✓ src/__tests__/automationRules.test.ts (28 tests) 19ms
- ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 53289ms
- ✓ src/__tests__/customStatistics.test.ts (27 tests) 64106ms
- ✓ src/__tests__/entriesListing.test.ts (14 tests) 30855ms
- ✓ src/__tests__/entryHistory.test.ts (18 tests) 196734ms
- ✓ src/__tests__/entryOwnership.test.ts (9 tests) 32127ms
- ✓ src/__tests__/entryValidation.test.ts (17 tests) 184336ms
- ✓ src/__tests__/expressions.test.ts (28 tests) 26ms
- ✓ src/__tests__/expressionStats.test.ts (22 tests) 37680ms
- ✓ src/__tests__/googleCalendar.test.ts (13 tests) 102ms
- ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 30ms
- ✓ src/__tests__/jwtSecret.test.ts (5 tests) 137ms
- ✓ src/__tests__/projectDelete.test.ts (6 tests) 39685ms
- ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 9293ms
- ✓ src/__tests__/push.test.ts (11 tests) 49532ms
- ✓ src/__tests__/rateLimit.test.ts (6 tests) 160ms
- ✓ src/__tests__/recurringEntries.test.ts (3 tests) 11ms
- ✓ src/__tests__/reminders.test.ts (42 tests) 249595ms
- ✓ src/__tests__/sprint2.test.ts (22 tests) 57062ms
- ✓ src/__tests__/stats.test.ts (10 tests) 132627ms
- ✓ src/__tests__/tags.test.ts (13 tests) 69059ms
- ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 24195ms
- ✓ src/__tests__/utils.test.ts (32 tests) 1729ms
+ ✓ src/__tests__/api.test.ts (27 tests) 52202ms
+ ✓ src/__tests__/auth.test.ts (33 tests) 19647ms
+ ✓ src/__tests__/authCrypto.test.ts (28 tests) 41ms
+ ✓ src/__tests__/automationEngine.test.ts (51 tests) 364029ms
+ ✓ src/__tests__/automationRules.test.ts (28 tests) 32ms
+ ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 48645ms
+ ✓ src/__tests__/customStatistics.test.ts (27 tests) 48404ms
+ ✓ src/__tests__/dashboardLayout.test.ts (8 tests) 3458ms
+ ✓ src/__tests__/entriesListing.test.ts (20 tests) 23826ms
+ ✓ src/__tests__/entryFieldIntegrity.test.ts (11 tests) 64783ms
+ ✓ src/__tests__/entryHistory.test.ts (18 tests) 181306ms
+ ✓ src/__tests__/entryOwnership.test.ts (9 tests) 18324ms
+ ✓ src/__tests__/entryValidation.test.ts (17 tests) 198700ms
+ ✓ src/__tests__/expressionStats.test.ts (22 tests) 14636ms
+ ✓ src/__tests__/expressions.test.ts (28 tests) 15ms
+ ✓ src/__tests__/googleCalendar.test.ts (13 tests) 144ms
+ ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 18ms
+ ✓ src/__tests__/jwtSecret.test.ts (5 tests) 113ms
+ ✓ src/__tests__/projectDelete.test.ts (6 tests) 36956ms
+ ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 3847ms
+ ✓ src/__tests__/push.test.ts (11 tests) 47473ms
+ ✓ src/__tests__/rateLimit.test.ts (6 tests) 142ms
+ ✓ src/__tests__/readRetry.test.ts (13 tests) 20ms
+ ✓ src/__tests__/recurringEntries.test.ts (3 tests) 6ms
+ ✓ src/__tests__/reminders.test.ts (42 tests) 246032ms
+ ✓ src/__tests__/sprint2.test.ts (22 tests) 40367ms
+ ✓ src/__tests__/stats.test.ts (10 tests) 148602ms
+ ✓ src/__tests__/tags.test.ts (13 tests) 69569ms
+ ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 19031ms
+ ✓ src/__tests__/utils.test.ts (32 tests) 775ms
 
- Test Files  27 passed (27)
-      Tests  505 passed (505)
-   Duration  432.73s (transform 4.16s, setup 578ms, import 38.66s, tests 1662.31s, environment 6ms)
+ Test Files  30 passed (30)
+      Tests  543 passed (543)
+   Duration  472.23s (transform 8.32s, setup 678ms, import 61.59s, tests 1805.11s, environment 5ms)
 ```
 
-### Frontend (358 tests, 24 files)
+### Frontend (417 tests, 27 files)
 
 ```text
- ✓ src/components/__tests__/AutomationRules.test.tsx (25 tests) 4455ms
- ✓ src/pages/__tests__/EntriesPage.test.tsx (18 tests) 4176ms
- ✓ src/pages/__tests__/RemindersPage.test.tsx (13 tests) 4273ms
- ✓ src/pages/__tests__/ProjectsPage.test.tsx (21 tests) 5871ms
- ✓ src/pages/__tests__/DashboardPage.test.tsx (12 tests) 6519ms
- ✓ src/pages/__tests__/CalendarPage.test.tsx (14 tests) 12435ms
- ✓ src/pages/__tests__/StatsPage.test.tsx (44 tests) 19472ms
- ✓ src/components/__tests__/interactiveComponents.test.tsx (26 tests) 1571ms
- ✓ src/pages/__tests__/OpenWorkPage.test.tsx (17 tests) 1796ms
- ✓ src/pages/__tests__/RegisterPage.test.tsx (7 tests) 2141ms
- ✓ src/components/__tests__/EntryForm.test.tsx (9 tests) 1317ms
- ✓ src/pages/__tests__/LoginPage.test.tsx (5 tests) 1719ms
- ✓ src/components/__tests__/displayComponents.test.tsx (18 tests) 1140ms
- ✓ src/components/__tests__/ProtectedRoute.test.tsx (3 tests) 192ms
- ✓ src/lib/__tests__/offlineEntries.test.ts (18 tests) 142ms
- ✓ src/lib/__tests__/offlineProjects.test.ts (11 tests) 117ms
- ✓ src/lib/__tests__/utils.test.ts (11 tests) 81ms
- ✓ src/__tests__/api.test.ts (26 tests) 190ms
- ✓ src/api/__tests__/client.test.ts (10 tests) 101ms
- ✓ src/lib/__tests__/savedFilters.test.ts (14 tests) 88ms
- ✓ src/lib/__tests__/formulas.test.ts (16 tests) 72ms
- ✓ src/lib/__tests__/offlineCache.test.ts (7 tests) 80ms
- ✓ src/lib/__tests__/dashboardPreferences.test.ts (3 tests) 74ms
- ✓ src/lib/__tests__/reminderNotifications.test.ts (10 tests) 86ms
+ ✓ src/__tests__/api.test.ts (26 tests) 911ms
+ ✓ src/api/__tests__/client.test.ts (10 tests) 158ms
+ ✓ src/components/__tests__/AutomationRules.test.tsx (25 tests) 7742ms
+ ✓ src/components/__tests__/DeleteProjectModal.test.tsx (16 tests) 12847ms
+ ✓ src/components/__tests__/EntryForm.test.tsx (9 tests) 7166ms
+ ✓ src/components/__tests__/EntryHistoryModal.test.tsx (19 tests) 8641ms
+ ✓ src/components/__tests__/ProtectedRoute.test.tsx (3 tests) 98ms
+ ✓ src/components/__tests__/displayComponents.test.tsx (18 tests) 2248ms
+ ✓ src/components/__tests__/interactiveComponents.test.tsx (26 tests) 8203ms
+ ✓ src/lib/__tests__/dashboardInsights.test.ts (13 tests) 50ms
+ ✓ src/lib/__tests__/dashboardPreferences.test.ts (6 tests) 19ms
+ ✓ src/lib/__tests__/formulas.test.ts (16 tests) 109ms
+ ✓ src/lib/__tests__/offlineCache.test.ts (7 tests) 117ms
+ ✓ src/lib/__tests__/offlineEntries.test.ts (18 tests) 53ms
+ ✓ src/lib/__tests__/offlineProjects.test.ts (11 tests) 590ms
+ ✓ src/lib/__tests__/reminderNotifications.test.ts (10 tests) 167ms
+ ✓ src/lib/__tests__/savedFilters.test.ts (14 tests) 21ms
+ ✓ src/lib/__tests__/utils.test.ts (11 tests) 59ms
+ ✓ src/pages/__tests__/CalendarPage.test.tsx (14 tests) 18950ms
+ ✓ src/pages/__tests__/DashboardPage.test.tsx (19 tests) 19185ms
+ ✓ src/pages/__tests__/EntriesPage.test.tsx (19 tests) 7473ms
+ ✓ src/pages/__tests__/LoginPage.test.tsx (5 tests) 5820ms
+ ✓ src/pages/__tests__/OpenWorkPage.test.tsx (17 tests) 6467ms
+ ✓ src/pages/__tests__/ProjectsPage.test.tsx (21 tests) 8542ms
+ ✓ src/pages/__tests__/RegisterPage.test.tsx (7 tests) 7545ms
+ ✓ src/pages/__tests__/RemindersPage.test.tsx (13 tests) 16898ms
+ ✓ src/pages/__tests__/StatsPage.test.tsx (44 tests) 54601ms
 
- Test Files  24 passed (24)
-      Tests  358 passed (358)
-   Duration  98.65s (transform 3.12s, setup 22.95s, import 11.66s, tests 68.11s, environment 69.66s)
+ Test Files  27 passed (27)
+      Tests  417 passed (417)
+   Duration  74.92s (transform 9.60s, setup 53.52s, import 29.18s, tests 195.29s, environment 166.84s)
 ```
 
-### Coverage (V8 provider, from the coverage runs of the same day)
+### Coverage (V8 provider, from the same runs)
 
 | Suite | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| Backend | 84.78% | 79.68% | 92.12% | 85.43% |
-| Frontend | 52.89% | 47.36% | 52.82% | 53.64% |
+| Backend | 84.38% | 79.73% | 90.88% | 85.12% |
+| Frontend | 58.94% | 55.07% | 59.27% | 59.54% |
+| **Combined (lines)** | | | | **68.89%** (4,085 of 5,930) |
 
 ---
 
