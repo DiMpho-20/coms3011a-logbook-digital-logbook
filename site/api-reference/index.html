@@ -3676,6 +3676,14 @@ an added <code>projectName</code>.</p>
 </tbody>
 </table>
 <p><strong>Response <code>201</code>:</strong> Created entry object with <code>status: "OPEN"</code>.</p>
+<p>Each value is checked against its field's type. A <strong>REFERENCE</strong> value is
+<code>{ "id": "...", "label": "...", "kind": "project" | "entry" }</code> and must point
+at one of the caller's own projects (<code>kind: "project"</code>, the default when
+<code>kind</code> is missing) or entries (<code>kind: "entry"</code>). A reference to something
+that does not exist, belongs to another user, or is not the kind it declares
+is refused with <code>400</code>, e.g. <code>"Related to" must reference one of your
+projects.</code> The same check applies to <code>PUT /api/entries/:id</code>.</p>
+<p><strong>Errors:</strong> <code>400</code> (invalid or missing required value, broken reference), <code>404</code> (project not found)</p>
 <p>When an entry includes <code>recurrence</code>, the original and each generated
 occurrence expose a <code>recurrence</code> object containing its rule id, pattern,
 enabled state and next occurrence. Due occurrences are generated automatically
