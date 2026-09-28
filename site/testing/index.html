@@ -1812,10 +1812,11 @@ in action:</p>
    Each field create does read-latest-version → insert latest+1. Two
    parallel creates both read version <em>N</em> and both try to insert <em>N+1</em>;
    the unique <code>(project_id, version)</code> constraint rejects one, so one field
-   creation fails with 400. Tests create fields sequentially (matching
-   real UI usage). <em>Fix candidate: wrap version bump in a transaction
-   with a retry, or use <code>MAX(version)+1</code> inside a serializable
-   transaction.</em> Both are filed on the issue tracker.</p>
+   creation fails with 400. <strong>Fixed (BUG-001):</strong> the version bump now
+   runs in a transaction and retries on a unique-constraint collision, so
+   the loser of the race reads again and takes the next number.
+   <code>entryFieldIntegrity.test.ts</code> creates and deletes fields concurrently
+   and checks every version number is distinct and gapless.</p>
 </li>
 </ol>
 <hr />
@@ -1825,7 +1826,7 @@ in action:</p>
 </ul>
 <h3 id="completed">Completed</h3>
 <ul>
-<li><strong>CI gate</strong> — the Gitea Actions workflow now runs both backend and frontend test suites on every push to protected branches (main, Dineo, Alondwe, Wendy).</li>
+<li><strong>CI gate</strong> — the Gitea Actions workflow runs both backend and frontend test suites on every push to <code>main</code>, <code>master</code>, <code>Alondwe</code> and <code>Dineo</code>. It needs a Gitea Actions runner to be online; while none is, runs wait in the queue and start once one returns.</li>
 <li><strong>Backend unit tests</strong> — utils tests cover computedFields, auth, and entryFormat.</li>
 <li><strong>Frontend component and UI tests</strong> — page-level tests cover the dashboard, login/register, projects, entries timeline, open work, calendar, statistics and reminders pages, alongside the component and offline-layer suites.</li>
 <li><strong>Rate-limiting tests</strong> — <code>rateLimit.test.ts</code> locks in the BUG-003 fix.</li>
