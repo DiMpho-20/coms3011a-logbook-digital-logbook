@@ -143,7 +143,14 @@ export default function EntriesPage() {
     setLoadingMore(true);
     try {
       const listing = await fetchAllEntries(
-        { projectStatus: "ACTIVE", limit: PAGE_SIZE, offset: allEntries.length },
+        {
+          projectStatus: "ACTIVE",
+          limit: PAGE_SIZE,
+          offset: allEntries.length,
+          // The next page must come from the same view as the first, or the
+          // archive would continue with active entries.
+          ...(archivedFilter !== "exclude" && { archived: archivedFilter }),
+        },
         { pendingProjectIds: projects.map((p) => p.id) }
       );
       setAllEntries((prev) => [...prev, ...listing.entries]);
@@ -154,7 +161,7 @@ export default function EntriesPage() {
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasMore, allEntries.length, projects]);
+  }, [loadingMore, hasMore, allEntries.length, projects, archivedFilter]);
 
   useEffect(() => {
     loadAll();
