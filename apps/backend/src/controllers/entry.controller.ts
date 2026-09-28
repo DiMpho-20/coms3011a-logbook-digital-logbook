@@ -581,6 +581,9 @@ export const getOpenEntries = async (req: AuthenticatedRequest, res: Response) =
     const entries = await prisma.logbookEntry.findMany({
       where: {
         status: "OPEN",
+        // Archived work is out of the way by design (US32), so it is not
+        // listed as work still to do.
+        archivedAt: null,
         project: { userId },
       },
       include: {
