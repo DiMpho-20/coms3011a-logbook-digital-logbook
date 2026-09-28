@@ -4,7 +4,7 @@
 
 Development of the Digital Logbook follows a structured, dependency-driven approach. User stories are implemented in groups based on the functionality they provide and the dependencies between them.
 
-The development sequence began with authentication and account management, followed by project management, entry format configuration, logbook entry creation, entry browsing, and integration and testing. The Intermediate phase extended the Basic functionality with richer field types, entry-format versioning, computed fields, custom-field analysis, alternative views, unfinished-work tracking, offline capture, and data export/import.
+The development sequence began with authentication and account management, followed by project management, entry format configuration, logbook entry creation, entry browsing, and integration and testing. The Intermediate phase extended the Basic functionality with richer field types, entry-format versioning, computed fields, custom-field analysis, alternative views, unfinished-work tracking, offline capture, and data export/import. The Advanced phase (Sprint 3) added owner-defined statistics, a personal dashboard, automation, a full record history, and search and performance work for long-lived logbooks.
 
 Development was carried out incrementally, with each phase producing functionality that could be integrated with the functionality developed in previous phases.
 
@@ -22,6 +22,7 @@ Development was carried out incrementally using the following principles:
 * Preserve existing project and entry data when implementing operations such as project archiving.
 * Extend existing functionality rather than unnecessarily duplicating functionality.
 * Test new Intermediate functionality together with the existing Basic functionality to identify integration and regression issues.
+* Record every change to an entry, so that later features (history, restore, automation) can rely on it and no correction loses data.
 
 The project continued to use the Gitea Kanban board, Issues, Labels, Milestones, branches, and pull requests to track development.
 
@@ -47,11 +48,15 @@ flowchart LR
     F --> G["Phase 7<br/>Intermediate Features"]
 
     G --> H["Phase 8<br/>Intermediate Integration & Testing"]
+
+    H --> I["Phase 9<br/>Advanced Features (Sprint 3)"]
+
+    I --> J["Phase 10<br/>Advanced Integration & Testing"]
 ```
 
 The sequence reflects the dependencies between the user stories. For example, a project must exist before an entry format can be defined for it, and an entry format must exist before a project-specific logbook entry can be created.
 
-The Intermediate phase builds on the completed Basic functionality rather than replacing it.
+The Intermediate phase builds on the completed Basic functionality rather than replacing it, and the Advanced phase builds on both.
 
 ---
 
@@ -383,6 +388,91 @@ A fully integrated Digital Logbook containing the Basic and Intermediate functio
 
 ---
 
+# Advanced Development Phase (Sprint 3)
+
+## Phase 9 — Advanced Functionality
+
+The Advanced phase answers the brief's request for a logbook that computes over data whose shape only its owner knows, keeps its record hard to lose, does some of the writing itself, and stays quick after years of use. The sixteen stories were tracked as Gitea issues #94–#109 under the `Sprint 3 - Advanced Logbook` milestone and divided into four functional areas.
+
+### User Stories
+
+| Area | Stories | Board status |
+|---|---|---|
+| Custom Statistics & Expressions | US22 Define Custom Expressions, US23 Save Custom Statistics, US24 Entry Automation Rules | Done |
+| Personal Dashboard & Automation | US25 Create a Custom Dashboard, US26 Arrange and Persist Dashboard Layout, US27 Create Recurring Entries, US28 Generate Automatic Reminders | Done |
+| Versioning & Record History | US29 Preserve Entry Version History, US30 View an Entry as It Existed on a Given Date, US31 Restore a Previous Entry Version | Done |
+| Versioning & Record History | US32 Archive Old Entries | In Progress |
+| Advanced Search & Performance | US33 Maintain Query Performance for Large Logbooks | Done |
+| Advanced Search & Performance | US34 Apply Rules When Capturing Entries, US35 Rank Search Results by Relevance, US36 Combine Search Filters, US37 Search Custom Fields | Backlog |
+
+### Custom Statistics & Expressions
+
+**US22 — Define Custom Expressions.** A student writes an expression such as `SUM({Hours}) / COUNT()` over a project's entries. The server parses and evaluates it itself; no user input is ever executed, and field names reach the database only as bound parameters after being matched against the project's own fields.
+
+**US23 — Save Custom Statistics.** An expression can be saved with a name and appears alongside the built-in statistics. Only the definition is stored, so the value always reflects the current entries.
+
+**US24 — Entry Automation Rules.** A rule watches a project's entries and adds or removes a tag or sets the status when its conditions hold. Rules run after the entry is saved, cannot trigger themselves or each other, and a broken rule is skipped rather than failing the save.
+
+### Personal Dashboard & Automation
+
+**US25 — Create a Custom Dashboard.** The student chooses which statistics and information panels to show, including their saved statistics.
+
+**US26 — Arrange and Persist Dashboard Layout.** The chosen panels and their order are stored on the server, so the same dashboard appears on every device.
+
+**US27 — Create Recurring Entries.** An entry can repeat daily, weekly or monthly. Occurrences are generated from a stored template, both by a background job and when entries are read, so none are missed while the server sleeps.
+
+**US28 — Generate Automatic Reminders.** Reminders are raised for entries due soon, overdue entries, entries left untouched, and a daily prompt when nothing has been logged, alongside reminders the student sets by hand. They are delivered as web push notifications when the logbook is closed.
+
+### Versioning & Record History
+
+**US29 — Preserve Entry Version History.** Every create, edit, status change, restore and automated change writes an immutable snapshot of the entry.
+
+**US30 — View an Entry as It Existed on a Given Date.** The newest version at or before a chosen date is shown.
+
+**US31 — Restore a Previous Entry Version.** An earlier version becomes current again. The restore is itself saved as a new version, so nothing is lost by restoring.
+
+**US32 — Archive Old Entries.** Old entries move to an archive that keeps them but leaves them out of the default views.
+
+### Advanced Search & Performance
+
+**US33 — Maintain Query Performance for Large Logbooks.** Database indexes on the columns common queries filter by, a paginated Entries page, and a single request for open work instead of one per project.
+
+**US34 — Apply Rules When Capturing Entries.** Overlaps with US24, whose rule engine already applies rules when an entry is captured.
+
+**US35–US37 — Search.** Searching inside specific custom fields, combining several filters in one search, and ranking results by relevance rather than by date.
+
+### Dependencies
+
+* US22 depends on the custom fields and entry values from US02, US03 and US10.
+* US23 depends on US22, and US25 depends on US23 to offer saved statistics as panels. US26 extends US25.
+* US24 depends on the entry-save path from US03 and on tags; its changes are recorded through US29.
+* US27 depends on entry creation (US03); US28 depends on due dates (US13) and entry status.
+* US30 and US31 depend on the version history from US29.
+* US32 and US33 apply across all entry features; US35–US37 depend on custom fields (US02) and the existing browsing and filtering (US06).
+
+### Deliverable
+
+A logbook whose owner can compute over their own data, arrange their own dashboard, have entries and reminders generated for them, and see and restore any past state of an entry.
+
+---
+
+## Phase 10 — Advanced Integration, Testing and Refinement
+
+### Development Work
+
+* Testing each Advanced story against its acceptance tests with backend integration tests and frontend tests.
+* Testing that automation, recurrence and restores all write version history.
+* Testing ownership: one student's statistics, rules, reminders, layouts and history cannot be read or changed by another.
+* Testing that a broken automation rule or an unreadable statistic never costs the user an entry or a whole page.
+* Testing push notifications against a production build, since the service worker is only registered there.
+* Regression testing against the Basic and Intermediate functionality.
+
+### Deliverable
+
+The Advanced functionality integrated with the existing Digital Logbook, with the remaining search stories scheduled from the Sprint 3 backlog.
+
+---
+
 # User Story Dependencies
 
 The main dependencies between the Basic and Intermediate user stories are:
@@ -418,6 +508,32 @@ flowchart TD
     H --> S["US15<br/>Export & Import"]
 ```
 
+The Advanced stories build on those:
+
+```mermaid
+flowchart TD
+
+    H["US03<br/>Record Logbook Entry"] --> V1["US29<br/>Version History"]
+    V1 --> V2["US30<br/>View as of a Date"]
+    V1 --> V3["US31<br/>Restore a Version"]
+    H --> V4["US32<br/>Archive Old Entries"]
+
+    N["US10<br/>Computed Fields"] --> X1["US22<br/>Custom Expressions"]
+    X1 --> X2["US23<br/>Save Custom Statistics"]
+    X2 --> D1["US25<br/>Custom Dashboard"]
+    D1 --> D2["US26<br/>Persist Layout"]
+
+    H --> R1["US24<br/>Automation Rules"]
+    R1 -. "records changes via" .-> V1
+    H --> R2["US27<br/>Recurring Entries"]
+    Q["US13<br/>Due Dates"] --> R3["US28<br/>Automatic Reminders"]
+
+    J["US06<br/>Browse & Filter"] --> S1["US37<br/>Search Custom Fields"]
+    S1 --> S2["US36<br/>Combine Filters"]
+    S2 --> S3["US35<br/>Rank Results"]
+    H --> P1["US33<br/>Query Performance"]
+```
+
 These dependencies describe the logical relationships between the user stories rather than requiring every story to be completed independently before work on another story can begin.
 
 ---
@@ -444,6 +560,12 @@ Testing included:
 | Due Dates             | Verify unfinished and overdue work handling                                                     |
 | Offline Capture       | Verify that entries can be captured without an active connection and synchronised appropriately |
 | Export/Import         | Verify that logbook data can be exported and imported                                           |
+| Custom Statistics     | Verify that expressions evaluate correctly, reject invalid input, and saved statistics follow the data |
+| Dashboard             | Verify that chosen panels and their order persist per user across devices                       |
+| Automation            | Verify that rules apply only when their conditions hold, never loop, and never lose an entry    |
+| Recurrence & Reminders | Verify that occurrences and reminders are generated once, on time, and pushed to devices       |
+| Record History        | Verify that every change is versioned, past states can be viewed, and restores are themselves recorded |
+| Performance           | Verify that entry listings page correctly and common queries stay fast                          |
 | Integration           | Verify that frontend, backend and database components work together                             |
 | Validation            | Verify that invalid or incomplete input is handled correctly                                    |
 | Regression Testing    | Ensure new functionality does not break existing functionality                                  |
@@ -466,7 +588,7 @@ A user story is considered complete when:
 * New functionality does not introduce known critical regressions.
 * The functionality is represented appropriately in the project documentation.
 
-For the Intermediate phase, the Definition of Done also required the new functionality to work with the existing Basic Digital Logbook rather than functioning as isolated features.
+For the Intermediate phase, the Definition of Done also required the new functionality to work with the existing Basic Digital Logbook rather than functioning as isolated features. For the Advanced phase, it also required every resource to be checked against its owner, and every change to an entry to be recorded in its history.
 
 ---
 
@@ -497,6 +619,18 @@ The Intermediate development then extended the system with:
 9. Data export and import.
 10. Integration and regression testing.
 
+The Advanced development (Sprint 3) then added:
+
+1. Custom expressions and saved statistics.
+2. Entry automation rules.
+3. A personal dashboard that persists across devices.
+4. Recurring entries.
+5. Automatic reminders with push notifications.
+6. Entry version history, viewing an entry as of a date, and restoring a version.
+7. Query-performance work for large logbooks.
+
+Entry archiving and the structured-search stories remain in progress on the Sprint 3 board.
+
 This dependency-driven approach allowed each phase to build on previously completed functionality while reducing the risk of breaking existing project and entry data.
 
-The completed development plan therefore reflects the progression from the foundational Digital Logbook requirements to the expanded Intermediate functionality while maintaining the original system architecture and project structure.
+The development plan therefore reflects the progression from the foundational Digital Logbook requirements through the Intermediate functionality to the Advanced features, while maintaining the original system architecture and project structure.

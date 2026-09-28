@@ -1,5 +1,11 @@
 # Initial System Design
 
+> This page records the design as it was planned at the start of the project
+> (August 2026). It is kept unchanged as a record of the starting point. The
+> system has grown considerably since; §4 summarises how, and
+> [System Architecture](../architecture.md) and
+> [Database Design](database-erd.md) describe it as built.
+
 ## 1. High-Level System Architecture
 
 The Digital Logbook is designed as a non-monolithic web application.
@@ -106,3 +112,27 @@ provides access to the database from the Express backend.
 Foreign keys are used to maintain relationships between entities.
 Unique constraints prevent duplicate values where required, and cascading
 deletes support account deletion and associated data removal.
+
+## 4. How the Design Has Evolved
+
+The initial design held up: the system is still a React frontend, an Express
+REST API and a PostgreSQL database, with a shared types package, and the
+EAV entry model above still carries every project's custom fields. What
+changed is what was built on top of it.
+
+| Area | Initial design | Now |
+|---|---|---|
+| Database | 6 tables | 20 tables: format versions, entry versions, tags, custom statistics, dashboard layouts, automation and recurrence rules, reminders, push subscriptions, recovery codes and the Google Calendar connection were added |
+| Field types | Text, Number, Date, Boolean | Also Tags, Checklist, Link, Reference and Computed |
+| Entry history | An entry is overwritten when edited | Every change is kept as a version and can be viewed or restored |
+| Authentication | JWT sign-in, email verification, password reset | Also TOTP two-factor authentication with recovery codes, encrypted secrets, hashed tokens and rate limiting |
+| Email | Nodemailer (Gmail SMTP) | Resend, with Gmail SMTP as a fallback |
+| Background work | None | Jobs in the API process create recurring entries, push due reminders and purge deleted accounts |
+| Frontend | Pages, components, API client, routing | Also a service worker for offline use and push notifications, and an offline entry queue |
+| Integrations | None | Google Calendar sync and web push |
+| Deployment | Not yet decided | Frontend on Cloudflare Pages, backend on Render, database on Neon, CI on Gitea Actions |
+
+The request pipeline also gained an explicit ownership check: a valid token
+proves who the caller is, and every query is then scoped to that user's own
+data. See [Architecture Design](architecture.md) for the pipeline and sign-in
+flow.
