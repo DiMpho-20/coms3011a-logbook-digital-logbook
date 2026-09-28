@@ -393,6 +393,12 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
     }
     const limit = Math.min(rawLimit, MAX_ENTRY_LIMIT);
 
+    const rawOffset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+    if (!Number.isInteger(rawOffset) || rawOffset < 0) {
+      return res.status(400).json({ error: "offset must be a non-negative integer" });
+    }
+    const offset = rawOffset;
+
     let from: Date | undefined;
     let to: Date | undefined;
     try {
@@ -421,11 +427,12 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       WHERE ${Prisma.join(conditions, " AND ")}
       ORDER BY COALESCE(le.entry_date, le.created_at) DESC, le.id DESC
       LIMIT ${limit}
+      OFFSET ${offset}
     `;
 
     const ids = rows.map((r) => r.id);
     if (ids.length === 0) {
-      return res.status(200).json({ entries: [], formats: {}, limit, truncated: false });
+      return res.status(200).json({ entries: [], formats: {}, limit, offset, truncated: false });
     }
 
     const found = await prisma.logbookEntry.findMany({
@@ -458,6 +465,7 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       entries,
       formats,
       limit,
+      offset,
       truncated: ids.length === limit,
     });
   } catch (error) {

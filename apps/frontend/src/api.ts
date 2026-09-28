@@ -144,6 +144,7 @@ export interface EntriesQuery {
   from?: string;
   to?: string;
   limit?: number;
+  offset?: number;
 }
 
 export interface EntriesListing {
