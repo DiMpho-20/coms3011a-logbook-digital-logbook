@@ -515,10 +515,10 @@ Tracked on the board as issue #106, but it is the same story as [US24](#us24-ent
 
 | **#** | **Given**                                        | **When**             | **Then**                                                     | **Status** |
 | ----- | ------------------------------------------------ | -------------------- | ------------------------------------------------------------ | ---------- |
-| 1     | I have multiple entries matching a search        | I perform the search | The matching entries are displayed in an ordered result list | Pending    |
-| 2     | I search for a term appearing in several entries | I view the results   | More relevant matches appear before less relevant matches    | Pending    |
-| 3     | I perform a search with no matches               | I view the results   | The system indicates that no matching entries were found     | Pending    |
-| 4     | I apply search filters                           | I view the results   | The relevance ordering is applied to the filtered results    | Pending    |
+| 1     | I have multiple entries matching a search        | I perform the search | The matching entries are displayed in an ordered result list | Pass       |
+| 2     | I search for a term appearing in several entries | I view the results   | More relevant matches appear before less relevant matches    | Pass       |
+| 3     | I perform a search with no matches               | I view the results   | The system indicates that no matching entries were found     | Pass       |
+| 4     | I apply search filters                           | I view the results   | The relevance ordering is applied to the filtered results    | Pass       |
 
 ---
 
@@ -530,11 +530,11 @@ Tracked on the board as issue #106, but it is the same story as [US24](#us24-ent
 
 | **#** | **Given**                                  | **When**             | **Then**                                                      | **Status** |
 | ----- | ------------------------------------------ | -------------------- | ------------------------------------------------------------- | ---------- |
-| 1     | I have multiple logbook entries            | I apply one filter   | Only entries matching that filter are displayed               | Pending    |
-| 2     | I have multiple logbook entries            | I apply two filters  | Only entries matching both filters are displayed              | Pending    |
-| 3     | I have applied multiple filters            | I remove one filter  | The results update using the remaining filters                | Pending    |
-| 4     | I have applied multiple filters            | I clear all filters  | The unfiltered search results are displayed                   | Pending    |
-| 5     | I combine project and custom-field filters | I perform the search | The system returns entries satisfying the selected conditions | Pending    |
+| 1     | I have multiple logbook entries            | I apply one filter   | Only entries matching that filter are displayed               | Pass       |
+| 2     | I have multiple logbook entries            | I apply two filters  | Only entries matching both filters are displayed              | Pass       |
+| 3     | I have applied multiple filters            | I remove one filter  | The results update using the remaining filters                | Pass       |
+| 4     | I have applied multiple filters            | I clear all filters  | The unfiltered search results are displayed                   | Pass       |
+| 5     | I combine project and custom-field filters | I perform the search | The system returns entries satisfying the selected conditions | Pass       |
 
 ---
 
@@ -546,7 +546,7 @@ Tracked on the board as issue #106, but it is the same story as [US24](#us24-ent
 
 | **#** | **Given**                                 | **When**                          | **Then**                                                  | **Status** |
 | ----- | ----------------------------------------- | --------------------------------- | --------------------------------------------------------- | ---------- |
-| 1     | I have entries containing custom fields   | I search for a custom field value | Entries containing the matching value are returned        | Pending    |
-| 2     | I have entries with different field types | I search using a custom field     | The system searches the relevant field values             | Pending    |
-| 3     | I search for a value not present          | I perform the search              | No unrelated entries are returned                         | Pending    |
-| 4     | I have entries across multiple projects   | I search a custom field           | Matching entries from the relevant projects are displayed | Pending    |
+| 1     | I have entries containing custom fields   | I search for a custom field value | Entries containing the matching value are returned        | Pass       |
+| 2     | I have entries with different field types | I search using a custom field     | The system searches the relevant field values             | Pass       |
+| 3     | I search for a value not present          | I perform the search              | No unrelated entries are returned                         | Pass       |
+| 4     | I have entries across multiple projects   | I search a custom field           | Matching entries from the relevant projects are displayed | Pass       |

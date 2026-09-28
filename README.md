@@ -9,11 +9,11 @@ A web-based digital logbook application designed to help university students kee
 | Environment | URL |
 |---|---|
 | **Live App** | <https://coms3011a-logbook.pages.dev> |
-| **API Server** | <https://coms3011a-logbook.pages.dev> |
+| **API Server** | <https://digital-logbook-backend-latest.onrender.com/api> (health check: [`/api/health`](https://digital-logbook-backend-latest.onrender.com/api/health)) |
 | **Documentation** | <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> |
 | **Gitea Repository** | <https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook> |
 
-
+The API runs on Render's free tier, which sleeps when idle. The first request after a quiet spell can take up to a minute while it wakes.
 
 ## Overview
 
@@ -38,22 +38,40 @@ The main goals of the Digital Logbook are to:
 
 ## Features
 
-### Core Features
+### Core (Sprint 1)
 
-* **User authentication** — registration, login, email verification, and password reset
+* **User authentication** — registration, login, email verification, password reset, account deletion with a 30-day grace period, and optional two-factor authentication with recovery codes
 * **Customisable entry formats** — each project defines its own logbook entry fields
-* **Quick entry capture** — create logbook entries with time tracking
+* **Quick entry capture** — create logbook entries with time tracking and a live stopwatch
 * **Project management** — create, describe, archive, and organise projects
-* **Dashboard** — statistics, recent entries, and project overview at a glance
 * **Entry browser** — search and filter entries across all projects
+
+### Intermediate (Sprint 2)
+
+* **Rich field types** — tags, checklists, links, references and computed fields
+* **Editable, versioned entry formats** — change a format without breaking older entries
+* **Statistics** — totals, grouping and charts over any custom field
+* **Calendar, board and open-work views** — with due dates and overdue tracking
+* **Offline capture** — entries made offline sync when the connection returns
+* **Export and import** — export as JSON or CSV, import from a JSON backup
+* **Google Calendar sync** — entry due dates in your own calendar
+
+### Advanced (Sprint 3)
+
+* **Custom expressions and saved statistics** — write `SUM({Hours}) / COUNT()` over your own entries and keep it beside the built-in statistics
+* **Personal dashboard** — choose and arrange the panels you care about; the layout follows you across devices
+* **Automation rules** — tag entries or set their status automatically when they are saved
+* **Recurring entries** — entries that repeat daily, weekly or monthly
+* **Automatic reminders** — for upcoming and overdue work, stalled entries and daily logging, delivered as push notifications
+* **Entry history** — every change is kept; view an entry as it was on any date and restore an earlier version
+* **Archiving and performance** — archive old entries; indexed queries and paginated lists for long records
 
 ### User Experience
 
 * **Profile page** — avatar upload, bio/slogan, degree, year, and student number
-* **Settings** — account management, dark/light theme, notifications, logbook preferences, and data export/import
+* **Settings** — account management, 2FA, dark/light theme, notifications, and data export/import
 * **Responsive design** — works on desktop and mobile with a collapsible sidebar
-* **Dark mode** — system-aware or manual toggle with accent colour customisation
-* **Data portability** — export logbook as JSON or CSV, import from JSON backup
+* **Dark mode** — system-aware or manual toggle, and reduced motion for users who ask for it
 
 ## Technology Stack
 
@@ -63,16 +81,19 @@ The main goals of the Digital Logbook are to:
 * Vite 8 (build tooling)
 * Tailwind CSS v4 (design system with `@theme` directive)
 * React Router v7 (client-side routing with nested protected routes)
-* Axios (HTTP client with JWT token interceptor)
+* Axios (HTTP client with JWT and expired-session interceptors)
+* A service worker for offline use and push notifications
 
 ### Backend
 
 * Node.js 22 with TypeScript
 * Express 5 (REST API)
 * Prisma 7 (ORM with driver adapter pattern)
-* bcryptjs (password hashing)
-* jsonwebtoken (JWT authentication)
-* nodemailer (email verification and password reset)
+* bcryptjs (password hashing) and jsonwebtoken (JWT authentication)
+* otplib and qrcode (two-factor authentication)
+* express-rate-limit (rate limiting on sign-in, sign-up and 2FA)
+* Resend, with nodemailer / Gmail SMTP as a fallback (email)
+* web-push (reminder notifications) and googleapis (Google Calendar)
 * Zod (schema validation, shared with frontend)
 
 ### Database
@@ -83,6 +104,11 @@ The main goals of the Digital Logbook are to:
 
 The `@logbook/shared` package (`packages/shared/`) contains TypeScript definitions, Zod schemas, and interfaces shared between the frontend and backend.
 
+### Testing and CI
+
+* Vitest with Supertest (backend) and Testing Library (frontend)
+* Gitea Actions typechecks, lints, runs both test suites with coverage, and builds on every push
+
 ## Project Structure
 
 ```text
@@ -90,38 +116,39 @@ coms3011a-logbook-digital-logbook/
 │
 ├── apps/
 │   ├── frontend/
+│   │   ├── public/sw.js         # Service worker: offline shell, push notifications
 │   │   ├── src/
-│   │   │   ├── components/      # Reusable UI components (Sidebar, Modal, etc.)
-│   │   │   ├── pages/           # Route pages (Dashboard, Projects, Entries, etc.)
-│   │   │   ├── lib/             # Utility functions
+│   │   │   ├── components/      # Reusable UI components
+│   │   │   ├── pages/           # Route pages (Dashboard, Projects, Entries, Stats, …)
+│   │   │   ├── lib/             # Offline cache, reminders, dashboard insights, helpers
 │   │   │   ├── api/             # Axios client with JWT interceptor
+│   │   │   ├── api.ts           # Typed API wrapper functions
 │   │   │   ├── App.tsx          # Router configuration
 │   │   │   └── index.css        # Tailwind v4 theme and global styles
 │   │   ├── vite.config.ts
 │   │   └── package.json
 │   │
 │   └── backend/
-│       ├── prisma/              # Prisma schema
+│       ├── prisma/              # Prisma schema and migrations
 │       ├── src/
 │       │   ├── controllers/     # Request handlers
 │       │   ├── routes/          # Express route definitions
-│       │   ├── middleware/      # Auth middleware
-│       │   ├── utils/           # Auth helpers, email sender
-│       │   ├── schemas/        # Validation schemas
-│       │   └── __tests__/       # Vitest integration tests
+│       │   ├── middleware/      # Auth and rate-limit middleware
+│       │   ├── utils/           # Domain logic: formats, versions, expressions,
+│       │   │                    #   automation, recurrence, reminders, push, auth
+│       │   ├── services/        # Google Calendar client
+│       │   ├── jobs/            # Background jobs (recurring entries, reminder
+│       │   │                    #   pushes, deleted-account purge)
+│       │   ├── schemas/         # Validation schemas
+│       │   └── __tests__/       # Vitest tests
 │       ├── .env.example
 │       └── package.json
 │
 ├── packages/
 │   └── shared/                  # @logbook/shared — shared types and Zod schemas
 │
-├── docs/                        # Project documentation
-│   ├── architecture.md
-│   ├── client-interactions.md
-│   ├── methodology.md
-│   ├── setup.md
-│   └── user-stories/
-│
+├── docs/                        # Project documentation (MkDocs)
+├── .gitea/                      # CI workflow and issue records
 ├── .nvmrc
 ├── mkdocs.yml
 ├── package.json
@@ -135,26 +162,30 @@ The frontend and backend are developed as separate applications and communicate 
 ```text
 ┌──────────────────────────────────────┐
 │              Frontend                │
-│        React + Vite + TypeScript     │
+│  React + Vite + TypeScript           │
+│  (Cloudflare Pages)                  │
 └──────────────────┬───────────────────┘
                    │
-                   │ HTTP API
+                   │ HTTP API (JWT)
                    ▼
 ┌──────────────────────────────────────┐
 │               Backend                │
-│    Express + Node.js 22 + TypeScript │
+│  Express + Node.js 22 + TypeScript   │
+│  API + background jobs (Render)      │
 └──────────────────┬───────────────────┘
                    │
-                   │ Database connection
+                   │ Prisma
                    ▼
 ┌──────────────────────────────────────┐
-│             PostgreSQL               │
+│       PostgreSQL (Neon)              │
 └──────────────────────────────────────┘
 ```
 
+See [System Architecture](docs/architecture.md) for the full picture, including push notifications, Google Calendar and email.
+
 ## Development Setup
 
-See [docs/setup.md](docs/setup.md) for the full development setup guide.
+See [docs/setup.md](docs/setup.md) for the full development setup guide, including every environment variable and a troubleshooting table.
 
 **Quick start:**
 
@@ -162,37 +193,47 @@ See [docs/setup.md](docs/setup.md) for the full development setup guide.
 git clone https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook.git
 cd coms3011a-logbook-digital-logbook
 npm install
-cp apps/backend/.env.example apps/backend/.env
+npm run build --workspace=packages/shared   # the backend needs the built shared package
 
-cd apps/backend && npx prisma migrate deploy && cd ../..
-npm run dev --workspace=backend   # Terminal 1
-npm run dev --workspace=frontend  # Terminal 2
+cp apps/backend/.env.example apps/backend/.env
+# Edit apps/backend/.env: set DATABASE_URL, and blank any placeholder you are not using
+
+cd apps/backend && npx prisma generate && npx prisma migrate deploy && cd ../..
+npm run dev --workspace=backend   # Terminal 1 — API on http://localhost:3000
+npm run dev --workspace=frontend  # Terminal 2 — app on http://localhost:5173
 ```
 
-## Code Quality and Linting
+Both servers must be running. If the login page says "Invalid email or password." with correct details, the backend is not running.
 
-Before committing code or opening a Pull Request, ensure that the project passes the workspace linter:
+## Code Quality and Testing
+
+Before committing code or opening a Pull Request, run the linter and the tests:
 
 ```bash
 npm run lint
+npm run test --workspace=backend
+npm run test --workspace=frontend
 ```
 
-Fix any linting errors before pushing changes.
+Fix any failures before pushing. See [Testing](docs/testing.md) and the [Testing Quickstart](docs/testing-quickstart.md).
 
 ## Documentation
 
-Additional project documentation is available in the `docs` directory:
+The full documentation is published at <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> and lives in `docs/`. Good places to start:
 
-* `docs/index.md` — Documentation overview.
-* `docs/setup.md` — Development setup instructions.
-* `docs/architecture.md` — Application architecture.
-* `docs/client-interactions.md` — Client and API interactions.
+* [`docs/setup.md`](docs/setup.md) — Development setup and troubleshooting.
+* [`docs/architecture.md`](docs/architecture.md) — System architecture as built.
+* [`docs/api-reference.md`](docs/api-reference.md) — Every API endpoint.
+* [`docs/methodology.md`](docs/methodology.md) — How the team works, and sprint status.
+* [`docs/user-stories/user-stories.md`](docs/user-stories/user-stories.md) — User stories and acceptance tests.
+* [`docs/client-interactions.md`](docs/client-interactions.md) — Client meetings and decisions.
 
-The project also includes an `mkdocs.yml` configuration file for the documentation site.
+To preview the documentation locally:
 
-### Live documentation
-
-* <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/>
+```bash
+pip install mkdocs mkdocs-material
+mkdocs serve        # http://127.0.0.1:8000
+```
 
 ## Development Workflow
 
@@ -219,8 +260,6 @@ docs: update setup guide
 test: add project creation tests
 ```
 
-
-
 ## Project Status
 
-The project is currently under active development. The Basic requirements are complete, and Intermediate and Advanced features are planned for later stages.
+The Basic (Sprint 1) and Intermediate (Sprint 2) requirements are complete. Sprint 3 (Advanced) is in its final stage: custom statistics, the personal dashboard, automation, recurring entries, reminders, entry history and query performance are done, and archiving and the advanced search stories are being completed. See the [methodology](docs/methodology.md) for the current board status.
