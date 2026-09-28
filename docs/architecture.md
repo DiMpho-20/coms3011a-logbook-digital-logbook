@@ -1,284 +1,240 @@
 # System Architecture
 
-## 1. Tech Stack
+The Digital Logbook is a single-page React application talking to an Express REST API, backed by PostgreSQL. Frontend, backend and a shared types package live in one npm-workspaces monorepo.
+
+## 1. Deployment Overview
+
+```mermaid
+flowchart LR
+    Browser["Browser<br/>React SPA + service worker"]
+    Pages["Cloudflare Pages<br/>static frontend build"]
+    API["Render<br/>Express API + background jobs"]
+    DB[("Neon<br/>PostgreSQL")]
+    Push["Browser push service<br/>(web push)"]
+    Google["Google Calendar API"]
+    Mail["Resend / Gmail SMTP"]
+
+    Browser -- "loads app" --> Pages
+    Browser -- "HTTPS /api, JWT" --> API
+    API -- "Prisma over pg" --> DB
+    API -- "VAPID-signed pushes" --> Push
+    Push -- "notifications" --> Browser
+    API -- "OAuth, event sync" --> Google
+    API -- "verification & reset emails" --> Mail
+```
+
+| Part | Hosted on | Notes |
+|---|---|---|
+| Frontend | Cloudflare Pages (`*.pages.dev`) | Static Vite build. A production build calls the Render API directly; the dev server proxies `/api` to `localhost:3000` instead. |
+| Backend | Render | One Node process serving the API and running the background jobs (§6). On the free tier it sleeps when idle, and the jobs pause with it. |
+| Database | Neon (serverless PostgreSQL) | Reached through Prisma's `pg` driver adapter. |
+| CI | Gitea Actions (`.gitea/workflows/deploy.yaml`) | Installs, typechecks, lints, tests and builds on every push. It deploys nothing; both deployments are done by hand. |
+
+The backend only accepts browser requests from `localhost` and `*.pages.dev` origins (CORS, `apps/backend/src/app.ts`).
+
+## 2. Tech Stack
 
 | Layer | Technology | Version | Purpose | Why Chosen |
 |---|---|---|---|---|
 | **Frontend** | React | 19 | UI framework | Component-based architecture, large ecosystem, team familiarity |
 | | Vite | 8 | Dev server & build tool | Fast HMR, native ESM, simpler config than Webpack |
-| | TypeScript | 6 | Type safety | Catches errors at compile time, improves IDE support, shared types with backend |
-| | Tailwind CSS | 4 | Utility-first styling with `@theme` directive | No separate CSS files to manage, consistent design tokens, built-in dark mode, responsive utilities |
-| | React Router | 7 | Client-side routing with protected routes | Standard React routing library, supports nested layouts and route guards |
-| | Axios | — | HTTP client with JWT token interceptor | Request/response interceptors for automatic JWT attachment, better error handling than fetch |
-| | Lucide React | — | Icon library | Lightweight, tree-shakeable, consistent icon set |
-| **Backend** | Express | 5 | HTTP API framework | Minimal, flexible, large middleware ecosystem, team familiarity |
-| | TypeScript | 6 | Type safety | End-to-end type safety shared with frontend via `@logbook/shared` |
-| | Zod | 4 | Request validation schemas | Runtime type validation with TypeScript inference, shared between frontend and backend |
-| | Prisma ORM | 7 | Database access & migrations | Type-safe queries, auto-generated client from schema, eliminates SQL injection risks |
-| | bcryptjs | — | Password hashing | Industry standard for password storage, pure JS (no native dependencies) |
-| | jsonwebtoken | — | JWT authentication tokens | Standard JWT library for Node.js, stateless authentication |
-| | nodemailer | — | Email verification and password reset (Gmail SMTP) | Mature email library, supports Gmail SMTP out of the box |
-| | resend | — | Alternative email provider (transactional emails) | Modern REST-based email API, fallback when SMTP is unavailable |
-| | otplib | 13 | TOTP-based two-factor authentication | Standards-compliant TOTP (RFC 6238), compatible with Google Authenticator |
-| | qrcode | — | QR code generation for 2FA authenticator app setup | Generates QR codes for easy authenticator app pairing |
-| **Database** | PostgreSQL | — | Hosted on [Neon](https://neon.tech) (serverless) | ACID-compliant relational database, Neon provides serverless scaling and branching |
-| | `@prisma/adapter-pg` | 7 | Prisma driver adapter for `pg` | Enables Prisma to use the `pg` driver for Neon's serverless connection pooling |
-| **Shared** | `@logbook/shared` | 1.0.0 | Shared TypeScript types, Zod schemas, and interfaces | Single source of truth for data shapes — frontend and backend cannot drift out of sync |
-| **Testing** | Vitest | 4 | Test runner | Native ESM support, fast, compatible with Vite ecosystem |
-| | Supertest | 7 | HTTP-level integration tests | Tests full request/response cycle against the Express app without starting a server |
-| **Workspace** | npm workspaces | — | Monorepo package management | Built into npm, no extra tooling needed, shared dependencies across packages |
+| | TypeScript | 6 | Type safety | Catches errors at compile time, shared types with backend |
+| | Tailwind CSS | 4 | Utility-first styling | Consistent design tokens, dark mode, responsive utilities |
+| | React Router | 7 | Client-side routing with protected routes | Standard React routing, nested layouts and route guards |
+| | Axios | 1 | HTTP client | Interceptors attach the JWT and handle expired sessions in one place |
+| | Lucide React | — | Icons | Lightweight, tree-shakeable, consistent icon set |
+| **Backend** | Express | 5 | HTTP API framework | Minimal, flexible, large middleware ecosystem |
+| | Zod | 4 | Request validation | Runtime validation with TypeScript inference, shared with the frontend |
+| | Prisma ORM | 7 | Database access & migrations | Type-safe queries generated from the schema |
+| | bcryptjs | 3 | Password hashing | Industry standard, pure JS |
+| | jsonwebtoken | 9 | Session tokens | Stateless authentication |
+| | otplib, qrcode | 13, 1 | TOTP two-factor authentication | RFC 6238 TOTP, QR codes for authenticator apps |
+| | express-rate-limit | 8 | Rate limiting on auth routes | Blocks password and 2FA guessing |
+| | web-push | 3 | Reminder push notifications | Standard VAPID web push, no third-party service |
+| | googleapis | — | Google Calendar sync | Official Google client |
+| | resend, nodemailer | — | Transactional email | Resend preferred; Gmail SMTP as a fallback |
+| **Database** | PostgreSQL on Neon | — | Relational storage | ACID guarantees; serverless hosting with branching |
+| | `@prisma/adapter-pg` | 7 | Prisma driver adapter | Lets Prisma use the `pg` driver against Neon |
+| **Shared** | `@logbook/shared` | 1.0.0 | Types and Zod schemas used by both apps | One source of truth for data shapes |
+| **Testing** | Vitest | 4 | Test runner for both apps | Native ESM, fast, shares Vite's config |
+| | Supertest | 7 | Backend HTTP integration tests | Full request/response cycle without starting a server |
+| | Testing Library, jsdom | — | Frontend component and page tests | Tests behaviour as a user sees it |
+| **Workspace** | npm workspaces | — | Monorepo package management | Built into npm, no extra tooling |
 
-## 2. Monorepo Layout
+## 3. Monorepo Layout
 
 ```
 coms3011a-logbook-digital-logbook/
 ├── apps/
-│   ├── frontend/            # React + Vite SPA
+│   ├── frontend/                  # React + Vite SPA
+│   │   ├── public/sw.js           # Service worker: offline app shell, push notifications
 │   │   ├── src/
-│   │   │   ├── components/  # Reusable UI (Sidebar, Modal, PageHeader, AppLayout,
-│   │   │   │               #   AuthLayout, AnimatedBackground, GlassCard, etc.)
-│   │   │   ├── pages/       # Route pages (Dashboard, Projects, Entries,
-│   │   │   │               #   ProjectDetail, Profile, Settings, Login, etc.)
-│   │   │   ├── lib/         # Utility functions (formatDuration, date helpers, streak)
-│   │   │   ├── api/         # Axios client with JWT interceptor
-│   │   │   ├── api.ts       # API wrapper functions (fetch, create, update, delete)
-│   │   │   ├── App.tsx      # Router config (public + protected routes)
-│   │   │   ├── index.css    # Tailwind v4 theme and global styles
-│   │   │   └── main.tsx     # Entry point
-│   │   ├── vite.config.ts   # Vite config with /api proxy to backend
-│   │   └── package.json
+│   │   │   ├── pages/             # One component per route (§7)
+│   │   │   ├── components/        # Reusable UI and feature widgets
+│   │   │   ├── lib/               # Non-UI logic: offline cache and queue, reminder
+│   │   │   │                      #   notifications, dashboard insights, saved filters
+│   │   │   ├── api/client.ts      # Axios instance, JWT and expired-session interceptors
+│   │   │   ├── api.ts             # Typed wrapper for every API call
+│   │   │   ├── App.tsx            # Routes (public + protected)
+│   │   │   └── main.tsx           # Entry point; registers the service worker in production
+│   │   └── vite.config.ts         # /api proxy to the backend; Vitest config
 │   │
-│   └── backend/             # Express REST API
+│   └── backend/                   # Express REST API
 │       ├── prisma/
-│       │   ├── schema.prisma        # Database schema (6 models)
-│       │   └── migrations/          # Prisma migration files
-│       ├── prisma.config.ts         # Prisma 7 config (reads DATABASE_URL from .env)
-│       ├── src/
-│       │   ├── controllers/ # Business logic
-│       │   ├── routes/      # Express route definitions (projects, entries, auth)
-│       │   ├── middleware/  # JWT auth middleware (requireAuth)
-│       │   ├── utils/       # Password hashing, email sender, token helpers
-│       │   ├── schemas/     # Zod validation schemas
-│       │   ├── __tests__/   # Vitest integration tests (27 tests)
-│       │   ├── app.ts       # Express app (exported for testing)
-│       │   ├── index.ts     # Server startup
-│       │   └── prisma.ts    # Prisma client singleton (driver adapter)
-│       └── package.json
+│       │   ├── schema.prisma      # 20 models (§4)
+│       │   └── migrations/        # 0_init baseline + dated migrations
+│       └── src/
+│           ├── routes/            # Express routers, one per area
+│           ├── controllers/       # Request handling per area
+│           ├── schemas/           # Zod request schemas
+│           ├── middleware/        # requireAuth (JWT), rate limiting
+│           ├── utils/             # Domain logic: entry formats and versions, computed
+│           │                      #   fields, expressions, automation, recurrence,
+│           │                      #   reminders, push, tags, token and crypto helpers
+│           ├── services/          # Google Calendar client
+│           ├── jobs/              # Background jobs started with the server (§6)
+│           ├── __tests__/         # Vitest + Supertest suite
+│           ├── app.ts             # Express app (exported for tests)
+│           ├── index.ts           # Starts the server and the jobs
+│           └── prisma.ts          # Prisma client singleton
 │
-├── packages/
-│   └── shared/              # @logbook/shared package
-│       ├── src/index.ts     # Shared types, Zod schemas, interfaces
-│       └── package.json
-│
-├── docs/                    # MkDocs documentation
-├── mkdocs.yml
-└── package.json             # Workspace root
+├── packages/shared/               # @logbook/shared: types and Zod schemas
+├── docs/                          # This documentation (MkDocs)
+└── mkdocs.yml
 ```
 
-## 3. Database Schema (ERD)
+## 4. Data Model
 
-The database uses six models defined in `apps/backend/prisma/schema.prisma`:
+The schema in `apps/backend/prisma/schema.prisma` has twenty models. See [Database design](design/database-erd.md) for the full diagram; they group as follows.
 
-```
-┌──────────────┐       ┌──────────────────┐
-│    User       │       │ PasswordReset     │
-├──────────────┤       ├──────────────────┤
-│ id (UUID PK) │───┬──→│ id (UUID PK)     │
-│ fullName      │   │   │ userId (FK)──────┼──→ User
-│ email (unique)│   │   │ tokenHash        │
-│ passwordHash  │   │   │ expiresAt        │
-│ isEmailVerif. │   │   │ createdAt        │
-│ emailVerif.   │   │   └──────────────────┘
-│ Token/Expiry  │   │
-│ twoFactorSec. │   │   ┌──────────────────┐     ┌──────────────────┐
-│ twoFactorEnab.│   └──→│   Project         │     │   EntryField      │
-│ scheduledDel. │       ├──────────────────┤     ├──────────────────┤
-│ createdAt     │       │ id (UUID PK)     │──┐  │ id (UUID PK)     │
-│ updatedAt     │       │ userId (FK)──────┼──┘  │ projectId (FK)───┼──→ Project
-└──────────────┘       │ name             │     │ name             │
-                       │ description      ├────→│ type (enum)      │
-                       │ status           │     │ required         │
-                       │ createdAt        │     │ createdAt        │
-                       │ updatedAt        │     │ updatedAt        │
-                       └──────────────────┘     └──────────────────┘
+| Area | Models | Notes |
+|---|---|---|
+| Accounts | `User`, `PasswordReset`, `TwoFactorRecoveryCode` | Reset and verification tokens are stored hashed. TOTP secrets are encrypted at rest. |
+| Projects & formats | `Project`, `EntryField`, `EntryFormatVersion` | A project's entry format is its fields. Each format change writes an immutable `EntryFormatVersion`, and an entry stays pinned to the version it was created under. |
+| Entries | `LogbookEntry`, `EntryValue` | One `EntryValue` row per field per entry, stored as text and interpreted by the field's type. Entries carry duration, entry and due dates, an `OPEN`/`DONE` status, and an `archivedAt` marker. |
+| History | `EntryVersion` | A full snapshot of the entry on every create, edit, restore and automated change. Rows are never updated. |
+| Tags | `Tag`, `ProjectTag`, `EntryTag` | User-scoped labels for projects and entries. |
+| Statistics & dashboard | `CustomStatistic`, `DashboardLayout` | Saved expressions, and the user's chosen dashboard panels in order. |
+| Automation | `AutomationRule`, `RecurrenceRule` | Rules applied when entries are saved, and templates for repeating entries. |
+| Reminders | `Reminder`, `ReminderSettings`, `PushSubscription` | Manual and rule-generated reminders, each user's rules, and the devices subscribed to push. |
+| Integrations | `GoogleCalendarConnection` | Encrypted OAuth tokens for Calendar sync. |
 
-                       ┌──────────────────┐     ┌──────────────────┐
-                       │  LogbookEntry    │     │   EntryValue     │
-                       ├──────────────────┤     ├──────────────────┤
-                       │ id (UUID PK)     │──┐  │ id (UUID PK)     │
-                       │ projectId (FK)──┼──┘  │ entryId (FK)─────┼──→ LogbookEntry
-                       │ durationMinutes │     │ fieldId (FK)─────┼──→ EntryField
-                       │ entryDate       │  └─→│ value (text)     │
-                       │ dueDate         │     └──────────────────┘
-                       │ createdAt       │     @@unique([entryId, fieldId])
-                       │ updatedAt       │
-                       └──────────────────┘
-```
+**Field types** (`EntryFieldType`): `TEXT`, `NUMBER`, `DATE`, `BOOLEAN`, `TAGS`, `CHECKLIST`, `LINK`, `REFERENCE`, `COMPUTED`.
 
-### Enums
+**Key constraints:** one account per email; project names unique per user; field names unique per project (case-insensitive, among non-archived fields); one value per field per entry; version numbers unique per entry. Foreign keys cascade on delete, so deleting an account erases all of its data.
 
-- **ProjectStatus**: `ACTIVE`, `ARCHIVED`
-- **EntryFieldType**: `TEXT`, `NUMBER`, `DATE`, `BOOLEAN`
+## 5. API
 
-### Constraints
+All routes are under `/api` and, apart from sign-up, sign-in, password reset and the health checks, need a `Bearer` JWT. Every request body is validated with Zod (`400` on failure), and every resource is checked against the signed-in user (`404` for another user's data). The full list with request and response shapes is in the [API Reference](api-reference.md).
 
-- `User`: `UNIQUE(email)` — each email can only register once.
-- `Project`: `UNIQUE(userId, name)` — a student cannot have two projects with the same name.
-- `EntryValue`: `UNIQUE(entryId, fieldId)` — one value per field per entry.
-- All foreign keys use `ON DELETE CASCADE` for full account erasure.
+| Area | Base paths |
+|---|---|
+| Authentication, 2FA, account | `/auth/*` |
+| Projects | `/projects`, `/projects/:id`, `/projects/:id/time-summary`, `/projects/:id/status` |
+| Entry fields & formats | `/projects/:projectId/entry-fields`, `/projects/:projectId/entry-format-versions`, `/entry-fields/:id` |
+| Entries | `/entries`, `/projects/:projectId/entries`, `/entries/:id`, `/entries/:id/status`, `/me/open-entries` |
+| History & archive | `/entries/:id/versions`, `/entries/:id/versions/at`, `/entries/:id/versions/:version/restore`, `/entries/archive`, `/entries/:id/archive` |
+| Statistics | `/projects/:projectId/stats/{group,timeline,expression}`, `/projects/:projectId/custom-statistics` |
+| Automation | `/projects/:projectId/automation-rules`, `/recurrences/:id` |
+| Reminders & push | `/reminders`, `/reminders/count`, `/reminders/settings`, `/push/public-key`, `/push/subscriptions` |
+| Dashboard | `/dashboard/layout` |
+| Tags | `/tags` |
+| Google Calendar | `/google-calendar/{connect,callback,status,sync,disconnect}` |
+| Utility | `/health`, `/db-check` |
 
-## 4. API Reference
+## 6. Key Flows
 
-All routes are prefixed with `/api`. Protected routes require a `Bearer <token>` in the `Authorization` header (JWT).
+### Saving an entry
 
-### Authentication
+Creating or editing an entry (`entry.controller.ts`) happens in this order:
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/auth/register` | No | Register a new user (fullName, email, password) |
-| `POST` | `/api/auth/login` | No | Log in and receive a JWT token |
-| `POST` | `/api/auth/verify-email` | No | Verify email with token from email link |
-| `POST` | `/api/auth/forgot-password` | No | Request a password reset email |
-| `POST` | `/api/auth/reset-password` | No | Reset password with token from email |
-| `DELETE` | `/api/auth/account` | Yes | Delete account (requires password confirmation) |
+1. The request is validated, each value is checked against its field's type, computed fields are calculated from the supplied values, and required fields are checked.
+2. In one database transaction, the entry and its values are written and an `EntryVersion` snapshot is recorded.
+3. After the transaction commits, matching automation rules run (`utils/automationRunner.ts`). They can add or remove tags or set the status, and record their change as a further version. Rules cannot trigger themselves or each other, and a failing rule is skipped. Running them after the commit means a broken rule can never cost the user their entry.
 
-### Projects
+Because every save writes a version, the history, "as of a date" view and restore features all read from the same `EntryVersion` rows.
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/projects` | Yes | List all projects for the authenticated user |
-| `POST` | `/api/projects` | Yes | Create a new project |
-| `GET` | `/api/projects/:id` | Yes | Get a single project with its entry fields |
-| `PUT` | `/api/projects/:id` | Yes | Update project name, description, or status |
-| `PATCH` | `/api/projects/:id/status` | Yes | Toggle project status (ACTIVE / ARCHIVED) |
-| `GET` | `/api/projects/:id/time-summary` | Yes | Aggregate time stats for a project |
+### Background jobs
 
-### Entry Fields
+`src/index.ts` starts three jobs with the server:
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/projects/:projectId/entry-fields` | Yes | List entry fields for a project |
-| `POST` | `/api/projects/:projectId/entry-fields` | Yes | Create a new entry field |
+| Job | Interval | Does |
+|---|---|---|
+| `recurringEntries` | every minute | Creates entries whose recurrence rule has fallen due |
+| `pushReminders` | every minute | Generates each subscribed user's reminders from their rules and pushes the ones now due. Off when the VAPID keys are not set. |
+| `purgeDeletedAccounts` | every hour | Permanently deletes accounts whose 30-day deletion grace period has ended |
 
-### Entries
+The jobs run only while the server is awake. The work is also done on demand: listing entries creates any due recurring entries, and reading reminders generates them, so nothing is lost while the server sleeps. Only push notifications wait until it wakes.
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/projects/:projectId/entries` | Yes | List all entries for a project |
-| `POST` | `/api/projects/:projectId/entries` | Yes | Create a new entry with field values |
-| `PUT` | `/api/entries/:id` | Yes | Update entry duration, dates, or values |
-| `DELETE` | `/api/entries/:id` | Yes | Delete an entry |
+### Reminders and notifications
 
-### Utility
+Reminders come from the user (`MANUAL`) or from their rules (`DUE_SOON`, `OVERDUE`, `STALE`, `DAILY_LOG`). A device can be notified in two ways:
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/health` | No | Health check |
-| `GET` | `/api/db-check` | No | Database connectivity check |
+* **Push:** where the browser supports it and the server has VAPID keys, the browser subscribes and the server pushes each reminder as it falls due, even with the logbook closed. `public/sw.js` receives the push and shows it.
+* **In-app:** otherwise, an open logbook tab checks for newly due reminders every five minutes and shows them itself.
 
-### Validation
+The service worker is registered only in production builds, so local development always uses the in-app path.
 
-All request bodies are validated with Zod schemas before reaching controller logic. Invalid requests receive a `400` response. Unique constraint violations (application-level pre-check or Prisma `P2002`) return `409`.
+### Offline use
 
-## 7. Two-Factor Authentication (2FA)
+The service worker caches the app shell, so the logbook opens with no connection. API data is cached separately by the app (`lib/offlineCache.ts`), and entries created offline are queued (`lib/offlineEntries.ts`) and sent when the connection returns.
 
-The app supports optional TOTP-based two-factor authentication using `otplib` (v13) and `qrcode`:
+### Sessions
 
-* **Enable 2FA**: Backend generates a TOTP secret and QR code URI. User scans the QR code with an authenticator app (Google Authenticator, Authy, etc.).
-* **Verify 2FA**: User provides a 6-digit TOTP code which is verified against the stored secret.
-* **Disable 2FA**: User confirms with their password to disable 2FA and clear the stored secret.
-* **Scheduled Deletion**: Users can schedule their account for deletion, which is tracked via the `scheduledDeletionAt` field on the `User` model.
+A successful sign-in returns a JWT that lasts seven days, kept in `localStorage`. The Axios client attaches it to every request. A `401` from any route other than the credential checks clears the session and returns the user to `/login?expired=1`.
 
-The 2FA secret is stored in the `twoFactorSecret` column on the `User` model. The `isTwoFactorEnabled` boolean flag controls whether 2FA is enforced at login.
-
-## 8. Shared Types Package
-
-The `@logbook/shared` package (`packages/shared/src/index.ts`) exports TypeScript types, Zod schemas, and interfaces consumed by both frontend and backend:
-
-- `Project`, `ProjectWithFields`
-- `EntryField`, `EntryFieldType`
-- `Entry`, `EntryFieldValue`
-- `TimeSummary`
-- `CreateProjectInput`, `UpdateProjectInput`
-- `CreateEntryInput`, `UpdateEntryInput`
-- `CreateEntryFieldInput`
-- **Auth schemas:** `registerSchema`, `loginSchema`, `verifyEmailSchema`, `forgotPasswordSchema`, `resetPasswordSchema`, `deleteAccountSchema`
-- `ApiError`
-
-This eliminates type duplication and ensures the frontend and backend agree on data shapes.
-
-## 6. Frontend Component Architecture
+## 7. Frontend Structure
 
 ```
 App (BrowserRouter)
-├── Public Routes (no auth required)
-│   └── AuthLayout                    # Full-screen layout with animated canvas background
-│       ├── AnimatedBackground        # Canvas-based particle, light streak & icon animation
-│       ├── LandingPage               # Homepage with CTA to login/register
-│       ├── LoginPage                 # Email + password login (with 2FA support)
-│       ├── RegisterPage              # Full name + email + password registration
-│       ├── VerifyEmail               # Email verification via token link
-│       ├── ForgotPasswordPage        # Request password reset email
-│       └── ResetPasswordPage         # Reset password via token link
+├── Public routes
+│   ├── /                  LandingPage
+│   ├── /login             LoginPage (with 2FA and recovery codes)
+│   ├── /register          RegisterPage
+│   ├── /verify-email      VerifyEmail
+│   ├── /forgot-password   ForgotPasswordPage
+│   └── /reset-password    ResetPasswordPage
 │
-└── Protected Routes (JWT required)
-    └── AppLayout                     # Responsive shell: desktop sidebar + mobile drawer
-        ├── Sidebar                   # Notion-style dark sidebar with glow effects
-        ├── DashboardPage             # Greeting, stat cards, SVG activity chart, recent entries
-        ├── ProjectsPage              # Card grid/list, search, status filter, grid/list toggle
-        ├── ProjectDetailPage         # Entry format section, grouped entries, clean modal form
-        ├── EntriesPage               # Vertical timeline layout, filters, date sort toggle
-        ├── SettingsPage              # Account, 2FA, appearance, notifications, prefs, data
-        └── ProfilePage               # Avatar, bio, degree, year, student number
+└── Protected routes (ProtectedRoute → AppLayout with Sidebar)
+    ├── /dashboard         DashboardPage: chosen and arranged panels, including saved statistics
+    ├── /projects          ProjectsPage: projects and their entry formats
+    ├── /projects/:id      ProjectDetailPage: entries, format, automation rules
+    ├── /entries           EntriesPage: all entries, search, filters, saved filters, archive
+    ├── /stats             StatsPage: group-by, timeline, custom expressions, saved statistics
+    ├── /open-work         OpenWorkPage: unfinished entries by urgency
+    ├── /calendar          CalendarPage: entries by due date, Google Calendar sync
+    ├── /board             BoardPage: entries as a board
+    ├── /reminders         RemindersPage: reminders and reminder rules
+    ├── /settings          SettingsPage: account, 2FA, notifications, data export/import
+    └── /profile           ProfilePage
 ```
 
-### Reusable Components
+Notable components beyond the basic layout, card and state components:
 
-| Component | File | Purpose |
-|---|---|---|
-| `AuthLayout` | `components/AuthLayout.tsx` | Full-screen wrapper with `AnimatedBackground` for all auth pages |
-| `AnimatedBackground` | `components/AnimatedBackground.tsx` | Canvas-based animation: gradient sky, floating particles, light streaks, drifting logbook icons |
-| `GlassCard` | `components/GlassCard.tsx` | Frosted-glass card used as the form container on auth pages |
-| `AppLayout` | `components/AppLayout.tsx` | Responsive layout: desktop sidebar + mobile hamburger drawer + `<Outlet />` |
-| `Sidebar` | `components/Sidebar.tsx` | Notion-style dark sidebar with animated glow, section labels, user avatar with pulsing ring |
-| `ProtectedRoute` | `components/ProtectedRoute.tsx` | Checks for JWT in `localStorage`, redirects to `/login` if missing |
-| `StatCard` | `components/StatCard.tsx` | Dashboard metric card (blue/emerald/orange/purple/red/slate variants) |
-| `ProjectCard` | `components/ProjectCard.tsx` | Project summary card: name, status dot, entry count, total time, last activity |
-| `EntryCard` | `components/EntryCard.tsx` | Entry card with overdue visual indicators (red border, warning badge) |
-| `EntryForm` | `components/EntryForm.tsx` | Dynamic entry creation/edit form with field type rendering |
-| `Modal` | `components/Modal.tsx` | Generic accessible modal with backdrop and close button |
-| `PageHeader` | `components/PageHeader.tsx` | Consistent page title + optional action slot |
-| `StatusBadge` | `components/StatusBadge.tsx` | Colored badge for project status (ACTIVE / ARCHIVED) |
-| `EmptyState` | `components/EmptyState.tsx` | Placeholder for empty lists |
-| `ErrorState` | `components/ErrorState.tsx` | Error message display with retry action |
-| `LoadingState` | `components/LoadingState.tsx` | Spinner + loading text |
+| Component | Purpose |
+|---|---|
+| `EntryForm`, `ChecklistInput`, `TagInput`, `Stopwatch` | Entry capture for all nine field types, with a live timer |
+| `EntryHistoryModal` | Version history, "as of a date" view and restore |
+| `AutomationRules` | Create, edit, enable and delete a project's rules |
+| `DeadlineReminders` | Upcoming and overdue due dates |
+| `GoogleCalendarSync` | Connect, sync and disconnect Google Calendar |
+| `BarChart`, `TrendChart`, `WeekComparison` | Statistics and dashboard charts |
+| `DeleteProjectModal` | Confirmed project deletion |
 
-### API Layer
+`api/client.ts` points the Axios instance at `/api` in development and at the Render URL in production. `api.ts` wraps every endpoint in a typed function.
 
-- **`api/client.ts`** — Axios instance with request interceptor that attaches the JWT `Bearer` token from `localStorage`. Supports `VITE_API_URL` env override.
-- **`api.ts`** — Typed wrapper functions for all API calls (projects CRUD, entries CRUD, entry fields, time summary).
+## 8. Shared Types Package
 
-### Utility Layer
+`@logbook/shared` (`packages/shared/src/`) exports the types and Zod schemas both apps use, such as projects, entry fields, entries, time summaries, their create and update inputs, and the auth schemas (`registerSchema`, `loginSchema` and so on). The backend imports its compiled `dist/`, so the package must be built after changes. The frontend reads the source directly through a Vite alias.
 
-- **`lib/utils.ts`** — Shared helpers: `formatDuration()`, `todayISO()`, `formatDateHeading()`, `computeStreak()`, `defaultValuesForFields()`, `isEmptyValue()`, `getGreeting()`.
+## 9. Security
 
-### Planned Features (from 2026-08-21 client meeting)
+* Passwords are hashed with bcrypt. Password-reset and email-verification tokens are stored only as hashes.
+* TOTP secrets and Google tokens are encrypted at rest with keys from the environment. 2FA has single-use recovery codes, and its second step requires a short-lived token from a successful password check.
+* Sign-in, sign-up and 2FA routes are rate limited per IP.
+* In production the server refuses to start without `JWT_SECRET`.
+* Every entry, project, statistic, rule and reminder query is scoped to the signed-in user.
 
-| Feature | Description | Schema Support | Priority |
-|---------|-------------|----------------|----------|
-| **Overdue tab** | Entries page gains an "Overdue" filter tab; entries past `due_date` auto-flagged | `due_date` on LogbookEntry exists | P1 |
-| **Live stopwatch** | Start/pause/reset stopwatch widget on entry form; saves `duration_minutes` | `duration_minutes` on LogbookEntry exists | P1 |
-| **Overdue dashboard stat** | Dashboard stat card showing count of overdue entries | Computed from entries | P1 |
-| **Overdue visual indicators** | Red badge/warning icon on overdue entries in all views | Frontend-only | P1 |
-| **Deadline reminders** | In-app notifications at 3 days, 1 day, and day-of due date | Computed or new `notifications` table | P2 |
-| **Notification indicator** | Bell icon or badge count in sidebar/header | Frontend component | P2 |
-| **Calendar API sync** | Google Calendar API integration to sync entry due dates as calendar events | `due_date` on LogbookEntry exists | P2 (Sprint 2) |
-| **Per-project time rollup** | Prominent cumulative time display on project detail page | `time-summary` endpoint exists | P1 |
+## 10. Testing
 
-## 9. Testing
-
-- **Framework:** Vitest with `supertest` for HTTP-level integration tests.
-- **Location:** `apps/backend/src/__tests__/api.test.ts`
-- **Coverage:** 27 tests covering all API endpoints (health, projects CRUD, entry fields, entries CRUD, time summary, status toggling).
-- **Run:** `npm test` from `apps/backend/` (or `npm run test --workspace=backend` from root).
-- **Timeout:** 15s per test to accommodate Neon cloud database latency.
+Both apps use Vitest. The backend suite (`apps/backend/src/__tests__/`) runs Supertest integration tests against the database in `.env`, alongside unit tests for pure logic such as expressions and automation conditions. The frontend suite tests components, pages and libraries in jsdom with the API mocked. See [Testing](testing.md) for the strategy and [Setup](setup.md#testing) for how to run them.
