@@ -3,7 +3,8 @@
 ## Overview
 
 The Digital Logbook uses a PostgreSQL database to store users, projects,
-project entry formats, and logbook entries.
+project entry formats, logbook entries and their history, and the features
+built on top of them: tags, statistics, dashboards, automation and reminders.
 
 A key design goal was that different projects need different logbook
 entry structures (e.g. one project may track "hours worked" and "task
@@ -18,19 +19,26 @@ We use **UUIDs** rather than auto-incrementing integers as primary keys
 to avoid exposing sequential, guessable IDs and to make it easier to
 merge or migrate data across environments without ID collisions.
 
-## Entity Relationship Diagram
+The schema has twenty tables. The diagrams below split them into the core
+logbook and the features around it; `USER`, `PROJECT` and `LOGBOOK_ENTRY`
+appear in both.
+
+## Entity Relationship Diagrams
+
+### Core logbook
 
 ```mermaid
 erDiagram
     USER ||--o{ PROJECT : owns
     USER ||--o{ PASSWORD_RESET : requests
+    USER ||--o{ TWO_FACTOR_RECOVERY_CODE : holds
     PROJECT ||--o{ ENTRY_FIELD : defines
     PROJECT ||--o{ ENTRY_FORMAT_VERSION : snapshots
     PROJECT ||--o{ LOGBOOK_ENTRY : contains
-    PROJECT ||--o{ AUTOMATION_RULE : automates
     LOGBOOK_ENTRY }o--o| ENTRY_FORMAT_VERSION : "pinned to"
     LOGBOOK_ENTRY ||--o{ ENTRY_VALUE : has
     ENTRY_FIELD ||--o{ ENTRY_VALUE : defines
+    LOGBOOK_ENTRY ||--o{ ENTRY_VERSION : "history of"
 
     USER {
         uuid id PK
@@ -38,13 +46,29 @@ erDiagram
         string email UK
         string password_hash
         boolean is_email_verified
-        string email_verification_token "nullable"
+        string email_verification_token "nullable, SHA-256 digest"
         datetime email_verification_expiry "nullable"
-        string two_factor_secret "nullable — TOTP secret"
+        string two_factor_secret "nullable, encrypted TOTP secret"
         boolean is_two_factor_enabled "default false"
-        datetime scheduled_deletion_at "nullable"
+        datetime scheduled_deletion_at "nullable, end of deletion grace period"
         datetime created_at
         datetime updated_at
+    }
+
+    PASSWORD_RESET {
+        uuid id PK
+        uuid user_id FK
+        string token_hash UK
+        datetime expires_at
+        datetime created_at
+    }
+
+    TWO_FACTOR_RECOVERY_CODE {
+        uuid id PK
+        uuid user_id FK
+        string code_hash
+        datetime used_at "nullable, single use"
+        datetime created_at
     }
 
     PROJECT {
@@ -64,7 +88,7 @@ erDiagram
         enum type "TEXT, NUMBER, DATE, BOOLEAN, TAGS, CHECKLIST, LINK, REFERENCE, COMPUTED"
         boolean required
         text formula "COMPUTED fields only"
-        datetime archived_at "nullable — soft retire"
+        datetime archived_at "nullable, soft retire"
         datetime created_at
         datetime updated_at
     }
@@ -86,6 +110,8 @@ erDiagram
         enum status "OPEN, DONE"
         datetime completed_at "nullable"
         uuid format_version_id FK "nullable"
+        datetime archived_at "nullable, set when archived"
+        uuid recurrence_rule_id FK "nullable"
         datetime created_at
         datetime updated_at
     }
@@ -97,12 +123,62 @@ erDiagram
         text value
     }
 
-    PASSWORD_RESET {
+    ENTRY_VERSION {
+        uuid id PK
+        uuid entry_id FK
+        int version
+        string reason "CREATED, UPDATED or RESTORED"
+        int restored_from_version "nullable"
+        jsonb snapshot "the whole entry at that moment"
+        datetime created_at
+    }
+```
+
+### Features around the logbook
+
+```mermaid
+erDiagram
+    USER ||--o{ TAG : owns
+    TAG ||--o{ PROJECT_TAG : "applied as"
+    TAG ||--o{ ENTRY_TAG : "applied as"
+    PROJECT ||--o{ PROJECT_TAG : has
+    LOGBOOK_ENTRY ||--o{ ENTRY_TAG : has
+    PROJECT ||--o{ CUSTOM_STATISTIC : measures
+    PROJECT ||--o{ AUTOMATION_RULE : automates
+    PROJECT ||--o{ RECURRENCE_RULE : repeats
+    RECURRENCE_RULE |o--o{ LOGBOOK_ENTRY : generates
+    USER ||--o| DASHBOARD_LAYOUT : arranges
+    USER ||--o{ REMINDER : receives
+    LOGBOOK_ENTRY |o--o{ REMINDER : "about"
+    USER ||--o| REMINDER_SETTINGS : configures
+    USER ||--o{ PUSH_SUBSCRIPTION : "notified on"
+    USER ||--o| GOOGLE_CALENDAR_CONNECTION : connects
+
+    TAG {
         uuid id PK
         uuid user_id FK
-        string token_hash UK
-        datetime expires_at
+        string name
         datetime created_at
+    }
+
+    PROJECT_TAG {
+        uuid project_id PK, FK
+        uuid tag_id PK, FK
+    }
+
+    ENTRY_TAG {
+        uuid entry_id PK, FK
+        uuid tag_id PK, FK
+    }
+
+    CUSTOM_STATISTIC {
+        uuid id PK
+        uuid user_id FK
+        uuid project_id FK
+        string name
+        string expression "evaluated on every read"
+        datetime created_at
+        datetime updated_at
     }
 
     AUTOMATION_RULE {
@@ -117,6 +193,77 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
+
+    RECURRENCE_RULE {
+        uuid id PK
+        uuid project_id FK
+        enum pattern "DAILY, WEEKLY, MONTHLY"
+        boolean enabled
+        datetime next_occurrence
+        datetime until "nullable"
+        int duration_minutes
+        int due_date_offset_days "nullable"
+        jsonb template_values
+        string_array template_tags
+        uuid format_version_id "nullable"
+        datetime created_at
+        datetime updated_at
+    }
+
+    DASHBOARD_LAYOUT {
+        uuid user_id PK, FK
+        string_array panels "panel ids in display order"
+        datetime updated_at
+    }
+
+    REMINDER {
+        uuid id PK
+        uuid user_id FK
+        uuid entry_id FK "nullable"
+        enum source "MANUAL, DUE_SOON, OVERDUE, STALE, DAILY_LOG"
+        string rule_key "nullable, dedupes generated reminders"
+        string title
+        text note "nullable"
+        datetime remind_at
+        enum status "PENDING, COMPLETED, DISMISSED"
+        datetime completed_at "nullable"
+        datetime dismissed_at "nullable"
+        datetime pushed_at "nullable, set once pushed"
+        datetime created_at
+        datetime updated_at
+    }
+
+    REMINDER_SETTINGS {
+        uuid user_id PK, FK
+        boolean due_soon_enabled
+        int due_soon_days
+        boolean overdue_enabled
+        boolean stale_enabled
+        int stale_days
+        boolean daily_log_enabled
+        string daily_log_time "HH:MM"
+        string time_zone
+        datetime updated_at
+    }
+
+    PUSH_SUBSCRIPTION {
+        uuid id PK
+        uuid user_id FK
+        text endpoint UK
+        string p256dh
+        string auth
+        datetime created_at
+    }
+
+    GOOGLE_CALENDAR_CONNECTION {
+        string id PK
+        uuid user_id FK, UK
+        string access_token "encrypted"
+        string refresh_token "encrypted"
+        datetime expiry_date "nullable"
+        datetime created_at
+        datetime updated_at
+    }
 ```
 
 ### Enums
@@ -127,15 +274,34 @@ erDiagram
 | `EntryFieldType` | `TEXT`, `NUMBER`, `DATE`, `BOOLEAN`, `TAGS`, `CHECKLIST`, `LINK`, `REFERENCE`, `COMPUTED` | `entry_fields.type` |
 | `EntryStatus` | `OPEN`, `DONE` | `logbook_entries.status` |
 | `AutomationTrigger` | `ENTRY_CREATED`, `ENTRY_UPDATED` | `automation_rules.trigger` |
+| `RecurrencePattern` | `DAILY`, `WEEKLY`, `MONTHLY` | `recurrence_rules.pattern` |
+| `ReminderStatus` | `PENDING`, `COMPLETED`, `DISMISSED` | `reminders.status` |
+| `ReminderSource` | `MANUAL`, `DUE_SOON`, `OVERDUE`, `STALE`, `DAILY_LOG` | `reminders.source` |
 
 ### Constraints
 
 - `USER.email` — Unique. Each email can only register once.
 - `PROJECT(user_id, name)` — Unique. A student cannot have two projects with the same name.
+- `ENTRY_FIELD(project_id, lower(name))` — Unique among fields that are not archived, so a project cannot have two live fields whose names differ only in capitals. Statistics, expressions and automation rules refer to fields by name, so a duplicate would make them ambiguous.
 - `ENTRY_VALUE(entry_id, field_id)` — Unique. One value per field per entry.
-- `ENTRY_FORMAT_VERSION(project_id, version)` — Unique. Version numbers increment per project.
-- `AUTOMATION_RULE(project_id, name)` — Unique. A project cannot have two rules with the same name.
-- All foreign keys use `ON DELETE CASCADE` for full account erasure, except `logbook_entries.format_version_id`, which uses `ON DELETE SET NULL` — deleting a snapshot must not destroy entries.
+- `ENTRY_FORMAT_VERSION(project_id, version)` and `ENTRY_VERSION(entry_id, version)` — Unique. Version numbers increment per project and per entry.
+- `TAG(user_id, name)`, `CUSTOM_STATISTIC(project_id, name)`, `AUTOMATION_RULE(project_id, name)` — Unique names within their owner.
+- `REMINDER(user_id, rule_key)` — Unique, so a rule-generated reminder is created once however often the rules are applied.
+- `PUSH_SUBSCRIPTION.endpoint` — Unique. An endpoint belongs to one browser; if another user signs in on it, the subscription moves to them.
+- `TWO_FACTOR_RECOVERY_CODE(user_id, code_hash)` — Unique.
+- All foreign keys use `ON DELETE CASCADE` for full account erasure, except `logbook_entries.format_version_id` and `logbook_entries.recurrence_rule_id`, which use `ON DELETE SET NULL` — deleting a snapshot or a recurrence rule must not destroy entries.
+
+### Indexes
+
+Besides the unique constraints above, the schema indexes the columns that
+common queries filter on: `projects.user_id`, `entry_fields.project_id`,
+`logbook_entries` by `project_id`, `status`, `due_date` and
+`(project_id, status)`, `entry_values` by `entry_id` and `field_id`,
+`entry_versions.entry_id`, `tags.user_id`, and `user_id` on the recovery
+code, push subscription and Google Calendar tables. Reminders are indexed on
+`(user_id, status, remind_at)` for the due-reminder query,
+`recurrence_rules` on `(enabled, next_occurrence)` for the recurrence job, and
+`automation_rules` on `(project_id, enabled)` for the rule runner.
 
 ## Main Entities
 
@@ -151,12 +317,18 @@ plain text.
 
 Authentication-related columns:
 
-- `is_email_verified`, `email_verification_token`, `email_verification_expiry` — email ownership is proven before login is allowed. The token is 32 random bytes and expires after one hour.
-- `two_factor_secret`, `is_two_factor_enabled` — optional TOTP two-factor authentication. The secret is staged at setup time and only becomes active (`is_two_factor_enabled = true`) after the user proves their authenticator works. Both columns are nullable / default-false, so they are fully backward compatible.
-- `scheduled_deletion_at` — reserved for delayed account-deletion jobs.
+- `is_email_verified`, `email_verification_token`, `email_verification_expiry` — email ownership is proven before login is allowed. The token is 32 random bytes, expires after one hour, and only its SHA-256 digest is stored.
+- `two_factor_secret`, `is_two_factor_enabled` — optional TOTP two-factor authentication. The secret is encrypted with AES-256-GCM before storage. It is staged at setup time and only becomes active (`is_two_factor_enabled = true`) after the user proves their authenticator works.
+- `scheduled_deletion_at` — set when the user deletes their account. The account stays usable for a 30-day grace period and is erased by the hourly purge job, or at the next sign-in attempt, once this date has passed.
 
 See `apps/backend/AUTHENTICATION.md` in the repository for the full
 authentication design.
+
+### Two-Factor Recovery Code
+
+One of ten single-use codes issued when 2FA is enabled, for signing in
+without the authenticator device. Only a digest is stored; `used_at` is set
+when a code is spent. Regenerating the codes replaces the whole set.
 
 ### Project
 
@@ -187,8 +359,8 @@ Sprint 2 extended the field types beyond the basic four:
 |---|---|
 | `TAGS` | A list of short labels |
 | `CHECKLIST` | A list of checkable items |
-| `LINK` | A reference to another entry in the same project |
-| `REFERENCE` | A reference to an entry in a different project |
+| `LINK` | A web address (`http` or `https`) |
+| `REFERENCE` | A reference to another project or entry |
 | `COMPUTED` | A value derived from other fields via `formula` rather than typed in |
 
 `archived_at` implements **soft retirement**: a field dropped from the
@@ -221,6 +393,8 @@ optional deadline (`due_date`), and its completion state:
 
 - `status` — `OPEN` (work still to do) or `DONE`.
 - `completed_at` — timestamp set when the entry is marked done.
+- `archived_at` — set when the entry is moved to the archive. Archived entries are left out of the default views but not deleted.
+- `recurrence_rule_id` — the rule that generated the entry, if it recurs.
 
 Open entries with past due dates surface automatically in the Overdue
 view and the Open Work page's due-date buckets.
@@ -231,6 +405,16 @@ Stores the value entered for a particular field of a particular
 logbook entry.
 
 This allows different projects to have different entry structures.
+
+### Entry Version
+
+The history of an entry. A row is written on every create, edit, status
+change, restore and automated change, and rows are never updated or deleted,
+so a correction always keeps what it replaced. `snapshot` holds the whole
+entry as the API returned it at that moment, field names included, so an old
+version still reads correctly after the project's fields are renamed or
+removed. Viewing an entry "as of" a date reads the newest version at or before
+it; restoring writes a new `RESTORED` version rather than rewriting history.
 
 ### Password Reset
 
@@ -243,9 +427,27 @@ SHA-256 digest of the token is stored, never the token itself. This
 supports the **US00.3 – Reset Password** user story defined in the
 Development Plan.
 
+### Tags
+
+`TAG` is a user's own vocabulary of labels, applied to projects through
+`PROJECT_TAG` and to entries through `ENTRY_TAG`. Tags are independent of the
+per-project entry format, so they work the same on every project.
+
+### Custom Statistic
+
+US23. A named expression over a project's entries. Only the definition is
+stored: the value is worked out on every read, so it follows the data instead
+of freezing the number it had when it was saved.
+
+### Dashboard Layout
+
+US26. The panels a user chose for their dashboard, in the order they arranged
+them, one row per user. Keeping it on the server rather than in the browser
+means the same dashboard appears on every device.
+
 ### Automation Rule
 
-US26. A rule that watches one project's entries and applies an action —
+US24. A rule that watches one project's entries and applies an action —
 add a tag, remove a tag, or set the entry's status — when its conditions
 hold. Rules are evaluated when an entry is captured or updated, after
 the save commits, so a broken rule can never cost the user their work.
@@ -261,6 +463,30 @@ evaluates them in memory against the entry it just loaded. See the
 "Automation Rules" section of the [API reference](../api-reference.md)
 for the rule language and its deliberate limitations.
 
+### Recurrence Rule
+
+US27. A stable template for an entry that repeats daily, weekly or monthly.
+Each occurrence is generated from the template rather than copied from the
+previous occurrence, so editing or completing one occurrence does not change
+the pattern. `next_occurrence` is when the next entry is due; the recurrence
+job and entry reads both create any that have fallen due.
+
+### Reminders
+
+US28. A `REMINDER` is either set by the user (`MANUAL`) or generated from the
+user's `REMINDER_SETTINGS`: entries due soon, overdue entries, entries left
+untouched for a while (`STALE`), and a daily prompt when nothing has been
+logged. `rule_key` identifies which rule and entry produced a generated
+reminder, so it is only created once. `pushed_at` records that the reminder
+has been sent to the user's devices, so it is never pushed twice.
+`PUSH_SUBSCRIPTION` holds one row per browser the user has allowed to receive
+notifications.
+
+### Google Calendar Connection
+
+The user's Google OAuth tokens, encrypted at rest, used to mirror entry due
+dates into their calendar. At most one per user.
+
 ## Schema Changes Over Time
 
 ### How changes are applied
@@ -269,13 +495,14 @@ The schema is managed with **Prisma Migrate**. On 2026-09-27 the accumulated
 migration history was squashed into a single baseline,
 `prisma/migrations/0_init/migration.sql`, generated with
 `prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script`
-and verified to reproduce the live schema exactly (a drift diff reports no
-differences, and deploying it to an empty database creates every table).
-`npx prisma migrate deploy` therefore bootstraps a fresh environment
-end-to-end. New schema changes are made by editing `schema.prisma` and
-running `npx prisma migrate dev --name <change>`, which adds a dated
-migration on top of the baseline. The incremental migrations that the
-baseline replaced remain visible in the git history.
+and verified to reproduce the live schema at that time (a drift diff reported
+no differences, and deploying it to an empty database created every table).
+`npx prisma migrate deploy` applies the baseline and every dated migration
+after it, so it bootstraps a fresh environment end-to-end. New schema changes
+are made by editing `schema.prisma` and running
+`npx prisma migrate dev --name <change>`, which adds a dated migration on top
+of the baseline. The incremental migrations that the baseline replaced remain
+visible in the git history.
 
 ### Deployment
 
@@ -294,21 +521,29 @@ strings never leave the environment configuration.
 | Entry format versioning (`entry_format_versions`, `format_version_id`) | 2 | new table + `logbook_entries` |
 | Entry status tracking (`status`, `completed_at`) | 2 | `logbook_entries` |
 | Tags (`tags`, `project_tags`, `entry_tags`) | 2 | new tables |
-| Entry versions and archive (`entry_versions`, `archived_at`) | 2 | new table + `logbook_entries` |
-| Custom statistics | 2 | new table |
-| Reminders (`reminders`, `reminder_settings`) | 2 | new tables |
-| Recurring entries (`recurrence_rules`, `recurrence_rule_id`) | 2 | new table + `logbook_entries` |
 | Auth hardening — `two_factor_recovery_codes`, SHA-256 token digests | 2 | new table + `password_resets`, `users` |
-| Automation rules (`automation_rules`, `AutomationTrigger` enum) | 2 | new table + enum |
-| Migration history squashed into the `0_init` baseline | 2 | `_prisma_migrations` |
-| Web push for reminders (`push_subscriptions`, `reminders.pushed_at`) | 2 | new table + `reminders` |
+| Entry versions and archive (`entry_versions`, `archived_at`) | 3 | new table + `logbook_entries` |
+| Custom statistics | 3 | new table |
+| Reminders (`reminders`, `reminder_settings`) | 3 | new tables |
+| Recurring entries (`recurrence_rules`, `recurrence_rule_id`) | 3 | new table + `logbook_entries` |
+| Automation rules (`automation_rules`, `AutomationTrigger` enum) | 3 | new table + enum |
+| Migration history squashed into the `0_init` baseline | 3 | `_prisma_migrations` |
+| Web push for reminders (`push_subscriptions`, `reminders.pushed_at`) — `20260927010000_push_notifications` | 3 | new table + `reminders` |
+| Dashboard layouts — `20260927020000_dashboard_layouts` | 3 | new table |
+| Unique live field names per project — `20260927140000_unique_entry_field_names` | 3 | `entry_fields` |
+| Indexes for common query patterns | 3 | `projects`, `entry_fields`, `logbook_entries`, `entry_values`, `entry_versions`, `tags`, `GoogleCalendarConnection` |
 
-The change-history rows above summarise work that arrived as eight dated
+The rows up to the squash summarise work that arrived as eight dated
 migrations and was folded into the baseline on 2026-09-27; each original
-migration is still visible in the git history. The web-push row is the first
-dated migration to land *on top of* the squashed baseline
-(`20260927010000_push_notifications`), which is the workflow every later
-schema change follows.
+migration is still visible in the git history. The three rows naming a
+migration landed *on top of* the squashed baseline, which is the workflow
+every later schema change follows.
+
+> **Note:** the query-performance indexes were added to `schema.prisma`
+> without a matching dated migration, so `prisma migrate deploy` does not
+> create them. Until a migration is added
+> (`npx prisma migrate dev --name add_query_indexes`), a database set up from
+> the migrations will not have them.
 
 The authoritative source for the current schema is
 `apps/backend/prisma/schema.prisma` in the repository.

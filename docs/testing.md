@@ -46,16 +46,16 @@ below cover the whole monorepo.
   `2fa-pending` hand-off token and the recovery-code lifecycle as HTTP
   behaviour (BUG-004/005/006); `entryOwnership.test.ts` (9, BUG-011)
 - **Entries, fields and versions (71):** `entryValidation` (17),
-  `entryHistory` (18 — US20/21/22/30), `entriesListing` (14),
+  `entryHistory` (18 — US29/30/31/32), `entriesListing` (14),
   `blankNumericValues` (6, BUG-012), `tags` (13), `recurringEntries` (3,
   US27)
 - **Statistics & expressions (109):** `sprint2` (22 — entry status US13,
   group and timeline stats US11/US12), `stats` (10),
-  `customStatistics` (27, US17), `expressions` (28),
+  `customStatistics` (27, US23), `expressions` (28),
   `expressionStats` (22)
 - **Automation, integrations and utilities (184):**
   `automationEngine.test.ts` (51 — rule CRUD, triggers, conditions,
-  actions, history, no-looping, ownership; US26),
+  actions, history, no-looping, ownership; US24),
   `automationRules.test.ts` (28 — the pure evaluator), `googleCalendar`
   (13) and `googleCalendarSync` (7) — the OAuth hand-off and the
   idempotent due-date mirror (FEAT-001), `reminders` (42, US28),
@@ -98,7 +98,7 @@ below cover the whole monorepo.
   ChecklistInput
 - **`ProtectedRoute.test.tsx` (3)** — redirect without a token, render
   with one
-- **`AutomationRules.test.tsx` (25)** — the US26 rule builder: listing,
+- **`AutomationRules.test.tsx` (25)** — the US24 rule builder: listing,
   creating, editing, and the operator vocabulary the UI offers
 
 #### Pages (151 tests)
