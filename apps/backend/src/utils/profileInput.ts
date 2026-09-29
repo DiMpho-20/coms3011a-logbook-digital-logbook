@@ -30,7 +30,31 @@ const optionalText = (max: number, label: string) =>
     })
     .transform((value) => (value === "" ? null : value));
 
+/**
+ * The display name.
+ *
+ * Unlike the rest of the card this one cannot be cleared — full_name is NOT
+ * NULL and an account with no name renders as a blank avatar and a blank
+ * sidebar. Sending it empty is therefore an error rather than a clear, and
+ * leaving it out still means "don't touch it".
+ *
+ * It is the one identity field PATCH may write. The email address is not:
+ * changing it decides where a password reset goes, which needs a
+ * confirmation step this endpoint does not have.
+ */
+const displayName = z
+  .string()
+  .optional()
+  .transform((value) => (typeof value === "string" ? value.trim() : value))
+  .refine((value) => value === undefined || value.length > 0, {
+    message: "Display name cannot be empty",
+  })
+  .refine((value) => value === undefined || value.length <= 255, {
+    message: "Display name must be at most 255 characters",
+  });
+
 export const profileSchema = z.object({
+  fullName: displayName,
   bio: optionalText(280, "Bio"),
   studentNumber: optionalText(32, "Student number"),
   degree: optionalText(120, "Degree"),

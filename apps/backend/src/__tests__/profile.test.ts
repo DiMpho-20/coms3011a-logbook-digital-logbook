@@ -181,9 +181,22 @@ describe("PATCH /me — what it refuses", () => {
     expect(res.body.email).toBe(before.body.email);
   });
 
-  it("cannot change the display name", async () => {
-    const res = await request(app).patch("/api/me").set(H).send({ fullName: "Someone Else" });
-    expect(res.body.fullName).toBe("Profile main");
+  it("can change the display name, which the student owns", async () => {
+    const res = await request(app).patch("/api/me").set(H).send({ fullName: "Renamed Main" });
+    expect(res.status).toBe(200);
+    expect(res.body.fullName).toBe("Renamed Main");
+
+    const read = await request(app).get("/api/me").set(H);
+    expect(read.body.fullName).toBe("Renamed Main");
+    // Put it back so the later ownership tests read what they expect.
+    await request(app).patch("/api/me").set(H).send({ fullName: "Profile main" });
+  });
+
+  it("refuses to blank the display name", async () => {
+    const res = await request(app).patch("/api/me").set(H).send({ fullName: "   " });
+    expect(res.status).toBe(400);
+    const read = await request(app).get("/api/me").set(H);
+    expect(read.body.fullName).toBe("Profile main");
   });
 
   it("cannot change the password", async () => {

@@ -3,10 +3,12 @@ import prisma from "../prisma.js";
 import { buildProfilePatch } from "../utils/profileInput.js";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 
-// The student's profile card. Name and email are owned by authentication and
-// are read-only here — PATCH deliberately has no way to reach them, so a bug
-// in the profile form can never rename an account or change the address a
-// password reset would be sent to.
+// The student's profile card.
+//
+// PATCH may write the display name, which is a label the student owns. It may
+// not write the email address, the password or the two-factor flags: the email
+// decides where a password reset is sent, so changing it needs a confirmation
+// step this endpoint does not have, and the other two are authentication's.
 //
 // Everything else is optional and free text. The year of study is not an enum
 // on this side: the frontend owns the list it offers, exactly as it owns the
@@ -16,6 +18,7 @@ const PROFILE_SELECT = {
   id: true,
   email: true,
   fullName: true,
+  isEmailVerified: true,
   bio: true,
   avatar: true,
   studentNumber: true,
@@ -28,6 +31,7 @@ type ProfileRow = {
   id: string;
   email: string;
   fullName: string;
+  isEmailVerified: boolean;
   bio: string | null;
   avatar: string | null;
   studentNumber: string | null;
@@ -41,6 +45,9 @@ function formatProfile(user: ProfileRow) {
     id: user.id,
     email: user.email,
     fullName: user.fullName,
+    // Read-only here; the verification flow owns it. The settings page shows
+    // it in the security checklist.
+    isEmailVerified: user.isEmailVerified,
     bio: user.bio,
     avatar: user.avatar,
     studentNumber: user.studentNumber,

@@ -106,7 +106,7 @@ describe("the avatar", () => {
 });
 
 describe("fields the profile form must never reach", () => {
-  it.each(["email", "fullName", "passwordHash", "twoFactorSecret", "isTwoFactorEnabled", "id"])(
+  it.each(["email", "passwordHash", "twoFactorSecret", "isTwoFactorEnabled", "id"])(
     "drops %s instead of writing it",
     (field) => {
       expect(accept({ [field]: "anything" })).toEqual({});
@@ -114,16 +114,45 @@ describe("fields the profile form must never reach", () => {
   );
 
   it("lets a whole profile object be posted back without carrying anything dangerous", () => {
+    // fullName is editable and comes through; nothing authentication owns does.
     expect(
       accept({
         id: "x",
         email: "attacker@example.com",
-        fullName: "Someone Else",
         passwordHash: "h",
         memberSince: "2020-01-01",
         bio: "only this moves",
       })
     ).toEqual({ bio: "only this moves" });
+  });
+});
+
+describe("the display name", () => {
+  it("is written when sent", () => {
+    expect(accept({ fullName: "Thandi M" })).toEqual({ fullName: "Thandi M" });
+  });
+
+  it("is trimmed", () => {
+    expect(accept({ fullName: "  Thandi M  " })).toEqual({ fullName: "Thandi M" });
+  });
+
+  it("is left alone when not sent", () => {
+    expect(accept({ bio: "hi" })).toEqual({ bio: "hi" });
+  });
+
+  it.each([["an empty string", ""], ["whitespace alone", "   "]])(
+    "refuses %s, because the column is NOT NULL and a blank name breaks the sidebar",
+    (_label, value) => {
+      expect(reject({ fullName: value })).toMatch(/cannot be empty/i);
+    }
+  );
+
+  it("refuses null, which would mean clearing it", () => {
+    expect(reject({ fullName: null })).toBeTruthy();
+  });
+
+  it("refuses one longer than the column", () => {
+    expect(reject({ fullName: "n".repeat(256) })).toMatch(/255/);
   });
 });
 
