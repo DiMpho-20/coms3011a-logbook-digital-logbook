@@ -246,8 +246,8 @@ and the round it was validated in.
 | Round | Finding | Action taken | Commit | Validated in |
 |---|---|---|---|---|
 | R1 | Tester 5 requested saved filters on the entries page | Saved-filter feature implemented — name, save, apply, delete, persisted to localStorage | `fd68b32` feat: add saved filters on entries page | R1 (pre-emptive; shipped before feedback was collected) |
-| R1 | Testers 1 & 2 found entry-field format confusing when adding entries | Filed as Gitea issue **FEAT-002**; add inline help text and field-type hints to the entry form | *(issue filed, fix queued)* | — |
-| R1 | Tester 2 found calendar/board views hard to locate | Filed as Gitea issue **FEAT-003**; consider adding nav hints or a guided tour for secondary views | *(issue filed, fix queued)* | — |
+| R1 | Testers 1 & 2 found entry-field format confusing when adding entries | Filed as Gitea issue **FEAT-002**; add inline help text and field-type hints to the entry form | *(FEAT-002 filed; still open as of 2026-09-28)* | — |
+| R1 | Tester 2 found calendar/board views hard to locate | Filed as Gitea issue **FEAT-003**; consider adding nav hints or a guided tour for secondary views | *(FEAT-003 filed; still open as of 2026-09-28)* | — |
 | R1 | All 6 testers praised the UI and ease of use | No action needed — validates current design direction | — | — |
 | R2 | Three testers named login/registration as the slowest moment; one rated speed "Slow, noticeable waiting" | Planned hosting migration (agreed with the client — see [Client Interactions](client-interactions.md)) removes the cold-start delay | *(planned)* | — |
 | R2 | Tester 1 suggested a year-to-date / grade-tracking view | Filed as Gitea issue **FEAT-009**; to be triaged for a future sprint | *(issue filed, triage pending)* | — |

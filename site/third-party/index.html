@@ -345,6 +345,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../testing/" class="md-nav__link">
         
   
@@ -353,6 +380,33 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Quickstart
   
 
     
@@ -958,7 +1012,25 @@ license was verified from the installed <code>package.json</code> on disk.</p>
 <td><a href="https://resend.com">resend</a> ^6.20</td>
 <td>MIT</td>
 <td>Email API client</td>
-<td><strong>Installed but not yet wired up.</strong> Being evaluated for the Sprint 2 external-API integration requirement as a possible replacement for raw SMTP sending.</td>
+<td>Preferred email provider when <code>RESEND_API_KEY</code> is set; Gmail SMTP is the fallback. A REST API avoids SMTP ports that some hosts block.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/web-push-libs/web-push">web-push</a> ^3.6</td>
+<td>MPL-2.0</td>
+<td>Sends reminder push notifications</td>
+<td>Implements the standard Web Push protocol with VAPID keys, so the server can notify a student's devices directly through each browser's own push service — no third-party notification account or per-message cost.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/express-rate-limit/express-rate-limit">express-rate-limit</a> ^8.7</td>
+<td>MIT</td>
+<td>Rate limiting on the auth routes</td>
+<td>Caps sign-in, sign-up and 2FA attempts per IP to slow down password and code guessing (BUG-003). A small, standard Express middleware rather than a hand-rolled counter.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/googleapis/google-api-nodejs-client">googleapis</a> ^181</td>
+<td>Apache-2.0</td>
+<td>Google Calendar API client and OAuth 2.0</td>
+<td>Our external API integration: syncs entry due dates into the user's Google Calendar. Google's official client handles the OAuth code exchange and refreshes access tokens automatically.</td>
 </tr>
 </tbody>
 </table>
@@ -1066,8 +1138,26 @@ license was verified from the installed <code>package.json</code> on disk.</p>
 <tr>
 <td><a href="https://vitest.dev">vitest</a> ^4.1</td>
 <td>MIT</td>
-<td>backend</td>
-<td>Test runner with native TypeScript/ESM support and a Jest-compatible API; runs our 78 integration tests. See <a href="../testing/">Testing</a>.</td>
+<td>both</td>
+<td>Test runner with native TypeScript/ESM support and a Jest-compatible API; runs both the backend and frontend suites. See <a href="../testing/">Testing</a>.</td>
+</tr>
+<tr>
+<td><a href="https://vitest.dev/guide/coverage">@vitest/coverage-v8</a> ^4.1</td>
+<td>MIT</td>
+<td>both</td>
+<td>Measures code coverage with V8's built-in instrumentation; produces the figures CI posts on each commit.</td>
+</tr>
+<tr>
+<td><a href="https://testing-library.com/docs/react-testing-library/intro/">@testing-library/react</a> ^16 + jest-dom + user-event</td>
+<td>MIT</td>
+<td>frontend</td>
+<td>Renders components and drives them the way a user would — by label, role and text — so tests don't break when markup changes.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/jsdom/jsdom">jsdom</a> ^30</td>
+<td>MIT</td>
+<td>frontend</td>
+<td>A browser DOM inside Node, so component tests run without a real browser.</td>
 </tr>
 <tr>
 <td><a href="https://github.com/ladjs/supertest">supertest</a> ^7.2</td>
@@ -1105,9 +1195,24 @@ license was verified from the installed <code>package.json</code> on disk.</p>
 <td>Serverless Postgres with autoscaling and a generous free tier; branching would let us copy the database for experiments. Chosen over self-hosting so the team never maintains a DB server.</td>
 </tr>
 <tr>
+<td><a href="https://resend.com">Resend</a></td>
+<td>Transactional email (preferred)</td>
+<td>Verification, password-reset and deletion emails over a REST API, which avoids SMTP ports some hosts block.</td>
+</tr>
+<tr>
 <td>Gmail SMTP</td>
-<td>Transactional email</td>
-<td>Verification and password-reset emails are sent through a Gmail account with an app password — zero cost, no signup friction, and it works locally.</td>
+<td>Transactional email (fallback)</td>
+<td>Used when Resend is not configured: a Gmail account with an app password — zero cost, no signup friction, and it works locally.</td>
+</tr>
+<tr>
+<td>Browser push services</td>
+<td>Reminder notifications</td>
+<td>Each browser vendor's push service delivers the server's VAPID-signed messages to the device. Nothing to sign up for; the browser chooses the service.</td>
+</tr>
+<tr>
+<td><a href="https://developers.google.com/calendar">Google Calendar API</a></td>
+<td>Due-date sync</td>
+<td>Mirrors entry due dates into the student's own calendar via OAuth.</td>
 </tr>
 <tr>
 <td><a href="https://render.com">Render</a></td>
@@ -1116,8 +1221,13 @@ license was verified from the installed <code>package.json</code> on disk.</p>
 </tr>
 <tr>
 <td><a href="https://pages.cloudflare.com">Cloudflare Pages</a></td>
-<td>Frontend + docs hosting</td>
-<td>Global CDN for the built React app and this MkDocs documentation site.</td>
+<td>Frontend hosting</td>
+<td>Global CDN for the built React app.</td>
+</tr>
+<tr>
+<td><a href="https://www.netlify.com">Netlify</a></td>
+<td>Documentation hosting</td>
+<td>Hosts this MkDocs documentation site.</td>
 </tr>
 <tr>
 <td>Gitea (sdp.ms.wits.ac.za)</td>
@@ -1128,8 +1238,12 @@ license was verified from the installed <code>package.json</code> on disk.</p>
 </table>
 <h2 id="licensing-summary">Licensing summary</h2>
 <p>All dependencies use permissive licenses — MIT, BSD-2-Clause, BSD-3-Clause,
-ISC, Apache-2.0 or MIT-0. There is no copyleft (GPL/AGPL) code in the
-dependency tree, so the project's own licensing is unaffected.</p>
+ISC, Apache-2.0 or MIT-0 — with one exception: <code>web-push</code> is under the
+Mozilla Public License 2.0. MPL-2.0 is a weak, file-level copyleft: it
+applies only to changes made to <code>web-push</code>'s own files, which we use
+unmodified from npm. It places no obligations on our code, so the project's
+own licensing is unaffected. There is no GPL or AGPL code in the dependency
+tree.</p>
 
 
 

@@ -147,6 +147,12 @@ export default function EntryHistoryModal({ entry, fields = [], onClose, onResto
     setNotice(null);
   };
 
+  /** Select an earlier version and go straight to the restore confirmation. */
+  const startRestore = (version: number) => {
+    selectVersion(version);
+    setConfirming(true);
+  };
+
   const viewAtDate = async () => {
     if (!entry || !date) return;
     // The whole chosen day counts: "as it was on the 3rd" includes edits made that evening.
@@ -248,14 +254,17 @@ export default function EntryHistoryModal({ entry, fields = [], onClose, onResto
                 const isSelected = version.version === shown.version;
                 const isCurrent = version.version === history.currentVersion;
                 return (
-                  <li key={version.version}>
+                  <li
+                    key={version.version}
+                    className={`rounded-lg border transition ${
+                      isSelected ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
                     <button
                       type="button"
                       onClick={() => selectVersion(version.version)}
                       aria-current={isSelected ? "true" : undefined}
-                      className={`w-full text-left rounded-lg border px-3 py-2 transition ${
-                        isSelected ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:bg-slate-50"
-                      }`}
+                      className="w-full text-left px-3 pt-2 pb-2"
                     >
                       <span className="flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-slate-800">Version {version.version}</span>
@@ -271,6 +280,20 @@ export default function EntryHistoryModal({ entry, fields = [], onClose, onResto
                       </span>
                       <span className="block text-[11px] text-slate-400">{formatWhen(version.createdAt)}</span>
                     </button>
+                    {/* Every earlier version offers Restore right here, so it's
+                        visible without first having to select the version. */}
+                    {!isCurrent && (
+                      <div className="px-3 pb-2">
+                        <button
+                          type="button"
+                          onClick={() => startRestore(version.version)}
+                          aria-label={`Restore version ${version.version}`}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md border border-blue-200 bg-white text-[11px] font-medium text-blue-700 hover:bg-blue-50 transition"
+                        >
+                          <RotateCcw className="h-3 w-3" /> Restore
+                        </button>
+                      </div>
+                    )}
                   </li>
                 );
               })}
@@ -349,10 +372,16 @@ export default function EntryHistoryModal({ entry, fields = [], onClose, onResto
                       onClick={() => setConfirming(true)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-xs font-medium text-blue-700 hover:bg-blue-50 transition"
                     >
-                      <RotateCcw className="h-3.5 w-3.5" /> Restore version {shown.version}
+                      <RotateCcw className="h-3.5 w-3.5" /> Restore this version
                     </button>
                   )}
                 </>
+              )}
+
+              {shown.version === current.version && history.versions.length > 1 && (
+                <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <RotateCcw className="h-3.5 w-3.5" /> To bring back an earlier version, click Restore under it in the list.
+                </p>
               )}
 
               {history.versions.length === 1 && (

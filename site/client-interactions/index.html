@@ -16,7 +16,7 @@
         <link rel="prev" href="../methodology/">
       
       
-        <link rel="next" href="../testing/">
+        <link rel="next" href="../api-reference/">
       
       
         
@@ -705,6 +705,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#date-2026-09-18-client-meeting-technical-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [Date: 2026-09-18] — Client Meeting &amp; Technical Feedback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#date-2026-09-25-client-meeting-feature-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [Date: 2026-09-25] — Client Meeting &amp; Feature Feedback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#7-summary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -730,6 +752,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../testing/" class="md-nav__link">
         
   
@@ -738,6 +787,33 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Quickstart
   
 
     
@@ -1347,6 +1423,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#date-2026-09-18-client-meeting-technical-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [Date: 2026-09-18] — Client Meeting &amp; Technical Feedback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#date-2026-09-25-client-meeting-feature-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [Date: 2026-09-25] — Client Meeting &amp; Feature Feedback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#7-summary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1715,26 +1813,153 @@
 <tr>
 <td>1</td>
 <td>Google Calendar API integration</td>
-<td>Planned for a later phase</td>
+<td>Done — due dates sync to Google Calendar (FEAT-001)</td>
 </tr>
 <tr>
 <td>2</td>
 <td>Further improvements to notification functionality</td>
-<td>Future improvement</td>
+<td>Done — automatic reminders with push notifications (US28)</td>
 </tr>
 <tr>
 <td>3</td>
 <td>Further accessibility testing and WCAG improvements</td>
-<td>Future improvement</td>
+<td>Future improvement (FEAT-006); a reduced-motion guard has been added</td>
 </tr>
 <tr>
 <td>4</td>
 <td>Additional automated unit tests for complex business logic</td>
-<td>Future improvement</td>
+<td>Done — unit tests cover expressions, automation rules, computed fields and more</td>
 </tr>
 </tbody>
 </table>
+<p><em>Statuses updated 2026-09-28.</em></p>
 <p>The Intermediate user stories themselves have been completed and integrated into the project.</p>
+<hr />
+<h2 id="date-2026-09-18-client-meeting-technical-feedback">[Date: 2026-09-18] — Client Meeting &amp; Technical Feedback</h2>
+<ul>
+<li>
+<p><strong>Channel:</strong> Client meeting.</p>
+</li>
+<li>
+<p><strong>Feedback:</strong></p>
+</li>
+<li>
+<p>The application is currently slow, so the team should investigate changing the deployment platform and deploy the application using <strong>Vercel</strong>.</p>
+</li>
+<li>The team should use <strong>MantisBT</strong> as the bug-tracking system to formally document and manage reported bugs.</li>
+<li>The dashboard currently contains statistics that may be unnecessary because the application already has a separate statistics feature accessible through the side navigation. The team should consider removing the statistics section from the dashboard to avoid duplication.</li>
+<li>The database was reviewed and it was identified that the <strong>tags table is missing</strong>. This is affecting the functionality of tags and preventing logbook entries from being updated correctly.</li>
+<li>The missing tags table may also be contributing to the application's performance issues. The team should investigate possible glitches or delays in communication between the frontend and backend.</li>
+<li>The team must properly <strong>document the internal APIs</strong>, including the available endpoints and their purpose, as required by the project.</li>
+<li>
+<p>The team needs to set up <strong>CI/CD</strong> so that testing and code coverage can be automated rather than relying on manually running tests and checking the coverage results.</p>
+</li>
+<li>
+<p><strong>Action Taken / Planned Actions:</strong></p>
+</li>
+<li>
+<p>Investigate and migrate the application deployment to <strong>Vercel</strong> to address the application's performance issues.</p>
+<ul>
+<li><strong>Status (2026-09-28).</strong> The deployment has not moved: the frontend is still on Cloudflare Pages and the backend on Render. The slowness was tackled in the code instead — see the performance item below.</li>
+</ul>
+</li>
+<li>Set up <strong>MantisBT</strong> and use it as the team's formal bug-tracking system.<ul>
+<li><strong>Superseded (2026-09-25).</strong> The team chose a dedicated Gitea project instead; see the next meeting.</li>
+</ul>
+</li>
+<li>Remove the duplicated statistics section from the dashboard while keeping the dedicated statistics functionality accessible through the side navigation.<ul>
+<li><strong>Done (2026-09-27).</strong> The dashboard's three statistics panels — Active Projects, Entries This Week and Total Time Logged — were removed, and the Statistics page in the side navigation is unchanged. The activity chart was kept: it shows the last seven days as working context rather than repeating a figure the Statistics page reports.</li>
+</ul>
+</li>
+<li>Add the missing <strong>tags table</strong> to the database and ensure that tags are correctly integrated with logbook entries.<ul>
+<li><strong>Done.</strong> The <code>tags</code>, <code>project_tags</code> and <code>entry_tags</code> tables exist and are part of the migration baseline.</li>
+</ul>
+</li>
+<li>Investigate and resolve possible frontend–backend communication glitches and performance issues.<ul>
+<li><strong>Done (2026-09-28).</strong> Pages that sent one request per project now use a single request, the Entries page loads entries in pages, and database indexes were added for the common queries (US33).</li>
+</ul>
+</li>
+<li>Document the project's <strong>internal APIs</strong>, including endpoints, requests, responses, and their purpose.<ul>
+<li><strong>Done.</strong> Every endpoint is documented in the <a href="../api-reference/">API Reference</a>.</li>
+</ul>
+</li>
+<li>Set up a <strong>CI/CD pipeline</strong> to automatically run tests and generate/check code coverage.<ul>
+<li><strong>Done for CI.</strong> Gitea Actions typechecks, lints, runs both test suites with coverage and posts the coverage on each commit. Deployment is still done by hand.</li>
+</ul>
+</li>
+<li>Continue documenting technical decisions and client feedback as project evidence.</li>
+</ul>
+<hr />
+<h2 id="date-2026-09-25-client-meeting-feature-feedback">[Date: 2026-09-25] — Client Meeting &amp; Feature Feedback</h2>
+<ul>
+<li>
+<p><strong>Channel:</strong> Client meeting.</p>
+</li>
+<li>
+<p><strong>Feedback:</strong></p>
+</li>
+<li>
+<p>The client suggested adding a <strong>streak</strong> feature to show users their consistency in creating logbook entries.</p>
+</li>
+<li>The application should show the <strong>number of entries per month</strong> so users can track their activity over time.</li>
+<li>The client suggested adding <strong>progress tracking</strong> to the dashboard, allowing users to see the progress of their entries over time.</li>
+<li>The client suggested <strong>ranking tags</strong>, such as showing the most-used tags and how many entries use each tag.</li>
+<li>The client suggested allowing users to <strong>compare different weeks</strong> when viewing their statistics and progress.</li>
+<li>Users should be given the <strong>option to choose which statistics they want to see</strong>, rather than having a fixed set of statistics.</li>
+<li>The dashboard should give users more <strong>freedom to customise what they want to see</strong>, allowing them to select the information and statistics that are most relevant to them.</li>
+<li>The client suggested adding <strong>more filtering options</strong> to make it easier for users to find and analyse their entries.</li>
+<li>The client suggested an <strong>auto-completion/auto-compilation feature</strong> where repeatedly creating similar entries could automatically suggest or complete information based on previous entries.</li>
+<li>The client suggested exploring <strong>expressions/custom statistics</strong>. The team will ask <strong>Branden</strong> for clarification on how expressions should work and what functionality is expected.</li>
+<li>
+<p>The first note regarding checking entries over a specified period was discussed as a possible consideration rather than a confirmed feature requirement.</p>
+</li>
+<li>
+<p><strong>Bug Tracking:</strong></p>
+</li>
+<li>
+<p>The team discussed using <strong>MantisBT</strong> for bug tracking.</p>
+</li>
+<li>It was agreed <strong>not to use MantisBT</strong>, as the available workspace is shared and would not provide the team with a suitable dedicated space for managing the project's bugs.</li>
+<li>The team instead created a <strong>dedicated project in Gitea</strong> that will be used as the project's bug tracker.</li>
+<li>
+<p>Bugs and issues will be recorded and managed within the Gitea project to keep the team's bug-tracking process centralised with the project repository.</p>
+</li>
+<li>
+<p><strong>Action Taken / Planned Actions:</strong></p>
+</li>
+<li>
+<p>Add a <strong>streak</strong> feature to track user consistency.</p>
+</li>
+<li>Add <strong>monthly entry counts</strong> to the statistics/dashboard functionality.</li>
+<li>Investigate adding <strong>progress tracking</strong> for entries over time.</li>
+<li>Implement <strong>tag ranking/usage statistics</strong>, including most-used tags and the number of entries associated with each tag.</li>
+<li>Add functionality to <strong>compare statistics across different weeks</strong>.<ul>
+<li><strong>Done (all five above).</strong> The dashboard offers streak, entries-per-month, progress-over-time, tag-ranking and week-comparison panels.</li>
+</ul>
+</li>
+<li>Allow users to <strong>select the statistics</strong> they want displayed.</li>
+<li>Provide users with <strong>customisable dashboard options</strong> so they can choose what information is displayed.<ul>
+<li><strong>Done (both).</strong> Students choose and arrange their dashboard panels, including their own saved statistics, and the layout is kept on the server (US25, US26).</li>
+</ul>
+</li>
+<li>Expand the available <strong>entry filtering options</strong>.<ul>
+<li><strong>Partly done.</strong> Entries can be filtered by project, tag, week, overdue and archive state, and filters can be saved. Searching inside custom fields and combining filters are in the Sprint 3 backlog (US36, US37).</li>
+</ul>
+</li>
+<li>Investigate and design the <strong>auto-completion/auto-compilation</strong> feature for repeated or similar entries.<ul>
+<li><strong>Not started.</strong> Tag names are suggested as you type, and recurring entries (US27) cover work that repeats on a schedule, but entries are not yet completed from earlier ones.</li>
+</ul>
+</li>
+<li>Ask <strong>Branden</strong> for clarification on the expected <strong>expression/custom statistics</strong> functionality.<ul>
+<li><strong>Done.</strong> Custom expressions and saved statistics were delivered (US22, US23).</li>
+</ul>
+</li>
+<li>Use the newly created <strong>Gitea project as the project's bug tracker</strong> instead of MantisBT.<ul>
+<li><strong>Done.</strong> Bugs and feature requests are recorded in <code>.gitea/issues/</code> and on the Gitea board.</li>
+</ul>
+</li>
+<li>Continue documenting client feedback and decisions as project evidence.</li>
+</ul>
 <hr />
 <h2 id="7-summary">7. Summary</h2>
 <p>The majority of client requirements for the Intermediate phase were already established during the Sprint 1 client meetings. As a result, the team required only limited follow-up interaction during this phase.</p>

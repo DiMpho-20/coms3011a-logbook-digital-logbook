@@ -353,6 +353,62 @@ describe("importLogbook", () => {
     await expect(importLogbook(withTags)).resolves.toEqual({ projects: 1, entries: 0 });
   });
 
+  it("points a reference at the recreated project, even one later in the file (issue #90)", async () => {
+    const withReference = {
+      ...backup,
+      projects: [
+        {
+          ...backup.projects[0],
+          name: "Thesis",
+          fields: [{ id: "old-ref", name: "Related to", type: "REFERENCE", required: false, formula: null }],
+          entries: [{
+            durationMinutes: 10, entryDate: null, dueDate: null,
+            values: { "old-ref": { id: "old-reading-id", label: "Reading", kind: "project" } },
+          }],
+        },
+        { ...backup.projects[0], name: "Reading", fields: [], entries: [] },
+      ],
+    };
+    vi.mocked(api.post).mockImplementation((url: string, body?: unknown) => {
+      if (url === "/projects") return Promise.resolve(ok({ id: `new-${(body as { name: string }).name}` }));
+      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-ref" }));
+      return Promise.resolve(ok({ id: "new-e1" }));
+    });
+
+    await importLogbook(withReference);
+
+    expect(api.post).toHaveBeenCalledWith(
+      "/projects/new-Thesis/entries",
+      expect.objectContaining({ values: { "new-ref": { id: "new-Reading", label: "Reading", kind: "project" } } })
+    );
+  });
+
+  it("leaves out a reference to anything the backup does not contain", async () => {
+    const dangling = {
+      ...backup,
+      projects: [{
+        ...backup.projects[0],
+        fields: [{ id: "old-ref", name: "Related to", type: "REFERENCE", required: false, formula: null }],
+        entries: [
+          { durationMinutes: 10, entryDate: null, dueDate: null, values: { "old-ref": { id: "x", label: "Deleted project", kind: "project" } } },
+          { durationMinutes: 10, entryDate: null, dueDate: null, values: { "old-ref": { id: "y", kind: "entry" } } },
+        ],
+      }],
+    };
+    vi.mocked(api.post).mockImplementation((url: string) => {
+      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
+      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-ref" }));
+      return Promise.resolve(ok({ id: "new-e1" }));
+    });
+
+    await expect(importLogbook(dangling)).resolves.toEqual({ projects: 1, entries: 2 });
+    const entryBodies = vi.mocked(api.post).mock.calls
+      .filter(([url]) => url === "/projects/new-p1/entries")
+      .map(([, body]) => body as { values: Record<string, unknown> });
+    expect(entryBodies).toHaveLength(2);
+    for (const body of entryBodies) expect(body.values).toEqual({});
+  });
+
   it("remaps a COMPUTED field's formula onto the ids its fields are recreated with", async () => {
     const withComputed = {
       ...backup,

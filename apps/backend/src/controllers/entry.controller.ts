@@ -6,11 +6,12 @@ import { createEntrySchema, updateEntrySchema } from "../schemas/entry.schema.js
 import type { Entry } from "@logbook/shared";
 import { calculateComputedValues } from "../utils/computedFields.js";
 import { cleanTagNames, resolveTagIds } from "../utils/tags.js";
-import { validateEntryValues, findMissingRequiredField, isEmptyValue } from "../utils/entryValues.js";
+import { validateEntryValues, findMissingRequiredField, isEmptyValue, findBadReference } from "../utils/entryValues.js";
 import type { SnapshotField } from "../utils/entryFormat.js";
 import { ensureBaselineVersion, recordVersion, sameSnapshot, toSnapshot } from "../utils/entryVersions.js";
 import { dueDateOffsetDays, materializeDueRecurringEntries, nextRecurrenceDate } from "../utils/recurringEntries.js";
 import { runEntryAutomation } from "../utils/automationRunner.js";
+
 
 /**
  * Resolve a project the caller actually owns. requireAuth proves the caller
@@ -257,6 +258,9 @@ export const createEntry = async (req: AuthenticatedRequest, res: Response) => {
     const shapeError = validateEntryValues(fields, suppliedValues);
     if (shapeError) return res.status(400).json({ error: shapeError });
 
+    const referenceError = await findBadReference(prisma, req.userId!, fields, suppliedValues);
+    if (referenceError) return res.status(400).json({ error: referenceError });
+
     const computedValues = calculateComputedValues(fields, suppliedValues);
 
     const missing = findMissingRequiredField(fields, { ...suppliedValues, ...computedValues });
@@ -369,6 +373,9 @@ export const updateEntry = async (req: AuthenticatedRequest, res: Response) => {
 
         const shapeError = validateEntryValues(fields, validated.values);
         if (shapeError) throw new Error(shapeError);
+
+        const referenceError = await findBadReference(tx, req.userId!, fields, validated.values);
+        if (referenceError) throw new Error(referenceError);
 
         const existingValues = await tx.entryValue.findMany({ where: { entryId: id } });
         const valueMap: Record<string, unknown> = Object.fromEntries(existingValues.map((value: any) => [value.fieldId, value.value]));
@@ -484,6 +491,12 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
     }
     const limit = Math.min(rawLimit, MAX_ENTRY_LIMIT);
 
+    const rawOffset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+    if (!Number.isInteger(rawOffset) || rawOffset < 0) {
+      return res.status(400).json({ error: "offset must be a non-negative integer" });
+    }
+    const offset = rawOffset;
+
     let from: Date | undefined;
     let to: Date | undefined;
     try {
@@ -519,11 +532,12 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       WHERE ${Prisma.join(conditions, " AND ")}
       ORDER BY COALESCE(le.entry_date, le.created_at) DESC, le.id DESC
       LIMIT ${limit}
+      OFFSET ${offset}
     `;
 
     const ids = rows.map((r) => r.id);
     if (ids.length === 0) {
-      return res.status(200).json({ entries: [], formats: {}, limit, truncated: false });
+      return res.status(200).json({ entries: [], formats: {}, limit, offset, truncated: false });
     }
 
     const found = await prisma.logbookEntry.findMany({
@@ -556,10 +570,44 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       entries,
       formats,
       limit,
+      offset,
       truncated: ids.length === limit,
     });
   } catch (error) {
     console.error("Failed to list entries:", error);
     return res.status(500).json({ error: "Failed to list entries" });
+  }
+};
+
+export const getOpenEntries = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+
+    // Find the user's projects, then all their OPEN entries in one query.
+    const entries = await prisma.logbookEntry.findMany({
+      where: {
+        status: "OPEN",
+        // Archived work is out of the way by design (US32), so it is not
+        // listed as work still to do.
+        archivedAt: null,
+        project: { userId },
+      },
+      include: {
+        values: { include: { field: true } },
+        formatVersion: true,
+        project: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const shaped = entries.map((entry) => ({
+      ...formatEntry(entry),
+      projectName: entry.project.name,
+    }));
+
+    return res.status(200).json(shaped);
+  } catch (error) {
+    console.error("Failed to fetch open entries:", error);
+    return res.status(500).json({ error: "Failed to fetch open entries" });
   }
 };

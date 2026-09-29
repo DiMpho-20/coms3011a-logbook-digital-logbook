@@ -38,6 +38,8 @@ Before adding a library we check:
 | [cors](https://github.com/expressjs/cors) ^2.8 | MIT | Cross-Origin Resource Sharing middleware | The frontend (Vite dev server on :5173, deployed frontend on Cloudflare Pages) calls the backend on a different origin; `cors` handles the preflight/OPTIONS dance correctly. |
 | [dotenv](https://github.com/motdotla/dotenv) ^17.4 | BSD-2-Clause | Loads `.env` into `process.env` | Twelve-factor configuration: secrets (DB URL, JWT secret, Gmail credentials) stay out of the codebase. |
 | [resend](https://resend.com) ^6.20 | MIT | Email API client | Preferred email provider when `RESEND_API_KEY` is set; Gmail SMTP is the fallback. A REST API avoids SMTP ports that some hosts block. |
+| [web-push](https://github.com/web-push-libs/web-push) ^3.6 | MPL-2.0 | Sends reminder push notifications | Implements the standard Web Push protocol with VAPID keys, so the server can notify a student's devices directly through each browser's own push service — no third-party notification account or per-message cost. |
+| [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) ^8.7 | MIT | Rate limiting on the auth routes | Caps sign-in, sign-up and 2FA attempts per IP to slow down password and code guessing (BUG-003). A small, standard Express middleware rather than a hand-rolled counter. |
 | [googleapis](https://github.com/googleapis/google-api-nodejs-client) ^181 | Apache-2.0 | Google Calendar API client and OAuth 2.0 | Our external API integration: syncs entry due dates into the user's Google Calendar. Google's official client handles the OAuth code exchange and refreshes access tokens automatically. |
 
 ## Frontend dependencies
@@ -65,7 +67,10 @@ Before adding a library we check:
 | [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react) ^6.0 | MIT | frontend | Fast Refresh + JSX transform for React under Vite. |
 | [tailwindcss](https://tailwindcss.com) ^4.3 + postcss + autoprefixer | MIT | frontend | Utility-first CSS keeps styling inside the components; v4 compiles away unused styles. Responsive prefixes (`sm:`, `lg:`) are how the app meets the responsive-design requirement. |
 | [tsx](https://github.com/privatenumber/tsx) ^4.23 | MIT | backend | Runs TypeScript directly in `npm run dev` with watch mode — no separate build step while developing the API. |
-| [vitest](https://vitest.dev) ^4.1 | MIT | backend | Test runner with native TypeScript/ESM support and a Jest-compatible API; runs our 78 integration tests. See [Testing](testing.md). |
+| [vitest](https://vitest.dev) ^4.1 | MIT | both | Test runner with native TypeScript/ESM support and a Jest-compatible API; runs both the backend and frontend suites. See [Testing](testing.md). |
+| [@vitest/coverage-v8](https://vitest.dev/guide/coverage) ^4.1 | MIT | both | Measures code coverage with V8's built-in instrumentation; produces the figures CI posts on each commit. |
+| [@testing-library/react](https://testing-library.com/docs/react-testing-library/intro/) ^16 + jest-dom + user-event | MIT | frontend | Renders components and drives them the way a user would — by label, role and text — so tests don't break when markup changes. |
+| [jsdom](https://github.com/jsdom/jsdom) ^30 | MIT | frontend | A browser DOM inside Node, so component tests run without a real browser. |
 | [supertest](https://github.com/ladjs/supertest) ^7.2 | MIT | backend | Lets tests fire real HTTP requests at the actual Express app (through the real auth middleware and Zod validation), rather than calling handlers with fake request objects. |
 | [eslint](https://eslint.org) ^10 + typescript-eslint ^8 | MIT | backend | Lints the backend with TypeScript-aware rules. |
 | [oxlint](https://oxc.rs) ^1.75 | MIT | frontend | Rust-based linter — fast enough to run on every save. |
@@ -75,13 +80,21 @@ Before adding a library we check:
 | Service | Role | Why |
 |---|---|---|
 | [Neon](https://neon.tech) | Hosted PostgreSQL | Serverless Postgres with autoscaling and a generous free tier; branching would let us copy the database for experiments. Chosen over self-hosting so the team never maintains a DB server. |
-| Gmail SMTP | Transactional email | Verification and password-reset emails are sent through a Gmail account with an app password — zero cost, no signup friction, and it works locally. |
+| [Resend](https://resend.com) | Transactional email (preferred) | Verification, password-reset and deletion emails over a REST API, which avoids SMTP ports some hosts block. |
+| Gmail SMTP | Transactional email (fallback) | Used when Resend is not configured: a Gmail account with an app password — zero cost, no signup friction, and it works locally. |
+| Browser push services | Reminder notifications | Each browser vendor's push service delivers the server's VAPID-signed messages to the device. Nothing to sign up for; the browser chooses the service. |
+| [Google Calendar API](https://developers.google.com/calendar) | Due-date sync | Mirrors entry due dates into the student's own calendar via OAuth. |
 | [Render](https://render.com) | Backend hosting | Deploys the Express API from `main` with a free tier that suits a student project. |
-| [Cloudflare Pages](https://pages.cloudflare.com) | Frontend + docs hosting | Global CDN for the built React app and this MkDocs documentation site. |
+| [Cloudflare Pages](https://pages.cloudflare.com) | Frontend hosting | Global CDN for the built React app. |
+| [Netlify](https://www.netlify.com) | Documentation hosting | Hosts this MkDocs documentation site. |
 | Gitea (sdp.ms.wits.ac.za) | Version control, CI, issue tracker | University-hosted Git server; runs the CI workflow on every push and hosts the bug tracker we use for all defects. |
 
 ## Licensing summary
 
 All dependencies use permissive licenses — MIT, BSD-2-Clause, BSD-3-Clause,
-ISC, Apache-2.0 or MIT-0. There is no copyleft (GPL/AGPL) code in the
-dependency tree, so the project's own licensing is unaffected.
+ISC, Apache-2.0 or MIT-0 — with one exception: `web-push` is under the
+Mozilla Public License 2.0. MPL-2.0 is a weak, file-level copyleft: it
+applies only to changes made to `web-push`'s own files, which we use
+unmodified from npm. It places no obligations on our code, so the project's
+own licensing is unaffected. There is no GPL or AGPL code in the dependency
+tree.

@@ -102,12 +102,25 @@ describe("EntryHistoryModal — loading", () => {
     expect(api.fetchEntryHistory).toHaveBeenCalledWith("e1");
   });
 
-  it("opens on the current version, with nothing to compare or restore", async () => {
+  // Restore used to appear only after selecting an older version, which read
+  // as "history is view-only". It is now offered on every earlier version
+  // from the moment the dialog opens — never on the current one.
+  it("opens on the current version, offering Restore on each earlier version", async () => {
     setup();
     await screen.findByText("Current version");
     expect(versionButton(2)).toHaveAttribute("aria-current", "true");
     expect(screen.queryByText(/differences from the current version/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /restore version/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restore version 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restore version 2" })).not.toBeInTheDocument();
+    expect(screen.getByText(/click restore under it in the list/i)).toBeInTheDocument();
+  });
+
+  it("goes straight to the confirmation from a version's Restore button", async () => {
+    setup();
+    fireEvent.click(await screen.findByRole("button", { name: "Restore version 1" }));
+    expect(versionButton(1)).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("button", { name: /confirm restore/i })).toBeInTheDocument();
+    expect(api.restoreEntryVersion).not.toHaveBeenCalled();
   });
 
   it("says so when the history can't be loaded", async () => {

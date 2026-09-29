@@ -343,6 +343,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../testing/" class="md-nav__link">
         
   
@@ -351,6 +378,33 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Quickstart
   
 
     
@@ -784,6 +838,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#4-how-the-design-has-evolved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. How the Design Has Evolved
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -957,6 +1022,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#4-how-the-design-has-evolved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. How the Design Has Evolved
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -975,6 +1051,13 @@
 
 
 <h1 id="initial-system-design">Initial System Design</h1>
+<blockquote>
+<p>This page records the design as it was planned at the start of the project
+(August 2026). It is kept unchanged as a record of the starting point. The
+system has grown considerably since; §4 summarises how, and
+<a href="../../architecture/">System Architecture</a> and
+<a href="../database-erd/">Database Design</a> describe it as built.</p>
+</blockquote>
 <h2 id="1-high-level-system-architecture">1. High-Level System Architecture</h2>
 <p>The Digital Logbook is designed as a non-monolithic web application.
 The system separates the user interface from the backend API and
@@ -1084,6 +1167,71 @@ provides access to the database from the Express backend.</p>
 <p>Foreign keys are used to maintain relationships between entities.
 Unique constraints prevent duplicate values where required, and cascading
 deletes support account deletion and associated data removal.</p>
+<h2 id="4-how-the-design-has-evolved">4. How the Design Has Evolved</h2>
+<p>The initial design held up: the system is still a React frontend, an Express
+REST API and a PostgreSQL database, with a shared types package, and the
+EAV entry model above still carries every project's custom fields. What
+changed is what was built on top of it.</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Initial design</th>
+<th>Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Database</td>
+<td>6 tables</td>
+<td>20 tables: format versions, entry versions, tags, custom statistics, dashboard layouts, automation and recurrence rules, reminders, push subscriptions, recovery codes and the Google Calendar connection were added</td>
+</tr>
+<tr>
+<td>Field types</td>
+<td>Text, Number, Date, Boolean</td>
+<td>Also Tags, Checklist, Link, Reference and Computed</td>
+</tr>
+<tr>
+<td>Entry history</td>
+<td>An entry is overwritten when edited</td>
+<td>Every change is kept as a version and can be viewed or restored</td>
+</tr>
+<tr>
+<td>Authentication</td>
+<td>JWT sign-in, email verification, password reset</td>
+<td>Also TOTP two-factor authentication with recovery codes, encrypted secrets, hashed tokens and rate limiting</td>
+</tr>
+<tr>
+<td>Email</td>
+<td>Nodemailer (Gmail SMTP)</td>
+<td>Resend, with Gmail SMTP as a fallback</td>
+</tr>
+<tr>
+<td>Background work</td>
+<td>None</td>
+<td>Jobs in the API process create recurring entries, push due reminders and purge deleted accounts</td>
+</tr>
+<tr>
+<td>Frontend</td>
+<td>Pages, components, API client, routing</td>
+<td>Also a service worker for offline use and push notifications, and an offline entry queue</td>
+</tr>
+<tr>
+<td>Integrations</td>
+<td>None</td>
+<td>Google Calendar sync and web push</td>
+</tr>
+<tr>
+<td>Deployment</td>
+<td>Not yet decided</td>
+<td>Frontend on Cloudflare Pages, backend on Render, database on Neon, CI on Gitea Actions</td>
+</tr>
+</tbody>
+</table>
+<p>The request pipeline also gained an explicit ownership check: a valid token
+proves who the caller is, and every query is then scoped to that user's own
+data. See <a href="../architecture/">Architecture Design</a> for the pipeline and sign-in
+flow.</p>
 
 
 

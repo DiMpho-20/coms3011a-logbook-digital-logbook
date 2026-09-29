@@ -345,6 +345,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../testing/" class="md-nav__link">
         
   
@@ -353,6 +380,33 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Quickstart
   
 
     
@@ -765,6 +819,61 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#15-statistics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Statistics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#16-reminders" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. Reminders
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#17-entry-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17. Entry History
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#18-automation-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        18. Automation Rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#19-recurring-entries-and-archiving" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19. Recurring Entries and Archiving
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1156,6 +1265,61 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#15-statistics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Statistics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#16-reminders" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. Reminders
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#17-entry-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17. Entry History
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#18-automation-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        18. Automation Rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#19-recurring-entries-and-archiving" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19. Recurring Entries and Archiving
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1268,32 +1432,26 @@
 <li>📄 <a href="../../Logbook%20wireframe.pdf">Wireframe</a> — initial layout and navigation structure for each screen.</li>
 <li>📄 <a href="../DigitalLogbook%20mockup.pdf">Mockup</a> — refined visual design based on the wireframe.</li>
 </ul>
-<p>The implemented interface follows the overall structure established by these design artifacts while incorporating additional functionality introduced during the Intermediate phase.</p>
+<p>The implemented interface follows the overall structure established by these design artifacts while incorporating additional functionality introduced during the Intermediate and Advanced phases.</p>
 <h2 id="application-navigation">Application Navigation</h2>
-<p>Authenticated users have access to the following main areas:</p>
-<div class="highlight"><pre><span></span><code>                    ┌──────────────┐
-                    │   Dashboard  │
-                    └──────┬───────┘
-                           │
-             ┌─────────────┼─────────────┐
-             │             │             │
-             ▼             ▼             ▼
-        ┌─────────┐   ┌──────────┐  ┌──────────┐
-        │ Projects│   │ Entries  │  │ Profile  │
-        └────┬────┘   └──────────┘  └──────────┘
-             │
-             ▼
-      ┌────────────────┐
-      │ Project Detail │
-      └───────┬────────┘
-              │
-       ┌──────┴────────┐
-       ▼               ▼
- ┌───────────┐  ┌─────────────┐
- │Entry Form │  │Entry Format │
- └───────────┘  └─────────────┘
+<p>Authenticated users reach every main area from the sidebar:</p>
+<div class="highlight"><pre><span></span><code>Sidebar
+├── Dashboard      chosen and arranged panels
+├── Projects ──► Project Detail
+│                 ├── Entry Form
+│                 ├── Entry Format
+│                 ├── Entry History
+│                 └── Automation Rules
+├── Entries        search, filters, saved filters, archive
+├── Open Work      unfinished entries by urgency
+├── Stats          statistics, custom expressions, saved statistics
+├── Calendar       entries by due date, Google Calendar sync
+├── Board          entries as a board
+├── Reminders      reminders and reminder rules
+├── Profile
+└── Settings       account, 2FA, notifications, data export/import
 </code></pre></div>
-<p>Additional functionality such as alternative entry views, notifications, offline capture, and data import/export is accessible through the relevant application pages.</p>
+<p>Offline capture works through the normal entry form, and a count of due reminders is shown in the sidebar.</p>
 <h2 id="main-screens">Main Screens</h2>
 <h3 id="1-landing-page">1. Landing Page</h3>
 <p>The landing page introduces the Digital Logbook and provides options to:</p>
@@ -1311,17 +1469,21 @@
 <p>The interface provides the required account fields and validation before an account is created.</p>
 <p><em>See the <a href="../DigitalLogbook%20mockup.pdf">mockup</a> for the registration screen.</em></p>
 <h3 id="4-dashboard">4. Dashboard</h3>
-<p>The Dashboard provides an overview of the student's activity.</p>
-<p>It includes:</p>
+<p>The Dashboard provides an overview of the student's activity, built from panels the student chooses.</p>
+<p>Available panels include:</p>
 <ul>
-<li>Active projects.</li>
-<li>Recent logbook entries.</li>
-<li>Time recorded.</li>
-<li>Project-related statistics.</li>
-<li>Overdue work information.</li>
-<li>Quick actions for creating projects and entries.</li>
+<li>Entry streak.</li>
+<li>Deadline reminders (upcoming and overdue work).</li>
+<li>Recent activity.</li>
+<li>Current projects.</li>
+<li>Progress over time.</li>
+<li>Entries per month.</li>
+<li>This week compared with last week.</li>
+<li>Tags and tag ranking.</li>
+<li>Recent entries.</li>
+<li>The student's own saved statistics.</li>
 </ul>
-<p>The dashboard prioritises active projects, recent activity, and important work information so that students can quickly understand their current logbook activity.</p>
+<p>Students pick panels from a panel picker and arrange them with "Arrange panels". The layout is saved to their account, so the dashboard looks the same on every device. The dashboard deliberately does not repeat the figures on the Statistics page.</p>
 <h3 id="5-projects">5. Projects</h3>
 <p>The Projects page displays the student's projects.</p>
 <p>Students can:</p>
@@ -1361,6 +1523,12 @@
 <li>Live time tracking where applicable.</li>
 </ul>
 <p>The form is designed to allow students to capture logbook information quickly without requiring a fixed format for every project.</p>
+<p>Capture works from the keyboard alone:</p>
+<ul>
+<li><strong>N</strong>, pressed anywhere in the app while not typing in a field, opens a new entry on the project the student last worked in (or their first active project).</li>
+<li>The cursor starts in the first field of the form.</li>
+<li><strong>Ctrl+Enter</strong> (Cmd+Enter on a Mac) saves the entry.</li>
+</ul>
 <p><em>See the <a href="../../Logbook%20wireframe.pdf">wireframe</a> and <a href="../DigitalLogbook%20mockup.pdf">mockup</a> for the original entry form layout.</em></p>
 <h3 id="8-entry-format-management">8. Entry Format Management</h3>
 <p>The Entry Format interface allows students to define and manage the structure of their project entries.</p>
@@ -1413,6 +1581,7 @@
 <li>Other application settings.</li>
 </ul>
 <p>The application supports light, dark, and system theme preferences.</p>
+<p>Settings also turns reminder notifications on for the current device, and holds the two-factor authentication setup, including recovery codes.</p>
 <p><em>See the <a href="../DigitalLogbook%20mockup.pdf">mockup</a> for the profile and settings layout.</em></p>
 <h3 id="13-offline-capture">13. Offline Capture</h3>
 <p>The interface supports capturing logbook entries when the student temporarily does not have a reliable connection.</p>
@@ -1427,6 +1596,18 @@
 <li>Retain their project and entry information when moving or restoring data.</li>
 </ul>
 <p>The import/export functionality is integrated into the existing application rather than requiring users to interact directly with the database.</p>
+<h3 id="15-statistics">15. Statistics</h3>
+<p>The Statistics page shows time per project, totals and averages of any numeric field grouped by another field, and values plotted over time by day, week or month.</p>
+<p>Students can also write their own expression, such as <code>SUM({Hours}) / COUNT()</code>, see its result immediately, and save it as a named statistic that sits beside the built-in ones and can be added to the dashboard. An expression that cannot be worked out explains why rather than showing a wrong number.</p>
+<h3 id="16-reminders">16. Reminders</h3>
+<p>The Reminders page lists reminders that are due now, upcoming, and completed or dismissed. Each can be completed, snoozed or dismissed, and students can create their own.</p>
+<p>The reminder rules on the same page switch on automatic reminders for upcoming due dates, overdue entries, entries left untouched, and a daily prompt when nothing has been logged. With notifications turned on, reminders appear as system notifications, even when the logbook is closed.</p>
+<h3 id="17-entry-history">17. Entry History</h3>
+<p>From an entry, students open its history: every saved version, oldest first, with what changed shown field by field against the current version. They can view the entry as it was on a chosen date, and restore an earlier version after confirming. A restore is added to the history rather than replacing it.</p>
+<h3 id="18-automation-rules">18. Automation Rules</h3>
+<p>On a project's page, students create rules of the form "when an entry is created or saved and these conditions hold, add or remove a tag or set the status". Only the conditions that make sense for each field type are offered. Rules can be edited, switched off and deleted.</p>
+<h3 id="19-recurring-entries-and-archiving">19. Recurring Entries and Archiving</h3>
+<p>When creating an entry, students can make it repeat daily, weekly or monthly, and later stop it repeating. On the Entries page, old entries can be moved to the archive individually or in bulk, viewed there, and brought back.</p>
 <h2 id="responsive-design">Responsive Design</h2>
 <p>The interface follows a responsive design approach so that the application remains usable across different screen sizes.</p>
 <h3 id="desktop">Desktop</h3>
@@ -1451,6 +1632,7 @@
 <li>Clear visual distinction between different entry states.</li>
 <li>Accessible form validation and feedback where applicable.</li>
 </ul>
+<p>Animations respect the operating system's reduced-motion setting.</p>
 <p>Accessibility remains an ongoing area for improvement, with further testing and WCAG-focused refinements planned as the project continues.</p>
 <h2 id="design-consistency">Design Consistency</h2>
 <p>The application uses consistent layouts, navigation patterns, controls, and visual conventions across its main screens.</p>

@@ -80,3 +80,55 @@ export function validateEntryValues(fields: Field[], values: Record<string, unkn
 export function findMissingRequiredField(fields: Field[], values: Record<string, unknown>): Field | null {
   return fields.find((f) => f.required && f.type !== "COMPUTED" && isEmptyValue(values[f.id])) ?? null;
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The two tables a reference can point into, from Prisma or a transaction. */
+type ReferenceLookup = {
+  project: { findMany(args: { where: object; select: { id: true } }): Promise<{ id: string }[]> };
+  logbookEntry: { findMany(args: { where: object; select: { id: true } }): Promise<{ id: string }[]> };
+};
+
+/**
+ * Issue #90. `validateEntryValues` only checks that a reference is shaped like
+ * one. This checks what it points at: the project or entry must exist, belong
+ * to the user saving it, and be the kind the reference declares. A reference
+ * without a kind is read as a project — the only kind the app has ever sent.
+ * Run after `validateEntryValues`, so every reference here has a string id.
+ */
+export async function findBadReference(
+  db: ReferenceLookup,
+  userId: string,
+  fields: Field[],
+  values: Record<string, unknown>
+): Promise<string | null> {
+  const wanted: { field: Field; id: string; kind: "project" | "entry" }[] = [];
+  for (const field of fields) {
+    const value = values[field.id];
+    if (field.type !== "REFERENCE" || isEmptyValue(value) || !isPlainObject(value)) continue;
+    const kind = value.kind ?? "project";
+    if (kind !== "project" && kind !== "entry") {
+      return `"${field.name}" must reference a project or an entry.`;
+    }
+    const id = String(value.id);
+    // Checked before querying: a malformed id is simply not one of theirs.
+    if (!UUID.test(id)) return `"${field.name}" must reference one of your ${kind === "project" ? "projects" : "entries"}.`;
+    wanted.push({ field, id, kind });
+  }
+  if (wanted.length === 0) return null;
+
+  const idsOf = (kind: "project" | "entry") => wanted.filter((w) => w.kind === kind).map((w) => w.id);
+  const [projects, entries] = await Promise.all([
+    idsOf("project").length
+      ? db.project.findMany({ where: { id: { in: idsOf("project") }, userId }, select: { id: true } })
+      : [],
+    idsOf("entry").length
+      ? db.logbookEntry.findMany({ where: { id: { in: idsOf("entry") }, project: { userId } }, select: { id: true } })
+      : [],
+  ]);
+  const found = new Set([...projects, ...entries].map((row) => row.id));
+
+  const bad = wanted.find((w) => !found.has(w.id));
+  if (!bad) return null;
+  return `"${bad.field.name}" must reference one of your ${bad.kind === "project" ? "projects" : "entries"}.`;
+}

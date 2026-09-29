@@ -43,12 +43,18 @@ const PROJECTS = [
   { id: "p2", name: "Digital Logbook" },
 ];
 
-/** Routes the two kinds of GET the page makes: the project list, then each project's open entries. */
+/**
+ * Answers the page's one GET, /me/open-entries: every open entry across the
+ * owner's projects, each carrying its project's name, as the endpoint returns
+ * them. Fixtures are grouped by project id for readability.
+ */
 const serve = (byProject: Record<string, unknown[]>, projects = PROJECTS) =>
   ((url: string) => {
-    if (url === "/projects") return Promise.resolve({ data: projects });
-    const id = url.split("/")[2];
-    return Promise.resolve({ data: byProject[id] ?? [] });
+    if (url !== "/me/open-entries") return Promise.resolve({ data: [] });
+    const all = Object.entries(byProject).flatMap(([id, list]) =>
+      list.map((e) => ({ ...(e as object), projectName: projects.find((p) => p.id === id)?.name }))
+    );
+    return Promise.resolve({ data: all });
   }) as never;
 
 const renderPage = () =>
@@ -99,14 +105,14 @@ describe("OpenWorkPage — loading and failure", () => {
 });
 
 describe("OpenWorkPage — gathering the work", () => {
-  it("asks each project for its open entries only", async () => {
+  it("asks for every project's open entries in one request", async () => {
     vi.mocked(api.get).mockImplementation(serve({ p1: [entry()] }));
     renderPage();
 
     await screen.findByText("(1 open)");
-    expect(api.get).toHaveBeenCalledWith("/projects");
-    expect(api.get).toHaveBeenCalledWith("/projects/p1/entries", { params: { status: "OPEN" } });
-    expect(api.get).toHaveBeenCalledWith("/projects/p2/entries", { params: { status: "OPEN" } });
+    // One request however many projects there are, not one per project.
+    expect(api.get).toHaveBeenCalledTimes(1);
+    expect(api.get).toHaveBeenCalledWith("/me/open-entries");
   });
 
   it("gathers entries from every project into one list", async () => {

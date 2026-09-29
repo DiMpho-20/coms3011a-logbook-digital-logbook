@@ -19,37 +19,31 @@ The interface was designed using low-fidelity wireframes followed by a higher-fi
 * 📄 [Wireframe](../Logbook%20wireframe.pdf) — initial layout and navigation structure for each screen.
 * 📄 [Mockup](DigitalLogbook%20mockup.pdf) — refined visual design based on the wireframe.
 
-The implemented interface follows the overall structure established by these design artifacts while incorporating additional functionality introduced during the Intermediate phase.
+The implemented interface follows the overall structure established by these design artifacts while incorporating additional functionality introduced during the Intermediate and Advanced phases.
 
 ## Application Navigation
 
-Authenticated users have access to the following main areas:
+Authenticated users reach every main area from the sidebar:
 
 ```text
-                    ┌──────────────┐
-                    │   Dashboard  │
-                    └──────┬───────┘
-                           │
-             ┌─────────────┼─────────────┐
-             │             │             │
-             ▼             ▼             ▼
-        ┌─────────┐   ┌──────────┐  ┌──────────┐
-        │ Projects│   │ Entries  │  │ Profile  │
-        └────┬────┘   └──────────┘  └──────────┘
-             │
-             ▼
-      ┌────────────────┐
-      │ Project Detail │
-      └───────┬────────┘
-              │
-       ┌──────┴────────┐
-       ▼               ▼
- ┌───────────┐  ┌─────────────┐
- │Entry Form │  │Entry Format │
- └───────────┘  └─────────────┘
+Sidebar
+├── Dashboard      chosen and arranged panels
+├── Projects ──► Project Detail
+│                 ├── Entry Form
+│                 ├── Entry Format
+│                 ├── Entry History
+│                 └── Automation Rules
+├── Entries        search, filters, saved filters, archive
+├── Open Work      unfinished entries by urgency
+├── Stats          statistics, custom expressions, saved statistics
+├── Calendar       entries by due date, Google Calendar sync
+├── Board          entries as a board
+├── Reminders      reminders and reminder rules
+├── Profile
+└── Settings       account, 2FA, notifications, data export/import
 ```
 
-Additional functionality such as alternative entry views, notifications, offline capture, and data import/export is accessible through the relevant application pages.
+Offline capture works through the normal entry form, and a count of due reminders is shown in the sidebar.
 
 ## Main Screens
 
@@ -80,18 +74,22 @@ The interface provides the required account fields and validation before an acco
 
 ### 4. Dashboard
 
-The Dashboard provides an overview of the student's activity.
+The Dashboard provides an overview of the student's activity, built from panels the student chooses.
 
-It includes:
+Available panels include:
 
-* Active projects.
-* Recent logbook entries.
-* Time recorded.
-* Project-related statistics.
-* Overdue work information.
-* Quick actions for creating projects and entries.
+* Entry streak.
+* Deadline reminders (upcoming and overdue work).
+* Recent activity.
+* Current projects.
+* Progress over time.
+* Entries per month.
+* This week compared with last week.
+* Tags and tag ranking.
+* Recent entries.
+* The student's own saved statistics.
 
-The dashboard prioritises active projects, recent activity, and important work information so that students can quickly understand their current logbook activity.
+Students pick panels from a panel picker and arrange them with "Arrange panels". The layout is saved to their account, so the dashboard looks the same on every device. The dashboard deliberately does not repeat the figures on the Statistics page.
 
 ### 5. Projects
 
@@ -141,6 +139,12 @@ The form supports:
 * Live time tracking where applicable.
 
 The form is designed to allow students to capture logbook information quickly without requiring a fixed format for every project.
+
+Capture works from the keyboard alone:
+
+* **N**, pressed anywhere in the app while not typing in a field, opens a new entry on the project the student last worked in (or their first active project).
+* The cursor starts in the first field of the form.
+* **Ctrl+Enter** (Cmd+Enter on a Mac) saves the entry.
 
 *See the [wireframe](../Logbook%20wireframe.pdf) and [mockup](DigitalLogbook%20mockup.pdf) for the original entry form layout.*
 
@@ -212,6 +216,8 @@ It provides access to account-related functionality and application settings, in
 
 The application supports light, dark, and system theme preferences.
 
+Settings also turns reminder notifications on for the current device, and holds the two-factor authentication setup, including recovery codes.
+
 *See the [mockup](DigitalLogbook%20mockup.pdf) for the profile and settings layout.*
 
 ### 13. Offline Capture
@@ -233,6 +239,30 @@ This allows students to:
 * Retain their project and entry information when moving or restoring data.
 
 The import/export functionality is integrated into the existing application rather than requiring users to interact directly with the database.
+
+### 15. Statistics
+
+The Statistics page shows time per project, totals and averages of any numeric field grouped by another field, and values plotted over time by day, week or month.
+
+Students can also write their own expression, such as `SUM({Hours}) / COUNT()`, see its result immediately, and save it as a named statistic that sits beside the built-in ones and can be added to the dashboard. An expression that cannot be worked out explains why rather than showing a wrong number.
+
+### 16. Reminders
+
+The Reminders page lists reminders that are due now, upcoming, and completed or dismissed. Each can be completed, snoozed or dismissed, and students can create their own.
+
+The reminder rules on the same page switch on automatic reminders for upcoming due dates, overdue entries, entries left untouched, and a daily prompt when nothing has been logged. With notifications turned on, reminders appear as system notifications, even when the logbook is closed.
+
+### 17. Entry History
+
+From an entry, students open its history: every saved version, oldest first, with what changed shown field by field against the current version. They can view the entry as it was on a chosen date, and restore an earlier version after confirming. A restore is added to the history rather than replacing it.
+
+### 18. Automation Rules
+
+On a project's page, students create rules of the form "when an entry is created or saved and these conditions hold, add or remove a tag or set the status". Only the conditions that make sense for each field type are offered. Rules can be edited, switched off and deleted.
+
+### 19. Recurring Entries and Archiving
+
+When creating an entry, students can make it repeat daily, weekly or monthly, and later stop it repeating. On the Entries page, old entries can be moved to the archive individually or in bulk, viewed there, and brought back.
 
 ## Responsive Design
 
@@ -269,6 +299,8 @@ The interface follows modern accessibility practices, including:
 * Responsive layouts.
 * Clear visual distinction between different entry states.
 * Accessible form validation and feedback where applicable.
+
+Animations respect the operating system's reduced-motion setting.
 
 Accessibility remains an ongoing area for improvement, with further testing and WCAG-focused refinements planned as the project continues.
 

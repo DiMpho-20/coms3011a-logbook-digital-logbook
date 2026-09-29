@@ -92,7 +92,8 @@ describe("EntriesPage — shell and loading", () => {
 
     await waitFor(() => expect(api.fetchAllEntries).toHaveBeenCalled());
     const [query, options] = vi.mocked(api.fetchAllEntries).mock.calls[0];
-    expect(query).toMatchObject({ projectStatus: "ACTIVE", limit: 500 });
+    // The first page only; more is fetched when the student asks for it.
+    expect(query).toMatchObject({ projectStatus: "ACTIVE", limit: 20, offset: 0 });
     // Only the active project's queued entries belong on this page.
     expect(options).toMatchObject({ pendingProjectIds: ["p1"] });
   });
@@ -118,12 +119,46 @@ describe("EntriesPage — shell and loading", () => {
     expect(api.fetchEntryFields).toHaveBeenCalledTimes(1);
   });
 
-  it("warns when the response was capped", async () => {
+  it("offers to load more when there may be more entries, and fetches the next page", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
+    vi.mocked(api.fetchAllEntries)
+      .mockResolvedValueOnce(listing([entry()], { truncated: true }) as never)
+      .mockResolvedValueOnce(listing([entry({ id: "e2" })]) as never);
+    render(<EntriesPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
+
+    await waitFor(() => expect(api.fetchAllEntries).toHaveBeenCalledTimes(2));
+    // The next page starts after the entries already shown.
+    expect(vi.mocked(api.fetchAllEntries).mock.calls[1][0]).toMatchObject({ limit: 20, offset: 1 });
+    // A page that is not full means there is nothing more to fetch.
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument());
+  });
+
+  it("keeps loading from the archive when the archive is being viewed", async () => {
     vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
     vi.mocked(api.fetchAllEntries).mockResolvedValue(listing([entry()], { truncated: true }) as never);
     render(<EntriesPage />);
 
-    expect(await screen.findByText(/most recent 500 entries/i)).toBeInTheDocument();
+    fireEvent.change(await screen.findByLabelText("Archived entries"), { target: { value: "only" } });
+    await waitFor(() =>
+      expect(vi.mocked(api.fetchAllEntries).mock.calls.at(-1)![0]).toMatchObject({ archived: "only", offset: 0 })
+    );
+    const before = vi.mocked(api.fetchAllEntries).mock.calls.length;
+
+    fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
+
+    await waitFor(() => expect(api.fetchAllEntries).toHaveBeenCalledTimes(before + 1));
+    expect(vi.mocked(api.fetchAllEntries).mock.calls[before][0]).toMatchObject({ archived: "only", offset: 1 });
+  });
+
+  it("does not offer to load more when everything fitted on one page", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
+    vi.mocked(api.fetchAllEntries).mockResolvedValue(listing([entry()]) as never);
+    render(<EntriesPage />);
+
+    await screen.findByText("Wrote the report");
+    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
   });
 });
 

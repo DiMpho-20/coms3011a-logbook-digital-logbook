@@ -4,7 +4,8 @@ This page documents every endpoint exposed by the Digital Logbook backend
 API. All endpoints are prefixed with `/api` and return JSON responses.
 
 **Base URL (production):**
-`https://digital-logbook-backend-latest.onrender.com/api`
+`https://digital-logbook-backend-latest.onrender.com/api` — a prefix, not an
+endpoint: request a path under it, such as `/api/health`.
 
 **Authentication:** Most endpoints require a JWT in the
 `Authorization: Bearer <token>` header. Obtain one via the
@@ -29,7 +30,7 @@ Verifies database connectivity. No authentication required.
 
 **Response `200`:**
 ```json
-{ "status": "ok", "message": "Database connected" }
+{ "status": "ok", "message": "Successfully connected to Neon PostgreSQL via Prisma", "time": "2026-09-28T14:00:00.000Z" }
 ```
 
 ---
@@ -89,26 +90,35 @@ attempt, which then fails with `401` like an unknown email.
 
 **Response `200` (2FA enabled):**
 ```json
-{ "requiresTwoFactor": true, "email": "..." }
+{ "requiresTwoFactor": true, "email": "...", "twoFactorToken": "eyJ..." }
 ```
-**Errors:** `401` (wrong password or unknown email — identical message), `403` (unverified account)
+No session token is issued yet. `twoFactorToken` proves the password step
+succeeded; it is valid for five minutes and only for
+[`POST /api/auth/login/2fa`](#post-apiauthlogin2fa).
+
+**Errors:** `401` (wrong password or unknown email — identical message), `403` (unverified account), `429` (too many attempts)
 
 ---
 
 ### `POST /api/auth/login/2fa`
 
-Complete 2FA login after `POST /api/auth/login` returned `requiresTwoFactor`.
+Complete sign-in after `POST /api/auth/login` returned `requiresTwoFactor`.
+The account is identified by `twoFactorToken`, not by an email address, so a
+code alone cannot sign anyone in.
 
 | Field | Type | Required |
 |---|---|---|
-| `email` | string | Yes |
-| `token` | string | Yes — 6-digit TOTP code |
+| `twoFactorToken` | string | Yes — from the `login` response |
+| `code` | string | Yes — a 6-digit TOTP code, or a recovery code (`XXXXX-XXXXX`) |
 
 **Response `200`:**
 ```json
-{ "token": "eyJ...", "user": { "id": "...", "email": "..." }, "scheduledDeletionAt": null }
+{ "message": "Login successful", "token": "eyJ...", "user": { "id": "...", "fullName": "...", "email": "..." }, "scheduledDeletionAt": null, "usedRecoveryCode": false, "recoveryCodesRemaining": 10 }
 ```
-**Errors:** `401` (invalid code), `400` (malformed code)
+A recovery code works once. When one is used, `usedRecoveryCode` is `true` so
+the client can tell the user how many remain.
+
+**Errors:** `400` (malformed request), `401` (invalid code, or the `twoFactorToken` has expired — sign in again), `429` (too many attempts)
 
 ---
 
@@ -179,13 +189,15 @@ Cancel a scheduled account deletion during the grace period. No request body.
 
 ### `POST /api/auth/2fa/setup` 🔒
 
-Begin 2FA setup — returns a TOTP secret and QR code data URL.
+Begin 2FA setup — returns a TOTP secret and QR code data URL. The secret is
+stored encrypted, and 2FA is not switched on until
+[`verify-setup`](#post-apiauth2faverify-setup) succeeds.
 
 **Response `200`:**
 ```json
-{ "secret": "JBSWY3DPEHPK3PXP", "qrCode": "data:image/png;base64,..." }
+{ "secret": "JBSWY3DPEHPK3PXP", "qrCodeUrl": "data:image/png;base64,..." }
 ```
-**Errors:** `400` (2FA already enabled)
+**Errors:** `400` (2FA already enabled), `404` (user not found), `503` (the server has no `TWO_FACTOR_ENCRYPTION_KEY`)
 
 ---
 
@@ -197,31 +209,56 @@ Verify the TOTP code from the authenticator app to complete 2FA setup.
 |---|---|---|
 | `token` | string | Yes — 6-digit TOTP code |
 
-**Response `200`:** `{ "message": "2FA enabled." }`
-**Errors:** `400` (incorrect code)
+**Response `200`:**
+```json
+{ "message": "Two-factor authentication enabled successfully", "recoveryCodes": ["ABCDE-12345", "..."] }
+```
+The recovery codes are stored only as digests, so this response is the only
+time they can be read. The client must show them to the user now.
+
+**Errors:** `400` (incorrect code, no setup in progress, or 2FA already enabled)
 
 ---
 
 ### `POST /api/auth/2fa/disable` 🔒
 
-Disable 2FA. Requires password re-authentication.
+Disable 2FA. Requires password re-authentication. The secret and all
+recovery codes are removed.
 
 | Field | Type | Required |
 |---|---|---|
 | `password` | string | Yes |
 
-**Response `200`:** `{ "message": "2FA disabled." }`
-**Errors:** `401` (wrong password)
+**Response `200`:** `{ "message": "Two-factor authentication disabled" }`
+**Errors:** `400` (2FA not enabled), `401` (wrong password), `404` (user not found)
+
+---
+
+### `POST /api/auth/2fa/recovery-codes` 🔒
+
+Replace the recovery codes with a new set. Every previous code stops working.
+Requires the password, so a borrowed session cannot mint itself a way back in.
+
+| Field | Type | Required |
+|---|---|---|
+| `password` | string | Yes |
+
+**Response `200`:**
+```json
+{ "message": "New recovery codes generated. Your previous codes no longer work.", "recoveryCodes": ["ABCDE-12345", "..."] }
+```
+**Errors:** `400` (2FA not enabled), `401` (wrong password), `404` (user not found)
 
 ---
 
 ### `GET /api/auth/2fa/status` 🔒
 
-Check whether 2FA is enabled for the authenticated user.
+Check whether 2FA is enabled for the authenticated user, and how many
+recovery codes are left.
 
 **Response `200`:**
 ```json
-{ "isTwoFactorEnabled": true }
+{ "isTwoFactorEnabled": true, "recoveryCodesRemaining": 8, "recoveryCodeCount": 10 }
 ```
 
 ---
@@ -365,9 +402,9 @@ check — the API check is a read followed by a write and would race under
 concurrent requests, so two simultaneous creations of the same name resolve
 to one `201` and one `409` rather than two fields.
 
-Duplicates used to be allowed, and the consequence was not cosmetic. A US16
+Duplicates used to be allowed, and the consequence was not cosmetic. A US22
 expression such as `SUM({Double hours})` is refused as ambiguous, which made
-the field unusable in statistics, and a US26 automation rule offered two
+the field unusable in statistics, and a US24 automation rule offered two
 identically-labelled fields the student could not tell apart.
 
 **Errors:** `409` (a live field in this project already has that name)
@@ -444,6 +481,8 @@ that account's data.
 | `from` | string | — | ISO date or datetime, inclusive lower bound |
 | `to` | string | — | ISO date or datetime, inclusive upper bound |
 | `limit` | number | `200` | Capped at `500` |
+| `offset` | number | `0` | Rows to skip, for paging ("load more") |
+| `archived` | string | `exclude` | `exclude`, `only` or `include` archived entries |
 
 `from` and `to` filter on `COALESCE(entryDate, createdAt)` — the date the
 interface shows. An entry backdated to March counts as March, not as the day
@@ -476,6 +515,7 @@ tiebreaker so the order is stable between identical dates.
     "<formatVersionId>": { "version": 3, "fields": [ … ] }
   },
   "limit": 200,
+  "offset": 0,
   "truncated": false
 }
 ```
@@ -487,11 +527,25 @@ project would otherwise be mostly repeated schema. An entry predating format
 versioning has `formatVersionId: null`.
 
 `truncated` is `true` when exactly `limit` rows were returned, meaning there
-may be more. A cursor can be added to this object later without breaking
-callers.
+may be more. To fetch the next page, repeat the request with `offset`
+increased by `limit`.
 
-**Errors:** `400` for an unknown `projectStatus`, a non-positive `limit`, or
-an unparseable `from`/`to`. `401` when the token is missing or invalid.
+**Errors:** `400` for an unknown `projectStatus` or `archived` value, a
+non-positive `limit`, a negative `offset`, or an unparseable `from`/`to`.
+`401` when the token is missing or invalid.
+
+---
+
+### `GET /api/me/open-entries`
+
+Every `OPEN` entry across all of the authenticated user's projects, newest
+first, in one request. Used by the Open Work page instead of one request per
+project.
+
+**Response `200`:** an array of entry objects, each with its own `format` and
+an added `projectName`.
+
+**Errors:** `401`
 
 ---
 
@@ -508,6 +562,16 @@ Create a new logbook entry.
 | `dueDate` | string | No | ISO date (YYYY-MM-DD) |
 
 **Response `201`:** Created entry object with `status: "OPEN"`.
+
+Each value is checked against its field's type. A **REFERENCE** value is
+`{ "id": "...", "label": "...", "kind": "project" | "entry" }` and must point
+at one of the caller's own projects (`kind: "project"`, the default when
+`kind` is missing) or entries (`kind: "entry"`). A reference to something
+that does not exist, belongs to another user, or is not the kind it declares
+is refused with `400`, e.g. `"Related to" must reference one of your
+projects.` The same check applies to `PUT /api/entries/:id`.
+
+**Errors:** `400` (invalid or missing required value, broken reference), `404` (project not found)
 
 When an entry includes `recurrence`, the original and each generated
 occurrence expose a `recurrence` object containing its rule id, pattern,
@@ -664,37 +728,45 @@ Aggregate entry field values with grouping.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `metricFieldId` | string | Yes | ID of the field to aggregate |
-| `operation` | string | Yes | `sum`, `avg`, or `count` |
+| `operation` | string | Yes | `sum`, `avg`, `min`, `max` or `count`. All but `count` need a Number or Computed field |
 | `groupByFieldId` | string | No | ID of the field to group by |
+
+Blank and non-numeric values are left out of the calculation rather than
+failing it.
 
 **Response `200`:**
 ```json
-{ "results": [{ "group": "Category A", "value": 195 }] }
+{ "groups": [{ "key": "Category A", "value": 195 }] }
 ```
-**Errors:** `400` (missing field, bad operation, type mismatch), `404` (unknown field)
+Without `groupByFieldId`, there is one group with `key: "total"`.
+
+**Errors:** `400` (missing field, bad operation, type mismatch), `404` (project or field not found)
 
 ---
 
 ### `POST /api/projects/:projectId/stats/timeline`
 
-Aggregate entry counts over time buckets.
+Plot entries over time: how many fall in each bucket, or the total of a
+numeric field per bucket.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `dateFieldId` | string | Yes | ID of a DATE-type field |
-| `bucket` | string | Yes | `day`, `week`, or `month` |
+| `bucket` | string | No | `day` (default), `week`, or `month` |
+| `operation` | string | No | `count` (default) or `sum` |
+| `metricFieldId` | string | For `sum` | A Number or Computed field to total |
 
 **Response `200`:**
 ```json
-{ "points": [{ "date": "2026-09-01", "count": 5 }, { "date": "2026-09-02", "count": 3 }] }
+{ "points": [{ "date": "2026-09-01", "value": 5 }, { "date": "2026-09-02", "value": 3 }] }
 ```
-**Errors:** `400` (invalid bucket, non-DATE field, missing field), `404` (unknown field)
+**Errors:** `400` (invalid bucket or operation, non-DATE field, missing field), `404` (project or field not found)
 
 ---
 
 ### `POST /api/projects/:projectId/stats/expression`
 
-Evaluate a custom expression (US16) across every entry in the project, and
+Evaluate a custom expression (US22) across every entry in the project, and
 return the single number it works out to.
 
 | Field | Type | Required | Notes |
@@ -733,6 +805,70 @@ also what another owner's project returns)
 Expressions are parsed and evaluated by the server; no user input is ever
 executed, and field names reach the database only as bound parameters after
 being matched against the project's own fields.
+
+---
+
+## Custom Statistics (`/api/projects/:projectId/custom-statistics`) 🔒
+
+US23. A saved custom expression with a name, kept alongside the built-in
+statistics and available as a dashboard panel. Only the definition is stored:
+every read works the value out from the project's current entries, so a saved
+statistic follows the data instead of freezing the number it had when saved.
+
+A statistic object:
+```json
+{ "id": "...", "projectId": "...", "name": "Average hours", "expression": "AVG({Hours})", "value": 3.42, "error": null, "createdAt": "...", "updatedAt": "..." }
+```
+If a statistic can no longer be worked out (for example, its field was renamed
+or deleted), `value` is `null` and `error` says why, instead of the whole
+request failing.
+
+Names and expressions are trimmed. A name is up to 100 characters and unique
+within the project; an expression is up to 500 characters and uses the
+[expression syntax](#post-apiprojectsprojectidstatsexpression).
+
+### `POST /api/projects/:projectId/custom-statistics`
+
+Save a statistic. The expression is checked against the project's fields but
+does not need any entries yet.
+
+| Field | Type | Required |
+|---|---|---|
+| `name` | string | Yes |
+| `expression` | string | Yes |
+
+**Response `201`:** the statistic object.
+**Errors:** `400` (empty name or expression, invalid expression), `404` (project not found), `409` (name already used in this project)
+
+### `GET /api/projects/:projectId/custom-statistics`
+
+The project's statistics, oldest first, each with its current value.
+
+**Response `200`:** an array of statistic objects.
+
+### `GET /api/projects/:projectId/custom-statistics/:id`
+
+One statistic with its current value.
+
+**Response `200`:** the statistic object.
+**Errors:** `404` (project or statistic not found)
+
+### `PATCH /api/projects/:projectId/custom-statistics/:id`
+
+Rename a statistic or change its expression. At least one must be given.
+
+| Field | Type | Required |
+|---|---|---|
+| `name` | string | No |
+| `expression` | string | No |
+
+**Response `200`:** the updated statistic object.
+**Errors:** `400`, `404`, `409` (as for create)
+
+### `DELETE /api/projects/:projectId/custom-statistics/:id`
+
+**Response `200`:** `{ "message": "Statistic deleted" }`
+**Errors:** `404` (project or statistic not found)
 
 ---
 
@@ -883,10 +1019,10 @@ Update any subset of the rules. `dueSoonDays` 0–30, `staleDays` 1–365,
 
 ## Dashboard layout (`/api/dashboard`) 🔒
 
-US18/US19. The panels on the caller's dashboard, in the order they arranged
+US25/US26. The panels on the caller's dashboard, in the order they arranged
 them, saved to their account so the layout is the same on every device. A
 built-in panel is named by its id (`"activity"`, `"recent-entries"`, …). A
-saved statistic (US17) is `"stat:<projectId>:<statisticId>"`, and the
+saved statistic (US23) is `"stat:<projectId>:<statisticId>"`, and the
 dashboard reads its value from `GET /projects/:projectId/custom-statistics/:id`.
 The frontend skips ids it doesn't know, so the server only checks their format.
 
@@ -962,7 +1098,7 @@ Stop pushing to a device. **Body:** `{ "endpoint": "..." }`
 
 ## Automation Rules (`/api/projects/:projectId/automation-rules`) 🔒
 
-US26. An automation rule watches one project's entries and applies an action
+US24. An automation rule watches one project's entries and applies an action
 when its conditions hold. Rules run automatically when an entry is saved —
 after `POST .../entries`, `PUT /api/entries/:id` and
 `PATCH /api/entries/:id/status` — once the save has committed. Automation
@@ -1169,8 +1305,15 @@ All error responses use a consistent JSON shape:
 | `400` | Validation error (bad input, missing field, invalid enum) |
 | `401` | Authentication failure (missing or invalid JWT, wrong password) |
 | `403` | Forbidden (e.g. unverified account trying to log in) |
-| `404` | Resource not found |
+| `404` | Resource not found — also returned for a resource that belongs to another user, so its existence is not revealed |
 | `409` | Conflict (duplicate name or email) |
+| `429` | Too many requests — the rate limit on sign-in, sign-up or 2FA was hit; wait and try again |
+| `500` | Unexpected server error |
+| `503` | A feature is not configured on this server (the 2FA encryption key or the push keys) |
+
+Request bodies that fail Zod validation on the auth routes return
+`{ "errors": { "<field>": ["message"] } }` instead of a single `error`
+string.
 
 ---
 
@@ -1181,7 +1324,8 @@ All error responses use a consistent JSON shape:
 | **Neon** | Hosted PostgreSQL database | `DATABASE_URL` in `.env` |
 | **Google Calendar API** | Syncs entry due dates to the user's calendar ([details](#google-calendar-apigoogle-calendar)) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, `APP_URL` |
 | **Resend** | Transactional email (preferred) | `RESEND_API_KEY` in `.env` |
-| **Gmail SMTP** | Transactional email (fallback) | `EMAIL_USER` + `EMAIL_PASS` in `.env` |
+| **Gmail SMTP** | Transactional email (fallback) | `GMAIL_USER` + `GMAIL_APP_PASSWORD` in `.env` |
+| **Web push** | Reminder notifications to subscribed devices ([details](#push-notifications-apipush)) | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, optional `VAPID_SUBJECT` |
 
 When neither email provider is configured, the backend runs in **dev mode**:
 registration auto-verifies and password-reset emails are logged to the

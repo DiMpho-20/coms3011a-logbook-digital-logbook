@@ -149,6 +149,7 @@ model Project {
   automationRules  AutomationRule[]
 
   @@unique([userId, name])
+  @@index([userId])
   @@map("projects")
 }
 
@@ -175,6 +176,7 @@ model EntryField {
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
 
+  @@index([projectId])
   @@map("entry_fields")
 }
 
@@ -204,6 +206,10 @@ model LogbookEntry {
   reminders Reminder[]
   recurrenceRule RecurrenceRule? @relation(fields: [recurrenceRuleId], references: [id], onDelete: SetNull)
 
+  @@index([projectId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([projectId, status])
   @@map("logbook_entries")
 }
 
@@ -252,6 +258,7 @@ model EntryVersion {
   entry LogbookEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
   @@unique([entryId, version])
+  @@index([entryId])
   @@map("entry_versions")
 }
 
@@ -283,6 +290,8 @@ model EntryValue {
   field   EntryField   @relation(fields: [fieldId], references: [id], onDelete: Cascade)
 
   @@unique([entryId, fieldId])
+  @@index([fieldId])
+  @@index([entryId])
   @@map("entry_values")
 }
 
@@ -302,6 +311,7 @@ model Tag {
   entries  EntryTag[]
 
   @@unique([userId, name])
+  @@index([userId])
   @@map("tags")
 }
 
@@ -337,6 +347,8 @@ model GoogleCalendarConnection {
   updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // --- REMINDERS (US28) ---

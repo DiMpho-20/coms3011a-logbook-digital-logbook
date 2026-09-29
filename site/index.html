@@ -322,6 +322,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#sprint-3-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint 3 Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sprint-3-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint 3 Ownership
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -445,6 +467,33 @@
   
   
     <li class="md-nav__item">
+      <a href="api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="testing/" class="md-nav__link">
         
   
@@ -453,6 +502,33 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="testing-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Quickstart
   
 
     
@@ -789,6 +865,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#sprint-3-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint 3 Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sprint-3-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint 3 Ownership
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -810,16 +908,21 @@
 <p>Welcome to the technical documentation for the <strong>COMS3011A Digital Logbook</strong> project.</p>
 <h2 id="quick-links">Quick Links</h2>
 <ul>
-<li><strong><a href="setup/">Development Setup Guide</a>:</strong> Local installation, Prisma setup, running dev servers, and testing.</li>
-<li><strong><a href="architecture/">System Architecture</a>:</strong> Tech stack, monorepo layout, database ERD, API reference, component architecture, and 2FA.</li>
-<li><strong><a href="methodology/">Project Methodology &amp; Work Tracker</a>:</strong> Kanban workflow, user story assignments, and Sprint 1 retrospective.</li>
+<li><strong><a href="setup/">Development Setup Guide</a>:</strong> Local installation, environment variables, running dev servers, push notifications, and troubleshooting.</li>
+<li><strong><a href="architecture/">System Architecture</a>:</strong> Deployment, tech stack, monorepo layout, data model, API areas, key flows, and security.</li>
+<li><strong><a href="api-reference/">API Reference</a>:</strong> Every endpoint with its request and response shapes and errors.</li>
+<li><strong><a href="methodology/">Project Methodology &amp; Work Tracker</a>:</strong> Kanban workflow, story assignments for all three sprints, board status, and retrospectives.</li>
 <li><strong><a href="client-interactions/">Client Interaction Logs</a>:</strong> Requirements decisions and client meeting notes.</li>
 <li><strong><a href="testing/">Testing</a>:</strong> Automated test suite (stack, coverage, policy, proof of passing runs) and the formal user-feedback process.</li>
+<li><strong><a href="testing-quickstart/">Testing Quickstart</a>:</strong> What to do when adding a feature: test file, running it, and the coverage rule.</li>
 <li><strong><a href="user-feedback/">User Feedback</a>:</strong> SUS questionnaire, observation sheet, scoring setup, and the feedback-to-commit integration trail.</li>
 <li><strong><a href="third-party/">Third-Party Code</a>:</strong> Every dependency and external service, with motivation for each choice.</li>
-<li><strong><a href="user-stories/user-stories/">Sprint 1 User Stories</a>:</strong> Acceptance criteria for all 10 user stories.</li>
-<li><strong><a href="design/system-design/">System Design</a>:</strong> High-level system design and component diagrams.</li>
-<li><strong><a href="design/development-plan/">Development Plan</a>:</strong> Sprint planning, task breakdown, and delivery timeline.</li>
+<li><strong><a href="user-stories/user-stories/">User Stories</a>:</strong> Acceptance tests for every Basic, Intermediate and Advanced user story.</li>
+<li><strong><a href="design/architecture/">Architecture Design</a>:</strong> Layers, the sign-in flow, and the request pipeline.</li>
+<li><strong><a href="design/database-erd/">Database Design</a>:</strong> Entity relationship diagrams for all twenty tables, constraints, indexes, and schema history.</li>
+<li><strong><a href="design/system-design/">System Design</a>:</strong> The initial system design, and how it has evolved.</li>
+<li><strong><a href="design/development-plan/">Development Plan</a>:</strong> Development phases, dependencies, testing strategy, and definition of done.</li>
+<li><strong><a href="design/roadmap/">Roadmap</a>:</strong> Milestones, owners and status for every sprint.</li>
 <li><strong><a href="design/ui-design/">UI Design</a>:</strong> Visual design specifications and mockups.</li>
 </ul>
 <h2 id="technical-stack-overview">Technical Stack Overview</h2>
@@ -845,11 +948,15 @@
 </tr>
 <tr>
 <td><strong>Auth</strong></td>
-<td>JWT + email verification + optional TOTP 2FA (<code>otplib</code> + <code>qrcode</code>)</td>
+<td>JWT + email verification + optional TOTP 2FA with recovery codes (<code>otplib</code> + <code>qrcode</code>) + rate limiting</td>
 </tr>
 <tr>
 <td><strong>Email</strong></td>
-<td>Gmail SMTP (<code>nodemailer</code>) / Resend (alternative provider)</td>
+<td>Resend (preferred) / Gmail SMTP via <code>nodemailer</code> (fallback)</td>
+</tr>
+<tr>
+<td><strong>Notifications</strong></td>
+<td>Web push (<code>web-push</code>) with a service worker</td>
 </tr>
 <tr>
 <td><strong>Shared</strong></td>
@@ -857,7 +964,7 @@
 </tr>
 <tr>
 <td><strong>Testing</strong></td>
-<td>Vitest + Supertest (78 integration tests)</td>
+<td>Vitest + Supertest (backend), Vitest + Testing Library (frontend) — see <a href="testing/">Testing</a></td>
 </tr>
 <tr>
 <td><strong>Linting</strong></td>
@@ -878,7 +985,6 @@
 <li><strong>Entry Schema Definition</strong> — Define custom entry fields (TEXT, NUMBER, DATE, BOOLEAN) per project.</li>
 <li><strong>Entry CRUD</strong> — Create, update, delete logbook entries with typed field values, due dates, and backdated entry dates.</li>
 <li><strong>Time Tracking</strong> — Record duration per entry, view per-project time summaries (total hours, entry count, last entry).</li>
-<li><strong>Dashboard</strong> — Greeting, stat cards (active projects, entries this week, total time), SVG activity sparkline chart, current projects list, and recent entries table.</li>
 <li><strong>Project Detail View</strong> — Entry format section (required/optional indicators), grouped entries by date, clean modal form for entry creation.</li>
 <li><strong>Entry Browser</strong> — Vertical timeline layout with date grouping, search, project filter, entry type filter (All/This Week/Overdue), and newest/oldest sort toggle.</li>
 <li><strong>Overdue Entries</strong> — Entries past <code>due_date</code> flagged with red border, warning badge, and dedicated Overdue filter tab.</li>
@@ -931,6 +1037,50 @@
 <td>Integration &amp; Testing</td>
 <td>Person 4</td>
 <td>Integration of all features, cross-feature testing, bug fixing, regression testing against Sprint 1, floating support to whichever area needs it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sprint-3-summary">Sprint 3 Summary</h2>
+<p>Sprint 3 delivers the Advanced logbook: computing over data whose shape only its owner knows, a record that is hard to lose, a logbook that does some of the writing itself, and staying quick as the record grows. Stories are numbered as on the Sprint 3 board.</p>
+<ul>
+<li><strong>Custom Expressions &amp; Saved Statistics</strong> (US22, US23) — Write an expression such as <code>SUM({Hours}) / COUNT()</code> over your own entries and save it beside the built-in statistics.</li>
+<li><strong>Entry Automation Rules</strong> (US24) — Rules that add or remove tags or set the status when an entry is created or saved.</li>
+<li><strong>Custom Dashboard</strong> (US25, US26) — Choose and arrange statistics and information panels, including saved statistics; the layout is stored on the server, so it is the same on every device.</li>
+<li><strong>Recurring Entries</strong> (US27) — Entries that repeat daily, weekly or monthly.</li>
+<li><strong>Automatic Reminders</strong> (US28) — Reminders for upcoming and overdue due dates, stalled entries and daily logging, delivered as push notifications even with the logbook closed.</li>
+<li><strong>Entry Version History</strong> (US29–US31) — Every change is kept; view an entry as it was on any date, and restore an earlier version.</li>
+<li><strong>Archiving &amp; Performance</strong> (US32, US33) — Archive old entries out of the way; database indexes, a paginated Entries page and one request for open work.</li>
+<li><strong>Advanced Search</strong> (US35–US37) — Searching inside custom fields, combining filters and ranking results; still in the Sprint 3 backlog.</li>
+</ul>
+<h2 id="sprint-3-ownership">Sprint 3 Ownership</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Owner</th>
+<th>User Stories</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Custom Statistics &amp; Expressions</td>
+<td>Member 1</td>
+<td>US22 – Define Custom Expressions, US23 – Save Custom Statistics, US24 – Entry Automation Rules</td>
+</tr>
+<tr>
+<td>Personal Dashboard &amp; Automation</td>
+<td>Member 2</td>
+<td>US25 – Create a Custom Dashboard, US26 – Arrange and Persist Dashboard Layout, US27 – Create Recurring Entries, US28 – Generate Automatic Reminders</td>
+</tr>
+<tr>
+<td>Versioning &amp; Record History</td>
+<td>Member 3</td>
+<td>US29 – Preserve Entry Version History, US30 – View an Entry as It Existed on a Given Date, US31 – Restore a Previous Entry Version, US32 – Archive Old Entries</td>
+</tr>
+<tr>
+<td>Advanced Search &amp; Performance</td>
+<td>Member 4</td>
+<td>US33 – Maintain Query Performance, US34 – Apply Rules When Capturing Entries, US35 – Rank Search Results, US36 – Combine Search Filters, US37 – Search Custom Fields</td>
 </tr>
 </tbody>
 </table>

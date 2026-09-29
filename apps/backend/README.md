@@ -1,10 +1,12 @@
 # Backend — Digital Logbook API
 
-The REST API server for the Digital Logbook application. Built with Express 5, TypeScript, and Prisma ORM 7, backed by a PostgreSQL database hosted on [Neon](https://neon.tech).
+The REST API server for the Digital Logbook application. Built with Express 5, TypeScript, and Prisma ORM 7, backed by a PostgreSQL database hosted on [Neon](https://neon.tech). The same process runs the background jobs for recurring entries, reminder push notifications and account purges.
 
-> For an in-depth guide to the authentication system (JWT, TOTP 2FA, password reset, security properties and known limitations), see **[AUTHENTICATION.md](AUTHENTICATION.md)**.
+Deployed on Render at <https://digital-logbook-backend-latest.onrender.com>, with every endpoint under `/api` (for example [`/api/health`](https://digital-logbook-backend-latest.onrender.com/api/health)). `/api` on its own is only a prefix, so opening it shows `Cannot GET /api`.
+
+> For an in-depth guide to the authentication system (JWT, TOTP 2FA, recovery codes, password reset, security properties and known limitations), see **[AUTHENTICATION.md](AUTHENTICATION.md)**.
 >
-> For the full testing documentation (stack, coverage, policy, and proof of passing runs), see **[TESTING.md](TESTING.md)**.
+> For every endpoint with its request and response shapes, see the **[API reference](../../docs/api-reference.md)**. For the testing documentation, see **[Testing](../../docs/testing.md)**.
 
 ## Tech Stack
 
@@ -16,29 +18,35 @@ The REST API server for the Digital Logbook application. Built with Express 5, T
 | Zod 4 | Request body validation |
 | bcryptjs | Password hashing |
 | jsonwebtoken | JWT authentication tokens |
-| nodemailer | Email verification and password reset (Gmail SMTP) |
-| otplib 13 | TOTP-based two-factor authentication |
-| qrcode | QR code generation for 2FA setup |
-| Vitest + Supertest | Integration testing (78 tests) |
+| otplib 13, qrcode | TOTP two-factor authentication and its QR code |
+| express-rate-limit | Rate limiting on sign-in, sign-up and 2FA |
+| resend, nodemailer | Email: Resend preferred, Gmail SMTP as a fallback |
+| web-push | Reminder push notifications |
+| googleapis | Google Calendar sync |
+| Vitest + Supertest | Integration and unit tests |
 
 ## Project Structure
 
 ```
 apps/backend/
 ├── prisma/
-│   ├── schema.prisma        # Database schema (6 models)
-│   └── migrations/          # Prisma migration files
+│   ├── schema.prisma        # Database schema (20 models)
+│   └── migrations/          # 0_init baseline + dated migrations
 ├── prisma.config.ts         # Prisma 7 config (reads DATABASE_URL from .env)
 ├── src/
-│   ├── controllers/         # Business logic (project, entry, entryField)
-│   ├── routes/              # Express route definitions (projects, entries, auth)
-│   ├── middleware/          # JWT auth middleware (requireAuth)
-│   ├── utils/               # Password hashing, email sender, token helpers
-│   ├── schemas/             # Zod validation schemas (project, entry)
-│   ├── __tests__/           # Vitest integration tests (api, auth, sprint2)
+│   ├── controllers/         # Request handling per area
+│   ├── routes/              # Express routers, one per area
+│   ├── middleware/          # requireAuth (JWT) and rate limiting
+│   ├── schemas/             # Zod request schemas
+│   ├── utils/               # Domain logic: entry formats and versions, computed
+│   │                        #   fields, expressions, automation, recurrence,
+│   │                        #   reminders, push, tags, token and crypto helpers
+│   ├── services/            # Google Calendar client
+│   ├── jobs/                # Recurring entries, reminder pushes, account purge
+│   ├── __tests__/           # Vitest + Supertest suite
 │   ├── app.ts               # Express app setup (exported for testing)
-│   ├── index.ts             # Server startup
-│   └── prisma.ts            # Prisma client singleton (driver adapter)
+│   ├── index.ts             # Starts the server and the jobs
+│   └── prisma.ts            # Prisma client singleton (driver adapter, read retry)
 ├── .env.example             # Environment variable template
 ├── eslint.config.mjs        # ESLint configuration
 ├── package.json
@@ -47,13 +55,16 @@ apps/backend/
 
 ## Getting Started
 
-### 1. Install dependencies
+### 1. Install dependencies and build the shared package
 
 From the repository root:
 
 ```bash
 npm install
+npm run build --workspace=packages/shared
 ```
+
+The backend imports `@logbook/shared` from its compiled output, so it fails to start with `Cannot find module '…/@logbook/shared/dist/index.js'` until the package is built. Rebuild it after changing anything in `packages/shared`.
 
 ### 2. Configure environment variables
 
@@ -63,23 +74,31 @@ Copy the example file and fill in your values:
 cp .env.example .env
 ```
 
-Required variables:
+Blank or delete every placeholder you are not replacing with a real value. A leftover placeholder such as `RESEND_API_KEY=re_xxxxxxxxxxxxx` makes the server think email is configured, so new accounts are no longer auto-verified and cannot sign in.
+
+Required:
 
 | Variable | Description |
 |---|---|
-| `DATABASE_URL` | PostgreSQL connection string (from Neon dashboard) |
-| `JWT_SECRET` | Secret key for signing JWT tokens |
+| `DATABASE_URL` | PostgreSQL connection string (from the Neon dashboard) |
 | `PORT` | Server port (default: `3000`) |
-| `APP_URL` | Frontend URL for email links (default: `http://localhost:5173`) |
+| `APP_URL` | Frontend URL for email links and redirects (default: `http://localhost:5173`) |
+| `JWT_SECRET` | Signs login tokens. Required in production. Locally, without it, a new secret is generated on every start, so every restart signs you out. |
 
-Optional (for email sending):
+Optional — each feature is simply off without its variables:
 
-| Variable | Description |
+| Variables | Feature |
 |---|---|
-| `GMAIL_USER` | Gmail address for SMTP |
-| `GMAIL_APP_PASSWORD` | Gmail App Password |
+| `RESEND_API_KEY`, `RESEND_FROM` | Email via Resend (preferred) |
+| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | Email via Gmail SMTP (used when Resend is not set) |
+| `TWO_FACTOR_ENCRYPTION_KEY` | Encrypts 2FA secrets; enabling 2FA returns `503` without it |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_TOKEN_ENCRYPTION_KEY` | Google Calendar sync |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Reminder push notifications (generate with `npx web-push generate-vapid-keys`) |
+| `RATE_LIMIT_*`, `TRUST_PROXY_HOPS` | Rate-limit tuning; see `.env.example` |
 
-> Without Gmail credentials, accounts are auto-verified in dev mode — no email is sent.
+> With no email provider configured, accounts are auto-verified in dev mode and the verification link is logged to the console.
+
+See the [setup guide](../../docs/setup.md#4-configure-environment-variables) for more detail.
 
 ### 3. Set up the database
 
@@ -89,7 +108,7 @@ npx prisma generate
 npx prisma migrate deploy
 ```
 
-The migration history is a single squashed baseline (`prisma/migrations/0_init`), so `migrate deploy` creates the whole schema on an empty database. Make future schema changes with `npx prisma migrate dev --name <change>`, which generates a dated migration alongside the schema edit.
+`migrate deploy` applies the `0_init` baseline and every dated migration after it, so it builds the whole schema on an empty database. Make schema changes by editing `schema.prisma` and running `npx prisma migrate dev --name <change>`, which generates a dated migration — a schema edit without its migration never reaches a database set up this way.
 
 ### 4. Run the server
 
@@ -99,97 +118,45 @@ From the repository root:
 npm run dev --workspace=backend
 ```
 
-The API will be available at `http://localhost:3000`.
+The API will be available at `http://localhost:3000`. The startup log says which optional features are off, for example `VAPID keys not set; reminder push notifications are off.`
 
-## API Endpoints
+## API
 
-All routes are prefixed with `/api`. Protected routes require a `Bearer <token>` in the `Authorization` header.
+All routes are prefixed with `/api`. Apart from sign-up, sign-in, password reset and the health checks, they require a `Bearer <token>` in the `Authorization` header, and every resource is checked against the signed-in user (another user's data returns `404`).
 
-### Authentication
+| Area | Routes |
+|---|---|
+| Authentication, 2FA, account | `/api/auth/*` |
+| Projects | `/api/projects`, `/api/projects/:id`, `/api/projects/:id/status`, `/api/projects/:id/time-summary` |
+| Entry fields & formats | `/api/projects/:projectId/entry-fields`, `/api/projects/:projectId/entry-format-versions`, `/api/entry-fields/:id` |
+| Entries | `/api/entries`, `/api/projects/:projectId/entries`, `/api/entries/:id`, `/api/entries/:id/status`, `/api/me/open-entries` |
+| History & archive | `/api/entries/:id/versions`, `/api/entries/:id/versions/at`, `/api/entries/:id/versions/:version/restore`, `/api/entries/archive`, `/api/entries/:id/archive` |
+| Statistics | `/api/projects/:projectId/stats/{group,timeline,expression}`, `/api/projects/:projectId/custom-statistics` |
+| Automation | `/api/projects/:projectId/automation-rules`, `/api/recurrences/:id` |
+| Reminders & push | `/api/reminders`, `/api/reminders/count`, `/api/reminders/settings`, `/api/push/public-key`, `/api/push/subscriptions` |
+| Dashboard | `/api/dashboard/layout` |
+| Tags | `/api/tags` |
+| Google Calendar | `/api/google-calendar/{connect,callback,status,sync,disconnect}` |
+| Utility | `/api/health`, `/api/db-check` (no auth) |
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/auth/register` | No | Register a new user |
-| `POST` | `/api/auth/login` | No | Log in and receive a JWT token |
-| `POST` | `/api/auth/login/2fa` | No | Complete login with a TOTP code (2FA users) |
-| `POST` | `/api/auth/verify-email` | No | Verify email with token |
-| `POST` | `/api/auth/forgot-password` | No | Request a password reset email |
-| `POST` | `/api/auth/reset-password` | No | Reset password with token |
-| `POST` | `/api/auth/2fa/setup` | Yes | Generate TOTP secret + QR code |
-| `POST` | `/api/auth/2fa/verify-setup` | Yes | Verify code and enable 2FA |
-| `POST` | `/api/auth/2fa/disable` | Yes | Disable 2FA (requires password) |
-| `GET` | `/api/auth/2fa/status` | Yes | Check whether 2FA is enabled |
-| `DELETE` | `/api/auth/account` | Yes | Delete account |
-
-### Projects
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/projects` | Yes | List all projects |
-| `POST` | `/api/projects` | Yes | Create a new project |
-| `GET` | `/api/projects/:id` | Yes | Get a project with entry fields |
-| `PUT` | `/api/projects/:id` | Yes | Update project |
-| `PATCH` | `/api/projects/:id/status` | Yes | Toggle status (ACTIVE/ARCHIVED) |
-| `DELETE` | `/api/projects/:id` | Yes | Permanently delete a project and everything in it |
-| `GET` | `/api/projects/:id/time-summary` | Yes | Aggregate time stats |
-
-### Entry Fields
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/projects/:projectId/entry-fields` | Yes | List entry fields |
-| `POST` | `/api/projects/:projectId/entry-fields` | Yes | Create entry field |
-
-### Entries
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/projects/:projectId/entries` | Yes | List entries |
-| `POST` | `/api/projects/:projectId/entries` | Yes | Create entry with field values |
-| `PUT` | `/api/entries/:id` | Yes | Update entry |
-| `DELETE` | `/api/entries/:id` | Yes | Delete entry |
-
-### Automation Rules
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/projects/:projectId/automation-rules` | Yes | Create an entry rule (US26) |
-| `GET` | `/api/projects/:projectId/automation-rules` | Yes | List the project's rules, in execution order |
-| `GET` | `/api/projects/:projectId/automation-rules/:id` | Yes | Read one rule |
-| `PATCH` | `/api/projects/:projectId/automation-rules/:id` | Yes | Edit a rule (any subset of fields) |
-| `DELETE` | `/api/projects/:projectId/automation-rules/:id` | Yes | Delete a rule |
-
-Rules run automatically when an entry is captured or updated — after the
-save commits, so a broken rule can never cost the user their work. The full
-rule language (triggers, conditions, actions and their deliberate
-limitations) is documented in the
-[API reference](../../docs/api-reference.md#automation-rules).
-
-> This table lists the core endpoints. The full surface — tags, entry
-> versions and restore, archiving, statistics, reminders, recurring
-> entries, custom statistics, Google Calendar — is documented in
-> [docs/api-reference.md](../../docs/api-reference.md).
-
-### Utility
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/health` | No | Health check |
-| `GET` | `/api/db-check` | No | Database connectivity check |
+Every endpoint is documented in [docs/api-reference.md](../../docs/api-reference.md).
 
 ## Testing
 
-78 integration tests using Vitest and Supertest, exercising the API against the live Neon database — 27 core API tests, 29 authentication/2FA tests, and 22 Sprint 2 feature tests (entry status, stats, timeline). See **[TESTING.md](TESTING.md)** for full coverage details and proof of passing runs.
+The suite in `src/__tests__/` has 30 files and 543 tests (run of 2026-09-28): integration tests that call the real Express app with Supertest against the database in `.env`, and unit tests for pure logic such as expressions, automation conditions and the read-retry policy. Each file creates and deletes its own test user.
 
 ```bash
 # Run all tests
 npm run test --workspace=backend
 
-# Run tests in watch mode
-npm run test:watch --workspace=backend
+# Run one area (matches file names)
+npm run test --workspace=backend -- automation
+
+# Run with coverage
+npm run test:coverage --workspace=backend
 ```
 
-Tests are located in `src/__tests__/` (`api.test.ts`, `auth.test.ts`, `sprint2.test.ts`).
+See [Testing](../../docs/testing.md) for the strategy, policy and coverage.
 
 ## Scripts
 
@@ -201,3 +168,4 @@ Tests are located in `src/__tests__/` (`api.test.ts`, `auth.test.ts`, `sprint2.t
 | `npm run typecheck` | Run `tsc --noEmit` |
 | `npm run test` | Run Vitest tests |
 | `npm run test:watch` | Run tests in watch mode |
+| `npm run test:coverage` | Run tests with a coverage report |

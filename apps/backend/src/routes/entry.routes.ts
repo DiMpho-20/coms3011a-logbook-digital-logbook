@@ -6,6 +6,7 @@ import {
   updateEntry,
   deleteEntry,
   updateEntryStatus,
+  getOpenEntries
 } from "../controllers/entry.controller.js";
 import {
   getEntryVersions,
@@ -17,6 +18,7 @@ import {
 import { requireAuth } from "../middleware/auth.middleware.js";
 import { groupStats, timelineStats, evaluateExpression } from "../controllers/stats.controller.js";
 import { updateRecurrence } from "../controllers/recurrence.controller.js";
+
 
 const router = Router();
 
@@ -39,7 +41,10 @@ router.post("/entries/archive", requireAuth, archiveEntries);
 router.patch("/entries/:id/archive", requireAuth, setEntryArchived);
 router.post("/projects/:projectId/stats/group", requireAuth, groupStats);
 router.post("/projects/:projectId/stats/timeline", requireAuth, timelineStats);
+
 // Custom expressions (US16) — one number for the whole project.
 router.post("/projects/:projectId/stats/expression", requireAuth, evaluateExpression);
+router.get("/me/open-entries", requireAuth, getOpenEntries);
+
 
 export default router;

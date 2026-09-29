@@ -1,0 +1,18 @@
+# Allow-list: the backend image gets only what it needs to build and run.
+# Anything else in the working folder — .env files, runner credentials,
+# Cloudflare caches, stray local files — can never end up in the image,
+# which is pushed to Docker Hub.
+*
+!package.json
+!package-lock.json
+!apps/backend/
+!packages/shared/
+
+# Inside the allowed folders, still leave out local and generated files.
+apps/backend/.env
+apps/backend/.env.*
+apps/backend/node_modules/
+apps/backend/dist/
+apps/backend/coverage/
+packages/shared/node_modules/
+packages/shared/dist/

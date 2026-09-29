@@ -39,9 +39,12 @@ npm run build --workspace=packages/shared
 ```
 
 `@logbook/shared` ships compiled JavaScript and declarations rather than
-TypeScript source, so both apps resolve it through `packages/shared/dist`.
-Until it is built, the backend and frontend will report that they cannot find
-the module. Re-run it after changing anything in `packages/shared/src`.
+TypeScript source, and the backend resolves it through `packages/shared/dist`.
+Until it is built, the backend fails to start with
+`Cannot find module '…/node_modules/@logbook/shared/dist/index.js'`. Re-run it
+after changing anything in `packages/shared/src`, or the backend keeps using the
+old build. (The frontend reads `packages/shared/src` directly through an alias in
+`vite.config.ts`, so it does not need the build.)
 
 ### 4. Configure environment variables
 
@@ -51,18 +54,39 @@ Create `apps/backend/.env` from the example file:
 cp apps/backend/.env.example apps/backend/.env
 ```
 
-Edit `apps/backend/.env` and set the following variables:
+Then edit `apps/backend/.env`. The example is a template, not working values:
+**delete or blank every placeholder you are not replacing with a real value.**
+A leftover placeholder such as `RESEND_API_KEY=re_xxxxxxxxxxxxx` makes the
+backend believe email is configured, so new accounts are no longer
+auto-verified and cannot sign in.
 
-```env
-# Get your connection string from the Neon dashboard → Connection Details.
-# It contains your database password — treat it as a secret and never commit it.
-DATABASE_URL=postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require
+**Required for local development:**
 
-PORT=3000
-APP_URL=http://localhost:5173
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Neon connection string (Neon dashboard → Connection Details). Contains the database password. |
+| `PORT` | Backend port, normally `3000` (the Vite proxy expects it). |
+| `APP_URL` | Frontend URL, `http://localhost:5173` locally. Used in email links and the Google Calendar redirect. |
+| `JWT_SECRET` | Signs login tokens. Optional locally, but without it the backend generates a new secret on every start, so **every restart signs you out**. Required in production, where the server refuses to start without it. |
+
+Generate any secret in this guide with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
-> **Warning:** Never commit `.env` files with real credentials to the repository, and never paste real connection strings into documentation — the docs site is publicly accessible.
+**Optional, per feature:** leave these unset and the feature is simply off.
+
+| Variable(s) | Feature | Without it |
+|---|---|---|
+| `RESEND_API_KEY`, `RESEND_FROM` | Email via [Resend](https://resend.com) (recommended) | Accounts are auto-verified; links are logged to the backend console |
+| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | Email via Gmail SMTP (used only when Resend is not set) | As above |
+| `TWO_FACTOR_ENCRYPTION_KEY` | Encrypts 2FA secrets | Enabling 2FA returns `503`. Never change it once set: existing 2FA users would be locked out |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_TOKEN_ENCRYPTION_KEY` | Google Calendar sync | The Calendar page reports that Google Calendar is not configured |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (and optionally `VAPID_SUBJECT`) | Push notifications for reminders (see [Push notifications](#push-notifications)) | Reminders stay in-app only; the backend logs `VAPID keys not set` on start |
+| `RATE_LIMIT_*`, `RATE_LIMIT_DISABLED`, `TRUST_PROXY_HOPS` | Rate-limit tuning | Sensible defaults apply; see the comments in `.env.example` |
+
+> **Warning:** Never commit `.env` files with real credentials to the repository, and never paste real connection strings or keys into documentation — the docs site is publicly accessible. `.env` is already listed in `.gitignore`.
 
 ### 5. Set up the database schema
 
@@ -74,7 +98,7 @@ npx prisma generate
 npx prisma migrate deploy
 ```
 
-> The migration history was squashed on 2026-09-27 into a single baseline, `prisma/migrations/0_init`, which creates the entire schema — all eighteen tables, enums, unique indexes and foreign keys — on an empty database. `npx prisma migrate deploy` therefore bootstraps a fresh Neon project end-to-end; there is no longer any need for `prisma db push`, and new schema changes should arrive as dated migrations (`npx prisma migrate dev --name <change>`).
+> The migration history was squashed on 2026-09-27 into a baseline, `prisma/migrations/0_init`, which creates the core schema (eighteen tables, enums, unique indexes and foreign keys) on an empty database. Dated migrations after it add the rest — push subscriptions, dashboard layouts, and unique entry-field names — for twenty tables in all. `npx prisma migrate deploy` applies them in order, so it bootstraps a fresh Neon project end-to-end; there is no need for `prisma db push`, and new schema changes should arrive as dated migrations (`npx prisma migrate dev --name <change>`).
 
 ### 6. Run development servers
 
@@ -96,18 +120,28 @@ The frontend proxies `/api/*` requests to `http://localhost:3000` via the Vite c
 
 Open <http://localhost:5173> in your browser to use the app.
 
-> **Note:** Both servers must be running. Without the backend, all API calls return a `502 Bad Gateway`.
+> **Note:** Both servers must be running. Without the backend, the Vite terminal logs `http proxy error: /api/… ECONNREFUSED` and every request fails — see [Troubleshooting](#troubleshooting).
+
+When the backend starts you will see a `SECURITY WARNING` from `pg` about SSL modes. It is harmless; changing `sslmode=require` to `sslmode=verify-full` in `DATABASE_URL` silences it without changing behaviour.
 
 ## Project Scripts
 
 | Command | Location | Description |
 |---|---|---|
 | `npm run dev` | `apps/backend` | Start backend with hot reload (`tsx watch`) |
-| `npm run dev` | `apps/frontend` | Start Vite dev server |
-| `npm run typecheck` | `apps/backend` | Run `tsc --noEmit` |
-| `npm run test` | `apps/backend` | Run Vitest integration tests |
-| `npm run test:watch` | `apps/backend` | Run tests in watch mode |
 | `npm run build` | `apps/backend` | Compile TypeScript to `dist/` |
+| `npm run start` | `apps/backend` | Run the compiled backend (`dist/index.js`) |
+| `npm run typecheck` | `apps/backend` | Run `tsc --noEmit` |
+| `npm run test` | `apps/backend` | Run the Vitest suite (against the database in `.env`) |
+| `npm run test:watch` | `apps/backend` | Run tests in watch mode |
+| `npm run test:coverage` | `apps/backend` | Run tests with a coverage report |
+| `npm run build` | `packages/shared` | Compile the shared package to `dist/` |
+| `npm run dev` | `apps/frontend` | Start Vite dev server |
+| `npm run build` | `apps/frontend` | Type-check and build the production bundle to `dist/` |
+| `npm run preview` | `apps/frontend` | Serve the production build locally |
+| `npm run test` | `apps/frontend` | Run the Vitest + Testing Library suite (jsdom, no backend needed) |
+| `npm run test:watch` | `apps/frontend` | Run tests in watch mode |
+| `npm run test:coverage` | `apps/frontend` | Run tests with a coverage report |
 | `npm run lint` | `apps/frontend` | Run oxlint |
 
 ## Code Quality & Linting
@@ -128,39 +162,71 @@ npm run typecheck --workspace=backend
 
 ## Testing
 
-The backend includes 27 integration tests using Vitest and Supertest that exercise all API endpoints (projects, entries, entry fields) against the live Neon database.
+Both apps use [Vitest](https://vitest.dev).
+
+* **Backend** (`apps/backend/src/__tests__/`): integration tests using Supertest, one file per area (auth, entries, statistics, reminders, push, automation rules and so on). They run against the database in `apps/backend/.env`, so that file must be set up first.
+* **Frontend** (`apps/frontend/src/**/__tests__/`): component, page and library tests using Testing Library in jsdom. They mock the API and need no backend.
 
 ```bash
 # Run all tests
 npm run test --workspace=backend
+npm run test --workspace=frontend
+
+# Run one area only (matches file names)
+npm run test --workspace=backend -- automation
 
 # Run tests in watch mode
 npm run test:watch --workspace=backend
 ```
 
-Tests are located in `apps/backend/src/__tests__/api.test.ts`.
+See [Testing](testing.md) for the test strategy.
 
 ## Shared Types Package
 
 The `@logbook/shared` package (`packages/shared/`) contains TypeScript interfaces, Zod validation schemas, and types shared between frontend and backend. It is linked via npm workspaces (`"@logbook/shared": "*"`).
 
 After modifying shared types:
-1. Restart both dev servers
-2. Regenerate the Prisma client if the schema changed: run `npx prisma generate` from `apps/backend/`
+1. Rebuild the package: `npm run build --workspace=packages/shared`
+2. Restart both dev servers
+
+After changing `apps/backend/prisma/schema.prisma`, regenerate the Prisma client with `npx prisma generate` from `apps/backend/`.
 
 ## Authentication & Email
 
 The app uses JWT-based authentication with email verification and optional two-factor authentication (2FA):
 
 * **Registration** creates a user with an unverified email
-* **Email verification** — a verification link is sent via Gmail SMTP (if configured)
+* **Email verification** — a verification link is sent by email (if configured)
 * **Login** is blocked until the email is verified
 * **Password reset** — reset link sent via email
-* **Two-factor authentication (2FA)** — TOTP-based 2FA using `otplib`. Users can enable/disable 2FA in Settings. When enabled, a QR code is generated for authenticator app setup.
+* **Two-factor authentication (2FA)** — TOTP-based 2FA using `otplib`, with recovery codes. Users can enable/disable 2FA in Settings. When enabled, a QR code is generated for authenticator app setup. Requires `TWO_FACTOR_ENCRYPTION_KEY`.
 
-**Dev mode (no Gmail credentials):** accounts are automatically verified so you can develop without email setup. The verification link is logged to the backend console.
+**Dev mode (no email provider):** accounts are automatically verified so you can develop without email setup. The verification link is logged to the backend console.
 
-**Production mode:** set `GMAIL_USER` and `GMAIL_APP_PASSWORD` in `.env` to enable real email sending.
+**Real email:** set `RESEND_API_KEY` and `RESEND_FROM` (recommended), or `GMAIL_USER` and `GMAIL_APP_PASSWORD`. If both are set, Resend is used.
+
+## Push notifications
+
+Reminders can notify a device even when the logbook is closed, using web push.
+
+1. Generate a key pair once: `npx web-push generate-vapid-keys`.
+2. Put the pair in `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` — the **same pair** everywhere (local `.env` and the Render environment). A browser subscribed with one public key cannot receive pushes signed with another, and changing the keys cuts off every existing subscription.
+3. In the app, turn on **Settings → Reminders → Notify me on this device** and allow notifications when the browser asks. If it was already on before the keys were set, turn it off and on again.
+
+**Push only works in a production build.** The service worker that receives pushes is registered only when `import.meta.env.PROD` is true, so under `npm run dev` the app falls back to in-app notifications: they appear only while a logbook tab is open, and the tab checks for due reminders every five minutes. Test real push against the deployed site, with the logbook tab closed but the browser still running.
+
+If notifications never appear, check in order: the browser's site permission for notifications (`Notification.permission` in the console should be `"granted"`), the operating system's notification settings for the browser (including Do Not Disturb), and — on the deployed site — that the backend is awake, since Render's free tier sleeps when idle and pushes are only sent while it runs. On iPhone, push requires the app to be added to the home screen. Notification sound is controlled by the operating system, not the app.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Login says **"Invalid email or password."** with correct details, and the Vite terminal shows `http proxy error … ECONNREFUSED` | The backend is not running, so the frontend gets no response and falls back to that message | Start the backend (`npm run dev --workspace=backend`) and check it prints `Backend running on http://localhost:3000` |
+| Backend fails with `Cannot find module '…/@logbook/shared/dist/index.js'` | The shared package has not been built | `npm run build --workspace=packages/shared`, then start the backend again |
+| You are signed out every time the backend restarts; the backend logs `JWT_SECRET is not set` | No `JWT_SECRET`, so a new one is generated per process | Set `JWT_SECRET` in `apps/backend/.env` |
+| New accounts cannot sign in: "Please verify your email address" | A real or placeholder email key is set, so auto-verification is off | Use the emailed link, or remove the placeholder `RESEND_*`/`GMAIL_*` values for local development |
+| Enabling 2FA returns an error about an encryption key | `TWO_FACTOR_ENCRYPTION_KEY` is not set | Set it and restart the backend |
+| VS Code shows "An environment file is configured but terminal environment injection is disabled" | A notice from the Python extension, unrelated to this project | Ignore it; the backend loads `.env` itself |
 
 ## Commit Convention
 
