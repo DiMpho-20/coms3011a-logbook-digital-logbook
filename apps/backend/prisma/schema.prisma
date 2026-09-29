@@ -72,6 +72,20 @@ model User {
   emailVerificationExpiry DateTime?         @map("email_verification_expiry")
   twoFactorSecret         String?           @map("two_factor_secret") @db.VarChar(255)
   isTwoFactorEnabled      Boolean           @default(false) @map("is_two_factor_enabled")
+
+  // US-profile: the student's own profile card. Every field is optional —
+  // an account is usable without any of them, and the page shows an empty
+  // state rather than demanding they be filled in. These live here rather
+  // than in localStorage so the profile follows the student between
+  // browsers and devices, the same reasoning as DashboardLayout.
+  bio                     String?           @db.VarChar(280)
+  // A data URL, downscaled by the browser before upload (see ProfilePage).
+  // Text rather than VarChar because even a small square encodes to a few
+  // tens of kilobytes; the API caps the length it will accept.
+  avatar                  String?           @db.Text
+  studentNumber           String?           @map("student_number") @db.VarChar(32)
+  degree                  String?           @db.VarChar(120)
+  yearOfStudy             String?           @map("year_of_study") @db.VarChar(32)
   scheduledDeletionAt     DateTime?         @map("scheduled_deletion_at")
   createdAt               DateTime          @default(now()) @map("created_at")
   updatedAt               DateTime          @updatedAt @map("updated_at")
