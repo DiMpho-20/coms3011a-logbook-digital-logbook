@@ -23,7 +23,7 @@ finding becomes a tracked issue with an assigned fix.
 
 | Stage | What happens |
 |---|---|
-| **Instrument** | A Google Form with the 10 standard SUS items, 7 task-completion self-reports, and open-ended questions. |
+| **Instrument** | A Google Form with the 10 standard SUS items, round-specific self-report questions, and an open-ended prompt. |
 | **Testers** | 5–8 per round: classmates, members of other teams, and our client (where available). Demographics are captured in the form itself. |
 | **Session format** | 15–20 minutes, supervised. The tester works through the 7 task scenarios on the live app while an observer notes pass/fail and friction points on the observation sheet below. |
 | **Recording** | Form responses land in a linked Google Sheet. An observer's written notes are kept alongside as a second data source. |
@@ -34,18 +34,28 @@ finding becomes a tracked issue with an assigned fix.
 
 ## The feedback form
 
-**Link:** [https://forms.gle/g4gEzYtiFRSXCQ5CA](https://forms.gle/g4gEzYtiFRSXCQ5CA)
+**Round 1 form:** [https://forms.gle/g4gEzYtiFRSXCQ5CA](https://forms.gle/g4gEzYtiFRSXCQ5CA)
 
-The form is structured in four sections:
+**Round 2 form (Sprint 3 revision):** [https://docs.google.com/forms/d/e/1FAIpQLSenlkuuQC3bUS3WPXpBDO8M0O4eNDGurk669OKzzlunm0X_ow/viewform](https://docs.google.com/forms/d/e/1FAIpQLSenlkuuQC3bUS3WPXpBDO8M0O4eNDGurk669OKzzlunm0X_ow/viewform)
+
+The Round 1 form is structured in four sections:
 
 1. **Welcome & About You** — consent statement, role (Student / Lecturer or tutor / Working professional / Other), and prior experience with digital logbooks or work-tracking tools.
 2. **Task Feedback** — for each of 7 tasks (register, create project, add entry, mark done, view stats, view calendar/board, enable 2FA), the tester self-reports *Completed easily / Completed with some difficulty / Could not complete*, plus an optional comment field per task.
 3. **System Usability Scale** — the 10 standard SUS items on a 5-point Likert scale (Strongly disagree → Strongly agree). Worded verbatim; the SUS instrument is free to use and publicly cited across HCI research.
 4. **Open Feedback** — most frustrating part (required), favourite feature, one-thing-to-change, and an NPS-style 0–10 recommend-likelihood scale.
 
+For Round 2 the questionnaire was revised so that every question maps to
+a criterion in the Sprint 3 rubric: the SUS instrument was kept intact
+(one 10-statement grid), and the task self-reports were replaced with
+feature-usage, save-correctness, load-speed, entry-field clarity,
+Calendar/Board discoverability, visual-integrity and one-thing-to-change
+questions.
+
 A screenshot of the published form is captured after each round.
 The raw response data for each round is stored as a CSV file in this
-repository (e.g. `docs/user-feedback-round1.csv`).
+repository (`docs/user-feedback-round1.csv` and
+`docs/user-feedback-round2.csv`).
 
 ---
 
@@ -170,6 +180,63 @@ difficulty with the entry-field format.
 
 ---
 
+## Results — Sprint 3, Round 2 (28 September 2026)
+
+**Testers:** 6 (two of whom also took part in Round 1). The revised
+questionnaire does not collect demographics; it records feature usage,
+reliability and quality perceptions instead.
+
+### SUS Scores
+
+| # | Q1 | Q2 | Q3 | Q4 | Q5 | Q6 | Q7 | Q8 | Q9 | Q10 | **SUS** |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 5 | 1 | 5 | 4 | 5 | 1 | 5 | 1 | 5 | 4 | **85.0** |
+| 2 | 5 | 2 | 5 | 1 | 4 | 2 | 5 | 1 | 5 | 1 | **92.5** |
+| 3 | 4 | 2 | 4 | 3 | 5 | 3 | 4 | 1 | 5 | 1 | **80.0** |
+| 4 | 2 | 1 | 5 | 5 | 4 | 2 | 2 | 3 | 5 | 4 | **57.5** |
+| 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | **50.0** |
+| 6 | 5 | 3 | 5 | 3 | 3 | 2 | 4 | 1 | 3 | 3 | **70.0** |
+
+**Average SUS: 72.5 / 100** — on par with Round 1 (72.9) and above the
+industry average of 68 (Sauro, 2011); median 75.
+
+> **Data-quality note:** one respondent selected "Strongly agree" for all
+> ten statements — including items that contradict each other (easy to
+> use *and* cumbersome) — the classic straight-line pattern, which is
+> normally excluded from SUS averages. Excluding it, the round averages
+> **77.0 / 100**. The all-in figure is reported here, and both figures
+> sit above the 68 benchmark.
+
+### Questionnaire results (rubric-mapped questions)
+
+| Question | Round 2 result |
+|---|---|
+| Features used in the session | Calendar view 6/6 · Board view 4/6 · Tags 4/6 · Entry history 4/6 · Two-factor auth 4/6 · Statistics 3/6 · Saved filters 1/6 |
+| Anything misbehave? | 5/6 "Never"; one "Once or twice" (no detail supplied) |
+| Saved correctly every time? | 5/6 "Yes, every time"; one single save failure reported (no reproduction detail) |
+| Load & response speed | 5/6 "Okay, brief waits"; one "Slow, noticeable waiting" — login or registration was named the slowest moment by three testers |
+| Entry-field clarity | 3/6 "Very clear", 3/6 "Mostly clear", none confused *(Round 1: 2/6 struggled)* |
+| Calendar & Board discoverability | 6/6 "Found them straight away" *(Round 1: 1/6 struggled)* |
+| Visual integrity | 5/6 saw no issues; one "Yes" with no location recorded |
+| One small change | four "nothing"; one "nothing besides faster login"; one "year-to-date calculator / grade tracking" |
+
+### Findings
+
+- **Login latency is the one recurring friction.** Three testers named
+  login or registration as the slowest moment, and nobody reported any
+  other performance problem — consistent with the free hosting tier's
+  cold start (see the planned hosting migration in the integration
+  table).
+- **Reliability held up.** Five of six testers saw no misbehaviour and
+  reported that saving worked every time; the two exceptions were
+  single occurrences with no reproduction detail.
+- **Round 1's friction points did not resurface.** No tester was
+  confused by entry fields, and every tester found the Calendar and
+  Board views straight away. The queued FEAT-002 / FEAT-003
+  improvements remain in the integration table.
+
+---
+
 ## Integration: Feedback → Action → Commit
 
 This is the trail that turns feedback into product changes. Every row is
@@ -179,25 +246,34 @@ and the round it was validated in.
 | Round | Finding | Action taken | Commit | Validated in |
 |---|---|---|---|---|
 | R1 | Tester 5 requested saved filters on the entries page | Saved-filter feature implemented — name, save, apply, delete, persisted to localStorage | `fd68b32` feat: add saved filters on entries page | R1 (pre-emptive; shipped before feedback was collected) |
-| R1 | Testers 1 & 2 found entry-field format confusing when adding entries | Filed as Gitea issue; add inline help text and field-type hints to the entry form | *(issue filed, fix pending Sprint 3)* | — |
-| R1 | Tester 2 found calendar/board views hard to locate | Filed as Gitea issue; consider adding nav hints or a guided tour for secondary views | *(issue filed, fix pending Sprint 3)* | — |
+| R1 | Testers 1 & 2 found entry-field format confusing when adding entries | Filed as Gitea issue **FEAT-002**; add inline help text and field-type hints to the entry form | *(issue filed, fix queued)* | — |
+| R1 | Tester 2 found calendar/board views hard to locate | Filed as Gitea issue **FEAT-003**; consider adding nav hints or a guided tour for secondary views | *(issue filed, fix queued)* | — |
 | R1 | All 6 testers praised the UI and ease of use | No action needed — validates current design direction | — | — |
+| R2 | Three testers named login/registration as the slowest moment; one rated speed "Slow, noticeable waiting" | Planned hosting migration (agreed with the client — see [Client Interactions](client-interactions.md)) removes the cold-start delay | *(planned)* | — |
+| R2 | Tester 1 suggested a year-to-date / grade-tracking view | Filed as Gitea issue **FEAT-009**; to be triaged for a future sprint | *(issue filed, triage pending)* | — |
+| R2 | One single save failure and one "once or twice" misbehaviour, with no reproduction detail | Logged for monitoring — to be re-checked in Round 3 | — | — |
 
 ---
 
 ## Summary and Next Steps
 
-Round 1 confirms the Digital Logbook is above-average on usability
-(SUS 72.9 vs. industry average 68) with 100% task completion across
-all 7 scenarios. The main area for improvement is the entry-creation
-flow, where 2 of 6 testers struggled with custom field formats.
+Round 1 (SUS 72.9) and Round 2 (SUS 72.5; 77.0 excluding one
+straight-line response) both sit above the industry average of 68, and
+Round 2 held up on reliability: five of six testers saw no misbehaviour
+and reported that saving worked every time. The one recurring complaint
+across rounds is login/registration latency, which matches the free
+hosting tier's cold start.
+
+Round 1's friction points (entry-field clarity, view discoverability)
+did not resurface in Round 2; the queued improvements (FEAT-002,
+FEAT-003) remain in the integration table until they ship.
 
 **Planned actions:**
 
-1. File Gitea issues for the two pending findings (entry-field help text, view discoverability).
-2. Implement fixes in Sprint 3 and reference them in the integration table.
-3. Run a second round with the same testers to validate fixes (the "Validated in" column).
-4. Invite the client for a formal review session in Round 2.
+1. Migrate hosting off the free tier to remove the cold-start delay (already agreed with the client).
+2. Triage the Round 2 suggestion (year-to-date / grade tracking — FEAT-009) in the next sprint planning.
+3. Ship and reference the FEAT-002 / FEAT-003 fixes in the integration table.
+4. Run Round 3, including a client review session, and fill in the "Validated in" column.
 
 *Related: [Testing](testing.md) documents the automated test suite that
 runs alongside this process.*

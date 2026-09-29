@@ -22,7 +22,7 @@ This directory contains all known bugs and feature requests for the Digital Logb
 | BUG-014 | [List Views Fan Out One Request Per Project](BUG-014-n-plus-one-list-views.md) | Medium | Fixed |
 | BUG-015 | [No Delete-Project Endpoint](BUG-015-no-delete-project-endpoint.md) | Low | Resolved |
 
-## Feature Requests (8)
+## Feature Requests (9)
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
@@ -34,6 +34,7 @@ This directory contains all known bugs and feature requests for the Digital Logb
 | FEAT-006 | [Accessibility (WCAG)](FEAT-006-accessibility-wcag.md) | Medium | Open |
 | FEAT-007 | [Rate Limiting](FEAT-007-rate-limiting.md) | High | Duplicate (BUG-003) |
 | FEAT-008 | [Responsive Design Testing](FEAT-008-responsive-design.md) | Low | Open |
+| FEAT-009 | [Year-to-Date / Grade Tracking](FEAT-009-year-to-date-grade-tracking.md) | Low | Open |
 
 ## Sources
 
@@ -43,6 +44,7 @@ Issues were identified from:
 - **TESTING.md**: Bugs found during test development (BUG-001, BUG-008)
 - **Commit history**: Bugs fixed in Sprint 2 (BUG-009, BUG-010)
 - **User feedback (SUS Round 1)**: Entry-field confusion (FEAT-002), view discoverability (FEAT-003)
+- **User feedback (SUS Round 2)**: Year-to-date / grade tracking (FEAT-009)
 - **Client interactions**: Google Calendar (FEAT-001), notifications (FEAT-005), accessibility (FEAT-006)
 - **CI/CD audit**: Node version mismatch (BUG-007)
 - **Feature audit, 2026-09-20** (`docs/feature-audit-2026-09.md`): BUG-011 through BUG-015, found by code review and a manual walkthrough
