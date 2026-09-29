@@ -226,3 +226,59 @@ export function entryHeadline(
   }
   return fallback;
 }
+
+export interface ProjectActivity {
+  projectId: string;
+  name: string;
+  entries: number;
+  minutes: number;
+  /** "YYYY-MM-DD" of the most recent entry in this project, local. */
+  lastActivity: string;
+}
+
+/**
+ * Where the student's work actually went, most recently active first.
+ *
+ * Ordered by last activity rather than by volume: the panel is called recent
+ * projects, and a module finished in June should not outrank the one being
+ * worked on this week just because it accumulated more entries. Ties fall back
+ * to entry count, then to name, so the order never wobbles between renders.
+ *
+ * A project whose name is not in the map is still listed — a missing name means
+ * the projects request failed or the project was removed, neither of which is a
+ * reason to silently drop hours the student logged.
+ */
+export function projectActivity(
+  entries: ActivityEntry[],
+  names: Map<string, string>,
+  limit = 4
+): ProjectActivity[] {
+  const byProject = new Map<string, ProjectActivity>();
+
+  for (const entry of entries) {
+    const day = entryDay(entry);
+    const existing = byProject.get(entry.projectId);
+    if (existing) {
+      existing.entries += 1;
+      existing.minutes += Number.isFinite(entry.durationMinutes) ? entry.durationMinutes : 0;
+      if (day > existing.lastActivity) existing.lastActivity = day;
+    } else {
+      byProject.set(entry.projectId, {
+        projectId: entry.projectId,
+        name: names.get(entry.projectId) ?? "Untitled project",
+        entries: 1,
+        minutes: Number.isFinite(entry.durationMinutes) ? entry.durationMinutes : 0,
+        lastActivity: day,
+      });
+    }
+  }
+
+  return [...byProject.values()]
+    .sort(
+      (a, b) =>
+        b.lastActivity.localeCompare(a.lastActivity) ||
+        b.entries - a.entries ||
+        a.name.localeCompare(b.name)
+    )
+    .slice(0, limit);
+}

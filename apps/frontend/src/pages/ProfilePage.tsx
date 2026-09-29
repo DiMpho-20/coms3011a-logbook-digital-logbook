@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
 import {
   Camera, Edit2, Check, X, GraduationCap, Hash, Mail, CalendarDays,
-  NotebookPen, Clock, FolderKanban, Flame, Trash2, Loader2, AlertCircle,
+  NotebookPen, Clock, FolderKanban, Flame, Trash2, Loader2, AlertCircle, ArrowRight,
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import { api } from "../api/client";
 import { getTagColor } from "../lib/tagColors";
 import {
-  summariseActivity, buildHeatmap, topTags, formatDuration, entryHeadline,
+  summariseActivity, buildHeatmap, topTags, projectActivity, formatDuration, entryHeadline,
   type ActivityEntry, type HeatmapCell,
 } from "../lib/profileActivity";
 
@@ -38,7 +39,14 @@ const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Postgraduate"];
  * written. Six months of squares is what the grid shows.
  */
 const ACTIVITY_DAYS = 365;
-const HEATMAP_WEEKS = 26;
+/**
+ * Twelve weeks, not the half year it started as.
+ *
+ * The grid holds the same entries either way — a shorter window simply stops
+ * a term's work being spread so thin that a real week of logging reads as
+ * noise. Widen it once a logbook has a year in it.
+ */
+const HEATMAP_WEEKS = 12;
 const ENTRY_LIMIT = 500;
 
 // ── Avatar ──────────────────────────────────────────────────────────────
@@ -361,6 +369,7 @@ export default function ProfilePage() {
   const grid = useMemo(() => buildHeatmap(summary.byDay, new Date(), HEATMAP_WEEKS), [summary.byDay]);
   const tags = useMemo(() => topTags(entries, 8), [entries]);
   const recent = useMemo(() => entries.slice(0, 5), [entries]);
+  const projects = useMemo(() => projectActivity(entries, projectNames, 4), [entries, projectNames]);
   const projectCount = useMemo(
     () => new Set(entries.map((entry) => entry.projectId)).size,
     [entries]
@@ -646,7 +655,7 @@ export default function ProfilePage() {
         description={
           truncated
             ? "Your most recent 500 entries — earlier ones aren't counted here."
-            : "Entries written over the last six months."
+            : "Entries written over the last twelve weeks."
         }
       >
         {summary.totalEntries === 0 ? (
@@ -658,34 +667,69 @@ export default function ProfilePage() {
         )}
       </Section>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* ── Tags ────────────────────────────────────────────────────── */}
-        <Section title="Most-used tags" description="What you label your work with.">
-          {tags.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4">No tags used yet.</p>
+      {/* Recent entries is the tallest panel, so the two shorter ones stack
+          beside it rather than each taking a half-width card of its own. */}
+      <div className="grid gap-5 lg:grid-cols-2 items-start">
+        <div className="space-y-5">
+        {/* ── Recent projects ─────────────────────────────────────────── */}
+        <Section title="Recent projects" description="Where your work has been going.">
+          {projects.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4">No projects with entries yet.</p>
           ) : (
-            <ul className="flex flex-wrap gap-2">
-              {tags.map((tag) => {
-                const color = getTagColor(tag.name);
-                return (
-                  <li key={tag.name}>
-                    <span
-                      className="inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-1 border"
-                      style={{
-                        backgroundColor: color.background,
-                        color: color.foreground,
-                        borderColor: color.border,
-                      }}
-                    >
-                      {tag.name}
-                      <span className="tabular-nums opacity-70">{tag.count}</span>
+            <>
+              <ul className="divide-y divide-slate-100 -mt-2">
+                {projects.map((project) => (
+                  <li key={project.projectId} className="py-2.5 flex items-center gap-3">
+                    <span className="h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0">
+                      <FolderKanban className="h-4 w-4 text-slate-400" />
                     </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-800 truncate">{project.name}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {project.entries} {project.entries === 1 ? "entry" : "entries"}
+                        {project.minutes > 0 && ` · ${formatDuration(project.minutes)}`}
+                      </p>
+                    </div>
                   </li>
-                );
-              })}
-            </ul>
+                ))}
+              </ul>
+              <Link
+                to="/projects"
+                className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 mt-3 transition"
+              >
+                View all projects <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </>
           )}
         </Section>
+          {/* ── Tags ──────────────────────────────────────────────────── */}
+        <Section title="Most-used tags" description="What you label your work with.">
+            {tags.length === 0 ? (
+              <p className="text-sm text-slate-400 py-4">No tags used yet.</p>
+            ) : (
+              <ul className="flex flex-wrap gap-2">
+                {tags.map((tag) => {
+                  const color = getTagColor(tag.name);
+                  return (
+                    <li key={tag.name}>
+                      <span
+                        className="inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-1 border"
+                        style={{
+                          backgroundColor: color.background,
+                          color: color.foreground,
+                          borderColor: color.border,
+                        }}
+                      >
+                        {tag.name}
+                        <span className="tabular-nums opacity-70">{tag.count}</span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+        </Section>
+        </div>
 
         {/* ── Recent entries ──────────────────────────────────────────── */}
         <Section title="Recent entries" description="The last five things you logged.">

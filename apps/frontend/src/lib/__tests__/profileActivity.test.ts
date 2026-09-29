@@ -7,6 +7,7 @@ import {
   buildHeatmap,
   topTags,
   formatDuration,
+  projectActivity,
   type ActivityEntry,
 } from "../profileActivity";
 
@@ -212,5 +213,51 @@ describe("formatDuration", () => {
   it("shows nothing logged as 0m", () => {
     expect(formatDuration(0)).toBe("0m");
     expect(formatDuration(NaN)).toBe("0m");
+  });
+});
+
+describe("projectActivity", () => {
+  const names = new Map([["a", "COMS3011A"], ["b", "Research Project"]]);
+  const at = (projectId: string, day: number, minutes = 30) =>
+    entry({ projectId, durationMinutes: minutes, createdAt: new Date(2026, 8, day, 9).toISOString() });
+
+  it("groups entries by project with counts and time", () => {
+    expect(
+      projectActivity([at("a", 20, 60), at("a", 21, 30), at("b", 10, 45)], names).map((p) => [
+        p.name, p.entries, p.minutes,
+      ])
+    ).toEqual([["COMS3011A", 2, 90], ["Research Project", 1, 45]]);
+  });
+
+  it("puts the most recently active project first, not the biggest", () => {
+    // Five entries in "a", one newer entry in "b".
+    const busy = [1, 2, 3, 4, 5].map((day) => at("a", day));
+    expect(projectActivity([...busy, at("b", 28)], names)[0].name).toBe("Research Project");
+  });
+
+  it("records the latest day as lastActivity", () => {
+    expect(projectActivity([at("a", 3), at("a", 27), at("a", 11)], names)[0].lastActivity).toBe(
+      "2026-09-27"
+    );
+  });
+
+  it("still lists a project whose name it does not have", () => {
+    // A failed projects request must not silently hide logged hours.
+    const [only] = projectActivity([at("zz", 1, 120)], new Map());
+    expect(only.name).toBe("Untitled project");
+    expect(only.minutes).toBe(120);
+  });
+
+  it("breaks a same-day tie on entry count", () => {
+    expect(projectActivity([at("a", 20), at("a", 20), at("b", 20)], names)[0].name).toBe("COMS3011A");
+  });
+
+  it("honours the limit", () => {
+    const spread = ["a", "b", "c", "d", "e", "f"].map((id, index) => at(id, index + 1));
+    expect(projectActivity(spread, names, 4)).toHaveLength(4);
+  });
+
+  it("is empty when nothing has been logged", () => {
+    expect(projectActivity([], names)).toEqual([]);
   });
 });
