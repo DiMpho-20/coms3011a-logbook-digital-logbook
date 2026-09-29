@@ -177,3 +177,639 @@ body {
 /* Violet */
 [data-theme="dark"] .bg-violet-50 { background-color: #1d1630 !important; }
 [data-theme="dark"] .text-violet-600 { color: #c4b5fd !important; }
+
+/* ── Landing page: 3D hero and cards ─────────────────────────
+   Pure CSS 3D. The hero sets --scene-rx/--scene-ry from the
+   pointer; each TiltCard sets its own --tilt-x/--tilt-y. */
+
+.landing-hero {
+  --scene-rx: 0deg;
+  --scene-ry: 0deg;
+  position: relative;
+  padding: 4.5rem 1.5rem 6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.landing-hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1150px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 3rem;
+}
+
+.landing-headline {
+  font-size: clamp(2.25rem, 5vw, 3.75rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 0 0 1.25rem 0;
+  text-shadow: 0 1px 0 rgba(0, 114, 255, 0.35), 0 2px 0 rgba(0, 80, 200, 0.25),
+    0 3px 0 rgba(60, 0, 160, 0.2), 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.landing-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Grid floor tilted back toward a horizon, scrolling toward the viewer */
+.landing-grid-floor {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: -40%;
+  height: 90%;
+  background-image: linear-gradient(rgba(0, 198, 255, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 198, 255, 0.22) 1px, transparent 1px);
+  background-size: 60px 60px;
+  transform: perspective(600px) rotateX(62deg);
+  transform-origin: top center;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 35%, black 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 35%, black 70%, transparent 100%);
+  animation: landing-grid-scroll 6s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes landing-grid-scroll {
+  from { background-position: 0 0; }
+  to { background-position: 0 60px; }
+}
+
+/* ── The floating logbook scene ── */
+
+.landing-scene {
+  position: relative;
+  height: 420px;
+  perspective: 1100px;
+  text-align: left;
+}
+
+.landing-scene-float {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: landing-float 7s ease-in-out infinite;
+}
+
+.landing-scene-rig {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(12deg + var(--scene-rx))) rotateY(calc(-22deg + var(--scene-ry)));
+  transition: transform 0.25s ease-out;
+}
+
+@keyframes landing-float {
+  0%, 100% { transform: translateY(0) rotateZ(0deg); }
+  50% { transform: translateY(-14px) rotateZ(-1deg); }
+}
+
+.landing-scene-shadow {
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  bottom: -10px;
+  height: 40px;
+  background: radial-gradient(ellipse, rgba(0, 114, 255, 0.35) 0%, transparent 70%);
+  filter: blur(12px);
+  animation: landing-shadow 7s ease-in-out infinite;
+}
+
+@keyframes landing-shadow {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(0.85); opacity: 0.6; }
+}
+
+.landing-panel {
+  position: absolute;
+  border-radius: 18px;
+  padding: 1.25rem;
+  background: linear-gradient(145deg, rgba(30, 50, 110, 0.85), rgba(12, 20, 50, 0.9));
+  border: 1px solid rgba(0, 198, 255, 0.28);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.landing-panel-back {
+  top: 4%;
+  left: 4%;
+  width: 78%;
+  height: 72%;
+  transform: translateZ(-40px);
+}
+
+.landing-panel-mid {
+  left: 22%;
+  bottom: 6%;
+  width: 72%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1rem;
+  background: linear-gradient(145deg, rgba(40, 30, 110, 0.95), rgba(15, 18, 55, 0.97));
+  border-color: rgba(140, 60, 255, 0.35);
+  transform: translateZ(50px);
+}
+
+.landing-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.landing-chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  color: #00c6ff;
+  background: rgba(0, 198, 255, 0.12);
+  border: 1px solid rgba(0, 198, 255, 0.3);
+}
+
+.landing-progress {
+  margin-top: 0.4rem;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.landing-progress-fill {
+  width: 68%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #00c6ff, #0072ff, #8c3cff);
+  box-shadow: 0 0 12px rgba(0, 198, 255, 0.6);
+}
+
+.landing-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 90px;
+  margin-top: 1.1rem;
+}
+
+.landing-bar {
+  flex: 1;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, #00c6ff, rgba(0, 114, 255, 0.35));
+  transform-origin: bottom;
+  animation: landing-bar-grow 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes landing-bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+.landing-badge {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  color: #ffffff;
+  white-space: nowrap;
+  background: rgba(15, 25, 60, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 18px 35px rgba(0, 0, 0, 0.55), 0 0 18px rgba(0, 198, 255, 0.15);
+}
+
+.landing-badge-timer { top: 0; right: 2%; transform: translateZ(110px); }
+.landing-badge-tag { top: 42%; left: -2%; transform: translateZ(90px); }
+.landing-badge-stat { bottom: -2%; right: -2%; transform: translateZ(140px); }
+
+/* ── Buttons with physical depth ── */
+
+.landing-btn-3d {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  text-decoration: none;
+  padding: 0.85rem 1.75rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0072ff 0%, #7000ff 100%);
+  box-shadow: 0 5px 0 #2a0a8a, 0 10px 25px rgba(0, 114, 255, 0.4);
+  transform: translateY(0);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.landing-btn-3d:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 0 #2a0a8a, 0 14px 30px rgba(112, 0, 255, 0.55);
+}
+
+.landing-btn-3d:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #2a0a8a, 0 4px 12px rgba(0, 114, 255, 0.4);
+}
+
+.landing-btn-3d-sm {
+  font-size: 0.875rem;
+  padding: 0.5rem 1.15rem;
+  border-radius: 10px;
+  box-shadow: 0 3px 0 #2a0a8a, 0 6px 15px rgba(0, 114, 255, 0.35);
+}
+
+.landing-btn-3d-sm:hover { box-shadow: 0 4px 0 #2a0a8a, 0 8px 20px rgba(112, 0, 255, 0.5); }
+.landing-btn-3d-sm:active { transform: translateY(2px); box-shadow: 0 1px 0 #2a0a8a; }
+
+.landing-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #00c6ff;
+  text-decoration: none;
+  padding: 0.85rem 1.75rem;
+  border-radius: 12px;
+  background-color: rgba(0, 198, 255, 0.08);
+  border: 1px solid rgba(0, 198, 255, 0.3);
+  backdrop-filter: blur(8px);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.landing-btn-ghost:hover {
+  background-color: rgba(0, 198, 255, 0.16);
+  border-color: rgba(0, 198, 255, 0.5);
+}
+
+.landing-btn-3d:focus-visible,
+.landing-btn-ghost:focus-visible {
+  outline: 2px solid #00c6ff;
+  outline-offset: 3px;
+}
+
+/* ── Tilting feature cards ── */
+
+.landing-tilt-wrap {
+  perspective: 900px;
+}
+
+.landing-tilt-card {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --glare-x: 50%;
+  --glare-y: 50%;
+  position: relative;
+  height: 100%;
+  padding: 1.75rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+  transform-style: preserve-3d;
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transition: transform 0.2s ease-out, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.landing-tilt-card:hover {
+  border-color: rgba(0, 198, 255, 0.4);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5), 0 0 25px rgba(0, 198, 255, 0.12);
+}
+
+.landing-tilt-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--glare-x) var(--glare-y), rgba(255, 255, 255, 0.12), transparent 55%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.landing-tilt-card:hover .landing-tilt-glare { opacity: 1; }
+
+.landing-feature-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+  color: #00c6ff;
+  background: linear-gradient(135deg, rgba(0, 198, 255, 0.2), rgba(112, 0, 255, 0.2));
+  border: 1px solid rgba(0, 198, 255, 0.3);
+  transform: translateZ(45px);
+}
+
+.landing-lift { transform: translateZ(30px); }
+.landing-lift-sm { transform: translateZ(18px); }
+
+/* ── Small screens: stack the hero and shrink the scene ── */
+
+@media (max-width: 900px) {
+  .landing-hero { padding: 3.5rem 1rem 4rem; }
+  .landing-hero-inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem;
+    text-align: center;
+  }
+  .landing-hero-copy p { margin-left: auto !important; margin-right: auto !important; }
+  .landing-cta-row { justify-content: center; }
+  .landing-scene {
+    height: 340px;
+    max-width: 420px;
+    width: 100%;
+    margin: 2.5rem auto 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-scene { height: 300px; }
+  .landing-badge { font-size: 0.72rem; padding: 0.45rem 0.7rem; }
+  .landing-badge-tag { left: 5%; }
+  .landing-badge-stat { right: 0; }
+}
+
+/* ── Login page: 3D logbook beside the card ──────────────────
+   LoginStage3D sets --login-rx/--login-ry from the pointer. The
+   book is a 210 × 280 × 46 box built from six faces. */
+
+.login-stage {
+  --login-rx: 0deg;
+  --login-ry: 0deg;
+  width: 100%;
+  max-width: 1040px;
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  align-items: center;
+  gap: 4rem;
+}
+
+.login-scene {
+  position: relative;
+  height: 460px;
+  perspective: 1200px;
+  color: #ffffff;
+}
+
+.login-platform {
+  position: absolute;
+  left: 50%;
+  bottom: -70px;
+  width: 340px;
+  height: 340px;
+  margin-left: -170px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 198, 255, 0.28) 0%, rgba(112, 0, 255, 0.12) 45%, transparent 70%);
+  border: 1px solid rgba(0, 198, 255, 0.35);
+  box-shadow: 0 0 40px rgba(0, 198, 255, 0.25), inset 0 0 40px rgba(0, 198, 255, 0.2);
+  transform: rotateX(78deg);
+  animation: login-platform-pulse 4s ease-in-out infinite;
+}
+
+.login-platform::after {
+  content: "";
+  position: absolute;
+  inset: 40px;
+  border-radius: 50%;
+  border: 1px dashed rgba(140, 60, 255, 0.5);
+}
+
+@keyframes login-platform-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.55; }
+}
+
+.login-book-float {
+  position: absolute;
+  left: 50%;
+  top: 40px;
+  width: 210px;
+  height: 280px;
+  margin-left: -105px;
+  transform-style: preserve-3d;
+  animation: login-book-bob 6s ease-in-out infinite;
+}
+
+@keyframes login-book-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-16px); }
+}
+
+.login-book {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(8deg + var(--login-rx))) rotateY(calc(-28deg + var(--login-ry)));
+  transition: transform 0.3s ease-out;
+}
+
+.login-book-face {
+  position: absolute;
+  backface-visibility: hidden;
+}
+
+.login-book-front,
+.login-book-back {
+  inset: 0;
+  border-radius: 4px 14px 14px 4px;
+}
+
+.login-book-front {
+  transform: translateZ(23px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2.25rem 1.5rem 1.5rem;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 20%, rgba(0, 198, 255, 0.35), transparent 55%),
+    linear-gradient(150deg, #1742b8 0%, #3b1ca8 55%, #1a0d5c 100%);
+  border: 1px solid rgba(140, 180, 255, 0.35);
+  box-shadow: inset 6px 0 12px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Sheen that sweeps across the cover */
+.login-book-front::after {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.18) 50%, transparent 60%);
+  animation: login-sheen 5s ease-in-out infinite;
+}
+
+@keyframes login-sheen {
+  0% { transform: translateX(-60%); }
+  60%, 100% { transform: translateX(60%); }
+}
+
+.login-book-back {
+  transform: rotateY(180deg) translateZ(23px);
+  background: linear-gradient(150deg, #1a0d5c, #0d1b4e);
+}
+
+.login-book-spine,
+.login-book-pages {
+  top: 0;
+  left: 82px;
+  width: 46px;
+  height: 280px;
+}
+
+.login-book-spine {
+  transform: rotateY(-90deg) translateZ(105px);
+  background: linear-gradient(90deg, #120a4a, #2a1590 50%, #120a4a);
+  box-shadow: inset 0 0 0 1px rgba(140, 180, 255, 0.25);
+}
+
+.login-book-pages {
+  transform: rotateY(90deg) translateZ(105px);
+  background: repeating-linear-gradient(90deg, #eef2ff 0 2px, #cbd5f5 2px 3px);
+}
+
+.login-book-top,
+.login-book-bottom {
+  left: 0;
+  top: 117px;
+  width: 210px;
+  height: 46px;
+  background: repeating-linear-gradient(0deg, #eef2ff 0 2px, #cbd5f5 2px 3px);
+}
+
+.login-book-top { transform: rotateX(90deg) translateZ(140px); }
+.login-book-bottom { transform: rotateX(-90deg) translateZ(140px); }
+
+.login-book-ribbon {
+  position: absolute;
+  top: 0;
+  right: 28px;
+  width: 16px;
+  height: 64px;
+  background: linear-gradient(180deg, #00c6ff, #0072ff);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
+  box-shadow: 0 0 12px rgba(0, 198, 255, 0.6);
+}
+
+/* Light label plate, so the logo's dark lettering stays readable */
+.login-book-label {
+  width: 128px;
+  height: 128px;
+  padding: 6px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #ffffff, #dde6ff);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.08);
+}
+
+.login-book-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.login-book-subtitle {
+  margin-top: 1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.login-book-rule {
+  width: 60%;
+  height: 1px;
+  margin: 1.1rem 0 1rem;
+  background: linear-gradient(90deg, transparent, rgba(0, 198, 255, 0.8), transparent);
+}
+
+.login-book-lines {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.login-book-lines span {
+  height: 5px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Badges drifting around the book at different depths */
+.login-float-badge {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  background: rgba(15, 25, 60, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 18px 35px rgba(0, 0, 0, 0.5), 0 0 18px rgba(0, 198, 255, 0.15);
+  transform: translate3d(calc(var(--login-ry) * 0.8), calc(var(--login-rx) * -0.8), 0);
+  transition: transform 0.3s ease-out;
+}
+
+.login-float-badge-1 { top: 70px; left: 2%; animation: login-badge-drift 5s ease-in-out infinite; }
+.login-float-badge-2 { top: 150px; right: 4%; animation: login-badge-drift 6s ease-in-out 0.8s infinite; }
+.login-float-badge-3 { bottom: 40px; left: 12%; animation: login-badge-drift 5.5s ease-in-out 1.6s infinite; }
+
+@keyframes login-badge-drift {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -10px; }
+}
+
+/* The card leans a little with the pointer, and holds still while typing */
+.login-card-wrap {
+  display: flex;
+  justify-content: center;
+  perspective: 1200px;
+  /* "backwards", not "both": a held opacity would cut the card's
+     backdrop blur off from the page behind it */
+  animation: login-card-enter 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+@keyframes login-card-enter {
+  from { opacity: 0; transform: translateY(30px) rotateX(14deg); }
+  to { opacity: 1; transform: none; }
+}
+
+.login-card-3d {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 20px;
+  transform: rotateX(calc(var(--login-rx) * 0.3)) rotateY(calc(var(--login-ry) * 0.25));
+  transition: transform 0.3s ease-out, box-shadow 0.3s ease;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35), 0 0 40px rgba(0, 114, 255, 0.15);
+}
+
+.login-card-3d:focus-within {
+  transform: none;
+}
+
+@media (max-width: 900px) {
+  .login-stage {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 480px;
+    padding: 1rem;
+  }
+  .login-scene { display: none; }
+}
