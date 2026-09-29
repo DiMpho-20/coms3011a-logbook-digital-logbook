@@ -1,9 +1,11 @@
-﻿import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef, useMemo } from "react";
 import {
   User, Palette, Bell, BookOpen, Download, Upload, Trash2,
   Check, Sun, Moon, Monitor, Shield, ShieldCheck, X,
+  Lock, Database, Search, Rows3, AlignJustify, Mail, KeyRound,
+  AlertTriangle, HardDrive, ChevronRight,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import { exportLogbook, fetchDueReminders, fetchProjects, importLogbook, type Project } from "../api";
 import {
@@ -22,6 +24,7 @@ type SortOrder = "newest" | "oldest";
 type WeekStart = "monday" | "sunday";
 type TimeFormat = "12h" | "24h";
 type AccentColor = "blue" | "emerald" | "violet" | "amber" | "rose";
+type Density = "comfortable" | "compact";
 
 interface LogbookPrefs {
   defaultProjectId: string;
@@ -34,6 +37,7 @@ interface LogbookPrefs {
 const DEFAULTS = {
   theme: "system" as Theme,
   accent: "blue" as AccentColor,
+  density: "comfortable" as Density,
   logbook: { defaultProjectId: "", defaultView: "timeline", defaultSort: "newest", weekStartsOn: "monday", timeFormat: "24h" } as LogbookPrefs,
 };
 
@@ -61,6 +65,15 @@ function applyAccent(color: AccentColor) {
   document.documentElement.setAttribute("data-accent", color);
 }
 
+// Comfortable is the stylesheet's own spacing, so it clears the attribute
+// rather than writing a second set of rules that say what the defaults
+// already say.
+function applyDensity(density: Density) {
+  const root = document.documentElement;
+  if (density === "comfortable") root.removeAttribute("data-density");
+  else root.setAttribute("data-density", density);
+}
+
 // -- reusable small components --
 
 function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
@@ -85,6 +98,124 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /** Turns system notifications for newly due reminders on or off on this device. */
+/**
+ * The settings sections, in nav order.
+ *
+ * `keywords` is what the search box matches on: the words someone would
+ * actually type are rarely the words on the label — "dark" is in Appearance,
+ * "2fa" is in Security — so each section carries its own vocabulary rather
+ * than relying on the heading alone.
+ */
+const SECTIONS = [
+  { id: "account", label: "Account", icon: User,
+    keywords: "name display email address password reset delete close account" },
+  { id: "appearance", label: "Appearance", icon: Palette,
+    keywords: "theme dark light system colour color accent density compact comfortable spacing" },
+  { id: "logbook", label: "Logbook", icon: BookOpen,
+    keywords: "default project view timeline list sort order week starts monday sunday time format 12 24 hour" },
+  { id: "notifications", label: "Notifications", icon: Bell,
+    keywords: "reminders due overdue stalled daily browser desktop permission alerts" },
+  { id: "security", label: "Security", icon: Lock,
+    keywords: "two factor 2fa authenticator totp google recovery codes verification sign in" },
+  { id: "privacy", label: "Data & Privacy", icon: Database,
+    keywords: "storage local browser server what is stored privacy clear cached offline" },
+  { id: "export", label: "Export / Import", icon: Download,
+    keywords: "export import backup json download upload restore copy" },
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]["id"];
+
+function SettingsNav({
+  active, onSelect, matches,
+}: {
+  active: SectionId;
+  onSelect: (id: SectionId) => void;
+  matches: readonly SectionId[] | null;
+}) {
+  return (
+    <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible -mx-1 px-1 pb-1 lg:pb-0">
+      {SECTIONS.map((section) => {
+        // When a search is running, sections that cannot match are dimmed
+        // rather than removed: a nav that changes length as you type is
+        // harder to use than one that stays put.
+        const dimmed = matches !== null && !matches.includes(section.id);
+        const isActive = active === section.id;
+        return (
+          <button
+            key={section.id}
+            onClick={() => onSelect(section.id)}
+            aria-current={isActive ? "page" : undefined}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap text-left shrink-0 lg:w-full ${
+              isActive
+                ? "bg-blue-50 text-blue-700"
+                : "text-slate-600 hover:bg-slate-50"
+            } ${dimmed ? "opacity-40" : ""}`}
+          >
+            <section.icon className="h-4 w-4 shrink-0" />
+            {section.label}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** One row of the security checklist. */
+function SecurityCheck({
+  done, label, detail, action,
+}: {
+  done: boolean;
+  label: string;
+  detail: string;
+  action?: { text: string; onClick: () => void };
+}) {
+  return (
+    <li className="flex items-start gap-3 py-2.5">
+      <span
+        className={`mt-0.5 h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${
+          done ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+        }`}
+      >
+        {done ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-slate-800">{label}</p>
+        <p className="text-xs text-slate-500 mt-0.5">{detail}</p>
+      </div>
+      {action && !done && (
+        <button
+          onClick={action.onClick}
+          className="text-xs font-medium text-blue-600 hover:text-blue-700 shrink-0 inline-flex items-center gap-0.5"
+        >
+          {action.text} <ChevronRight className="h-3 w-3" />
+        </button>
+      )}
+    </li>
+  );
+}
+
+/** Roughly how much of this browser's storage the logbook is using. */
+function localStorageBytes(): number {
+  let total = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith("logbook-")) continue;
+      total += key.length + (localStorage.getItem(key)?.length ?? 0);
+    }
+  } catch {
+    return 0;
+  }
+  // UTF-16 in every engine that implements the spec, so two bytes a unit.
+  return total * 2;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 function ReminderNotificationToggle() {
   const [mode, setMode] = useState(reminderNotificationMode);
   const [busy, setBusy] = useState(false);
@@ -154,8 +285,6 @@ export default function SettingsPage() {
   // Account
   const [name, setName] = useState(() => localStorage.getItem("logbook-name") || "Student");
   const [email, setEmail] = useState(() => localStorage.getItem("logbook-email") || "");
-  const [currentPw, setCurrentPw] = useState("");
-  const [newPw, setNewPw] = useState("");
   const [accountSaved, setAccountSaved] = useState(false);
   const [deletePw, setDeletePw] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -164,6 +293,18 @@ export default function SettingsPage() {
   // Appearance
   const [theme, setTheme] = useState<Theme>(() => load("logbook-theme", DEFAULTS.theme));
   const [accent, setAccent] = useState<AccentColor>(() => load("logbook-accent", DEFAULTS.accent));
+  const [density, setDensity] = useState<Density>(() => load("logbook-density", DEFAULTS.density));
+
+  // Which panel is open, kept in the URL so a section can be linked to and
+  // survives a reload — ?section=security rather than component state alone.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const active = (searchParams.get("section") ?? "account") as SectionId;
+  const setActive = (id: SectionId) => setSearchParams(id === "account" ? {} : { section: id });
+  const [query, setQuery] = useState("");
+
+  // Account
+  const [accountError, setAccountError] = useState("");
+  const [resetSent, setResetSent] = useState(false);
 
 
   // Logbook
@@ -177,6 +318,7 @@ export default function SettingsPage() {
 
   // 2FA state
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [twoFASecret, setTwoFASecret] = useState("");
   const [twoFAQrCode, setTwoFAQrCode] = useState("");
@@ -197,6 +339,7 @@ export default function SettingsPage() {
   // Persist appearance on change
   useEffect(() => { save("logbook-theme", theme); applyTheme(theme); }, [theme]);
   useEffect(() => { save("logbook-accent", accent); applyAccent(accent); }, [accent]);
+  useEffect(() => { save("logbook-density", density); applyDensity(density); }, [density]);
   useEffect(() => { save("logbook-prefs", logbook); }, [logbook]);
 
   // Load projects for default project selector
@@ -213,17 +356,63 @@ export default function SettingsPage() {
         setRecoveryCodesRemaining(res.data.recoveryCodesRemaining ?? 0);
       })
       .catch(() => {});
+
+    // The security checklist needs to know whether the address has been
+    // confirmed; /me is the only place that says so.
+    api
+      .get("/me")
+      .then((res) => setEmailVerified(Boolean(res.data.isEmailVerified)))
+      .catch(() => setEmailVerified(null));
   }, []);
 
   // -- handlers --
 
-  const handleSaveAccount = () => {
-    localStorage.setItem("logbook-name", name);
-    localStorage.setItem("logbook-email", email);
-    setAccountSaved(true);
-    setTimeout(() => setAccountSaved(false), 2000);
-    setCurrentPw("");
-    setNewPw("");
+  /**
+   * Save the display name to the account.
+   *
+   * This used to write the name and the email to localStorage and report
+   * "Saved". The name only changed in that one browser, and the email did not
+   * change the account's address at all — which was the more serious half,
+   * because a student could type a new address, be told it saved, and still
+   * have password resets go to the old one. The name is now written to the
+   * server and the email is read-only.
+   */
+  const handleSaveAccount = async () => {
+    setAccountError("");
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setAccountError("Display name cannot be empty.");
+      return;
+    }
+    try {
+      const { data } = await api.patch("/me", { fullName: trimmed });
+      setName(data.fullName);
+      // The sidebar still reads the name from here; the server is the source
+      // of truth and this keeps that copy from going stale.
+      localStorage.setItem("logbook-name", data.fullName);
+      setAccountSaved(true);
+      setTimeout(() => setAccountSaved(false), 2000);
+    } catch (error: any) {
+      setAccountError(error?.response?.data?.error ?? "Your name could not be saved.");
+    }
+  };
+
+  /**
+   * Change the password by the route that actually exists.
+   *
+   * There is no authenticated change-password endpoint, so rather than keep a
+   * form that silently discarded what was typed into it, this sends the same
+   * reset email the login page does. It works today and it proves the student
+   * controls the address, which a straight change would not.
+   */
+  const handleSendReset = async () => {
+    setAccountError("");
+    try {
+      await api.post("/auth/forgot-password", { email });
+      setResetSent(true);
+    } catch {
+      setAccountError("The reset email could not be sent. Try again in a moment.");
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -432,25 +621,163 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const localBytes = useMemo(() => localStorageBytes(), [active]);
+
+  const trimmedQuery = query.trim().toLowerCase();
+  const matches = useMemo(() => {
+    if (!trimmedQuery) return null;
+    return SECTIONS.filter(
+      (section) =>
+        section.label.toLowerCase().includes(trimmedQuery) ||
+        section.keywords.includes(trimmedQuery)
+    ).map((section) => section.id);
+  }, [trimmedQuery]);
+
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-5 max-w-5xl">
       <PageHeader title="Settings" subtitle="Manage your account, appearance, and preferences." />
 
-      {/* 1. Account */}
+      <div className="relative max-w-sm">
+        <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search settings…"
+          aria-label="Search settings"
+          className="w-full border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
+        />
+      </div>
+
+      {matches !== null && (
+        <p className="text-xs text-slate-500" role="status">
+          {matches.length === 0
+            ? "Nothing matches that. Try \u201cdark\u201d, \u201c2fa\u201d or \u201cexport\u201d."
+            : `In ${matches.length} section${matches.length === 1 ? "" : "s"}: ${matches
+                .map((id) => SECTIONS.find((section) => section.id === id)!.label)
+                .join(", ")}`}
+        </p>
+      )}
+
+      <div className="grid lg:grid-cols-[200px_1fr] gap-5 items-start">
+        <SettingsNav active={active} onSelect={setActive} matches={matches} />
+
+        <div className="space-y-5 min-w-0">
+
+      {active === "account" && (
       <Section icon={User} title="Account">
         <Field label="Display name">
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} maxLength={255} />
         </Field>
-        <Field label="Email address">
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="you@university.ac.za" />
-        </Field>
-        <div className="border-t border-slate-100 pt-4">
-          <p className="text-sm font-medium text-slate-700 mb-2">Change password</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input type="password" placeholder="Current password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} className={inputCls} />
-            <input type="password" placeholder="New password" value={newPw} onChange={(e) => setNewPw(e.target.value)} className={inputCls} />
+        <div>
+          <p className="text-sm text-slate-600 mb-1.5">Email address</p>
+          <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2">
+            <Mail className="h-4 w-4 text-slate-400 shrink-0" />
+            <span className="text-sm text-slate-600 truncate">{email || "No email on file"}</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Password management will be available once authentication is connected.</p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            This is the address you sign in with and where a password reset is sent, so it
+            cannot be changed from here.
+          </p>
+        </div>
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm font-medium text-slate-700 mb-1">Password</p>
+          <p className="text-xs text-slate-500 mb-3">
+            Changing it is done through an emailed link, the same way the login page does it.
+          </p>
+          {resetSent ? (
+            <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 inline-flex items-center gap-1.5">
+              <Check className="h-3.5 w-3.5 shrink-0" />
+              If that address has an account, a reset link is on its way.
+            </p>
+          ) : (
+            <button
+              onClick={handleSendReset}
+              disabled={!email}
+              className="inline-flex items-center gap-1.5 border border-slate-200 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-50"
+            >
+              <KeyRound className="h-3.5 w-3.5" /> Email me a reset link
+            </button>
+          )}
+        </div>
+        {accountError && (
+          <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{accountError}</p>
+        )}
+
+        <div className="flex items-center gap-3 pt-2">
+          <button onClick={handleSaveAccount} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+            {accountSaved && <Check className="h-3.5 w-3.5" />}
+            {accountSaved ? "Saved" : "Save Changes"}
+          </button>
+        </div>
+        <div className="border-t border-slate-100 pt-4 mt-2">
+          <p className="text-sm font-medium text-red-700 mb-1">Delete account</p>
+          <p className="text-xs text-slate-500 mb-3">
+            Schedule your account and all associated data for permanent deletion in 30 days. You can cancel by logging in before then.
+          </p>
+          {deleteError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-2">{deleteError}</p>
+          )}
+          <div className="flex items-end gap-2">
+            <input
+              type="password"
+              placeholder="Confirm your password"
+              value={deletePw}
+              onChange={(e) => setDeletePw(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-red-400 flex-1 max-w-xs"
+            />
+            <button
+              onClick={handleDeleteAccount}
+              disabled={isDeleting || !deletePw}
+              className="shrink-0 flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> {isDeleting ? "Scheduling..." : "Delete"}
+            </button>
+          </div>
+        </div>
+      </Section>
+      )}
+
+      {active === "security" && (
+      <Section icon={Lock} title="Security">
+        {/* The checklist is deliberately a list of specific things rather than
+            a score out of ten: "2 of 3" tells you what to do next, a number
+            out of a hundred only tells you how to feel. */}
+        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-1">
+          <ul className="divide-y divide-slate-200/70">
+            <SecurityCheck
+              done={is2FAEnabled}
+              label="Two-factor authentication"
+              detail={
+                is2FAEnabled
+                  ? "A code from your authenticator app is required at sign-in."
+                  : "Your password alone is enough to sign in right now."
+              }
+              action={{ text: "Set up", onClick: () => setShow2FASetup(true) }}
+            />
+            {is2FAEnabled && (
+              <SecurityCheck
+                done={recoveryCodesRemaining > 0}
+                label="Recovery codes"
+                detail={
+                  recoveryCodesRemaining > 0
+                    ? `${recoveryCodesRemaining} left — these are how you get in without your phone.`
+                    : "None left. Without one, losing your phone locks you out."
+                }
+              />
+            )}
+            <SecurityCheck
+              done={emailVerified === true}
+              label="Email address confirmed"
+              detail={
+                emailVerified === null
+                  ? "Could not be checked just now."
+                  : emailVerified
+                    ? "Password resets will reach you."
+                    : "Unconfirmed, so a password reset may not reach you."
+              }
+            />
+          </ul>
         </div>
 
         {/* Two-Factor Authentication */}
@@ -673,40 +1000,10 @@ export default function SettingsPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-3 pt-2">
-          <button onClick={handleSaveAccount} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
-            {accountSaved && <Check className="h-3.5 w-3.5" />}
-            {accountSaved ? "Saved" : "Save Changes"}
-          </button>
-        </div>
-        <div className="border-t border-slate-100 pt-4 mt-2">
-          <p className="text-sm font-medium text-red-700 mb-1">Delete account</p>
-          <p className="text-xs text-slate-500 mb-3">
-            Schedule your account and all associated data for permanent deletion in 30 days. You can cancel by logging in before then.
-          </p>
-          {deleteError && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-2">{deleteError}</p>
-          )}
-          <div className="flex items-end gap-2">
-            <input
-              type="password"
-              placeholder="Confirm your password"
-              value={deletePw}
-              onChange={(e) => setDeletePw(e.target.value)}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-red-400 flex-1 max-w-xs"
-            />
-            <button
-              onClick={handleDeleteAccount}
-              disabled={isDeleting || !deletePw}
-              className="shrink-0 flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> {isDeleting ? "Scheduling..." : "Delete"}
-            </button>
-          </div>
-        </div>
       </Section>
+      )}
 
-      {/* 2. Appearance */}
+      {active === "appearance" && (
       <Section icon={Palette} title="Appearance">
         <div>
           <p className="text-sm text-slate-600 mb-3">Theme</p>
@@ -749,11 +1046,42 @@ export default function SettingsPage() {
               />
             ))}
           </div>
+          <p className="text-[11px] text-slate-400 mt-2">
+            Recolours buttons, links and highlights across the app.
+          </p>
+        </div>
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm text-slate-600 mb-3">Density</p>
+          <div className="flex gap-3">
+            {([
+              { value: "comfortable" as const, icon: AlignJustify, label: "Comfortable", hint: "Default spacing" },
+              { value: "compact" as const, icon: Rows3, label: "Compact", hint: "More on screen" },
+            ]).map(({ value, icon: Icon, label, hint }) => (
+              <button
+                key={value}
+                onClick={() => setDensity(value)}
+                className={`flex items-start gap-2.5 p-3 rounded-lg border-2 transition text-left flex-1 max-w-[220px] ${
+                  density === value ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${density === value ? "text-blue-700" : "text-slate-500"}`} />
+                <span>
+                  <span className={`block text-xs font-medium ${density === value ? "text-blue-700" : "text-slate-700"}`}>{label}</span>
+                  <span className="block text-[11px] text-slate-400 mt-0.5">{hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2">
+            Tightens padding only — text stays the same size.
+          </p>
         </div>
       </Section>
+      )}
 
-      {/* 3. Reminders — the rules live on the server, with the reminders themselves */}
-      <Section icon={Bell} title="Reminders">
+      {/* 3. Notifications — the rules live on the server, with the reminders themselves */}
+      {active === "notifications" && (
+      <Section icon={Bell} title="Notifications">
         <p className="text-sm text-slate-600">
           Due-date, overdue, stalled-entry and daily logbook reminders are configured with your reminders.
         </p>
@@ -765,8 +1093,10 @@ export default function SettingsPage() {
         </Link>
         <ReminderNotificationToggle />
       </Section>
+      )}
 
       {/* 4. Logbook Preferences */}
+      {active === "logbook" && (
       <Section icon={BookOpen} title="Logbook Preferences">
         <Field label="Default project for new entries">
           <select
@@ -823,9 +1153,11 @@ export default function SettingsPage() {
           </Field>
         </div>
       </Section>
+      )}
 
-      {/* 5. Data */}
-      <Section icon={Download} title="Data">
+      {/* 5. Export / Import */}
+      {active === "export" && (
+      <Section icon={Download} title="Export / Import">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-slate-800">Export logbook</p>
@@ -851,21 +1183,98 @@ export default function SettingsPage() {
           <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
         </div>
         {dataMessage && <p className="text-xs text-slate-600 bg-slate-50 rounded-md px-3 py-2">{dataMessage}</p>}
+      </Section>
+      )}
+
+      {/* 6. Data & Privacy — where each thing actually lives */}
+      {active === "privacy" && (
+      <Section icon={Database} title="Data & Privacy">
+        <p className="text-sm text-slate-600">
+          Your logbook is split between two places, and the difference matters: one
+          follows you to any device you sign in on, the other does not.
+        </p>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="border border-slate-200 rounded-lg p-3.5">
+            <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+              <Database className="h-3.5 w-3.5 text-slate-400" /> On the server
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5 mb-2">Follows you between browsers and devices.</p>
+            <ul className="text-xs text-slate-600 space-y-1">
+              {[
+                "Your account, name and email address",
+                "Profile details — bio, photo, degree, student number",
+                "Projects, entries, custom fields and their history",
+                "Tags, reminders and automation rules",
+                "Your dashboard layout",
+                "Two-factor secret and recovery code digests",
+              ].map((item) => (
+                <li key={item} className="flex gap-1.5">
+                  <span className="text-slate-300 shrink-0">•</span> {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="border border-slate-200 rounded-lg p-3.5">
+            <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+              <HardDrive className="h-3.5 w-3.5 text-slate-400" /> In this browser only
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5 mb-2">
+              Lost if you clear site data, and not shared with your other devices.
+            </p>
+            <ul className="text-xs text-slate-600 space-y-1">
+              {[
+                "Theme, accent colour and density",
+                "Logbook preferences — default project, view, sort",
+                "Tag colours and saved filters",
+                "Your sign-in token",
+                "Anything captured while offline, until it syncs",
+              ].map((item) => (
+                <li key={item} className="flex gap-1.5">
+                  <span className="text-slate-300 shrink-0">•</span> {item}
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-slate-500 mt-2.5 pt-2.5 border-t border-slate-100">
+              Using about <span className="font-medium text-slate-700">{formatBytes(localBytes)}</span> here.
+            </p>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 pt-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-slate-800">Take a copy of everything</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Your projects, fields and entries as a JSON file you keep.
+            </p>
+          </div>
+          <button onClick={handleExportJSON} className="shrink-0 flex items-center gap-1.5 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+            <Download className="h-3.5 w-3.5" /> Download
+          </button>
+        </div>
+
         <div className="border-t border-slate-100 pt-4 flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-slate-800">Clear local data</p>
-            <p className="text-xs text-slate-500 mt-0.5">Remove saved preferences. Server data is not affected.</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Removes the browser-only column above. Nothing on the server is touched,
+              and signing in again restores your logbook.
+            </p>
           </div>
           <button onClick={handleClearData} className="shrink-0 flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 transition">
             <Trash2 className="h-3.5 w-3.5" /> Clear
           </button>
         </div>
       </Section>
+      )}
 
-      {/* About */}
-      <p className="text-xs text-slate-400 text-center pb-4">
-        Digital Logbook - COMS3011A Software Design Project
+      <p className="text-xs text-slate-400 pt-2">
+        Digital Logbook — COMS3011A Software Design Project
       </p>
+
+        </div>
+      </div>
     </div>
   );
 }

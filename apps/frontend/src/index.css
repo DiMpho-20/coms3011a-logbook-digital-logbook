@@ -177,3 +177,76 @@ body {
 /* Violet */
 [data-theme="dark"] .bg-violet-50 { background-color: #1d1630 !important; }
 [data-theme="dark"] .text-violet-600 { color: #c4b5fd !important; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Accent colour — data-accent on <html>, set from Settings › Appearance.
+
+   The picker used to set this attribute and nothing read it, so choosing
+   "emerald" changed precisely nothing. Rather than rewrite every component
+   to use a variable, the blue utility classes the interface is already built
+   from are remapped per accent — the same approach the dark theme above
+   takes, and the reason both work without touching a single component.
+
+   Blue needs no block: it is what the classes already mean.
+   ───────────────────────────────────────────────────────────────────────── */
+
+[data-accent="emerald"] .bg-blue-600 { background-color: #059669 !important; }
+[data-accent="emerald"] .hover\:bg-blue-700:hover { background-color: #047857 !important; }
+[data-accent="emerald"] .bg-blue-50 { background-color: #ecfdf5 !important; }
+[data-accent="emerald"] .bg-blue-100 { background-color: #d1fae5 !important; }
+[data-accent="emerald"] .text-blue-600 { color: #059669 !important; }
+[data-accent="emerald"] .text-blue-700 { color: #047857 !important; }
+[data-accent="emerald"] .hover\:text-blue-700:hover { color: #047857 !important; }
+[data-accent="emerald"] .border-blue-500 { border-color: #10b981 !important; }
+[data-accent="emerald"] .border-blue-200 { border-color: #a7f3d0 !important; }
+[data-accent="emerald"] .ring-blue-500 { --tw-ring-color: #10b981 !important; }
+
+[data-accent="violet"] .bg-blue-600 { background-color: #7c3aed !important; }
+[data-accent="violet"] .hover\:bg-blue-700:hover { background-color: #6d28d9 !important; }
+[data-accent="violet"] .bg-blue-50 { background-color: #f5f3ff !important; }
+[data-accent="violet"] .bg-blue-100 { background-color: #ede9fe !important; }
+[data-accent="violet"] .text-blue-600 { color: #7c3aed !important; }
+[data-accent="violet"] .text-blue-700 { color: #6d28d9 !important; }
+[data-accent="violet"] .hover\:text-blue-700:hover { color: #6d28d9 !important; }
+[data-accent="violet"] .border-blue-500 { border-color: #8b5cf6 !important; }
+[data-accent="violet"] .border-blue-200 { border-color: #ddd6fe !important; }
+[data-accent="violet"] .ring-blue-500 { --tw-ring-color: #8b5cf6 !important; }
+
+[data-accent="amber"] .bg-blue-600 { background-color: #d97706 !important; }
+[data-accent="amber"] .hover\:bg-blue-700:hover { background-color: #b45309 !important; }
+[data-accent="amber"] .bg-blue-50 { background-color: #fffbeb !important; }
+[data-accent="amber"] .bg-blue-100 { background-color: #fef3c7 !important; }
+[data-accent="amber"] .text-blue-600 { color: #b45309 !important; }
+[data-accent="amber"] .text-blue-700 { color: #92400e !important; }
+[data-accent="amber"] .hover\:text-blue-700:hover { color: #92400e !important; }
+[data-accent="amber"] .border-blue-500 { border-color: #f59e0b !important; }
+[data-accent="amber"] .border-blue-200 { border-color: #fde68a !important; }
+[data-accent="amber"] .ring-blue-500 { --tw-ring-color: #f59e0b !important; }
+
+[data-accent="rose"] .bg-blue-600 { background-color: #e11d48 !important; }
+[data-accent="rose"] .hover\:bg-blue-700:hover { background-color: #be123c !important; }
+[data-accent="rose"] .bg-blue-50 { background-color: #fff1f2 !important; }
+[data-accent="rose"] .bg-blue-100 { background-color: #ffe4e6 !important; }
+[data-accent="rose"] .text-blue-600 { color: #e11d48 !important; }
+[data-accent="rose"] .text-blue-700 { color: #be123c !important; }
+[data-accent="rose"] .hover\:text-blue-700:hover { color: #be123c !important; }
+[data-accent="rose"] .border-blue-500 { border-color: #f43f5e !important; }
+[data-accent="rose"] .border-blue-200 { border-color: #fecdd3 !important; }
+[data-accent="rose"] .ring-blue-500 { --tw-ring-color: #f43f5e !important; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Density — data-density on <html>, set from Settings › Appearance.
+
+   Compact tightens the padding of cards and list rows only. Font sizes are
+   left alone deliberately: shrinking text is how a "compact" mode turns into
+   an accessibility problem, and the space actually being wasted on a laptop
+   screen is vertical padding, not letter height.
+   ───────────────────────────────────────────────────────────────────────── */
+
+[data-density="compact"] .p-5 { padding: 0.875rem !important; }
+[data-density="compact"] .p-4 { padding: 0.625rem !important; }
+[data-density="compact"] .py-2\.5 { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; }
+[data-density="compact"] .space-y-6 > * + * { margin-top: 1rem !important; }
+[data-density="compact"] .space-y-5 > * + * { margin-top: 0.875rem !important; }
+[data-density="compact"] .gap-5 { gap: 0.875rem !important; }
+[data-density="compact"] .gap-3 { gap: 0.5rem !important; }
