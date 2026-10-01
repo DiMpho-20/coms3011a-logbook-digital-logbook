@@ -22,7 +22,7 @@ import {
   type Entry,
   type EntryField,
 } from "../api";
-import { formatDuration, getGreeting, localDateKey, entryDateKey } from "../lib/utils";
+import { fieldValueText, formatDuration, getGreeting, localDateKey, entryDateKey } from "../lib/utils";
 import PageHeader from "../components/PageHeader";
 import DeadlineReminders from "../components/DeadlineReminders";
 import LoadingState from "../components/LoadingState";
@@ -244,7 +244,10 @@ function entrySummary(entry: Entry, fields: EntryField[]): string {
   for (const field of fields) {
     const val = entry.values?.[field.id];
     if (val != null && val !== false && val !== "") {
-      return field.type === "BOOLEAN" ? (val ? "Yes" : "No") : String(val);
+      if (field.type === "BOOLEAN") return val ? "Yes" : "No";
+      // Checklists and references are objects; show their labels.
+      const text = fieldValueText(val);
+      if (text) return text;
     }
   }
   return "—";

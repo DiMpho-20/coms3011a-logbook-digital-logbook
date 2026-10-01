@@ -199,6 +199,35 @@ describe("DashboardPage", () => {
     expect(within(weeks).getByRole("rowheader", { name: "Entries" })).toBeInTheDocument();
   });
 
+  it("summarises a checklist or reference entry by its labels in Recent Entries", async () => {
+    const { fetchAllEntries } = await import("../../api");
+    const today = localDateKey(new Date());
+    const make = (id: string, values: Record<string, unknown>) => ({
+      id, projectId: "p1", durationMinutes: 0, entryDate: `${today}T00:00:00.000Z`,
+      createdAt: `${today}T08:00:00.000Z`, updatedAt: `${today}T08:00:00.000Z`,
+      dueDate: null, values, format: null, tags: [], status: "OPEN", completedAt: null,
+    });
+    vi.mocked(fetchAllEntries).mockResolvedValueOnce({
+      entries: [
+        make("e1", { list: [{ label: "Buy milk", checked: true }, { label: "Eggs", checked: false }] }),
+        make("e2", { ref: { id: "x", label: "Thesis draft" } }),
+      ],
+      truncated: false,
+      fieldsByProject: {
+        p1: [
+          { id: "list", name: "Shopping", type: "CHECKLIST" },
+          { id: "ref", name: "Related", type: "REFERENCE" },
+        ],
+      },
+      projectsNeedingFields: [],
+    } as any);
+    renderDashboard();
+
+    expect(await screen.findByText("Buy milk, Eggs")).toBeInTheDocument();
+    expect(screen.getByText("Thesis draft")).toBeInTheDocument();
+    expect(screen.queryByText(/\[object Object\]/)).toBeNull();
+  });
+
   it("renders the Activity chart section", async () => {
     renderDashboard();
 
