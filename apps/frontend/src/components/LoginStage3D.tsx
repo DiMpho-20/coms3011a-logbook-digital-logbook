@@ -1,32 +1,222 @@
-import { useRef, type PointerEvent, type ReactNode } from "react";
-import { ShieldCheck, KeyRound, Clock } from "lucide-react";
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import {
+  ShieldCheck,
+  KeyRound,
+  Clock,
+  FolderKanban,
+  BarChart3,
+  Bell,
+  History,
+  BookOpen,
+  type LucideIcon,
+} from "lucide-react";
 import { prefersReducedMotion } from "../lib/motion";
 
-/* A solid logbook built from six CSS faces, floating over a glowing platform. */
+/* ── What the book pages through ─────────────────────────────────
+   Each feature fills one spread: a small sketch of the screen on the
+   left page, and what it does on the right. */
+
+interface Feature {
+  icon: LucideIcon;
+  title: string;
+  text: string;
+  sketch: ReactNode;
+}
+
+const FEATURES: Feature[] = [
+  {
+    icon: FolderKanban,
+    title: "Projects your way",
+    text: "Design each project's entries with your own fields: numbers, checklists, links and fields that calculate themselves.",
+    sketch: (
+      <div className="login-sketch-card">
+        <p className="login-sketch-heading">Entry format</p>
+        {[["Hours", "Number"], ["Done", "Checklist"], ["Notes", "Text"], ["Rate", "Computed"]].map(([name, type]) => (
+          <div key={name} className="login-sketch-row">
+            <span>{name}</span>
+            <span className="login-sketch-chip">{type}</span>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  {
+    icon: BarChart3,
+    title: "See your progress",
+    text: "Time every entry with the stopwatch, then watch your hours add up in charts and your own saved statistics.",
+    sketch: (
+      <div className="login-sketch-card">
+        <p className="login-sketch-heading">Hours this week</p>
+        <div className="login-sketch-bars">
+          {[40, 65, 30, 85, 55, 95, 70].map((h, i) => (
+            <span key={i} style={{ height: `${h}%` }} />
+          ))}
+        </div>
+        <p className="login-sketch-formula">SUM({"{Hours}"}) = 23.5</p>
+      </div>
+    ),
+  },
+  {
+    icon: Bell,
+    title: "Never miss a deadline",
+    text: "Reminders for due dates and stalled work reach your device, and due dates sync to Google Calendar.",
+    sketch: (
+      <div className="login-sketch-card">
+        <p className="login-sketch-heading">October</p>
+        <div className="login-sketch-calendar">
+          {Array.from({ length: 21 }, (_, i) => (
+            <span key={i} className={i === 11 ? "is-due" : i === 4 ? "is-today" : ""} />
+          ))}
+        </div>
+        <div className="login-sketch-toast">
+          <Bell style={{ width: 9, height: 9 }} /> Report due tomorrow
+        </div>
+      </div>
+    ),
+  },
+  {
+    icon: History,
+    title: "Nothing gets lost",
+    text: "Log entries offline and they sync later. Every change is kept, so any earlier version can be restored.",
+    sketch: (
+      <div className="login-sketch-card">
+        <p className="login-sketch-heading">Version history</p>
+        {[["v3", "Today"], ["v2", "Monday"], ["v1", "Sep 12"]].map(([v, when], i) => (
+          <div key={v} className={`login-sketch-row ${i === 0 ? "is-current" : ""}`}>
+            <span>{v}</span>
+            <span>{when}</span>
+          </div>
+        ))}
+        <span className="login-sketch-button">Restore v2</span>
+      </div>
+    ),
+  },
+];
+
+/* Steps: 0 closed · 1 cover open · 1 + n once n pages have turned. */
+const LAST_STEP = FEATURES.length + 1;
+const HOLD_CLOSED_MS = 2600;
+const HOLD_OPEN_MS = 3800;
+/* Long enough for every page and the cover to fall shut in turn. */
+const CLOSING_MS = 1400 + FEATURES.length * 150;
+
+function PageNumber({ n }: { n: number }) {
+  return <span className="login-page-number">{n}</span>;
+}
+
+/* A solid logbook built from six CSS faces, floating over a glowing platform.
+   Every so often it opens and pages through what the logbook can do. */
 function Logbook3D() {
+  const [step, setStep] = useState(0);
+  const [closing, setClosing] = useState(false);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (paused || prefersReducedMotion()) return;
+    const timer = window.setTimeout(
+      () => {
+        if (closing) {
+          setClosing(false);
+        } else if (step === LAST_STEP) {
+          setClosing(true);
+          setStep(0);
+        } else {
+          setStep(step + 1);
+        }
+      },
+      closing ? CLOSING_MS : step === 0 ? HOLD_CLOSED_MS : HOLD_OPEN_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [step, closing, paused]);
+
+  const open = step > 0;
+  const leafStyle = (index: number, flipped: boolean) => ({
+    // Turned pages stack in reverse on the left, so each sits on the one
+    // before it, above the open cover; the offsets swap sign as the leaf rotates.
+    transform: `rotateY(${flipped ? -180 : 0}deg) translateZ(${-(index + 1) * 1.2}px)`,
+    // Shut the book from the top page down when it closes.
+    transitionDelay: closing ? `${(FEATURES.length - 1 - index) * 150}ms` : "0ms",
+  });
+
   return (
-    <div className="login-scene" aria-hidden="true">
+    <div
+      className={`login-scene ${open ? "is-open" : ""} ${closing ? "is-closing" : ""}`}
+      aria-hidden="true"
+      data-step={step}
+    >
       <div className="login-platform" />
       <div className="login-book-float">
-        <div className="login-book">
-          <div className="login-book-face login-book-front">
-            <div className="login-book-ribbon" />
-            <div className="login-book-label">
-              <img src="/ProjectLogo.png" alt="" className="login-book-logo" />
+        <div className="login-book-turn">
+          <div
+            className="login-book"
+            onPointerEnter={() => setPaused(true)}
+            onPointerLeave={() => setPaused(false)}
+          >
+            {/* The cover is a leaf hinged on the spine: outside, then inside. */}
+            <div
+              className="login-leaf login-cover"
+              style={{
+                transform: `translateZ(23px) rotateY(${open ? -180 : 0}deg)`,
+                transitionDelay: closing ? `${FEATURES.length * 150}ms` : "0ms",
+              }}
+            >
+              <div className="login-book-face login-book-front">
+                <div className="login-book-ribbon" />
+                <div className="login-book-label">
+                  <img src="/ProjectLogo.png" alt="" className="login-book-logo" />
+                </div>
+                <div className="login-book-subtitle">Digital Logbook</div>
+                <div className="login-book-rule" />
+                <div className="login-book-lines">
+                  <span style={{ width: "80%" }} />
+                  <span style={{ width: "62%" }} />
+                  <span style={{ width: "72%" }} />
+                </div>
+              </div>
+              <div className="login-leaf-back login-cover-inside">{FEATURES[0].sketch}</div>
             </div>
-            <div className="login-book-subtitle">Digital Logbook</div>
-            <div className="login-book-rule" />
-            <div className="login-book-lines">
-              <span style={{ width: "80%" }} />
-              <span style={{ width: "62%" }} />
-              <span style={{ width: "72%" }} />
+  
+            {/* The pages, each a leaf: a feature on the front, and on the back
+                the sketch that goes with the next feature. */}
+            <div className="login-page-block">
+              {FEATURES.map((feature, i) => (
+                <div key={feature.title} className="login-leaf login-page" style={leafStyle(i, step >= i + 2)}>
+                  <div className="login-leaf-front login-paper">
+                    <div className="login-page-icon">
+                      <feature.icon style={{ width: 18, height: 18 }} />
+                    </div>
+                    <p className="login-page-title">{feature.title}</p>
+                    <p className="login-page-text">{feature.text}</p>
+                    <PageNumber n={i * 2 + 1} />
+                  </div>
+                  <div className="login-leaf-back login-paper">
+                    {FEATURES[i + 1]?.sketch ?? (
+                      <div className="login-page-final-sketch">
+                        <BookOpen style={{ width: 40, height: 40 }} />
+                      </div>
+                    )}
+                    <PageNumber n={i * 2 + 2} />
+                  </div>
+                </div>
+              ))}
+  
+              {/* Under every page: the last right-hand page. */}
+              <div className="login-paper login-page-last" style={{ transform: `translateZ(${-(FEATURES.length + 1) * 1.2}px)` }}>
+                <div className="login-page-icon">
+                  <ShieldCheck style={{ width: 18, height: 18 }} />
+                </div>
+                <p className="login-page-title">Your logbook awaits</p>
+                <p className="login-page-text">Sign in securely, with two-factor authentication if you want it, and pick up where you left off.</p>
+                <p className="login-page-cta">Sign in to begin →</p>
+              </div>
             </div>
+  
+            <div className="login-book-face login-book-back" />
+            <div className="login-book-face login-book-spine" />
+            <div className="login-book-face login-book-pages" />
+            <div className="login-book-face login-book-top" />
+            <div className="login-book-face login-book-bottom" />
           </div>
-          <div className="login-book-face login-book-back" />
-          <div className="login-book-face login-book-spine" />
-          <div className="login-book-face login-book-pages" />
-          <div className="login-book-face login-book-top" />
-          <div className="login-book-face login-book-bottom" />
         </div>
       </div>
 
