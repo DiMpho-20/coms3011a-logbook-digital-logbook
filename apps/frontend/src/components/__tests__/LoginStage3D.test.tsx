@@ -30,7 +30,7 @@ describe("LoginStage3D — the paging logbook", () => {
     expect(step()).toBe(0);
     expect(scene()).not.toHaveClass("is-open");
 
-    advance(2600);
+    advance(2000);
     expect(step()).toBe(1);
     expect(scene()).toHaveClass("is-open");
 
@@ -46,13 +46,13 @@ describe("LoginStage3D — the paging logbook", () => {
 
     advance(2000);
     expect(scene()).not.toHaveClass("is-closing");
-    advance(2600);
+    advance(2000);
     expect(step()).toBe(1);
   });
 
   it("turns the pages that have been read", () => {
     render(<LoginStage3D><p>card</p></LoginStage3D>);
-    advance(2600);
+    advance(2000);
     advance(3800);
 
     const pages = document.querySelectorAll<HTMLElement>(".login-page");
@@ -62,7 +62,7 @@ describe("LoginStage3D — the paging logbook", () => {
 
   it("holds the page while the pointer is over the book", () => {
     render(<LoginStage3D><p>card</p></LoginStage3D>);
-    advance(2600);
+    advance(2000);
 
     fireEvent.pointerEnter(document.querySelector(".login-book")!);
     advance(20_000);

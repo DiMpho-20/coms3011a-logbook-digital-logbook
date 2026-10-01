@@ -95,7 +95,7 @@ const FEATURES: Feature[] = [
 
 /* Steps: 0 closed · 1 cover open · 1 + n once n pages have turned. */
 const LAST_STEP = FEATURES.length + 1;
-const HOLD_CLOSED_MS = 2600;
+const HOLD_CLOSED_MS = 2000;
 const HOLD_OPEN_MS = 3800;
 /* Long enough for every page and the cover to fall shut in turn. */
 const CLOSING_MS = 1400 + FEATURES.length * 150;
