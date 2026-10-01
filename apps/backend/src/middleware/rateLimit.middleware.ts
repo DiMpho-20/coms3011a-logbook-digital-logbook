@@ -100,3 +100,10 @@ export const registerLimiter = createRateLimiter({
   limit: positiveIntFromEnv("RATE_LIMIT_REGISTER_MAX", 5),
   message: "Too many accounts created from this address. Please wait and try again.",
 });
+
+/** Each help-assistant question spends free-tier Gemini quota shared by everyone. */
+export const assistantLimiter = createRateLimiter({
+  windowMs: positiveIntFromEnv("RATE_LIMIT_ASSISTANT_WINDOW_MINUTES", 10) * MINUTE,
+  limit: positiveIntFromEnv("RATE_LIMIT_ASSISTANT_MAX", 30),
+  message: "You've asked the assistant a lot of questions. Please wait a few minutes and try again.",
+});

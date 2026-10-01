@@ -6,6 +6,7 @@ vi.mock("../../api", () => ({
   fetchProjects: vi.fn(),
   fetchDueReminderCount: vi.fn().mockResolvedValue(0),
   fetchDueReminders: vi.fn().mockResolvedValue([]),
+  askAssistant: vi.fn(),
   REMINDERS_CHANGED_EVENT: "logbook-reminders-changed",
 }));
 

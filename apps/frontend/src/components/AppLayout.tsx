@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { CloudOff, KeyRound, Menu, X } from "lucide-react";
 import Sidebar from "./Sidebar";
+import HelpAssistant from "./HelpAssistant";
 import { pendingEntryCount, SYNC_EVENT } from "../lib/offlineEntries";
 import { pendingProjectCount, pendingProjectErrors } from "../lib/offlineProjects";
 import { isQuickCaptureKey, lastProjectId } from "../lib/quickCapture";
@@ -160,6 +161,8 @@ export default function AppLayout() {
           <Outlet />
         </div>
       </main>
+
+      <HelpAssistant />
     </div>
   );
 }

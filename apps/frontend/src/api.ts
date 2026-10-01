@@ -736,3 +736,23 @@ export async function updateAutomationRule(
 export async function deleteAutomationRule(projectId: string, id: string): Promise<void> {
   await api.delete(`/projects/${projectId}/automation-rules/${id}`);
 }
+
+// ── Help assistant ─────────────────────────────────────────────────────────
+
+export interface AssistantMessage {
+  role: "user" | "model";
+  text: string;
+}
+
+export interface AssistantReply {
+  reply: string;
+  /** An app route that answers the question, offered as a "Take me there" link. */
+  navigateTo: string | null;
+}
+
+export async function askAssistant(
+  messages: AssistantMessage[],
+  currentPath: string,
+): Promise<AssistantReply> {
+  return (await api.post("/assistant/chat", { messages, currentPath })).data;
+}
