@@ -97,3 +97,19 @@ export function getGreeting(): string {
   if (hour < 18) return "Good afternoon";
   return "Good evening";
 }
+
+/** A structured value names its column by label, as on the Entries page (#89). */
+function valueLabel(value: unknown): string {
+  if (value && typeof value === "object") {
+    const { label, id } = value as { label?: unknown; id?: unknown };
+    return String(label || id || "");
+  }
+  return String(value);
+}
+
+/** The column an entry falls in when the board is grouped by this value. */
+export function columnLabel(raw: unknown): string {
+  if (raw === undefined || raw === null || raw === "") return "—";
+  const label = Array.isArray(raw) ? raw.map(valueLabel).join(", ") : valueLabel(raw);
+  return label || "—";
+}

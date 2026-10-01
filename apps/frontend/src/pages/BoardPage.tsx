@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Kanban, Loader2 } from "lucide-react";
 import { api } from "../api/client";
-import { entryDateKey } from "../lib/utils";
+import { columnLabel, entryDateKey } from "../lib/utils";
 
 type Entry = {
   id: string;
@@ -65,12 +65,7 @@ export default function BoardPage() {
     if (!groupByFieldId) return [];
     const map = new Map<string, Entry[]>();
     for (const entry of entries) {
-      const raw = entry.values[groupByFieldId];
-      const key = Array.isArray(raw)
-        ? raw.map((v) => String(v?.label ?? v?.id ?? v)).join(", ")
-        : raw === undefined || raw === null || raw === ""
-        ? "—"
-        : String(raw);
+      const key = columnLabel(entry.values[groupByFieldId]);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(entry);
     }
