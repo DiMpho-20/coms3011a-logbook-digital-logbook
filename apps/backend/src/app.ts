@@ -36,7 +36,9 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
+// Express's default 100 KB would turn away avatars well under the 512 KB cap
+// in profileInput.ts with a bare 413, before that check could explain itself.
+app.use(express.json({ limit: "1mb" }));
 
 // ── API routes ────────────────────────────────────────────────────────
 app.use("/api", projectRoutes);
