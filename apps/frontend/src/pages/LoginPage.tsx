@@ -3,6 +3,7 @@ import { loginSchema } from "@logbook/shared";
 import { api } from "../api/client";
 import { AuthLayout } from "../components/AuthLayout";
 import { GlassCard } from "../components/GlassCard";
+import { LoginStage3D } from "../components/LoginStage3D";
 
 export const LoginPage: React.FC = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -196,6 +197,7 @@ export const LoginPage: React.FC = () => {
         </svg>
         Back to home
       </a>
+      <LoginStage3D>
       <GlassCard>
         {/* Header Section */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
@@ -760,6 +762,7 @@ export const LoginPage: React.FC = () => {
           </a>
         </p>
       </GlassCard>
+      </LoginStage3D>
 
       {/* Scheduled deletion modal (shown when logging in during grace period) */}
       {scheduledDeletionAt && (

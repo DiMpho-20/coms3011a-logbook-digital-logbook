@@ -2,6 +2,10 @@ site_name: Digital Logbook Documentation
 site_description: Technical documentation and architecture for the Digital Logbook project.
 site_url: https://digital-logbook-docs.pages.dev
 
+# Internal working notes that must not be published
+exclude_docs: |
+  feature-audit-2026-09.md
+
 theme:
   name: material
   palette:

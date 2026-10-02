@@ -97,3 +97,26 @@ export function getGreeting(): string {
   if (hour < 18) return "Good afternoon";
   return "Good evening";
 }
+
+/** A structured value names itself by label, as on the Entries page (#89). */
+function valueLabel(value: unknown): string {
+  if (value && typeof value === "object") {
+    const { label, id } = value as { label?: unknown; id?: unknown };
+    return String(label || id || "");
+  }
+  return String(value);
+}
+
+/**
+ * A field value as plain text: a reference by its label, and a list of tags
+ * or checklist items as their labels, rather than "[object Object]".
+ */
+export function fieldValueText(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  return Array.isArray(value) ? value.map(valueLabel).filter(Boolean).join(", ") : valueLabel(value);
+}
+
+/** The column an entry falls in when the board is grouped by this value. */
+export function columnLabel(raw: unknown): string {
+  return fieldValueText(raw) || "—";
+}
