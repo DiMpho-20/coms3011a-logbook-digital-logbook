@@ -753,7 +753,9 @@ export default function SettingsPage() {
                   ? "A code from your authenticator app is required at sign-in."
                   : "Your password alone is enough to sign in right now."
               }
-              action={{ text: "Set up", onClick: () => setShow2FASetup(true) }}
+              // Must go through the same handler as "Enable 2FA": opening the
+              // panel alone shows no secret, and the server has none to verify.
+              action={{ text: "Set up", onClick: handleStart2FASetup }}
             />
             {is2FAEnabled && (
               <SecurityCheck
