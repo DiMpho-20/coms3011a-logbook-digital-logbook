@@ -506,17 +506,13 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
-
-    // Server-side text search replaces the old client-side filter.
     const search = req.query.search ? String(req.query.search).trim() : undefined;
 
-    // All / this week / overdue.
     const entryTab = String(req.query.entryTab ?? "all");
     if (!["all", "week", "overdue"].includes(entryTab)) {
       return res.status(400).json({ error: "entryTab must be all, week or overdue" });
     }
 
-    // Tags: entries carrying any of these tag names.
     const tagList = req.query.tags
       ? String(req.query.tags).split(",").map((t) => t.trim()).filter(Boolean)
       : [];
@@ -531,8 +527,6 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(400).json({ error: "archived must be exclude, include or only" });
     }
 
-    // Field filters: a JSON array in a single query param so any number of
-    // them can be combined.
     type FieldFilter = { fieldId: string; op: string; value: string };
     let fieldFilters: FieldFilter[] = [];
     if (req.query.filters) {
@@ -545,16 +539,12 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       }
     }
 
-    // ── Build the shared WHERE clause ───────────────────────────────────
+    // ── Shared WHERE clause ─────────────────────────────────────────────
     const conditions: Prisma.Sql[] = [Prisma.sql`p.user_id = ${userId}::uuid`];
     if (projectId) conditions.push(Prisma.sql`le.project_id = ${projectId}::uuid`);
     if (projectStatus !== "ALL") conditions.push(Prisma.sql`p.status::text = ${projectStatus}`);
-
-    // Archived entries are excluded by default (US30).
     if (archivedFilter === "exclude") conditions.push(Prisma.sql`le.archived_at IS NULL`);
     else if (archivedFilter === "only") conditions.push(Prisma.sql`le.archived_at IS NOT NULL`);
-
-    // The visible date is COALESCE(entry_date, created_at).
     if (from) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) >= ${from}`);
     if (to) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) <= ${to}`);
 
@@ -568,7 +558,6 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       conditions.push(Prisma.sql`le.due_date IS NOT NULL AND le.due_date < ${today}`);
     }
 
-    // Tags: entry has at least one of the listed names.
     if (tagList.length > 0) {
       conditions.push(Prisma.sql`
         EXISTS (
@@ -579,7 +568,6 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       `);
     }
 
-    // Free-text search across project name, field values and tags.
     if (search) {
       const like = `%${search}%`;
       conditions.push(Prisma.sql`
@@ -595,7 +583,6 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       `);
     }
 
-    // Field filters: each adds one EXISTS clause, all AND together.
     for (const filter of fieldFilters) {
       if (!filter || typeof filter.fieldId !== "string" || typeof filter.op !== "string" || typeof filter.value !== "string") {
         return res.status(400).json({ error: "each filter needs fieldId, op and value" });
@@ -652,14 +639,53 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const whereClause = Prisma.join(conditions, " AND ");
-    const orderSql =
-      sort === "oldest"
+
+    // ── Relevance scoring (US25) ────────────────────────────────────────
+    // When a search term is present, rank by how strongly each entry matches
+    // before falling back to date order. Weights:
+    //   project name match        → 3
+    //   TEXT field value match    → 3
+    //   TAGS field value match    → 2
+    //   any other field value     → 1
+    // An entry scores the sum of its matches; the more places the term
+    // appears, the higher it ranks.
+    const relevanceSql = search
+      ? Prisma.sql`
+          (
+            CASE WHEN p.name ILIKE ${"%" + search + "%"} THEN 3 ELSE 0 END
+            + COALESCE((
+              SELECT SUM(
+                CASE
+                  WHEN ef.type = 'TEXT' THEN 3
+                  WHEN ef.type = 'TAGS' THEN 2
+                  ELSE 1
+                END
+              )
+              FROM entry_values ev
+              JOIN entry_fields ef ON ef.id = ev.field_id
+              WHERE ev.entry_id = le.id AND ev.value ILIKE ${"%" + search + "%"}
+            ), 0)
+            + COALESCE((
+              SELECT COUNT(*) * 2
+              FROM entry_tags et
+              JOIN tags t ON t.id = et.tag_id
+              WHERE et.entry_id = le.id AND t.name ILIKE ${"%" + search + "%"}
+            ), 0)
+          )::int AS relevance
+        `
+      : Prisma.sql`0::int AS relevance`;
+
+    // Order: when searching, most relevant first then newest. Without a
+    // search, keep the plain date order.
+    const orderSql = search
+      ? Prisma.sql`ORDER BY relevance DESC, COALESCE(le.entry_date, le.created_at) DESC, le.id DESC`
+      : sort === "oldest"
         ? Prisma.sql`ORDER BY COALESCE(le.entry_date, le.created_at) ASC, le.id ASC`
         : Prisma.sql`ORDER BY COALESCE(le.entry_date, le.created_at) DESC, le.id DESC`;
 
     // ── Page query ──────────────────────────────────────────────────────
-    const rows = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT le.id
+    const rows = await prisma.$queryRaw<{ id: string; relevance: number }[]>`
+      SELECT le.id, ${relevanceSql}
       FROM logbook_entries le
       JOIN projects p ON p.id = le.project_id
       WHERE ${whereClause}
@@ -668,7 +694,7 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       OFFSET ${offset}
     `;
 
-    // ── Stats over the whole filtered set (not just the page) ───────────
+    // ── Stats over the whole filtered set ───────────────────────────────
     const statRows = await prisma.$queryRaw<{
       total: bigint;
       week_count: bigint;
@@ -691,7 +717,6 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       WHERE ${whereClause}
     `;
 
-    // Streak needs the distinct dates the entries fall on, from the same set.
     const dayRows = await prisma.$queryRaw<{ day: string }[]>`
       SELECT DISTINCT to_char(COALESCE(le.entry_date, le.created_at), 'YYYY-MM-DD') AS day
       FROM logbook_entries le
