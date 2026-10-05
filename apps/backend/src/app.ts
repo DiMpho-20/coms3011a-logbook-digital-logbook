@@ -14,6 +14,7 @@ import pushRoutes from "./routes/push.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
 import assistantRoutes from "./routes/assistant.routes.js";
+import gradesRoutes from "./routes/grades.routes.js";
 import { authLimiter, nonNegativeIntFromEnv } from "./middleware/rateLimit.middleware.js";
 
 const app = express();
@@ -55,6 +56,9 @@ app.use("/api", pushRoutes);
 app.use("/api", dashboardRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", assistantRoutes);
+// Its own mount path, because the grades router applies requireAuth to every
+// request it sees (see grades.routes.ts).
+app.use("/api/grades", gradesRoutes);
 
 // ── Utility routes ────────────────────────────────────────────────────
 app.get("/", (_req, res) => {

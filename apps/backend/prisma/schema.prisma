@@ -102,6 +102,7 @@ model User {
   twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
   pushSubscriptions       PushSubscription[]
   dashboardLayout         DashboardLayout?
+  academicModules         AcademicModule[]
 
   @@map("users")
 }
@@ -502,4 +503,79 @@ model AutomationRule {
   // Every entry save loads this project's enabled rules and nothing else.
   @@index([projectId, enabled])
   @@map("automation_rules")
+}
+
+// --- MY GRADES (FEAT-009) ---
+// A student's university modules and the assessments that make up their
+// marks. Only what the student entered is stored; every grade figure is
+// worked out on the client by one calculation engine
+// (apps/frontend/src/lib/grades.ts), so nothing here can go stale.
+//
+// Two levels of weighting, kept apart: an assessment's weight is its share of
+// its section, and a section's weight is its share of the module. A semester
+// module is one section worth 100. A full-year module has Semester 1 and
+// Semester 2; only semester1Weight is stored, so the two always total 100.
+
+enum ModuleType {
+  SEMESTER
+  FULL_YEAR
+}
+
+// What an assessment's date means: a deadline, or the day it is written.
+enum AssessmentDateKind {
+  DUE
+  TEST
+}
+
+model AcademicModule {
+  id              String     @id @default(uuid()) @db.Uuid
+  userId          String     @map("user_id") @db.Uuid
+  // Trimmed and upper-cased by the API, so "coms3011a" and "COMS3011A" are one module.
+  code            String     @db.VarChar(20)
+  name            String     @db.VarChar(255)
+  academicYear    Int        @map("academic_year")
+  type            ModuleType
+  // 1 or 2 for a semester module; null for a full-year module.
+  semester        Int?
+  // Full-year modules only; Semester 2 counts for the rest.
+  semester1Weight Decimal?   @map("semester1_weight") @db.Decimal(5, 2)
+  targetMark      Decimal?   @map("target_mark") @db.Decimal(5, 2)
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessments Assessment[]
+
+  // Repeating a module in a later year is a new row, not a clash.
+  @@unique([userId, code, academicYear])
+  @@index([userId, academicYear])
+  @@map("academic_modules")
+}
+
+model Assessment {
+  id           String              @id @default(uuid()) @db.Uuid
+  // One hop to the owner: ownership is always checked through the module.
+  moduleId     String              @map("module_id") @db.Uuid
+  name         String              @db.VarChar(120)
+  // 1 or 2 in a full-year module; null in a semester module.
+  section      Int?
+  // Share of its section, 0–100.
+  weight       Decimal             @db.Decimal(5, 2)
+  // A mark is kept as entered: obtained out of max, or a percentage.
+  markObtained Decimal?            @map("mark_obtained") @db.Decimal(7, 2)
+  markMax      Decimal?            @map("mark_max") @db.Decimal(7, 2)
+  markPercent  Decimal?            @map("mark_percent") @db.Decimal(5, 2)
+  // Counts as 0%, but kept apart from an entered 0.
+  missed       Boolean             @default(false)
+  // A calendar day with no time, so no time zone can move it.
+  date         DateTime?           @db.Date
+  dateKind     AssessmentDateKind? @map("date_kind")
+  position     Int                 @default(0)
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  module AcademicModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId])
+  @@map("assessments")
 }
