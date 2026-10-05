@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Search, Flame, ListChecks, Clock, CalendarDays, FolderKanban, AlertTriangle, ArrowUpDown, BookmarkPlus, X, Filter, Plus } from "lucide-react";
+import { Search, Flame, ListChecks, Clock, CalendarDays, FolderKanban, AlertTriangle, ArrowUpDown, BookmarkPlus, X, Filter } from "lucide-react";
 
 import {
   fetchProjects,
@@ -82,16 +82,26 @@ export default function EntriesPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [stats, setStats] = useState({ total: 0, weekCount: 0, weekMinutes: 0, overdueCount: 0, streak: 0 });
 
-  // Browse state
+  // Draft filter state — the user edits these freely.
   const [filterProjectId, setFilterProjectId] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "week" | "overdue">("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [archivedFilter, setArchivedFilter] = useState<ArchivedFilter>("exclude");
   const [fieldFilters, setFieldFilters] = useState<FieldFilter[]>([]);
+
+  // Applied snapshot — only updated when the user clicks Search (or presses Enter).
+  const [applied, setApplied] = useState({
+    search: "",
+    projectId: "all",
+    tab: "all" as "all" | "week" | "overdue",
+    sort: "newest" as "newest" | "oldest",
+    tags: [] as string[],
+    archived: "exclude" as ArchivedFilter,
+    fieldFilters: [] as FieldFilter[],
+  });
 
   // Field filter popover state
   const [showFilterPopover, setShowFilterPopover] = useState(false);
@@ -106,61 +116,71 @@ export default function EntriesPage() {
   const [filterName, setFilterName] = useState("");
 
   const loadRunRef = useRef(0);
+  const hasLoadedOnceRef = useRef(false);
 
-  // Debounce search so every keystroke isn't a request.
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedSearch(searchQuery), 300);
-    return () => window.clearTimeout(t);
-  }, [searchQuery]);
+  console.log("EntriesPage mounted");
+  return () => console.log("EntriesPage unmounted");
+}, []);
 
   // Fields of the selected project (for the field filter popover).
- const selectedProjectFields = useMemo<EntryField[]>(() => {
-  if (filterProjectId === "all") return [];
-  return fieldsByProject[filterProjectId] || [];
-}, [filterProjectId, fieldsByProject]);
+  const selectedProjectFields = useMemo<EntryField[]>(() => {
+    if (filterProjectId === "all") return [];
+    return fieldsByProject[filterProjectId] || [];
+  }, [filterProjectId, fieldsByProject]);
 
-  // The query the frontend sends to the backend.
-  const buildQuery = useCallback((offset: number) => {
-    const query: any = {
+  const currentField: EntryField | undefined = selectedProjectFields.find((f) => f.id === newFilterFieldId);
+  const availableOps = currentField ? OPERATORS_BY_TYPE[currentField.type] || [] : [];
+
+  // ── Build query from applied snapshot ──────────────────────────────────
+  const buildQuery = useCallback((offset: number, snapshot: typeof applied) => {
+    const query: Record<string, unknown> = {
       projectStatus: "ACTIVE",
       limit: PAGE_SIZE,
       offset,
-      entryTab: filterTab,
-      sort: sortOrder,
+      entryTab: snapshot.tab,
+      sort: snapshot.sort,
     };
-    if (filterProjectId !== "all") query.projectId = filterProjectId;
-    if (debouncedSearch.trim()) query.search = debouncedSearch.trim();
-    if (tagFilters.length > 0) query.tags = tagFilters.join(",");
-    if (archivedFilter !== "exclude") query.archived = archivedFilter;
-    if (fieldFilters.length > 0) query.filters = JSON.stringify(fieldFilters);
+    if (snapshot.projectId !== "all") query.projectId = snapshot.projectId;
+    if (snapshot.search.trim()) query.search = snapshot.search.trim();
+    if (snapshot.tags.length > 0) query.tags = snapshot.tags.join(",");
+    if (snapshot.archived !== "exclude") query.archived = snapshot.archived;
+    if (snapshot.fieldFilters.length > 0) query.filters = JSON.stringify(snapshot.fieldFilters);
     return query;
-  }, [filterTab, sortOrder, filterProjectId, debouncedSearch, tagFilters, archivedFilter, fieldFilters]);
+  }, []);
 
-  const loadAll = useCallback(async () => {
+  // ── Load projects + fields (only on mount) ─────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const all = await fetchProjects();
+        const active = all.filter((p) => p.status === "ACTIVE");
+        setProjects(active);
+
+        const fieldResults = await Promise.all(
+          active.map(async (p) => ({ id: p.id, fields: await fetchEntryFields(p.id).catch(() => []) }))
+        );
+        const map: Record<string, EntryField[]> = {};
+        fieldResults.forEach((r) => { map[r.id] = r.fields; });
+        setFieldsByProject(map);
+      } catch (err) {
+        console.error("Failed to load projects:", err);
+      }
+    })();
+  }, []);
+
+  // ── Load entries when the applied snapshot changes ─────────────────────
+  const loadAll = useCallback(async (snapshot: typeof applied) => {
     const run = ++loadRunRef.current;
-    setLoading(true);
+    if (!hasLoadedOnceRef.current) setLoading(true);
     setEntriesLoading(true);
     try {
-      const all = await fetchProjects();
-      if (run !== loadRunRef.current) return;
-      const active = all.filter((p) => p.status === "ACTIVE");
-      setProjects(active);
-      setLoading(false);
-
-      // Load fields for every project so field filters know what exists.
-      const fieldResults = await Promise.all(
-        active.map(async (p) => ({ id: p.id, fields: await fetchEntryFields(p.id).catch(() => []) }))
-      );
-      if (run !== loadRunRef.current) return;
-      const map: Record<string, EntryField[]> = {};
-      fieldResults.forEach((r) => { map[r.id] = r.fields; });
-      setFieldsByProject(map);
-
-      const listing = await fetchAllEntries(buildQuery(0), { pendingProjectIds: active.map((p) => p.id) });
+      const listing = await fetchAllEntries(buildQuery(0, snapshot), {
+        pendingProjectIds: projects.map((p) => p.id),
+      });
       if (run !== loadRunRef.current) return;
       setAllEntries(listing.entries);
       setHasMore(listing.truncated);
-      console.log("stats from API:", listing.stats);
       if (listing.stats) setStats(listing.stats);
     } catch (err) {
       console.error("Failed to load entries:", err);
@@ -168,30 +188,18 @@ export default function EntriesPage() {
       if (run === loadRunRef.current) {
         setLoading(false);
         setEntriesLoading(false);
+        hasLoadedOnceRef.current = true;
       }
     }
-  }, [buildQuery]);
+  }, [buildQuery, projects]);
 
+  // Re-fetch whenever the applied snapshot changes, and after projects
+  // are loaded for the first time.
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
-
-  const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    try {
-      const listing = await fetchAllEntries(
-        buildQuery(allEntries.length),
-        { pendingProjectIds: projects.map((p) => p.id) }
-      );
-      setAllEntries((prev) => [...prev, ...listing.entries]);
-      setHasMore(listing.truncated);
-    } catch (err) {
-      console.error("Failed to load more entries:", err);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [loadingMore, hasMore, allEntries.length, projects, buildQuery]);
+    if (projects.length === 0 && !hasLoadedOnceRef.current) return;
+    loadAll(applied);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applied, projects.length]);
 
   useEffect(() => {
     setSavedFilters(loadSavedFilters());
@@ -200,6 +208,35 @@ export default function EntriesPage() {
   useEffect(() => {
     fetchTags().then((t) => setAvailableTags(t.map((tag) => tag.name))).catch(() => {});
   }, []);
+
+  // ── Actions ────────────────────────────────────────────────────────────
+  const applySearch = () => {
+    setApplied({
+      search: searchQuery,
+      projectId: filterProjectId,
+      tab: filterTab,
+      sort: sortOrder,
+      tags: tagFilters,
+      archived: archivedFilter,
+      fieldFilters,
+    });
+  };
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const listing = await fetchAllEntries(buildQuery(allEntries.length, applied), {
+        pendingProjectIds: projects.map((p) => p.id),
+      });
+      setAllEntries((prev) => [...prev, ...listing.entries]);
+      setHasMore(listing.truncated);
+    } catch (err) {
+      console.error("Failed to load more entries:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, allEntries.length, projects, applied, buildQuery]);
 
   const filtersActive =
     searchQuery.trim() !== "" ||
@@ -214,8 +251,20 @@ export default function EntriesPage() {
     setFilterTab(f.filterTab);
     setSortOrder(f.sortOrder);
     setTagFilters(f.selectedTags ?? []);
+    setArchivedFilter((f.archivedFilter ?? "exclude") as ArchivedFilter);
+    setFieldFilters(f.fieldFilters ?? []);
     setActiveFilterId(f.id);
     setShowSaveInput(false);
+    // Saved filters apply immediately.
+    setApplied({
+      search: f.searchQuery,
+      projectId: f.filterProjectId,
+      tab: f.filterTab,
+      sort: f.sortOrder,
+      tags: f.selectedTags ?? [],
+      archived: (f.archivedFilter ?? "exclude") as ArchivedFilter,
+      fieldFilters: f.fieldFilters ?? [],
+    });
   };
 
   const markManualChange = () => setActiveFilterId(null);
@@ -229,6 +278,8 @@ export default function EntriesPage() {
         filterTab,
         sortOrder,
         selectedTags: tagFilters,
+        archivedFilter,
+        fieldFilters,
       })
     );
     setFilterName("");
@@ -245,13 +296,8 @@ export default function EntriesPage() {
     [projects]
   );
 
-  // ── Field filter actions ────────────────────────────────────────────────
-const currentField: EntryField | undefined = selectedProjectFields.find((f) => f.id === newFilterFieldId);
-  const availableOps = currentField ? OPERATORS_BY_TYPE[currentField.type] || [] : [];
-
   const addFieldFilter = () => {
     if (!newFilterFieldId || !newFilterOp) return;
-    // BOOLEAN needs no value.
     const value = newFilterOp === "is_true" || newFilterOp === "is_false" ? "" : newFilterValue;
     setFieldFilters((prev) => [...prev, { fieldId: newFilterFieldId, op: newFilterOp, value }]);
     setNewFilterFieldId("");
@@ -316,6 +362,7 @@ const currentField: EntryField | undefined = selectedProjectFields.find((f) => f
                   markManualChange();
                   setSearchQuery(e.target.value);
                 }}
+                onKeyDown={(e) => { if (e.key === "Enter") applySearch(); }}
                 className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -380,7 +427,7 @@ const currentField: EntryField | undefined = selectedProjectFields.find((f) => f
                 <Filter className="h-3.5 w-3.5" />
                 Field filter
               </button>
-              {showFilterPopover && currentField === undefined && (
+              {showFilterPopover && (
                 <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-slate-200 rounded-lg shadow-lg p-4 w-80 space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Field</label>
@@ -414,7 +461,7 @@ const currentField: EntryField | undefined = selectedProjectFields.find((f) => f
                       </select>
                     </div>
                   )}
-                  {currentField && newFilterOp && newFilterOp !== "is_true" && newFilterOp !== "is_false" && (
+                  {currentField !== undefined && newFilterOp && newFilterOp !== "is_true" && newFilterOp !== "is_false" && (
                     <div>
                       <label className="block text-xs font-medium text-slate-600 mb-1">Value</label>
                       <input
@@ -440,6 +487,15 @@ const currentField: EntryField | undefined = selectedProjectFields.find((f) => f
                 </div>
               )}
             </div>
+
+            {/* Search button — applies every draft filter at once. */}
+            <button
+              onClick={applySearch}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+            >
+              <Search className="h-3.5 w-3.5" />
+              Search
+            </button>
 
             {filtersActive && (
               <button
