@@ -275,3 +275,7 @@ export interface ReminderSettings {
 // ─── Auth ────────────────────────────────────────────────────────────────
 
 export * from "./auth.js";
+
+// ─── Grades ──────────────────────────────────────────────────────────────
+
+export * from "./grades.js";
