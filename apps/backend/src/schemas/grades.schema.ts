@@ -111,6 +111,7 @@ const assessmentFields = {
   missed: z.boolean({ message: "missed must be true or false" }),
   date: daySchema.nullable(),
   dateKind: z.enum(["DUE", "TEST"], { message: "dateKind must be DUE or TEST" }).nullable(),
+  remind: z.boolean({ message: "remind must be true or false" }),
   position: z
     .number({ message: "position must be a whole number" })
     .int("position must be a whole number")
@@ -128,6 +129,7 @@ export const createAssessmentSchema = z.object({
   missed: assessmentFields.missed.optional(),
   date: assessmentFields.date.optional(),
   dateKind: assessmentFields.dateKind.optional(),
+  remind: assessmentFields.remind.optional(),
   position: assessmentFields.position.optional(),
 });
 
@@ -142,6 +144,7 @@ export const updateAssessmentSchema = z
     missed: assessmentFields.missed.optional(),
     date: assessmentFields.date.optional(),
     dateKind: assessmentFields.dateKind.optional(),
+    remind: assessmentFields.remind.optional(),
     position: assessmentFields.position.optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), { message: "Nothing to update" });

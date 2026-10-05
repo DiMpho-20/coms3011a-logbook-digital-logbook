@@ -910,13 +910,16 @@ the user's reminder rules:
 | `OVERDUE` | An open, unarchived entry's due date has passed |
 | `STALE` | An open, unarchived entry has not been edited for `staleDays` days |
 | `DAILY_LOG` | Nothing has been logged today and it is past `dailyLogTime` |
+| `ASSESSMENT` | A dated, unmarked My Grades assessment with `remind` on is 5 days away (one reminder, kept until 3 days before) or 2 days away (a second, kept until the day). New ones appear from 08:00 in `timeZone`. Needs `assessmentEnabled` |
 
 Rules are evaluated whenever reminders are read (`GET /reminders` and
 `GET /reminders/count`). Each condition produces at most one reminder, so a
 completed or dismissed reminder stays that way while the condition holds. A
 pending generated reminder whose condition lapses is marked `COMPLETED` if
-its entry was marked done (or, for `DAILY_LOG`, something was logged), and
-removed otherwise, e.g. when the due date moves or the rule is switched off.
+its entry was marked done (or, for `DAILY_LOG`, something was logged; for
+`ASSESSMENT`, the assessment was marked or recorded as missed), and removed
+otherwise, e.g. when the due date moves or the rule is switched off.
+Deleting an assessment deletes its reminders.
 Calendar days are counted in the rules' `timeZone`.
 
 Reminder object:
@@ -934,9 +937,12 @@ Reminder object:
   "entry": {
     "id": "...", "projectId": "...", "projectName": "Chemistry",
     "label": "Submit lab report", "dueDate": "2026-09-27T00:00:00.000Z", "status": "OPEN"
-  }
+  },
+  "assessment": null
 }
 ```
+For an `ASSESSMENT` reminder, `entry` is `null` and `assessment` is
+`{ "id", "moduleId", "moduleCode", "name", "date": "2026-11-15", "dateKind": "TEST" }`.
 
 ### `GET /api/reminders`
 
@@ -1001,7 +1007,8 @@ The caller's reminder rules (defaults shown):
   "overdueEnabled": true,
   "staleEnabled": false, "staleDays": 7,
   "dailyLogEnabled": false, "dailyLogTime": "18:00",
-  "timeZone": "UTC"
+  "timeZone": "UTC",
+  "assessmentEnabled": true
 }
 ```
 
@@ -1010,7 +1017,7 @@ The caller's reminder rules (defaults shown):
 ### `PUT /api/reminders/settings`
 
 Update any subset of the rules. `dueSoonDays` 0–30, `staleDays` 1–365,
-`dailyLogTime` `HH:MM`, `timeZone` an IANA zone name.
+`dailyLogTime` `HH:MM`, `timeZone` an IANA zone name, `assessmentEnabled` a boolean.
 
 **Response `200`:** the full rules.
 **Errors:** `400` (out-of-range or invalid value)
@@ -1255,7 +1262,7 @@ An assessment object:
 {
   "id": "...", "moduleId": "...", "name": "Midterm", "section": null, "weight": 40,
   "markObtained": 25, "markMax": 40, "markPercent": null, "missed": false,
-  "date": "2026-11-15", "dateKind": "TEST", "position": 0, "createdAt": "...", "updatedAt": "..."
+  "date": "2026-11-15", "dateKind": "TEST", "remind": true, "position": 0, "createdAt": "...", "updatedAt": "..."
 }
 ```
 
@@ -1323,6 +1330,7 @@ Deletes the module and its assessments.
 | `missed` | boolean | No |
 | `date` | `YYYY-MM-DD` | No |
 | `dateKind` | `DUE` or `TEST` | With `date` |
+| `remind` | boolean: reminders 5 and 2 days before the date | No (defaults to `true`) |
 | `position` | integer | No (defaults to the end) |
 
 **Response `201`:** the assessment object.

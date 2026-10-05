@@ -87,6 +87,7 @@ export function formatAssessment(assessment: Assessment): GradeAssessment {
     missed: assessment.missed,
     date: toDay(assessment.date),
     dateKind: assessment.dateKind,
+    remind: assessment.remind,
     position: assessment.position,
     createdAt: assessment.createdAt.toISOString(),
     updatedAt: assessment.updatedAt.toISOString(),
@@ -297,6 +298,7 @@ export const createAssessment = async (req: AuthenticatedRequest, res: Response)
         moduleId: module.id,
         name: input.name,
         weight: input.weight,
+        remind: input.remind ?? true,
         position,
       },
     });
@@ -350,6 +352,7 @@ export const updateAssessment = async (req: AuthenticatedRequest, res: Response)
         date: fromDay(shape.date),
         ...(changes.name !== undefined && { name: changes.name }),
         ...(changes.weight !== undefined && { weight: changes.weight }),
+        ...(changes.remind !== undefined && { remind: changes.remind }),
         ...(changes.position !== undefined && { position: changes.position }),
       },
     });

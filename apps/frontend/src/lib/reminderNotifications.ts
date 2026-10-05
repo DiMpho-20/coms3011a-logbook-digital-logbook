@@ -155,7 +155,11 @@ export async function notifyNewDueReminders(due: Reminder[]): Promise<Reminder[]
       });
     } else {
       for (const r of fresh) {
-        const body = [r.entry ? `${r.entry.projectName}: ${r.entry.label}` : null, r.note]
+        const body = [
+          r.entry ? `${r.entry.projectName}: ${r.entry.label}` : null,
+          r.assessment ? `${r.assessment.moduleCode}: ${r.assessment.name}` : null,
+          r.note,
+        ]
           .filter(Boolean)
           .join("\n");
         await show(r.title, { ...base, body, tag: `reminder-${r.id}` });

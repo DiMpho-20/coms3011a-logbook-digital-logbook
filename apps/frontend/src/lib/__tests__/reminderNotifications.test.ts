@@ -28,6 +28,7 @@ function reminder(id: string, title = `Reminder ${id}`): Reminder {
     dismissedAt: null,
     createdAt: "2026-09-26T08:00:00.000Z",
     entry: null,
+    assessment: null,
   };
 }
 

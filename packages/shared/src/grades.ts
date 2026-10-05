@@ -41,6 +41,8 @@ export interface GradeAssessment {
   date: string | null;
   /** Set exactly when date is. */
   dateKind: AssessmentDateKind | null;
+  /** Remind the student 5 and 2 days before the date. */
+  remind: boolean;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -86,6 +88,8 @@ export interface CreateAssessmentInput {
   missed?: boolean;
   date?: string | null;
   dateKind?: AssessmentDateKind | null;
+  /** Defaults to true. */
+  remind?: boolean;
   position?: number;
 }
 

@@ -52,6 +52,7 @@ export default function AssessmentFormModal({ open, onClose, module, assessment,
   const [percent, setPercent] = useState("");
   const [date, setDate] = useState("");
   const [dateKind, setDateKind] = useState<AssessmentDateKind | "">("");
+  const [remind, setRemind] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +67,7 @@ export default function AssessmentFormModal({ open, onClose, module, assessment,
     setPercent(text(assessment?.markPercent));
     setDate(assessment?.date ?? "");
     setDateKind(assessment?.dateKind ?? "");
+    setRemind(assessment?.remind ?? true);
     setError(null);
   }, [open, assessment, defaultSection]);
 
@@ -101,6 +103,7 @@ export default function AssessmentFormModal({ open, onClose, module, assessment,
       ...mark,
       date: date || null,
       dateKind: date ? (dateKind as AssessmentDateKind) : null,
+      remind,
     };
     setSaving(true);
     setError(null);
@@ -196,6 +199,17 @@ export default function AssessmentFormModal({ open, onClose, module, assessment,
             </select>
           </label>
         </div>
+        {date && (
+          <label className="flex items-start gap-2 text-sm text-slate-700">
+            <input type="checkbox" className="mt-0.5" checked={remind} onChange={(e) => setRemind(e.target.checked)} />
+            <span>
+              Remind me 5 days and 2 days before
+              <span className="block text-[11px] text-slate-500">
+                Reminders appear under Reminders, and as notifications if they're switched on.
+              </span>
+            </span>
+          </label>
+        )}
 
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">

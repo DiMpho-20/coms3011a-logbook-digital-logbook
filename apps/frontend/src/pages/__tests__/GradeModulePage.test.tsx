@@ -28,6 +28,7 @@ const assessment = (over: Partial<GradeAssessment>): GradeAssessment => ({
   missed: false,
   date: null,
   dateKind: null,
+  remind: true,
   position: 0,
   createdAt: "",
   updatedAt: "",
@@ -267,9 +268,31 @@ describe("assessments", () => {
         missed: false,
         date: "2026-11-15",
         dateKind: "TEST",
+        remind: true,
       })
     );
     expect(api.fetchGradeModule).toHaveBeenCalledTimes(2); // reloaded after saving
+  });
+
+  it("offers reminders only for a dated assessment, and lets the student turn them off", async () => {
+    vi.mocked(api.createAssessment).mockResolvedValue(assessment({ name: "Quiz" }));
+    renderPage();
+    await loaded();
+    fireEvent.click(screen.getByRole("button", { name: /Add assessment/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Add an assessment" });
+    expect(within(dialog).queryByLabelText(/Remind me 5 days and 2 days before/)).toBeNull();
+
+    fireEvent.change(within(dialog).getByPlaceholderText("Midterm test"), { target: { value: "Tutorial" } });
+    fireEvent.change(within(dialog).getByLabelText("Weight (%)"), { target: { value: "5" } });
+    fireEvent.change(within(dialog).getByLabelText("Date (optional)"), { target: { value: "2026-11-20" } });
+    fireEvent.change(within(dialog).getByLabelText("The date is a"), { target: { value: "DUE" } });
+    const remind = within(dialog).getByLabelText(/Remind me 5 days and 2 days before/);
+    expect(remind).toBeChecked();
+    fireEvent.click(remind);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add assessment" }));
+    await waitFor(() =>
+      expect(api.createAssessment).toHaveBeenCalledWith("coms", expect.objectContaining({ date: "2026-11-20", dateKind: "DUE", remind: false }))
+    );
   });
 
   it("refuses an impossible mark before sending it", async () => {

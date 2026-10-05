@@ -29,6 +29,7 @@ const reminder = (over: Record<string, unknown> = {}) => ({
   dismissedAt: null,
   createdAt: new Date().toISOString(),
   entry: null,
+  assessment: null,
   ...over,
 });
 
@@ -41,6 +42,7 @@ const settings = {
   dailyLogEnabled: false,
   dailyLogTime: "18:00",
   timeZone: "UTC",
+  assessmentEnabled: true,
 };
 
 function mockLists(pending: unknown[], done: unknown[] = []) {
@@ -86,6 +88,25 @@ describe("RemindersPage — viewing reminders (AT2, AT3)", () => {
     const card = await screen.findByTestId("reminder");
     expect(within(card).getByText("Overdue")).toBeInTheDocument();
     expect(within(card).getByRole("link", { name: "Chemistry" })).toHaveAttribute("href", "/projects/p1");
+  });
+
+  it("labels an assessment reminder and links its module in My Grades (FEAT-009)", async () => {
+    mockLists([
+      reminder({
+        id: "a1",
+        source: "ASSESSMENT",
+        title: "Test on Sun 15 Nov: COMS3011A Final Test",
+        assessment: { id: "as1", moduleId: "m1", moduleCode: "COMS3011A", name: "Final Test", date: "2026-11-15", dateKind: "TEST" },
+      }),
+    ]);
+    renderPage();
+
+    const card = await screen.findByTestId("reminder");
+    expect(within(card).getByText("Assessment")).toBeInTheDocument();
+    expect(within(card).getByText("Test on Sun 15 Nov: COMS3011A Final Test")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: "COMS3011A" })).toHaveAttribute("href", "/grades/m1");
+    // Generated, so it can be dismissed but not deleted.
+    expect(within(card).queryByRole("button", { name: "Delete reminder" })).toBeNull();
   });
 
   it("shows an empty state when nothing is due", async () => {
@@ -212,6 +233,20 @@ describe("RemindersPage — rules (AT1)", () => {
     expect(await screen.findByText("Rules saved.")).toBeInTheDocument();
     // Initial load (pending + done), then again after saving.
     await waitFor(() => expect(api.fetchReminders).toHaveBeenCalledTimes(4));
+  });
+
+  it("switches assessment reminders off (FEAT-009)", async () => {
+    mockLists([]);
+    vi.mocked(api.updateReminderSettings).mockImplementation(async (data) => ({ ...settings, ...data }) as never);
+    renderPage();
+
+    const toggle = await screen.findByRole("switch", { name: /upcoming tests & assessments/i });
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("button", { name: /save rules/i }));
+    await waitFor(() =>
+      expect(api.updateReminderSettings).toHaveBeenCalledWith(expect.objectContaining({ assessmentEnabled: false }))
+    );
   });
 
   it("hides a rule's options while it is off", async () => {

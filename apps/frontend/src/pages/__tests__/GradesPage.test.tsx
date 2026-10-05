@@ -33,6 +33,7 @@ const assessment = (over: Partial<GradeAssessment>): GradeAssessment => ({
   missed: false,
   date: null,
   dateKind: null,
+  remind: true,
   position: 0,
   createdAt: "",
   updatedAt: "",

@@ -58,6 +58,8 @@ enum ReminderSource {
   OVERDUE
   STALE
   DAILY_LOG
+  // FEAT-009: 5 and 2 days before a dated assessment in My Grades.
+  ASSESSMENT
 }
 
 // --- USER ENTITY (Person 1) ---
@@ -376,6 +378,8 @@ model Reminder {
   id          String         @id @default(uuid()) @db.Uuid
   userId      String         @map("user_id") @db.Uuid
   entryId     String?        @map("entry_id") @db.Uuid
+  // Set for ASSESSMENT reminders; they go when the assessment does.
+  assessmentId String?       @map("assessment_id") @db.Uuid
   source      ReminderSource @default(MANUAL)
   ruleKey     String?        @map("rule_key") @db.VarChar(255)
   title       String         @db.VarChar(255)
@@ -391,9 +395,11 @@ model Reminder {
 
   user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   entry LogbookEntry? @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  assessment Assessment? @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
 
   @@unique([userId, ruleKey])
   @@index([userId, status, remindAt])
+  @@index([assessmentId])
   @@map("reminders")
 }
 
@@ -436,6 +442,8 @@ model ReminderSettings {
   staleDays       Int      @default(7) @map("stale_days")
   dailyLogEnabled Boolean  @default(false) @map("daily_log_enabled")
   dailyLogTime    String   @default("18:00") @map("daily_log_time") @db.VarChar(5)
+  // FEAT-009: remind 5 and 2 days before dated assessments in My Grades.
+  assessmentEnabled Boolean @default(true) @map("assessment_enabled")
   // IANA zone the student's calendar days are counted in, e.g. "Africa/Johannesburg".
   timeZone        String   @default("UTC") @map("time_zone") @db.VarChar(64)
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -570,11 +578,14 @@ model Assessment {
   // A calendar day with no time, so no time zone can move it.
   date         DateTime?           @db.Date
   dateKind     AssessmentDateKind? @map("date_kind")
+  // Remind 5 and 2 days before the date (Phase 4); the student can turn it off.
+  remind       Boolean             @default(true)
   position     Int                 @default(0)
   createdAt    DateTime            @default(now()) @map("created_at")
   updatedAt    DateTime            @updatedAt @map("updated_at")
 
-  module AcademicModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module    AcademicModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  reminders Reminder[]
 
   @@index([moduleId])
   @@map("assessments")
