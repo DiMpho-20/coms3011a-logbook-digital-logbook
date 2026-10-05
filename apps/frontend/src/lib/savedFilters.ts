@@ -8,6 +8,10 @@ export interface SavedFilter {
   sortOrder: "newest" | "oldest";
   /** Optional so older saved filters (from before tag filtering existed) still load fine. */
   selectedTags?: string[];
+  /** Custom field filters (US23). Optional for the same reason. */
+  fieldFilters?: { fieldId: string; op: string; value: string }[];
+  /** Whether archived entries are excluded, included or shown alone (US30). */
+  archivedFilter?: "exclude" | "include" | "only";
   createdAt: string;
 }
 

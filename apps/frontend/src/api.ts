@@ -269,17 +269,16 @@ export interface EntriesQuery {
 
 export interface EntriesListing {
   entries: Entry[];
-  /** True when exactly `limit` rows came back, so there may be more. */
   truncated: boolean;
-  /** Current fields per project, taken from the newest snapshot seen. */
   fieldsByProject: Record<string, EntryField[]>;
-  /**
-   * Projects with at least one entry carrying no format snapshot — legacy
-   * entries predating format versioning, and entries still queued offline.
-   * Those need the project's live field list as a fallback, so the caller
-   * fetches fields for these projects only rather than for all of them.
-   */
   projectsNeedingFields: string[];
+  stats?: {
+    total: number;
+    weekCount: number;
+    weekMinutes: number;
+    overdueCount: number;
+    streak: number;
+  };
 }
 
 /**
@@ -351,6 +350,7 @@ export async function fetchAllEntries(
       truncated: Boolean(data?.truncated),
       fieldsByProject,
       projectsNeedingFields: [...needFields],
+      stats: data?.stats,
     };
   } catch (error) {
     if (isOfflineRequest(error)) return offlineFallback();
