@@ -478,7 +478,6 @@ function parseDateParam(value: unknown, label: string): Date | undefined {
 export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.userId!;
-    await materializeDueRecurringEntries(userId);
 
     const projectStatus = String(req.query.projectStatus ?? "ALL").toUpperCase();
     if (!PROJECT_STATUSES.includes(projectStatus)) {
@@ -508,23 +507,86 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
 
     const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
 
-    const archived = parseArchivedFilter(req.query.archived);
-    if (!archived) {
-      return res.status(400).json({ error: `archived must be one of ${ARCHIVED_FILTERS.join(", ")}` });
+    // Field filters: a JSON array in a single query param so any number of
+    // them can be combined.
+    type FieldFilter = { fieldId: string; op: string; value: string };
+    let fieldFilters: FieldFilter[] = [];
+    if (req.query.filters) {
+      try {
+        const parsed = JSON.parse(String(req.query.filters));
+        if (!Array.isArray(parsed)) throw new Error("filters must be an array");
+        fieldFilters = parsed;
+      } catch (error: any) {
+        return res.status(400).json({ error: `filters must be valid JSON: ${error.message}` });
+      }
+    }
+
+    const conditions: Prisma.Sql[] = [Prisma.sql`p.user_id = ${userId}::uuid`];
+    if (projectId) conditions.push(Prisma.sql`le.project_id = ${projectId}::uuid`);
+    if (projectStatus !== "ALL") conditions.push(Prisma.sql`p.status::text = ${projectStatus}`);
+    if (from) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) >= ${from}`);
+    if (to) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) <= ${to}`);
+
+    // Each field filter adds one EXISTS clause. All clauses AND together.
+    for (const filter of fieldFilters) {
+      if (!filter || typeof filter.fieldId !== "string" || typeof filter.op !== "string" || typeof filter.value !== "string") {
+        return res.status(400).json({ error: "each filter needs fieldId, op and value" });
+      }
+
+      const field = await prisma.entryField.findFirst({
+        where: { id: filter.fieldId, project: { userId } },
+        select: { id: true, type: true },
+      });
+      if (!field) {
+        return res.status(400).json({ error: `unknown field: ${filter.fieldId}` });
+      }
+
+      const base = Prisma.sql`ev.entry_id = le.id AND ev.field_id = ${filter.fieldId}::uuid`;
+      let clause: Prisma.Sql;
+      switch (`${field.type}:${filter.op}`) {
+        case "TEXT:contains":
+          clause = Prisma.sql`${base} AND ev.value ILIKE ${"%" + filter.value + "%"}`;
+          break;
+        case "TEXT:equals":
+          clause = Prisma.sql`${base} AND LOWER(ev.value) = LOWER(${filter.value})`;
+          break;
+        case "NUMBER:equals":
+        case "NUMBER:gt":
+        case "NUMBER:lt": {
+          const num = Number(filter.value);
+          if (!Number.isFinite(num)) return res.status(400).json({ error: `value must be a number for ${field.type}` });
+          if (filter.op === "equals") clause = Prisma.sql`${base} AND (ev.value)::numeric = ${num}`;
+          else if (filter.op === "gt") clause = Prisma.sql`${base} AND (ev.value)::numeric > ${num}`;
+          else clause = Prisma.sql`${base} AND (ev.value)::numeric < ${num}`;
+          break;
+        }
+        case "BOOLEAN:is_true":
+          clause = Prisma.sql`${base} AND ev.value = 'true'`;
+          break;
+        case "BOOLEAN:is_false":
+          clause = Prisma.sql`${base} AND ev.value = 'false'`;
+          break;
+        case "DATE:on":
+        case "DATE:before":
+        case "DATE:after": {
+          if (filter.op === "on") clause = Prisma.sql`${base} AND ev.value::date = ${filter.value}::date`;
+          else if (filter.op === "before") clause = Prisma.sql`${base} AND ev.value::date < ${filter.value}::date`;
+          else clause = Prisma.sql`${base} AND ev.value::date > ${filter.value}::date`;
+          break;
+        }
+        case "TAGS:has_tag":
+          clause = Prisma.sql`${base} AND ev.value::jsonb ? ${filter.value}`;
+          break;
+        default:
+          return res.status(400).json({ error: `unsupported operation ${filter.op} for ${field.type}` });
+      }
+      conditions.push(Prisma.sql`EXISTS (SELECT 1 FROM entry_values ev WHERE ${clause})`);
     }
 
     // Ordered and limited in SQL, because COALESCE(entry_date, created_at) is
     // the date the interface actually shows — a backdated entry belongs in the
     // week it visibly sits in, not the week it was typed. Prisma's orderBy
     // cannot express that, so the ids are selected here and hydrated below.
-    const conditions: Prisma.Sql[] = [Prisma.sql`p.user_id = ${userId}::uuid`];
-    if (projectId) conditions.push(Prisma.sql`le.project_id = ${projectId}::uuid`);
-    if (projectStatus !== "ALL") conditions.push(Prisma.sql`p.status::text = ${projectStatus}`);
-    if (from) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) >= ${from}`);
-    if (to) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) <= ${to}`);
-    if (archived === "exclude") conditions.push(Prisma.sql`le.archived_at IS NULL`);
-    if (archived === "only") conditions.push(Prisma.sql`le.archived_at IS NOT NULL`);
-
     const rows = await prisma.$queryRaw<{ id: string }[]>`
       SELECT le.id
       FROM logbook_entries le
@@ -548,12 +610,6 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
     const byId = new Map(found.map((e) => [e.id, e]));
     const ordered = ids.map((id) => byId.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
 
-    // One shared map rather than the same format snapshot repeated on every
-    // entry — a term of entries on a nine-field project would otherwise be
-    // mostly duplicated schema. An entry whose values reference a field
-    // outside its own snapshot (see mergeEntryFields) can't share that
-    // snapshot's entry as-is, since the extra field isn't part of every
-    // other entry pinned to the same version — it gets its own key instead.
     const formats: Record<string, { version: number; fields: unknown }> = {};
     const entries = ordered.map((entry) => {
       const { format, ...rest } = formatEntry(entry);
