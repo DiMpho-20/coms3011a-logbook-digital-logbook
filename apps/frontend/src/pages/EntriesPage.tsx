@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Search, Flame, ListChecks, Clock, CalendarDays, FolderKanban, AlertTriangle, ArrowUpDown, BookmarkPlus, X } from "lucide-react";
+import { Search, Flame, ListChecks, Clock, CalendarDays, FolderKanban, AlertTriangle, ArrowUpDown, BookmarkPlus, X, Filter, Plus } from "lucide-react";
 
 import {
   fetchProjects,
@@ -14,8 +14,6 @@ import {
 import {
   formatDuration,
   formatDateHeading,
-  computeStreak,
-  entryDateKey,
 } from "../lib/utils";
 import {
   loadSavedFilters,
@@ -31,8 +29,33 @@ import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
 import TagFilterBar from "../components/TagFilterBar";
 
-
 const PAGE_SIZE = 20;
+
+type FieldFilter = { fieldId: string; op: string; value: string };
+
+const OPERATORS_BY_TYPE: Record<string, { value: string; label: string }[]> = {
+  TEXT: [
+    { value: "contains", label: "contains" },
+    { value: "equals", label: "equals" },
+  ],
+  NUMBER: [
+    { value: "equals", label: "=" },
+    { value: "gt", label: ">" },
+    { value: "lt", label: "<" },
+  ],
+  BOOLEAN: [
+    { value: "is_true", label: "is true" },
+    { value: "is_false", label: "is false" },
+  ],
+  DATE: [
+    { value: "on", label: "on" },
+    { value: "before", label: "before" },
+    { value: "after", label: "after" },
+  ],
+  TAGS: [
+    { value: "has_tag", label: "has tag" },
+  ],
+};
 
 function isEmptyFieldValue(value: unknown) {
   return value == null || value === "" || value === false || (Array.isArray(value) && value.length === 0);
@@ -48,15 +71,6 @@ function fieldValueLabel(field: EntryField, value: unknown): string {
   return String(value);
 }
 
-function valueForSearch(value: unknown): string {
-  if (Array.isArray(value)) return value.map(valueForSearch).join(" ");
-  if (value && typeof value === "object") {
-    return Object.values(value as Record<string, unknown>).map(valueForSearch).join(" ");
-  }
-  return String(value ?? "");
-}
-
-
 export default function EntriesPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [fieldsByProject, setFieldsByProject] = useState<Record<string, EntryField[]>>({});
@@ -66,25 +80,61 @@ export default function EntriesPage() {
   const [loadFailures, setLoadFailures] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [stats, setStats] = useState({ total: 0, weekCount: 0, weekMinutes: 0, overdueCount: 0, streak: 0 });
 
   // Browse state
   const [filterProjectId, setFilterProjectId] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "week" | "overdue">("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
-  // Archived entries are left out unless asked for (US30).
   const [archivedFilter, setArchivedFilter] = useState<ArchivedFilter>("exclude");
+  const [fieldFilters, setFieldFilters] = useState<FieldFilter[]>([]);
 
-  // Saved filters (persisted to localStorage)
+  // Field filter popover state
+  const [showFilterPopover, setShowFilterPopover] = useState(false);
+  const [newFilterFieldId, setNewFilterFieldId] = useState("");
+  const [newFilterOp, setNewFilterOp] = useState("");
+  const [newFilterValue, setNewFilterValue] = useState("");
+
+  // Saved filters
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [filterName, setFilterName] = useState("");
 
-  // Guards against an earlier load's results landing after a later one's.
   const loadRunRef = useRef(0);
+
+  // Debounce search so every keystroke isn't a request.
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => window.clearTimeout(t);
+  }, [searchQuery]);
+
+  // Fields of the selected project (for the field filter popover).
+ const selectedProjectFields = useMemo<EntryField[]>(() => {
+  if (filterProjectId === "all") return [];
+  return fieldsByProject[filterProjectId] || [];
+}, [filterProjectId, fieldsByProject]);
+
+  // The query the frontend sends to the backend.
+  const buildQuery = useCallback((offset: number) => {
+    const query: any = {
+      projectStatus: "ACTIVE",
+      limit: PAGE_SIZE,
+      offset,
+      entryTab: filterTab,
+      sort: sortOrder,
+    };
+    if (filterProjectId !== "all") query.projectId = filterProjectId;
+    if (debouncedSearch.trim()) query.search = debouncedSearch.trim();
+    if (tagFilters.length > 0) query.tags = tagFilters.join(",");
+    if (archivedFilter !== "exclude") query.archived = archivedFilter;
+    if (fieldFilters.length > 0) query.filters = JSON.stringify(fieldFilters);
+    return query;
+  }, [filterTab, sortOrder, filterProjectId, debouncedSearch, tagFilters, archivedFilter, fieldFilters]);
 
   const loadAll = useCallback(async () => {
     const run = ++loadRunRef.current;
@@ -97,37 +147,21 @@ export default function EntriesPage() {
       setProjects(active);
       setLoading(false);
 
-      // First page only. More is fetched on demand via loadMore.
-      const listing = await fetchAllEntries(
-
-               {
-          projectStatus: "ACTIVE",
-          limit: PAGE_SIZE,
-          offset: 0,
-          ...(archivedFilter !== "exclude" && { archived: archivedFilter }),
-        },
-
-        { pendingProjectIds: active.map((p) => p.id) }
+      // Load fields for every project so field filters know what exists.
+      const fieldResults = await Promise.all(
+        active.map(async (p) => ({ id: p.id, fields: await fetchEntryFields(p.id).catch(() => []) }))
       );
       if (run !== loadRunRef.current) return;
-      setAllEntries(listing.entries);
-      setFieldsByProject(listing.fieldsByProject);
-      setHasMore(listing.truncated);
+      const map: Record<string, EntryField[]> = {};
+      fieldResults.forEach((r) => { map[r.id] = r.fields; });
+      setFieldsByProject(map);
 
-      if (listing.projectsNeedingFields.length > 0) {
-        const settled = await Promise.allSettled(
-          listing.projectsNeedingFields.map(async (id) => ({ id, fields: await fetchEntryFields(id) }))
-        );
-        if (run !== loadRunRef.current) return;
-        const extra: Record<string, EntryField[]> = {};
-        settled.forEach((r) => {
-          if (r.status === "fulfilled") extra[r.value.id] = r.value.fields;
-        });
-        const failed = settled.filter((r) => r.status === "rejected");
-        failed.forEach((r) => console.error("Failed to load a project's fields:", (r as PromiseRejectedResult).reason));
-        setLoadFailures(failed.length);
-        setFieldsByProject((prev) => ({ ...prev, ...extra }));
-      }
+      const listing = await fetchAllEntries(buildQuery(0), { pendingProjectIds: active.map((p) => p.id) });
+      if (run !== loadRunRef.current) return;
+      setAllEntries(listing.entries);
+      setHasMore(listing.truncated);
+      console.log("stats from API:", listing.stats);
+      if (listing.stats) setStats(listing.stats);
     } catch (err) {
       console.error("Failed to load entries:", err);
     } finally {
@@ -136,36 +170,28 @@ export default function EntriesPage() {
         setEntriesLoading(false);
       }
     }
-  }, [archivedFilter]);
+  }, [buildQuery]);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
       const listing = await fetchAllEntries(
-        {
-          projectStatus: "ACTIVE",
-          limit: PAGE_SIZE,
-          offset: allEntries.length,
-          // The next page must come from the same view as the first, or the
-          // archive would continue with active entries.
-          ...(archivedFilter !== "exclude" && { archived: archivedFilter }),
-        },
+        buildQuery(allEntries.length),
         { pendingProjectIds: projects.map((p) => p.id) }
       );
       setAllEntries((prev) => [...prev, ...listing.entries]);
-      setFieldsByProject((prev) => ({ ...prev, ...listing.fieldsByProject }));
       setHasMore(listing.truncated);
     } catch (err) {
       console.error("Failed to load more entries:", err);
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasMore, allEntries.length, projects, archivedFilter]);
-
-  useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+  }, [loadingMore, hasMore, allEntries.length, projects, buildQuery]);
 
   useEffect(() => {
     setSavedFilters(loadSavedFilters());
@@ -176,7 +202,11 @@ export default function EntriesPage() {
   }, []);
 
   const filtersActive =
-    searchQuery.trim() !== "" || filterProjectId !== "all" || filterTab !== "all" || tagFilters.length > 0;
+    searchQuery.trim() !== "" ||
+    filterProjectId !== "all" ||
+    filterTab !== "all" ||
+    tagFilters.length > 0 ||
+    fieldFilters.length > 0;
 
   const applySavedFilter = (f: SavedFilter) => {
     setSearchQuery(f.searchQuery);
@@ -215,69 +245,34 @@ export default function EntriesPage() {
     [projects]
   );
 
-  const stats = useMemo(() => {
-    const now = new Date();
-    const weekAgo = new Date(now);
-    weekAgo.setDate(now.getDate() - 7);
-    const weekEntries = allEntries.filter((e) => new Date(e.createdAt) >= weekAgo);
-    const weekMinutes = weekEntries.reduce((s, e) => s + (e.durationMinutes || 0), 0);
-    const dateKeys = new Set(allEntries.map((e) => entryDateKey(e)));
-    const streak = computeStreak(dateKeys);
+  // ── Field filter actions ────────────────────────────────────────────────
+const currentField: EntryField | undefined = selectedProjectFields.find((f) => f.id === newFilterFieldId);
+  const availableOps = currentField ? OPERATORS_BY_TYPE[currentField.type] || [] : [];
 
-    const today = new Date(new Date().toDateString());
-    const overdueCount = allEntries.filter(
-      (e) => e.dueDate && new Date(e.dueDate) < today
-    ).length;
+  const addFieldFilter = () => {
+    if (!newFilterFieldId || !newFilterOp) return;
+    // BOOLEAN needs no value.
+    const value = newFilterOp === "is_true" || newFilterOp === "is_false" ? "" : newFilterValue;
+    setFieldFilters((prev) => [...prev, { fieldId: newFilterFieldId, op: newFilterOp, value }]);
+    setNewFilterFieldId("");
+    setNewFilterOp("");
+    setNewFilterValue("");
+    setShowFilterPopover(false);
+    markManualChange();
+  };
 
-    return { weekCount: weekEntries.length, weekMinutes, streak, total: allEntries.length, overdueCount };
-  }, [allEntries]);
+  const removeFieldFilter = (index: number) => {
+    setFieldFilters((prev) => prev.filter((_, i) => i !== index));
+    markManualChange();
+  };
 
-  const filteredEntries = useMemo(() => {
-    let list = [...allEntries];
-    const today = new Date(new Date().toDateString());
-
-    if (filterTab === "week") {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      list = list.filter((e) => new Date(e.createdAt) >= weekAgo);
-    } else if (filterTab === "overdue") {
-      list = list.filter((e) => e.dueDate && new Date(e.dueDate) < today);
-    }
-
-    if (filterProjectId !== "all") {
-      list = list.filter((e) => e.projectId === filterProjectId);
-    }
-    if (tagFilters.length > 0) {
-      list = list.filter((e) => (e.tags || []).some((t) => tagFilters.includes(t)));
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter((e) => {
-        const name = projectName(e.projectId).toLowerCase();
-        const vals = Object.values(e.values || {}).map(valueForSearch).join(" ").toLowerCase();
-        const tagText = (e.tags || []).join(" ").toLowerCase();
-        return name.includes(q) || vals.includes(q) || tagText.includes(q);
-      });
-    }
-    if (filterTab === "overdue") {
-      list.sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || ""));
-    } else if (sortOrder === "oldest") {
-      list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    } else {
-      list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    }
-    return list;
-  }, [allEntries, filterTab, filterProjectId, tagFilters, searchQuery, projectName, sortOrder]);
-
-  const groupedByDate = useMemo(() => {
-    const groups: Record<string, Entry[]> = {};
-    filteredEntries.forEach((e) => {
-      const key = entryDateKey(e);
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(e);
-    });
-    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [filteredEntries]);
+  const describeFieldFilter = (f: FieldFilter): string => {
+    const field = Object.values(fieldsByProject).flat().find((x) => x.id === f.fieldId);
+    const fieldName = field?.name || "Field";
+    const opLabel = OPERATORS_BY_TYPE[field?.type || "TEXT"]?.find((o) => o.value === f.op)?.label || f.op;
+    if (f.op === "is_true" || f.op === "is_false") return `${fieldName} ${opLabel}`;
+    return `${fieldName} ${opLabel} "${f.value}"`;
+  };
 
   if (loading) return <LoadingState message="Loading entries..." />;
 
@@ -298,9 +293,7 @@ export default function EntriesPage() {
 
       {loadFailures > 0 && (
         <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          {loadFailures === 1
-            ? "One project's field list couldn't be loaded, so some older entries may show fewer details."
-            : `${loadFailures} projects' field lists couldn't be loaded, so some older entries may show fewer details.`}
+          Some project field lists couldn't be loaded.
         </p>
       )}
 
@@ -331,6 +324,7 @@ export default function EntriesPage() {
               onChange={(e) => {
                 markManualChange();
                 setFilterProjectId(e.target.value);
+                setFieldFilters([]);
               }}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
@@ -351,9 +345,7 @@ export default function EntriesPage() {
             >
               <option value="all">All Entries</option>
               <option value="week">This Week</option>
-              <option value="overdue">
-                Overdue{stats.overdueCount > 0 ? ` (${stats.overdueCount})` : ""}
-              </option>
+              <option value="overdue">Overdue</option>
             </select>
             <select
               value={archivedFilter}
@@ -376,6 +368,79 @@ export default function EntriesPage() {
               <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
               {sortOrder === "newest" ? "Newest" : "Oldest"}
             </button>
+
+            {/* Field filter button */}
+            <div className="relative">
+              <button
+                onClick={() => setShowFilterPopover((v) => !v)}
+                disabled={filterProjectId === "all"}
+                title={filterProjectId === "all" ? "Pick a project first" : "Filter by a custom field"}
+                className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Filter className="h-3.5 w-3.5" />
+                Field filter
+              </button>
+              {showFilterPopover && currentField === undefined && (
+                <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-slate-200 rounded-lg shadow-lg p-4 w-80 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Field</label>
+                    <select
+                      value={newFilterFieldId}
+                      onChange={(e) => {
+                        setNewFilterFieldId(e.target.value);
+                        setNewFilterOp("");
+                        setNewFilterValue("");
+                      }}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">Choose a field…</option>
+                      {selectedProjectFields.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name} ({f.type})</option>
+                      ))}
+                    </select>
+                  </div>
+                  {currentField && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Operator</label>
+                      <select
+                        value={newFilterOp}
+                        onChange={(e) => setNewFilterOp(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                      >
+                        <option value="">Choose…</option>
+                        {availableOps.map((op) => (
+                          <option key={op.value} value={op.value}>{op.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {currentField && newFilterOp && newFilterOp !== "is_true" && newFilterOp !== "is_false" && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Value</label>
+                      <input
+                        type={currentField.type === "NUMBER" ? "number" : currentField.type === "DATE" ? "date" : "text"}
+                        value={newFilterValue}
+                        onChange={(e) => setNewFilterValue(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                      />
+                    </div>
+                  )}
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button onClick={() => setShowFilterPopover(false)} className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 rounded-lg">
+                      Cancel
+                    </button>
+                    <button
+                      onClick={addFieldFilter}
+                      disabled={!newFilterFieldId || !newFilterOp}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-40"
+                    >
+                      Add filter
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {filtersActive && (
               <button
                 onClick={() => setShowSaveInput((v) => !v)}
@@ -387,6 +452,28 @@ export default function EntriesPage() {
               </button>
             )}
           </div>
+
+          {/* Active field filter chips */}
+          {fieldFilters.length > 0 && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Filters</span>
+              {fieldFilters.map((f, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-800 border border-blue-200"
+                >
+                  {describeFieldFilter(f)}
+                  <button
+                    onClick={() => removeFieldFilter(i)}
+                    className="p-0.5 rounded-full hover:bg-blue-200 transition"
+                    title="Remove this filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
 
           <TagFilterBar
             tags={availableTags}
@@ -481,7 +568,7 @@ export default function EntriesPage() {
                     </div>
                   ))}
                 </div>
-              ) : groupedByDate.length === 0 ? (
+              ) : allEntries.length === 0 ? (
                 <div className="text-center py-12">
                   {filterTab === "overdue" ? (
                     <>
@@ -501,6 +588,7 @@ export default function EntriesPage() {
                             setFilterProjectId("all");
                             setFilterTab("all");
                             setTagFilters([]);
+                            setFieldFilters([]);
                             setActiveFilterId(null);
                           }}
                           className="text-xs text-blue-600 font-medium hover:underline mt-2"
@@ -513,7 +601,7 @@ export default function EntriesPage() {
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {groupedByDate.map(([dateKey, entries]) => (
+                  {groupEntriesByDate(allEntries).map(([dateKey, entries]) => (
                     <div key={dateKey}>
                       <div className="border-b border-slate-100 pb-2 mb-4">
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -534,6 +622,7 @@ export default function EntriesPage() {
                             ? entry.format.fields
                             : fieldsByProject[entry.projectId] || [];
                           const isOverdue =
+                            entry.status === "OPEN" &&
                             entry.dueDate &&
                             new Date(entry.dueDate) < new Date(new Date().toDateString());
 
@@ -542,10 +631,6 @@ export default function EntriesPage() {
                             ? (entry.values?.[descField.id] as string) || ""
                             : "";
 
-                          // Collect non-empty custom-field values. The description
-                          // field is skipped while
-                          // it is showing as the headline — repeating the same text
-                          // directly underneath it adds nothing.
                           const fieldValues = fields
                             .filter((f) => {
                               if (description && f.id === descField?.id) return false;
@@ -674,4 +759,15 @@ export default function EntriesPage() {
       )}
     </div>
   );
+}
+
+// Group a flat list of entries by their visible date, newest first.
+function groupEntriesByDate(entries: Entry[]): [string, Entry[]][] {
+  const groups: Record<string, Entry[]> = {};
+  entries.forEach((e) => {
+    const key = (e.entryDate || e.createdAt).slice(0, 10);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(e);
+  });
+  return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
 }

@@ -507,6 +507,30 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
 
     const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
 
+    // Server-side text search replaces the old client-side filter.
+    const search = req.query.search ? String(req.query.search).trim() : undefined;
+
+    // All / this week / overdue.
+    const entryTab = String(req.query.entryTab ?? "all");
+    if (!["all", "week", "overdue"].includes(entryTab)) {
+      return res.status(400).json({ error: "entryTab must be all, week or overdue" });
+    }
+
+    // Tags: entries carrying any of these tag names.
+    const tagList = req.query.tags
+      ? String(req.query.tags).split(",").map((t) => t.trim()).filter(Boolean)
+      : [];
+
+    const sort = String(req.query.sort ?? "newest");
+    if (!["newest", "oldest"].includes(sort)) {
+      return res.status(400).json({ error: "sort must be newest or oldest" });
+    }
+
+    const archivedFilter = String(req.query.archived ?? "exclude");
+    if (!["exclude", "include", "only"].includes(archivedFilter)) {
+      return res.status(400).json({ error: "archived must be exclude, include or only" });
+    }
+
     // Field filters: a JSON array in a single query param so any number of
     // them can be combined.
     type FieldFilter = { fieldId: string; op: string; value: string };
@@ -521,13 +545,57 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       }
     }
 
+    // ── Build the shared WHERE clause ───────────────────────────────────
     const conditions: Prisma.Sql[] = [Prisma.sql`p.user_id = ${userId}::uuid`];
     if (projectId) conditions.push(Prisma.sql`le.project_id = ${projectId}::uuid`);
     if (projectStatus !== "ALL") conditions.push(Prisma.sql`p.status::text = ${projectStatus}`);
+
+    // Archived entries are excluded by default (US30).
+    if (archivedFilter === "exclude") conditions.push(Prisma.sql`le.archived_at IS NULL`);
+    else if (archivedFilter === "only") conditions.push(Prisma.sql`le.archived_at IS NOT NULL`);
+
+    // The visible date is COALESCE(entry_date, created_at).
     if (from) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) >= ${from}`);
     if (to) conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) <= ${to}`);
 
-    // Each field filter adds one EXISTS clause. All clauses AND together.
+    if (entryTab === "week") {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      conditions.push(Prisma.sql`COALESCE(le.entry_date, le.created_at) >= ${weekAgo}`);
+    } else if (entryTab === "overdue") {
+      const today = new Date(new Date().toDateString());
+      conditions.push(Prisma.sql`le.status = 'OPEN'`);
+      conditions.push(Prisma.sql`le.due_date IS NOT NULL AND le.due_date < ${today}`);
+    }
+
+    // Tags: entry has at least one of the listed names.
+    if (tagList.length > 0) {
+      conditions.push(Prisma.sql`
+        EXISTS (
+          SELECT 1 FROM entry_tags et
+          JOIN tags t ON t.id = et.tag_id
+          WHERE et.entry_id = le.id AND t.name = ANY(${tagList}::text[])
+        )
+      `);
+    }
+
+    // Free-text search across project name, field values and tags.
+    if (search) {
+      const like = `%${search}%`;
+      conditions.push(Prisma.sql`
+        (
+          p.name ILIKE ${like}
+          OR EXISTS (SELECT 1 FROM entry_values ev WHERE ev.entry_id = le.id AND ev.value ILIKE ${like})
+          OR EXISTS (
+            SELECT 1 FROM entry_tags et
+            JOIN tags t ON t.id = et.tag_id
+            WHERE et.entry_id = le.id AND t.name ILIKE ${like}
+          )
+        )
+      `);
+    }
+
+    // Field filters: each adds one EXISTS clause, all AND together.
     for (const filter of fieldFilters) {
       if (!filter || typeof filter.fieldId !== "string" || typeof filter.op !== "string" || typeof filter.value !== "string") {
         return res.status(400).json({ error: "each filter needs fieldId, op and value" });
@@ -583,30 +651,73 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       conditions.push(Prisma.sql`EXISTS (SELECT 1 FROM entry_values ev WHERE ${clause})`);
     }
 
-    // Ordered and limited in SQL, because COALESCE(entry_date, created_at) is
-    // the date the interface actually shows — a backdated entry belongs in the
-    // week it visibly sits in, not the week it was typed. Prisma's orderBy
-    // cannot express that, so the ids are selected here and hydrated below.
+    const whereClause = Prisma.join(conditions, " AND ");
+    const orderSql =
+      sort === "oldest"
+        ? Prisma.sql`ORDER BY COALESCE(le.entry_date, le.created_at) ASC, le.id ASC`
+        : Prisma.sql`ORDER BY COALESCE(le.entry_date, le.created_at) DESC, le.id DESC`;
+
+    // ── Page query ──────────────────────────────────────────────────────
     const rows = await prisma.$queryRaw<{ id: string }[]>`
       SELECT le.id
       FROM logbook_entries le
       JOIN projects p ON p.id = le.project_id
-      WHERE ${Prisma.join(conditions, " AND ")}
-      ORDER BY COALESCE(le.entry_date, le.created_at) DESC, le.id DESC
+      WHERE ${whereClause}
+      ${orderSql}
       LIMIT ${limit}
       OFFSET ${offset}
     `;
 
+    // ── Stats over the whole filtered set (not just the page) ───────────
+    const statRows = await prisma.$queryRaw<{
+      total: bigint;
+      week_count: bigint;
+      week_minutes: bigint;
+      overdue_count: bigint;
+    }[]>`
+      SELECT
+        COUNT(*)::bigint AS total,
+        COUNT(*) FILTER (
+          WHERE COALESCE(le.entry_date, le.created_at) >= NOW() - INTERVAL '7 days'
+        )::bigint AS week_count,
+        COALESCE(SUM(le.duration_minutes) FILTER (
+          WHERE COALESCE(le.entry_date, le.created_at) >= NOW() - INTERVAL '7 days'
+        ), 0)::bigint AS week_minutes,
+        COUNT(*) FILTER (
+          WHERE le.status = 'OPEN' AND le.due_date IS NOT NULL AND le.due_date < CURRENT_DATE
+        )::bigint AS overdue_count
+      FROM logbook_entries le
+      JOIN projects p ON p.id = le.project_id
+      WHERE ${whereClause}
+    `;
+
+    // Streak needs the distinct dates the entries fall on, from the same set.
+    const dayRows = await prisma.$queryRaw<{ day: string }[]>`
+      SELECT DISTINCT to_char(COALESCE(le.entry_date, le.created_at), 'YYYY-MM-DD') AS day
+      FROM logbook_entries le
+      JOIN projects p ON p.id = le.project_id
+      WHERE ${whereClause}
+      ORDER BY day DESC
+    `;
+
+    const stat = statRows[0] ?? { total: BigInt(0), week_count: BigInt(0), week_minutes: BigInt(0), overdue_count: BigInt(0) };
+    const stats = {
+      total: Number(stat.total),
+      weekCount: Number(stat.week_count),
+      weekMinutes: Number(stat.week_minutes),
+      overdueCount: Number(stat.overdue_count),
+      streak: computeStreakFromDays(dayRows.map((r) => r.day)),
+    };
+
     const ids = rows.map((r) => r.id);
     if (ids.length === 0) {
-      return res.status(200).json({ entries: [], formats: {}, limit, offset, truncated: false });
+      return res.status(200).json({ entries: [], formats: {}, limit, offset, truncated: false, stats });
     }
 
     const found = await prisma.logbookEntry.findMany({
       where: { id: { in: ids } },
       include: ENTRY_INCLUDE,
     });
-    // findMany does not preserve the order of an `in` list.
     const byId = new Map(found.map((e) => [e.id, e]));
     const ordered = ids.map((id) => byId.get(id)).filter((e): e is NonNullable<typeof e> => Boolean(e));
 
@@ -628,6 +739,7 @@ export const listEntries = async (req: AuthenticatedRequest, res: Response) => {
       limit,
       offset,
       truncated: ids.length === limit,
+      stats,
     });
   } catch (error) {
     console.error("Failed to list entries:", error);
@@ -667,3 +779,31 @@ export const getOpenEntries = async (req: AuthenticatedRequest, res: Response) =
     return res.status(500).json({ error: "Failed to fetch open entries" });
   }
 };
+
+/** Streak from an ordered list of YYYY-MM-DD strings (newest first). */
+function computeStreakFromDays(days: string[]): number {
+  if (days.length === 0) return 0;
+  const set = new Set(days);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Allow the streak to start today or yesterday.
+  const todayKey = today.toISOString().slice(0, 10);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = yesterday.toISOString().slice(0, 10);
+
+  let cursor: Date;
+  if (set.has(todayKey)) cursor = today;
+  else if (set.has(yesterdayKey)) cursor = yesterday;
+  else return 0;
+
+  let streak = 0;
+  while (true) {
+    const key = cursor.toISOString().slice(0, 10);
+    if (!set.has(key)) break;
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
