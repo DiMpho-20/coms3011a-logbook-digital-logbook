@@ -66,6 +66,11 @@ The main goals of the Digital Logbook are to:
 * **Entry history** — every change is kept; view an entry as it was on any date and restore an earlier version
 * **Archiving and performance** — archive old entries; indexed queries and paginated lists for long records
 
+### My Grades
+
+* **Grade tracking** — add semester or full-year modules (with your own Semester 1 / Semester 2 split), their assessments, weights and marks; see what you've secured, your average on marked work, the mark you need for a target, and try what-if marks without saving them
+* **Assessment dates** — due and test dates with an upcoming list and countdowns
+
 ### User Experience
 
 * **Profile page** — avatar upload, bio/slogan, degree, year, and student number
