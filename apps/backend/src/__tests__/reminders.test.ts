@@ -464,6 +464,7 @@ describe("reminder settings", () => {
       dailyLogEnabled: false,
       dailyLogTime: "18:00",
       timeZone: "UTC",
+      assessmentEnabled: true,
     });
   });
 

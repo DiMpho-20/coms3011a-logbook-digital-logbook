@@ -910,13 +910,16 @@ the user's reminder rules:
 | `OVERDUE` | An open, unarchived entry's due date has passed |
 | `STALE` | An open, unarchived entry has not been edited for `staleDays` days |
 | `DAILY_LOG` | Nothing has been logged today and it is past `dailyLogTime` |
+| `ASSESSMENT` | A dated, unmarked My Grades assessment with `remind` on is 5 days away (one reminder, kept until 3 days before) or 2 days away (a second, kept until the day). New ones appear from 08:00 in `timeZone`. Needs `assessmentEnabled` |
 
 Rules are evaluated whenever reminders are read (`GET /reminders` and
 `GET /reminders/count`). Each condition produces at most one reminder, so a
 completed or dismissed reminder stays that way while the condition holds. A
 pending generated reminder whose condition lapses is marked `COMPLETED` if
-its entry was marked done (or, for `DAILY_LOG`, something was logged), and
-removed otherwise, e.g. when the due date moves or the rule is switched off.
+its entry was marked done (or, for `DAILY_LOG`, something was logged; for
+`ASSESSMENT`, the assessment was marked or recorded as missed), and removed
+otherwise, e.g. when the due date moves or the rule is switched off.
+Deleting an assessment deletes its reminders.
 Calendar days are counted in the rules' `timeZone`.
 
 Reminder object:
@@ -934,9 +937,12 @@ Reminder object:
   "entry": {
     "id": "...", "projectId": "...", "projectName": "Chemistry",
     "label": "Submit lab report", "dueDate": "2026-09-27T00:00:00.000Z", "status": "OPEN"
-  }
+  },
+  "assessment": null
 }
 ```
+For an `ASSESSMENT` reminder, `entry` is `null` and `assessment` is
+`{ "id", "moduleId", "moduleCode", "name", "date": "2026-11-15", "dateKind": "TEST" }`.
 
 ### `GET /api/reminders`
 
@@ -1001,7 +1007,8 @@ The caller's reminder rules (defaults shown):
   "overdueEnabled": true,
   "staleEnabled": false, "staleDays": 7,
   "dailyLogEnabled": false, "dailyLogTime": "18:00",
-  "timeZone": "UTC"
+  "timeZone": "UTC",
+  "assessmentEnabled": true
 }
 ```
 
@@ -1010,7 +1017,7 @@ The caller's reminder rules (defaults shown):
 ### `PUT /api/reminders/settings`
 
 Update any subset of the rules. `dueSoonDays` 0–30, `staleDays` 1–365,
-`dailyLogTime` `HH:MM`, `timeZone` an IANA zone name.
+`dailyLogTime` `HH:MM`, `timeZone` an IANA zone name, `assessmentEnabled` a boolean.
 
 **Response `200`:** the full rules.
 **Errors:** `400` (out-of-range or invalid value)
@@ -1220,6 +1227,129 @@ within the same pass or a later one.
 **History.** `toSnapshot()` covers tags and status, so what automation did is
 recorded as a further entry version: the user's save is version *n*,
 automation's effect is *n+1*, visible and revertable in the history UI.
+
+---
+
+## My Grades (`/api/grades`) 🔒
+
+FEAT-009. A student's university modules and the assessments that make up their
+marks. The API stores and returns exactly what the student entered; every grade
+figure (secured points, averages, required marks, what-if projections) is
+worked out in the browser by the grade engine, `apps/frontend/src/lib/grades.ts`.
+
+**Two levels of weighting.** An assessment's `weight` is its share of its
+*section*. A `SEMESTER` module has one section worth 100%. A `FULL_YEAR` module
+has Semester 1 and Semester 2: `semester1Weight` is Semester 1's share of the
+module and Semester 2 counts for the rest, so the two always total 100. There is
+no default split.
+
+**Ownership.** Every route needs a signed-in student. Any route naming a
+`:moduleId` or `:assessmentId` only ever finds the caller's own record: another
+student's id, or a malformed one, is `404`.
+
+A module object:
+```json
+{
+  "id": "...", "code": "COMS3011A", "name": "Software Design", "academicYear": 2026,
+  "type": "SEMESTER", "semester": 2, "semester1Weight": null, "targetMark": 50,
+  "createdAt": "...", "updatedAt": "...",
+  "assessments": [ /* assessment objects, in the student's order */ ]
+}
+```
+
+An assessment object:
+```json
+{
+  "id": "...", "moduleId": "...", "name": "Midterm", "section": null, "weight": 40,
+  "markObtained": 25, "markMax": 40, "markPercent": null, "missed": false,
+  "date": "2026-11-15", "dateKind": "TEST", "remind": true, "position": 0, "createdAt": "...", "updatedAt": "..."
+}
+```
+
+- A mark is either `markObtained` out of `markMax`, or `markPercent`, or neither
+  (not marked yet). `missed: true` counts as 0% and cannot carry a mark.
+- `date` is a calendar day, `YYYY-MM-DD`, with no time and so no time zone.
+  `dateKind` (`DUE` or `TEST`) is given exactly when `date` is.
+- Weights, percentages and marks allow at most two decimal places.
+- There is no `status` field: it is derived from the mark by the grade engine.
+
+### `GET /api/grades/modules?year=<year>`
+
+The caller's modules with their assessments, newest year first, then by code.
+`year` is optional.
+
+**Response `200`:** an array of module objects.
+**Errors:** `400` (`year` is not a year from 2000 to 2100)
+
+### `POST /api/grades/modules`
+
+| Field | Type | Required |
+|---|---|---|
+| `code` | string, up to 20 characters; trimmed and upper-cased | Yes |
+| `name` | string | Yes |
+| `academicYear` | integer, 2000–2100 | Yes |
+| `type` | `SEMESTER` or `FULL_YEAR` | Yes |
+| `semester` | `1` or `2` | For `SEMESTER` only |
+| `semester1Weight` | number, 0–100 | For `FULL_YEAR` only |
+| `targetMark` | number, 0–100, or `null` | No |
+
+**Response `201`:** the module object.
+**Errors:** `400` (invalid field, or a field that doesn't fit the type), `409` (the same code already exists for that year; repeating a module in a later year is fine)
+
+### `GET /api/grades/modules/:moduleId`
+
+**Response `200`:** the module object.
+**Errors:** `404`
+
+### `PATCH /api/grades/modules/:moduleId`
+
+Any of the create fields; at least one. To change `type`, send the field the new
+type needs and `null` for the one it doesn't. A semester module's assessments
+move into the semester it ran in; a full-year module can only become a semester
+module while all of its assessments are in one semester.
+
+**Response `200`:** the updated module object.
+**Errors:** `400`, `404`, `409` (duplicate code, or assessments in both semesters)
+
+### `DELETE /api/grades/modules/:moduleId`
+
+Deletes the module and its assessments.
+
+**Response `204`.**
+**Errors:** `404`
+
+### `POST /api/grades/modules/:moduleId/assessments`
+
+| Field | Type | Required |
+|---|---|---|
+| `name` | string, up to 120 characters | Yes |
+| `weight` | number, 0–100 (share of its section) | Yes |
+| `section` | `1` or `2` | In a `FULL_YEAR` module only |
+| `markObtained`, `markMax` | numbers, `markMax` above 0 and `markObtained` no more than it | No |
+| `markPercent` | number, 0–100 | No |
+| `missed` | boolean | No |
+| `date` | `YYYY-MM-DD` | No |
+| `dateKind` | `DUE` or `TEST` | With `date` |
+| `remind` | boolean: reminders 5 and 2 days before the date | No (defaults to `true`) |
+| `position` | integer | No (defaults to the end) |
+
+**Response `201`:** the assessment object.
+**Errors:** `400`, `404` (module not found)
+
+### `PATCH /api/grades/assessments/:assessmentId`
+
+Any of the create fields; at least one. The mark (`markObtained`, `markMax`,
+`markPercent`, `missed`) and the date (`date`, `dateKind`) are each replaced as
+a whole: send any part and the parts left out are cleared, so switching from
+25/40 to 62.5% can't leave both behind.
+
+**Response `200`:** the updated assessment object.
+**Errors:** `400`, `404`
+
+### `DELETE /api/grades/assessments/:assessmentId`
+
+**Response `204`.**
+**Errors:** `404`
 
 ---
 

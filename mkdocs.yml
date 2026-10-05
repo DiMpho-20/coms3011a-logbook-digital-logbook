@@ -38,6 +38,11 @@ nav:
   - User Feedback: user-feedback.md
   - Third-Party Code: third-party.md
   - User Stories: user-stories/user-stories.md
+  - Extra Features:
+      - Overview: extra-features/README.md
+      - AI Help Assistant: extra-features/ai-help-assistant.md
+      - My Grades: extra-features/my-grades.md
+      - Google Calendar Sync: extra-features/google-calendar-sync.md
   - Design: design/architecture.md
   - Database design: design/database-erd.md
   - UI Design: design/ui-design.md

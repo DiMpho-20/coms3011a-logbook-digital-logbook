@@ -28,6 +28,12 @@
   CreateReminderInput,
   UpdateReminderInput,
   CustomStatistic,
+  GradeModule,
+  GradeAssessment,
+  CreateGradeModuleInput,
+  UpdateGradeModuleInput,
+  CreateAssessmentInput,
+  UpdateAssessmentInput,
 } from "@logbook/shared";
 import { api } from "./api/client";
 import { getPendingEntries, isOfflineRequest, queueEntry, removePendingEntriesForProject } from "./lib/offlineEntries";
@@ -69,6 +75,12 @@ export type {
   ReminderSettings,
   ReminderStatusFilter,
   CustomStatistic,
+  GradeModule,
+  GradeAssessment,
+  CreateGradeModuleInput,
+  UpdateGradeModuleInput,
+  CreateAssessmentInput,
+  UpdateAssessmentInput,
 };
 
 /**
@@ -735,6 +747,47 @@ export async function updateAutomationRule(
 
 export async function deleteAutomationRule(projectId: string, id: string): Promise<void> {
   await api.delete(`/projects/${projectId}/automation-rules/${id}`);
+}
+
+// ── My Grades (FEAT-009) ─────────────────────────────────────────────────
+// The API returns exactly what the student entered; lib/grades.ts works out
+// every figure from it. Reads are cached for offline viewing; changes need a
+// connection.
+
+/** The student's modules, newest year first; pass a year to see only that one. */
+export async function fetchGradeModules(year?: number): Promise<GradeModule[]> {
+  return cachedRequest(`grade-modules:${year ?? "all"}`, async () =>
+    (await api.get("/grades/modules", { params: year === undefined ? {} : { year } })).data
+  );
+}
+
+export async function fetchGradeModule(id: string): Promise<GradeModule> {
+  return cachedRequest(`grade-module:${id}`, async () => (await api.get(`/grades/modules/${id}`)).data);
+}
+
+export async function createGradeModule(data: CreateGradeModuleInput): Promise<GradeModule> {
+  return (await api.post("/grades/modules", data)).data;
+}
+
+export async function updateGradeModule(id: string, data: UpdateGradeModuleInput): Promise<GradeModule> {
+  return (await api.patch(`/grades/modules/${id}`, data)).data;
+}
+
+export async function deleteGradeModule(id: string): Promise<void> {
+  await api.delete(`/grades/modules/${id}`);
+}
+
+export async function createAssessment(moduleId: string, data: CreateAssessmentInput): Promise<GradeAssessment> {
+  return (await api.post(`/grades/modules/${moduleId}/assessments`, data)).data;
+}
+
+/** Sending any part of the mark (or of the date) replaces all of it; see UpdateAssessmentInput. */
+export async function updateAssessment(id: string, data: UpdateAssessmentInput): Promise<GradeAssessment> {
+  return (await api.patch(`/grades/assessments/${id}`, data)).data;
+}
+
+export async function deleteAssessment(id: string): Promise<void> {
+  await api.delete(`/grades/assessments/${id}`);
 }
 
 // ── Help assistant ─────────────────────────────────────────────────────────

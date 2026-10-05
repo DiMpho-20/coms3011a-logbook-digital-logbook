@@ -17,6 +17,7 @@ import {
   CalendarDays,
   Kanban,
   Bell,
+  GraduationCap,
 } from "lucide-react";
 import { clearOfflineCache } from "../lib/offlineCache";
 import { fetchDueReminderCount, fetchDueReminders, REMINDERS_CHANGED_EVENT } from "../api";
@@ -75,6 +76,7 @@ const NAV_ITEMS = [
   { to: "/entries", label: "Entries", icon: ClipboardList, end: false },
   { to: "/open-work", label: "Open Work", icon: Circle, end: false },
   { to: "/stats", label: "Stats", icon: BarChart3, end: false },
+  { to: "/grades", label: "My Grades", icon: GraduationCap, end: false },
   { to: "/calendar", label: "Calendar", icon: CalendarDays, end: false },
   { to: "/board", label: "Board", icon: Kanban, end: false },
   { to: "/reminders", label: "Reminders", icon: Bell, end: false },

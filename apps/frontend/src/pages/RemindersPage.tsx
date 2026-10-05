@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlarmClock, AlertTriangle, Bell, BellRing, CalendarClock, Check, CheckCircle2,
-  Hourglass, NotebookPen, Plus, RotateCcw, Settings2, Trash2, X,
+  GraduationCap, Hourglass, NotebookPen, Plus, RotateCcw, Settings2, Trash2, X,
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import LoadingState from "../components/LoadingState";
@@ -31,6 +31,7 @@ const SOURCE_META: Record<Reminder["source"], { label: string; icon: typeof Bell
   OVERDUE: { label: "Overdue", icon: AlertTriangle, style: "bg-red-50 border-red-200 text-red-700" },
   STALE: { label: "No progress", icon: Hourglass, style: "bg-violet-50 border-violet-200 text-violet-700" },
   DAILY_LOG: { label: "Daily log", icon: NotebookPen, style: "bg-emerald-50 border-emerald-200 text-emerald-700" },
+  ASSESSMENT: { label: "Assessment", icon: GraduationCap, style: "bg-cyan-50 border-cyan-300 text-cyan-700" },
 };
 
 const inputCls =
@@ -108,6 +109,16 @@ function ReminderCard({
                   {reminder.entry.projectName}
                 </Link>
                 {reminder.entry.dueDate && ` · due ${new Date(reminder.entry.dueDate.slice(0, 10) + "T00:00:00").toLocaleDateString()}`}
+              </>
+            )}
+            {reminder.assessment && (
+              <>
+                {" · "}
+                <Link to={`/grades/${reminder.assessment.moduleId}`} className="text-blue-600 hover:underline">
+                  {reminder.assessment.moduleCode}
+                </Link>
+                {reminder.assessment.date &&
+                  ` · ${reminder.assessment.dateKind === "TEST" ? "test" : "due"} ${new Date(reminder.assessment.date + "T00:00:00").toLocaleDateString()}`}
               </>
             )}
           </p>
@@ -343,6 +354,12 @@ function ReminderRules({ onSaved }: { onSaved: () => void }) {
           days without progress
         </label>
       )}
+      <RuleToggle
+        label="Upcoming tests & assessments"
+        description="Remind me 5 days and 2 days before a dated assessment in My Grades."
+        checked={rules.assessmentEnabled}
+        onChange={(v) => set({ assessmentEnabled: v })}
+      />
       <RuleToggle
         label="Daily logbook reminder"
         description="Remind me if I haven't logged anything by a set time."

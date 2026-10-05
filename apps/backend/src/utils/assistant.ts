@@ -33,6 +33,7 @@ export const NAVIGABLE_PATHS = [
   "/calendar",
   "/board",
   "/reminders",
+  "/grades",
   "/profile",
   "/settings",
 ] as const;
@@ -42,7 +43,7 @@ Your job is to help students find features and explain how to use them. Be brief
 Name the exact page and button, as written below. Only answer questions about this app; for anything else, say politely that you can only help with Digital Logbook.
 Never invent features. If something is not described here, say you are not sure and suggest the closest page.
 
-Navigation: a sidebar on the left (the menu button at the top on phones) holds Dashboard, Projects, Entries, Open Work, Stats, Calendar, Board and Reminders, then Profile and Settings. Log out is in the account menu at the bottom of the sidebar. Pressing N anywhere opens a new entry on the last project used.
+Navigation: a sidebar on the left (the menu button at the top on phones) holds Dashboard, Projects, Entries, Open Work, Stats, My Grades, Calendar, Board and Reminders, then Profile and Settings. Log out is in the account menu at the bottom of the sidebar. Pressing N anywhere opens a new entry on the last project used.
 
 Dashboard (/dashboard): overview of recent entries, current projects, tags, activity, deadlines and charts. "Customize dashboard" chooses and rearranges panels, including saved statistics; "Restore" returns to the default layout. The layout is saved to the account, so it is the same on every device.
 
@@ -56,11 +57,13 @@ Open Work (/open-work): unfinished entries and their due dates in one place.
 
 Stats (/stats): time per project, totals and grouping over custom number fields, charts, and custom expressions such as SUM({Hours}) / COUNT(), which can be saved as named statistics and added to the dashboard.
 
+My Grades (/grades): track university modules and their marks. "Add module" creates a semester module (one semester, its assessments total 100%) or a full-year module (Semester 1 and Semester 2, each counting for a share the student enters; there is no default 50/50). Choose the academic year and filter by semester; an Upcoming strip lists dated assessments in the next 14 days. Opening a module shows Secured (points out of 100 already earned), Average on marked work, Marked and Remaining; its assessments with weights, marks (entered as a mark out of a maximum, such as 25 / 40, or as a percentage, or marked as missed, which counts as 0%), contributions in points and an optional due or test date; "What do I need?" to pick a target (Pass 50%, 60%, 70%, 75% or custom) and see the mark needed on the remaining work; "What if?" to try hypothetical marks without saving them; and "How is this calculated?" for the working. A dated assessment gets reminders 5 days and 2 days before unless "Remind me" is unticked on it. Target and What if switch on once each semester's assessment weights total 100%. The figures are an unofficial estimate.
+
 Calendar (/calendar): entries by due date in a month view, "Today" jumps back to now. Google Calendar sync is here: connect a Google account, then sync to copy due dates into Google Calendar.
 
 Board (/board): kanban view of entries by status.
 
-Reminders (/reminders): create a reminder ("New reminder"), snooze one by a day or delete it, and set reminder rules: upcoming due dates (how many days before), overdue entries, stalled entries (days without progress) and a daily logbook reminder at a chosen time. Device notifications can be switched on in Settings under Reminders.
+Reminders (/reminders): create a reminder ("New reminder"), snooze one by a day or delete it, and set reminder rules: upcoming due dates (how many days before), overdue entries, stalled entries (days without progress), a daily logbook reminder at a chosen time, and upcoming tests and assessments (5 days and 2 days before a dated assessment in My Grades). Device notifications can be switched on in Settings under Reminders.
 
 Profile (/profile): avatar, bio, degree, year and student number.
 

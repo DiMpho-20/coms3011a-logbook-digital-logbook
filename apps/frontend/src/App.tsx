@@ -24,6 +24,8 @@ import EntriesPage from "./pages/EntriesPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 import RemindersPage from "./pages/RemindersPage";
+import GradesPage from "./pages/GradesPage";
+import GradeModulePage from "./pages/GradeModulePage";
 
 export default function App() {
   useEffect(() => startFullOfflineSync(), []);
@@ -53,6 +55,8 @@ export default function App() {
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/board" element={<BoardPage />} />
             <Route path="/reminders" element={<RemindersPage />} />
+            <Route path="/grades" element={<GradesPage />} />
+            <Route path="/grades/:moduleId" element={<GradeModulePage />} />
           </Route>
         </Route>
 
