@@ -118,6 +118,52 @@ describe("the 5-day and 2-day reminders", () => {
     expect(seen.size).toBe(2);
   });
 
+  it("reminds about several assessments separately, each once, naming module, assessment, date and kind", async () => {
+    const s = await student("multi");
+    const test = await addAssessment(s, { name: "Final Test", date: TEST_DAY, dateKind: "TEST" });
+    const assignment = await addAssessment(s, { name: "Assignment 2", date: "2026-11-13", dateKind: "DUE" });
+    const undated = await addAssessment(s, { name: "Quiz", date: null, dateKind: null });
+
+    await generateReminders(s.id, at(10));
+    await generateReminders(s.id, at(10, "12:00"));
+    const first = await prisma.reminder.findMany({ where: { userId: s.id, source: "ASSESSMENT" }, orderBy: { ruleKey: "asc" } });
+    expect(first.map((r) => [r.assessmentId, r.ruleKey, r.title])).toEqual(
+      [
+        [assignment, `assessment:${assignment}:2026-11-13:5`, `Due Fri 13 Nov: ${s.code} Assignment 2`],
+        [test, `assessment:${test}:${TEST_DAY}:5`, `Test on Sun 15 Nov: ${s.code} Final Test`],
+      ].sort((a, b) => a[1].localeCompare(b[1]))
+    );
+    expect(await remindersFor(undated)).toHaveLength(0);
+
+    // Two days before the test is the day of the assignment: both are on their 2-day reminder.
+    await generateReminders(s.id, at(13));
+    const pending = await prisma.reminder.findMany({ where: { userId: s.id, source: "ASSESSMENT", status: "PENDING" } });
+    expect(pending.map((r) => r.ruleKey).sort()).toEqual(
+      [`assessment:${assignment}:2026-11-13:2`, `assessment:${test}:${TEST_DAY}:2`].sort()
+    );
+  });
+
+  it("counts days across the end of a month and of a year", async () => {
+    const s = await student("boundary");
+    const december = await addAssessment(s, { name: "December", date: "2026-12-02", dateKind: "TEST" });
+    const january = await addAssessment(s, { name: "January", date: "2027-01-02", dateKind: "TEST" });
+
+    await generateReminders(s.id, new Date("2026-11-26T09:00:00.000Z"));
+    expect(await remindersFor(december)).toHaveLength(0); // 6 days away
+    await generateReminders(s.id, new Date("2026-11-27T09:00:00.000Z"));
+    expect((await pendingFor(december)).map((r) => r.ruleKey)).toEqual([`assessment:${december}:2026-12-02:5`]);
+    await generateReminders(s.id, new Date("2026-11-30T09:00:00.000Z"));
+    expect((await pendingFor(december)).map((r) => r.ruleKey)).toEqual([`assessment:${december}:2026-12-02:2`]);
+
+    await generateReminders(s.id, new Date("2026-12-27T09:00:00.000Z"));
+    expect(await remindersFor(january)).toHaveLength(0); // 6 days away
+    await generateReminders(s.id, new Date("2026-12-28T09:00:00.000Z"));
+    const [five] = await pendingFor(january);
+    expect(five).toMatchObject({ ruleKey: `assessment:${january}:2027-01-02:5`, title: `Test on Sat 2 Jan: ${s.code} January` });
+    await generateReminders(s.id, new Date("2026-12-31T09:00:00.000Z"));
+    expect((await pendingFor(january)).map((r) => r.ruleKey)).toEqual([`assessment:${january}:2027-01-02:2`]);
+  });
+
   it("covers an assessment added late with the reminder for that point", async () => {
     const id = await addAssessment(A, { name: "Late", date: "2026-11-11" });
     await generateReminders(A.id, at(10));
