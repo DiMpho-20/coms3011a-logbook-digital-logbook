@@ -74,10 +74,13 @@ function fieldValueLabel(field: EntryField, value: unknown): string {
 export default function EntriesPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [fieldsByProject, setFieldsByProject] = useState<Record<string, EntryField[]>>({});
+  // The newest format each project's listed entries were written in, as sent with the entries.
+  const [listingFields, setListingFields] = useState<Record<string, EntryField[]>>({});
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [entriesLoading, setEntriesLoading] = useState(true);
   const [loadFailures, setLoadFailures] = useState(0);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [stats, setStats] = useState({ total: 0, weekCount: 0, weekMinutes: 0, overdueCount: 0, streak: 0 });
@@ -116,12 +119,6 @@ export default function EntriesPage() {
   const [filterName, setFilterName] = useState("");
 
   const loadRunRef = useRef(0);
-  const hasLoadedOnceRef = useRef(false);
-
-  useEffect(() => {
-  console.log("EntriesPage mounted");
-  return () => console.log("EntriesPage unmounted");
-}, []);
 
   // Fields of the selected project (for the field filter popover).
   const selectedProjectFields = useMemo<EntryField[]>(() => {
@@ -156,15 +153,27 @@ export default function EntriesPage() {
         const all = await fetchProjects();
         const active = all.filter((p) => p.status === "ACTIVE");
         setProjects(active);
+        setProjectsLoaded(true);
+        setLoading(false);
 
+        let failures = 0;
         const fieldResults = await Promise.all(
-          active.map(async (p) => ({ id: p.id, fields: await fetchEntryFields(p.id).catch(() => []) }))
+          active.map(async (p) => ({
+            id: p.id,
+            fields: await fetchEntryFields(p.id).catch(() => {
+              failures += 1;
+              return [] as EntryField[];
+            }),
+          }))
         );
         const map: Record<string, EntryField[]> = {};
         fieldResults.forEach((r) => { map[r.id] = r.fields; });
         setFieldsByProject(map);
+        setLoadFailures(failures);
       } catch (err) {
         console.error("Failed to load projects:", err);
+        setProjectsLoaded(true);
+        setLoading(false);
       }
     })();
   }, []);
@@ -172,7 +181,6 @@ export default function EntriesPage() {
   // ── Load entries when the applied snapshot changes ─────────────────────
   const loadAll = useCallback(async (snapshot: typeof applied) => {
     const run = ++loadRunRef.current;
-    if (!hasLoadedOnceRef.current) setLoading(true);
     setEntriesLoading(true);
     try {
       const listing = await fetchAllEntries(buildQuery(0, snapshot), {
@@ -180,26 +188,23 @@ export default function EntriesPage() {
       });
       if (run !== loadRunRef.current) return;
       setAllEntries(listing.entries);
+      setListingFields(listing.fieldsByProject);
       setHasMore(listing.truncated);
       if (listing.stats) setStats(listing.stats);
     } catch (err) {
       console.error("Failed to load entries:", err);
     } finally {
-      if (run === loadRunRef.current) {
-        setLoading(false);
-        setEntriesLoading(false);
-        hasLoadedOnceRef.current = true;
-      }
+      if (run === loadRunRef.current) setEntriesLoading(false);
     }
   }, [buildQuery, projects]);
 
-  // Re-fetch whenever the applied snapshot changes, and after projects
-  // are loaded for the first time.
+  // Re-fetch whenever the applied snapshot changes, and once the projects
+  // have loaded (even when there are none, so the spinner clears).
   useEffect(() => {
-    if (projects.length === 0 && !hasLoadedOnceRef.current) return;
+    if (!projectsLoaded) return;
     loadAll(applied);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applied, projects.length]);
+  }, [applied, projectsLoaded]);
 
   useEffect(() => {
     setSavedFilters(loadSavedFilters());
@@ -230,6 +235,7 @@ export default function EntriesPage() {
         pendingProjectIds: projects.map((p) => p.id),
       });
       setAllEntries((prev) => [...prev, ...listing.entries]);
+      setListingFields((prev) => ({ ...listing.fieldsByProject, ...prev }));
       setHasMore(listing.truncated);
     } catch (err) {
       console.error("Failed to load more entries:", err);
@@ -626,7 +632,7 @@ export default function EntriesPage() {
                 </div>
               ) : allEntries.length === 0 ? (
                 <div className="text-center py-12">
-                  {filterTab === "overdue" ? (
+                  {applied.tab === "overdue" ? (
                     <>
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 mb-3">
                         <AlertTriangle className="h-5 w-5 text-emerald-500" />
@@ -646,6 +652,14 @@ export default function EntriesPage() {
                             setTagFilters([]);
                             setFieldFilters([]);
                             setActiveFilterId(null);
+                            setApplied((prev) => ({
+                              ...prev,
+                              search: "",
+                              projectId: "all",
+                              tab: "all",
+                              tags: [],
+                              fieldFilters: [],
+                            }));
                           }}
                           className="text-xs text-blue-600 font-medium hover:underline mt-2"
                         >
@@ -676,7 +690,7 @@ export default function EntriesPage() {
                           });
                           const fields = entry.format?.fields?.length
                             ? entry.format.fields
-                            : fieldsByProject[entry.projectId] || [];
+                            : listingFields[entry.projectId] || fieldsByProject[entry.projectId] || [];
                           const isOverdue =
                             entry.status === "OPEN" &&
                             entry.dueDate &&

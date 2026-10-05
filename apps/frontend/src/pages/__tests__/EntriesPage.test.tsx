@@ -141,6 +141,7 @@ describe("EntriesPage — shell and loading", () => {
     render(<EntriesPage />);
 
     fireEvent.change(await screen.findByLabelText("Archived entries"), { target: { value: "only" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
     await waitFor(() =>
       expect(vi.mocked(api.fetchAllEntries).mock.calls.at(-1)![0]).toMatchObject({ archived: "only", offset: 0 })
     );
@@ -163,15 +164,15 @@ describe("EntriesPage — shell and loading", () => {
 });
 
 describe("EntriesPage — the timeline", () => {
-  const setup = async (entries: unknown[], projects = [project()]) => {
+  const setup = async (entries: unknown[], projects = [project()], stats?: Record<string, number>) => {
     vi.mocked(api.fetchProjects).mockResolvedValue(projects as never);
-    vi.mocked(api.fetchAllEntries).mockResolvedValue(listing(entries) as never);
+    vi.mocked(api.fetchAllEntries).mockResolvedValue(listing(entries, stats ? { stats } : {}) as never);
     render(<EntriesPage />);
     await screen.findByText("Entries");
   };
 
   it("shows an entry with its description, project and duration", async () => {
-    await setup([entry()]);
+    await setup([entry()], [project()], { total: 1, weekCount: 1, weekMinutes: 45, overdueCount: 0, streak: 1 });
 
     expect(await screen.findByText("Wrote the report")).toBeInTheDocument();
     expect(screen.getAllByText("Campus Marketplace").length).toBeGreaterThan(0);
@@ -196,21 +197,23 @@ describe("EntriesPage — the timeline", () => {
     expect(screen.getAllByText("Wrote the report")).toHaveLength(1);
   });
 
-  it("counts the entries into the stat cards", async () => {
-    await setup([entry(), entry({ id: "e2", durationMinutes: 15 })]);
+  it("shows the server's counts in the stat cards", async () => {
+    await setup([entry(), entry({ id: "e2", durationMinutes: 15 })], [project()], {
+      total: 2, weekCount: 2, weekMinutes: 60, overdueCount: 0, streak: 1,
+    });
 
     // Total Entries — 2, once the entries land.
     await waitFor(() => expect(screen.getAllByText("2").length).toBeGreaterThan(0));
   });
 
-  it("marks an overdue entry and counts it", async () => {
-    await setup([entry({ dueDate: daysAgo(2) })]);
+  it("marks an overdue entry with a badge", async () => {
+    await setup([entry({ dueDate: daysAgo(2) })], [project()], {
+      total: 1, weekCount: 1, weekMinutes: 45, overdueCount: 1, streak: 1,
+    });
 
-    // "Overdue" renders twice: the stat-card label, and the badge on the entry
-    // itself. Both are expected — the badge is what marks the entry.
-    expect(await screen.findAllByText("Overdue")).toHaveLength(2);
-    // The filter option carries the count, so it reads "Overdue (1)".
-    expect(screen.getByText("Overdue (1)")).toBeInTheDocument();
+    await screen.findByText("Wrote the report");
+    // The stat-card label, the filter option, and the badge on the entry.
+    expect(screen.getAllByText("Overdue")).toHaveLength(3);
   });
 
   it("filters by the search box across project name and values", async () => {
@@ -221,30 +224,39 @@ describe("EntriesPage — the timeline", () => {
 
     await screen.findByText("Wrote the report");
     fireEvent.change(screen.getByPlaceholderText("Search entries..."), { target: { value: "entirely" } });
+    // Nothing is sent until the search is applied.
+    expect(api.fetchAllEntries).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(screen.getByPlaceholderText("Search entries..."), { key: "Enter" });
 
-    expect(screen.getByText("Something else entirely")).toBeInTheDocument();
-    expect(screen.queryByText("Wrote the report")).not.toBeInTheDocument();
+    await waitFor(() => expect(api.fetchAllEntries).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.fetchAllEntries).mock.calls[1][0]).toMatchObject({ search: "entirely", offset: 0 });
   });
 
   it("offers to clear the filters when nothing matches", async () => {
     await setup([entry()]);
 
     await screen.findByText("Wrote the report");
+    vi.mocked(api.fetchAllEntries).mockResolvedValueOnce(listing([]) as never);
     fireEvent.change(screen.getByPlaceholderText("Search entries..."), { target: { value: "zzzz" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
     expect(await screen.findByText("No entries match.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /clear filters/i }));
+    // Clearing reloads without the search, rather than only emptying the box.
     expect(await screen.findByText("Wrote the report")).toBeInTheDocument();
+    expect(vi.mocked(api.fetchAllEntries).mock.calls.at(-1)![0]).not.toHaveProperty("search");
   });
 
   it("congratulates the user when the overdue view is empty", async () => {
     await setup([entry()]);
     await screen.findByText("Wrote the report");
+    vi.mocked(api.fetchAllEntries).mockResolvedValueOnce(listing([]) as never);
 
     const tabSelect = screen.getAllByRole("combobox").find((s) =>
       Array.from((s as HTMLSelectElement).options).some((o) => o.value === "overdue")
     )!;
     fireEvent.change(tabSelect, { target: { value: "overdue" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
     expect(await screen.findByText("All caught up!")).toBeInTheDocument();
   });
@@ -261,9 +273,10 @@ describe("EntriesPage — the timeline", () => {
       Array.from((s as HTMLSelectElement).options).some((o) => o.value === "p2")
     )!;
     fireEvent.change(projectSelect, { target: { value: "p2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-    expect(screen.getByText("Other project work")).toBeInTheDocument();
-    expect(screen.queryByText("Wrote the report")).not.toBeInTheDocument();
+    await waitFor(() => expect(api.fetchAllEntries).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.fetchAllEntries).mock.calls[1][0]).toMatchObject({ projectId: "p2" });
   });
 
   it("switches between newest and oldest first", async () => {
