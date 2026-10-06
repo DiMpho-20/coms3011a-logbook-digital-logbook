@@ -263,3 +263,81 @@ describe("Stats: timeline bucketing", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("Stats: timeline by the entry's own date (ENTRY_DATE)", () => {
+  it("buckets by entryDate on a project that defines no DATE field at all", async () => {
+    const projectId = await createProject(`__stats_timeline_entry_${ts}`);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, entryDate: "2026-03-02", values: {} });
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, entryDate: "2026-03-02", values: {} });
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, entryDate: "2026-03-15", values: {} });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/stats/timeline`)
+      .set(H)
+      .send({ dateFieldId: "ENTRY_DATE", bucket: "day" });
+
+    expect(res.status).toBe(200);
+    const byDate = Object.fromEntries(res.body.points.map((p: any) => [p.date, p.value]));
+    expect(byDate["2026-03-02"]).toBe(2);
+    expect(byDate["2026-03-15"]).toBe(1);
+  }, 30_000);
+
+  it("falls back to createdAt for an entry with no entryDate", async () => {
+    const projectId = await createProject(`__stats_timeline_fallback_${ts}`);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, entryDate: "2026-03-15", values: {} });
+    // No entryDate: the day it was created is the day it was done.
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, values: {} });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/stats/timeline`)
+      .set(H)
+      .send({ dateFieldId: "ENTRY_DATE", bucket: "day" });
+
+    expect(res.status).toBe(200);
+    // The dated entry lands on its own day; the undated one contributes a
+    // second point on its created day, wherever today falls.
+    const dated = res.body.points.find((p: any) => p.date === "2026-03-15");
+    expect(dated.value).toBe(1);
+    expect(res.body.points).toHaveLength(2);
+  }, 30_000);
+
+  it("sums a NUMBER field per bucket when plotting by entry date", async () => {
+    const projectId = await createProject(`__stats_timeline_entry_sum_${ts}`);
+    const hoursId = await createField(projectId, { name: "Hours", type: "NUMBER" });
+
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, entryDate: "2026-04-01", values: { [hoursId]: 3 } });
+    await request(app)
+      .post(`/api/projects/${projectId}/entries`)
+      .set(H)
+      .send({ durationMinutes: 10, entryDate: "2026-04-01", values: { [hoursId]: 4 } });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/stats/timeline`)
+      .set(H)
+      .send({ dateFieldId: "ENTRY_DATE", bucket: "day", operation: "sum", metricFieldId: hoursId });
+
+    expect(res.status).toBe(200);
+    expect(res.body.points).toHaveLength(1);
+    expect(res.body.points[0].value).toBe(7);
+  }, 30_000);
+});

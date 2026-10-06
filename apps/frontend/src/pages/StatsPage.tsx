@@ -31,6 +31,14 @@ type Operation = typeof OPERATIONS[number];
 
 const COUNT_MODE = "__count__";
 
+/**
+ * The value sent to the timeline endpoint that plots each entry by its own
+ * date (entryDate, falling back to the day it was created) rather than by a
+ * DATE field's value. Mirrors the reserved literal the backend accepts, and
+ * is what makes a project without any DATE field plottable.
+ */
+const ENTRY_DATE_OPTION = "ENTRY_DATE";
+
 function formatNumber(v: number): string {
   return Number.isInteger(v) ? v.toLocaleString() : v.toFixed(1);
 }
@@ -174,8 +182,10 @@ export default function StatsPage() {
   }, [metricFieldId, isNumericMetric, operation]);
 
   useEffect(() => {
-    if (dateFields.length > 0 && !dateFieldId) {
-      setDateFieldId(dateFields[0].id);
+    if (!dateFieldId) {
+      // Prefer a DATE field when the project has one; otherwise plot by the
+      // day each entry was logged, which every entry has.
+      setDateFieldId(dateFields[0]?.id ?? ENTRY_DATE_OPTION);
     }
   }, [dateFields, dateFieldId]);
 
@@ -308,6 +318,7 @@ export default function StatsPage() {
 
   const plottedFieldName =
     timelinePlot !== COUNT_MODE ? fields.find((f) => f.id === timelinePlot)?.name : null;
+  const plottingByEntryDate = dateFieldId === ENTRY_DATE_OPTION;
   const dateFieldName = fields.find((f) => f.id === dateFieldId)?.name ?? "date";
 
   if (loadingProjects) {
@@ -450,18 +461,18 @@ export default function StatsPage() {
             <TrendingUp className="h-4 w-4 text-cyan-600" /> Over Time
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            {plottedFieldName
-              ? `Total ${plottedFieldName} across entries, added up per ${bucket} by each entry's ${dateFieldName}.`
-              : `How many entries have a ${dateFieldName} value, counted per ${bucket}.`}
+            {plottingByEntryDate
+              ? plottedFieldName
+                ? `Total ${plottedFieldName} across entries, added up per ${bucket} by the day each was logged.`
+                : `How many entries were logged, per ${bucket}.`
+              : plottedFieldName
+                ? `Total ${plottedFieldName} across entries, added up per ${bucket} by each entry's ${dateFieldName}.`
+                : `How many entries have a ${dateFieldName} value, counted per ${bucket}.`}
           </p>
         </div>
 
         {loadingFields ? (
           <p className="text-xs text-slate-500">Loading fields…</p>
-        ) : dateFields.length === 0 ? (
-          <p className="text-xs text-slate-500">
-            This project has no Date fields, so there's nothing to place on a timeline yet.
-          </p>
         ) : (
           <>
             <div className="flex flex-wrap gap-3 items-end">
@@ -475,6 +486,9 @@ export default function StatsPage() {
                   {dateFields.map((f) => (
                     <option key={f.id} value={f.id}>{f.name}</option>
                   ))}
+                  {/* Always offered: an entry is dated by the day it was logged
+                      whether or not its project defines a DATE field. */}
+                  <option value={ENTRY_DATE_OPTION}>Entry date</option>
                 </select>
               </div>
               <div>

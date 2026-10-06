@@ -424,14 +424,21 @@ describe("StatsPage — over time", () => {
     ).toBeInTheDocument();
   });
 
-  it("says when the project has no date fields", async () => {
+  it("plots by the entry's own date when the project has no date fields", async () => {
     await withFields([HOURS]);
 
-    expect(
-      await screen.findByText(
-        "This project has no Date fields, so there's nothing to place on a timeline yet."
+    const section = sectionFor(TIMELINE);
+    // No DATE field anywhere — the reserved entry-date option is offered,
+    // preselected, and used by the timeline request.
+    await waitFor(() =>
+      expect(selectOffering(section, "ENTRY_DATE")).toHaveValue("ENTRY_DATE")
+    );
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(
+        "/projects/p1/stats/timeline",
+        expect.objectContaining({ dateFieldId: "ENTRY_DATE" })
       )
-    ).toBeInTheDocument();
+    );
   });
 });
 
