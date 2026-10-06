@@ -55,7 +55,7 @@ function LogbookScene() {
           <div className="landing-panel landing-panel-back">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>Capstone Project</span>
-              <span className="landing-chip">Sprint 3</span>
+              <span className="landing-chip">Sprint 4</span>
             </div>
             <div style={{ marginTop: "1rem", fontSize: "0.72rem", color: "rgba(255,255,255,0.6)" }}>
               Milestone progress
@@ -418,7 +418,7 @@ export default function LandingPage() {
             <span style={{ fontWeight: 700, color: "#ffffff" }}>ProjectLog</span>
             <span>•</span>
             <span style={{ color: "#00c6ff", fontFamily: "monospace", fontSize: "0.8rem" }}>
-              v0.1 (Sprint 1)
+              v4 (Sprint 4)
             </span>
           </div>
           <p style={{ margin: 0 }}>
