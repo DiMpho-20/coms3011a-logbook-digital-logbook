@@ -28,6 +28,7 @@ vi.mock("../../api", () => ({
 }));
 
 import * as api from "../../api";
+import { ToastProvider } from "../../components/Toast";
 import ProjectDetailPage from "../ProjectDetailPage";
 
 const FIELD = { id: "f1", projectId: "p1", name: "Summary", type: "TEXT", required: false };
@@ -45,7 +46,9 @@ const renderAt = (path: string) =>
           path="/projects/:id"
           element={
             <>
-              <ProjectDetailPage />
+              <ToastProvider>
+                <ProjectDetailPage />
+              </ToastProvider>
               <Where />
             </>
           }

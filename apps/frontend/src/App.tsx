@@ -1,38 +1,44 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { startFullOfflineSync } from "./lib/offlineProjects";
-import OpenWorkPage from "./pages/OpenWorkPage";
-import StatsPage from "./pages/StatsPage";
-import CalendarPage from "./pages/CalendarPage";
-import BoardPage from "./pages/BoardPage";
 
 // Auth pages (Athandwa)
 import LandingPage from "./components/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
-import { RegisterPage } from "./pages/RegisterPage";
-import { VerifyEmail } from "./pages/VerifyEmail";
-import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
-import { ResetPasswordPage } from "./pages/ResetPasswordPage";
-import PrivacyPage from "./pages/PrivacyPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 // Redesigned pages & layout
 import AppLayout from "./components/AppLayout";
-import DashboardPage from "./pages/DashboardPage";
-import ProjectsPage from "./pages/ProjectsPage";
-import ProjectDetailPage from "./pages/ProjectDetailPage";
-import EntriesPage from "./pages/EntriesPage";
-import SettingsPage from "./pages/SettingsPage";
-import ProfilePage from "./pages/ProfilePage";
-import RemindersPage from "./pages/RemindersPage";
-import GradesPage from "./pages/GradesPage";
-import GradeModulePage from "./pages/GradeModulePage";
+import LoadingState from "./components/LoadingState";
+
+// Every other page is code-split: it loads when its route is first visited,
+// so the initial bundle stays small and the landing page paints fast.
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail").then((m) => ({ default: m.VerifyEmail })));
+const RegisterPage = lazy(() => import("./pages/RegisterPage").then((m) => ({ default: m.RegisterPage })));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })));
+const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
+
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
+const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
+const EntriesPage = lazy(() => import("./pages/EntriesPage"));
+const OpenWorkPage = lazy(() => import("./pages/OpenWorkPage"));
+const StatsPage = lazy(() => import("./pages/StatsPage"));
+const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const BoardPage = lazy(() => import("./pages/BoardPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const RemindersPage = lazy(() => import("./pages/RemindersPage"));
+const GradesPage = lazy(() => import("./pages/GradesPage"));
+const GradeModulePage = lazy(() => import("./pages/GradeModulePage"));
 
 export default function App() {
   useEffect(() => startFullOfflineSync(), []);
 
   return (
     <BrowserRouter>
+      <Suspense fallback={<LoadingState message="Loading page..." />}>
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
@@ -65,6 +71,7 @@ export default function App() {
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

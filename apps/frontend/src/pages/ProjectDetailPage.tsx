@@ -48,6 +48,7 @@ import Modal from "../components/Modal";
 import Stopwatch from "../components/Stopwatch";
 import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
+import { useToast } from "../components/ToastContext";
 import TagList from "../components/TagList";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
 import ChecklistInput from "../components/ChecklistInput";
@@ -88,6 +89,7 @@ function dateHeading(dateStr: string): string {
 }
 
 export default function ProjectDetailPage() {
+  const toast = useToast();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -297,7 +299,7 @@ export default function ProjectDetailPage() {
       setEntries((prev) => prev.filter((e) => e.id !== entry.id));
       if (id) fetchProjectTimeSummary(id).then(setSummary).catch(() => {});
     } catch {
-      alert("Couldn't delete that entry. Try again.");
+      toast.error("Couldn't delete that entry. Try again.");
     }
   };
 

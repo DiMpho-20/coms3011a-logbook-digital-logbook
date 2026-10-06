@@ -7,6 +7,7 @@ vi.mock("../../api/client", () => ({
 }));
 
 import { api } from "../../api/client";
+import { ToastProvider } from "../../components/Toast";
 import OpenWorkPage from "../OpenWorkPage";
 
 // ── Fixtures ─────────────────────────────────────────────────────────────
@@ -60,7 +61,9 @@ const serve = (byProject: Record<string, unknown[]>, projects = PROJECTS) =>
 const renderPage = () =>
   render(
     <MemoryRouter>
-      <OpenWorkPage />
+      <ToastProvider>
+        <OpenWorkPage />
+      </ToastProvider>
     </MemoryRouter>
   );
 
@@ -222,7 +225,6 @@ describe("OpenWorkPage — marking work done", () => {
   });
 
   it("leaves the entry in place when the server refuses", async () => {
-    const alerted = vi.spyOn(window, "alert").mockImplementation(() => {});
     vi.mocked(api.get).mockImplementation(serve({ p1: [entry()] }));
     vi.mocked(api.patch).mockRejectedValue(new Error("nope"));
     renderPage();
@@ -230,7 +232,10 @@ describe("OpenWorkPage — marking work done", () => {
     await screen.findByText("(1 open)");
     fireEvent.click(screen.getByRole("button", { name: /mark done/i }));
 
-    await waitFor(() => expect(alerted).toHaveBeenCalledWith("Failed to mark entry as done"));
+    // The failure is a quiet toast, not a modal alert.
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Couldn't mark that entry as done. Try again.")
+    );
     // Still there — the list is only pruned once the server agrees.
     expect(screen.getByText("(1 open)")).toBeInTheDocument();
   });

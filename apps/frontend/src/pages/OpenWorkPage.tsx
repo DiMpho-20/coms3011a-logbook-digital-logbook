@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, CalendarClock, CheckCircle2, Circle, Inbox } from "lucide-react";
 import { api } from "../api/client";
+import { useToast } from "../components/ToastContext";
 import type { Entry } from "@logbook/shared";
 
 type Bucket = "overdue" | "today" | "soon" | "noDueDate";
@@ -50,6 +51,7 @@ function bucketFor(entry: Entry): Bucket {
 }
 
 export default function OpenWorkPage() {
+  const toast = useToast();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +77,7 @@ const load = async () => {
       await api.patch(`/entries/${id}/status`, { status: "DONE" });
       setEntries((prev) => prev.filter((e) => e.id !== id));
     } catch {
-      alert("Failed to mark entry as done");
+      toast.error("Couldn't mark that entry as done. Try again.");
     }
   };
 
