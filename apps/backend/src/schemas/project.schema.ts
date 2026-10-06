@@ -1,14 +1,14 @@
 import { z } from "zod";
 
 export const createProjectSchema = z.object({
-  name: z.string().min(1, "Project name is required").max(255),
+  name: z.string().trim().min(1, "Project name is required").max(255),
   description: z.string().optional(),
   status: z.enum(["ACTIVE", "ARCHIVED"]).optional(),
   tags: z.array(z.string()).optional(),
 });
 
 export const updateProjectSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
+  name: z.string().trim().min(1, "Project name is required").max(255).optional(),
   description: z.string().optional(),
   status: z.enum(["ACTIVE", "ARCHIVED"]).optional(),
   tags: z.array(z.string()).optional(),
