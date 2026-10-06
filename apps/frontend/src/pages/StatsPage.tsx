@@ -5,7 +5,7 @@ import { api } from "../api/client";
 import {
   fetchProjects,
   fetchEntryFields,
-  fetchProjectTimeSummary,
+  fetchAllProjectTimeSummaries,
   type Project,
   type EntryField,
 } from "../api";
@@ -114,19 +114,18 @@ export default function StatsPage() {
       return;
     }
     let cancelled = false;
-    Promise.all(
-      active.map(async (p) => {
-        try {
-          const summary = await fetchProjectTimeSummary(p.id);
-          return { label: p.name, value: summary.totalMinutes };
-        } catch {
-          return { label: p.name, value: 0 };
-        }
+    fetchAllProjectTimeSummaries()
+      .then((rows) => {
+        if (cancelled) return;
+        const minutesById = new Map(rows.map((s) => [s.projectId, s.totalMinutes]));
+        setProjectTimes(
+          active.map((p) => ({ label: p.name, value: minutesById.get(p.id) ?? 0 }))
+            .sort((a, b) => b.value - a.value)
+        );
       })
-    ).then((rows) => {
-      if (cancelled) return;
-      setProjectTimes(rows.sort((a, b) => b.value - a.value));
-    });
+      .catch(() => {
+        if (!cancelled) setProjectTimes(active.map((p) => ({ label: p.name, value: 0 })));
+      });
     return () => {
       cancelled = true;
     };

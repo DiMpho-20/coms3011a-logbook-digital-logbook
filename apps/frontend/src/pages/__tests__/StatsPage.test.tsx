@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 vi.mock("../../api", () => ({
   fetchProjects: vi.fn(),
   fetchEntryFields: vi.fn(),
-  fetchProjectTimeSummary: vi.fn(),
+  fetchAllProjectTimeSummaries: vi.fn(),
 }));
 
 vi.mock("../../api/client", () => ({
@@ -106,7 +106,7 @@ const selectOffering = (scope: HTMLElement, value: string) =>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
-  vi.mocked(api.fetchProjectTimeSummary).mockResolvedValue(summary(0) as never);
+  vi.mocked(api.fetchAllProjectTimeSummaries).mockResolvedValue([summary(0)] as never);
   vi.mocked(api.fetchEntryFields).mockResolvedValue([] as never);
   vi.mocked(client.post).mockImplementation(postRouter());
   // Every render asks for the saved statistics (US17); most tests have none.
@@ -179,9 +179,10 @@ describe("StatsPage — time per project", () => {
       project({ id: "p2", name: "Digital Logbook" }),
       project({ id: "p3", name: "Retired thing", status: "ARCHIVED" }),
     ] as never);
-    vi.mocked(api.fetchProjectTimeSummary).mockImplementation(
-      ((id: string) => Promise.resolve(summary(id === "p1" ? 150 : 45))) as never
-    );
+    vi.mocked(api.fetchAllProjectTimeSummaries).mockResolvedValue([
+      summary(150),
+      { ...summary(45), projectId: "p2" },
+    ] as never);
     await renderAndWait();
 
     const time = sectionFor(TIME);
@@ -193,32 +194,28 @@ describe("StatsPage — time per project", () => {
         bar.getAttribute("aria-label")
       )
     ).toEqual(["Campus Marketplace: 2h 30m", "Digital Logbook: 45m"]);
-    // An archived project is not even asked about.
-    expect(api.fetchProjectTimeSummary).not.toHaveBeenCalledWith("p3");
+    // One batch request covers the whole logbook; the archived project comes
+    // back in it but is not drawn.
+    expect(api.fetchAllProjectTimeSummaries).toHaveBeenCalledTimes(1);
   });
 
-  it("counts a project whose summary fails as zero", async () => {
+  it("reads the whole chart as zero when the batch request fails", async () => {
     vi.mocked(api.fetchProjects).mockResolvedValue([
       project(),
       project({ id: "p2", name: "Digital Logbook" }),
     ] as never);
-    vi.mocked(api.fetchProjectTimeSummary).mockImplementation(
-      ((id: string) =>
-        id === "p1" ? Promise.reject(new Error("boom")) : Promise.resolve(summary(45))) as never
-    );
+    vi.mocked(api.fetchAllProjectTimeSummaries).mockRejectedValue(new Error("boom"));
     await renderAndWait();
 
-    const time = sectionFor(TIME);
-    await within(time).findByRole("img", { name: "Digital Logbook: 45m" });
-    // One failed request does not sink the whole chart — it just reads zero,
-    // and zero-length bars are left out.
     expect(
-      within(time).queryByRole("img", { name: /Campus Marketplace/ })
-    ).not.toBeInTheDocument();
+      await within(sectionFor(TIME)).findByText(
+        "No time logged yet — entries you add will show up here."
+      )
+    ).toBeInTheDocument();
   });
 
-  it("shows a spinner until the per-project times arrive", async () => {
-    vi.mocked(api.fetchProjectTimeSummary).mockReturnValue(new Promise(() => {}) as never);
+  it("shows a spinner until the batch of per-project times arrives", async () => {
+    vi.mocked(api.fetchAllProjectTimeSummaries).mockReturnValue(new Promise(() => {}) as never);
     await renderAndWait();
 
     expect(within(sectionFor(TIME)).getByText("Loading…")).toBeInTheDocument();

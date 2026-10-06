@@ -4,7 +4,7 @@ import { Plus, Search, X, LayoutGrid, List } from "lucide-react";
 import {
   fetchProjects,
   fetchEntryFields,
-  fetchProjectTimeSummary,
+  fetchAllProjectTimeSummaries,
   createProject,
   updateProject,
   toggleProjectStatus,
@@ -104,28 +104,21 @@ export default function ProjectsPage() {
       if (run !== loadRunRef.current) return;
       setProjects(data);
 
-      // Render the list now. Time summaries are one request per project,
-      // so awaiting all of them here held the whole page on a spinner
-      // until the slowest one returned.
+      // Render the list now. The summaries arrive in one batch request,
+      // which used to be one request per project — enough to hold the
+      // whole page on a spinner until the slowest one returned.
       setLoading(false);
 
-      void Promise.all(
-        data.map(async (p) => {
-          try {
-            const sum = await fetchProjectTimeSummary(p.id);
-            return { id: p.id, summary: sum };
-          } catch {
-            return { id: p.id, summary: null };
-          }
+      fetchAllProjectTimeSummaries()
+        .then((rows) => {
+          if (run !== loadRunRef.current) return;
+          const sMap: Record<string, TimeSummary> = {};
+          rows.forEach((s) => {
+            sMap[s.projectId] = s;
+          });
+          setSummaries(sMap);
         })
-      ).then((summaryResults) => {
-        if (run !== loadRunRef.current) return;
-        const sMap: Record<string, TimeSummary> = {};
-        summaryResults.forEach((r) => {
-          if (r.summary) sMap[r.id] = r.summary;
-        });
-        setSummaries(sMap);
-      });
+        .catch(() => {});
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load projects.";
       if (run === loadRunRef.current) setLoadError(msg);

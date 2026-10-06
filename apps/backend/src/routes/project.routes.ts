@@ -4,6 +4,7 @@ import {
   getProjects,
   getProject,
   getProjectTimeSummary,
+  getAllProjectTimeSummaries,
   updateProject,
   updateProjectStatus,
   deleteProject,
@@ -14,6 +15,8 @@ const router = Router();
 
 router.post("/projects", requireAuth, createProject);
 router.get("/projects", requireAuth, getProjects);
+// Static path first: "time-summaries" must not be eaten as an :id below.
+router.get("/projects/time-summaries", requireAuth, getAllProjectTimeSummaries);
 router.get("/projects/:id", requireAuth, getProject);
 router.get("/projects/:id/time-summary", requireAuth, getProjectTimeSummary);
 router.put("/projects/:id", requireAuth, updateProject);

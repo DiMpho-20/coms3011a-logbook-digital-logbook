@@ -190,6 +190,34 @@ export async function fetchProjectTimeSummary(id: string): Promise<TimeSummary> 
   return cachedRequest(`summary:${projectId}`, async () => (await api.get(`/projects/${projectId}/time-summary`)).data);
 }
 
+/**
+ * Every project's time summary in one request — the batch form of
+ * fetchProjectTimeSummary for pages that show the whole list. Projects that
+ * exist only on this device are not in the server's answer, so their
+ * summaries are worked out from the entries queued alongside them, exactly
+ * as the per-project endpoint is fed for a queued project.
+ */
+export async function fetchAllProjectTimeSummaries(): Promise<TimeSummary[]> {
+  const rows = await cachedRequest<TimeSummary[]>("summaries:all", async () =>
+    (await api.get("/projects/time-summaries")).data
+  );
+  const seen = new Set(rows.map((r) => r.projectId));
+  const extras: TimeSummary[] = [];
+  for (const id of new Set(getPendingEntries().map((e) => e.projectId))) {
+    if (seen.has(id) || !isQueuedProject(id)) continue;
+    const entries = getPendingEntries(id);
+    const totalMinutes = entries.reduce((sum, e) => sum + e.durationMinutes, 0);
+    extras.push({
+      projectId: id,
+      totalMinutes,
+      totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+      entryCount: entries.length,
+      lastEntryAt: entries.map((e) => e.createdAt).sort().pop() ?? null,
+    });
+  }
+  return [...rows, ...extras];
+}
+
 // ── Entry Fields ─────────────────────────────────────────────────────────
 
 export async function createEntryField(

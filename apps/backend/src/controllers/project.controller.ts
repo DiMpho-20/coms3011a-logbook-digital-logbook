@@ -169,6 +169,50 @@ export const getProjectTimeSummary = async (req: AuthenticatedRequest, res: Resp
   }
 };
 
+// ── GET /projects/time-summaries ─────────────────────────────────────────
+
+/**
+ * Every project's time summary in one request, replacing the one request per
+ * project the projects and statistics pages used to fan out. One row per
+ * project — including projects with no entries — in the same order the
+ * project list comes in, so callers can join on id.
+ */
+export const getAllProjectTimeSummaries = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = getUserId(req);
+
+    const projects = await prisma.project.findMany({
+      where: { userId },
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
+    });
+    const grouped = await prisma.logbookEntry.groupBy({
+      by: ["projectId"],
+      where: { project: { userId } },
+      _sum: { durationMinutes: true },
+      _count: { id: true },
+      _max: { createdAt: true },
+    });
+    const byProject = new Map(grouped.map((g) => [g.projectId, g]));
+
+    return res.status(200).json(
+      projects.map((p) => {
+        const g = byProject.get(p.id);
+        const totalMinutes = g?._sum.durationMinutes ?? 0;
+        return {
+          projectId: p.id,
+          totalMinutes,
+          totalHours: Math.round((totalMinutes / 60) * 10) / 10,
+          entryCount: g?._count.id ?? 0,
+          lastEntryAt: g?._max.createdAt?.toISOString() ?? null,
+        } satisfies TimeSummary;
+      })
+    );
+  } catch (error: any) {
+    return res.status(500).json({ error: "Failed to fetch time summaries" });
+  }
+};
+
 // ── PUT /projects/:id ────────────────────────────────────────────────────
 
 export const updateProject = async (req: AuthenticatedRequest, res: Response) => {

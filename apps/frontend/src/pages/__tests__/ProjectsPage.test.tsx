@@ -5,9 +5,9 @@ import { MemoryRouter } from "react-router-dom";
 vi.mock("../../api", () => ({
   fetchProjects: vi.fn(),
   fetchEntryFields: vi.fn().mockResolvedValue([]),
-  fetchProjectTimeSummary: vi.fn().mockResolvedValue({
-    projectId: "p1", totalMinutes: 140, totalHours: 2.3, entryCount: 3, lastEntryAt: null,
-  }),
+  fetchAllProjectTimeSummaries: vi.fn().mockResolvedValue([
+    { projectId: "p1", totalMinutes: 140, totalHours: 2.3, entryCount: 3, lastEntryAt: null },
+  ]),
   createProject: vi.fn().mockResolvedValue({ id: "new-p" }),
   updateProject: vi.fn().mockResolvedValue({ id: "p1" }),
   toggleProjectStatus: vi.fn().mockResolvedValue({ id: "p1", status: "ARCHIVED" }),
@@ -44,9 +44,9 @@ const openNewProjectModal = async () =>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.fetchTags).mockResolvedValue([{ id: "t1", name: "coursework" }] as never);
-  vi.mocked(api.fetchProjectTimeSummary).mockResolvedValue({
-    projectId: "p1", totalMinutes: 140, totalHours: 2.3, entryCount: 3, lastEntryAt: null,
-  } as never);
+  vi.mocked(api.fetchAllProjectTimeSummaries).mockResolvedValue([
+    { projectId: "p1", totalMinutes: 140, totalHours: 2.3, entryCount: 3, lastEntryAt: null },
+  ] as never);
   vi.mocked(api.fetchEntryFields).mockResolvedValue([] as never);
 });
 

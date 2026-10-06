@@ -12,6 +12,7 @@ import {
   updateProject,
   toggleProjectStatus,
   fetchProjectTimeSummary,
+  fetchAllProjectTimeSummaries,
   createEntryField,
   fetchEntryFields,
   updateEntryField,
@@ -28,6 +29,7 @@ import {
   importLogbook,
 } from "../api";
 import { queueEntry, getPendingEntries } from "../lib/offlineEntries";
+import { queueProject } from "../lib/offlineProjects";
 
 if (!globalThis.crypto?.randomUUID) {
   let n = 0;
@@ -75,6 +77,22 @@ describe("project and field requests", () => {
 
     vi.mocked(api.get).mockResolvedValue(ok({ projectId: "p1", totalMinutes: 90 }));
     expect(await fetchProjectTimeSummary("p1")).toMatchObject({ totalMinutes: 90 });
+  });
+
+  it("reads every time summary in one request, appending queued projects", async () => {
+    vi.mocked(api.get).mockResolvedValue(
+      ok([{ projectId: "p1", totalMinutes: 90, totalHours: 1.5, entryCount: 2, lastEntryAt: null }])
+    );
+    // A project that exists only on this device is not in the server's list;
+    // its summary is computed from the entries queued alongside it.
+    const queued = queueProject({ name: "Field work" });
+    queueEntry(queued.id, { durationMinutes: 15, values: {} });
+
+    expect(await fetchAllProjectTimeSummaries()).toEqual([
+      { projectId: "p1", totalMinutes: 90, totalHours: 1.5, entryCount: 2, lastEntryAt: null },
+      expect.objectContaining({ projectId: queued.id, totalMinutes: 15, entryCount: 1 }),
+    ]);
+    expect(api.get).toHaveBeenCalledWith("/projects/time-summaries");
   });
 
   it("manages entry fields and format versions", async () => {
