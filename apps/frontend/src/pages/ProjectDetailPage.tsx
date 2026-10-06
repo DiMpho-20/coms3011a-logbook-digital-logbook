@@ -41,7 +41,7 @@ import {
   type ChecklistItem,
 } from "../api";
 import { formatDuration, todayISO, defaultValuesForFields, isEmptyValue, entryDateKey } from "../lib/utils";
-import { forgetProject, isSaveShortcut, rememberProject } from "../lib/quickCapture";
+import { entryDefaults, forgetProject, isSaveShortcut, rememberEntryDefaults, rememberProject } from "../lib/quickCapture";
 import StatCard from "../components/StatCard";
 import EntryCard from "../components/EntryCard";
 import Modal from "../components/Modal";
@@ -135,6 +135,8 @@ export default function ProjectDetailPage() {
   // What each computed field will come to, updated as the form is filled in.
   const computedPreview = useMemo(() => previewComputedValues(fields, entryValues), [fields, entryValues]);
   const [entryTags, setEntryTags] = useState<string[]>([]);
+  // Whether the open new-entry form started from the last entry's values.
+  const [entryPrefilled, setEntryPrefilled] = useState(false);
   const entryTagInputRef = useRef<TagInputHandle>(null);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
@@ -220,16 +222,20 @@ export default function ProjectDetailPage() {
       setEntryTags(editingEntry.tags ?? []);
       setEntryRecurring(false);
     } else {
-      setEntryValues(defaultValuesForFields(fields));
+      // Start from what is predictable: the last entry's time, tags and
+      // repeated values, so quick capture is mostly the description.
+      const carried = id ? entryDefaults(id, fields) : null;
+      setEntryValues({ ...defaultValuesForFields(fields), ...((carried?.values ?? {}) as Record<string, EntryFieldValue>) });
       setEntryDate(todayISO());
-      setEntryDuration("");
+      setEntryDuration(carried?.duration ?? "");
       setEntryDueDate("");
-      setEntryTags([]);
+      setEntryTags(carried?.tags ?? []);
+      setEntryPrefilled(Boolean(carried && (carried.duration || carried.tags.length || Object.keys(carried.values).length)));
       setEntryRecurring(false);
       setRecurrencePattern("WEEKLY");
     }
     setEntryError(null);
-  }, [entryModalOpen, editingEntry, fields]);
+  }, [entryModalOpen, editingEntry, fields, id]);
 
   const sortedEntries = useMemo(
     () => [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -428,6 +434,7 @@ export default function ProjectDetailPage() {
         if (entryRecurring) entryData.recurrence = { pattern: recurrencePattern };
 
         const newEntry = await createEntry(id, entryData);
+        rememberEntryDefaults(id, fields, { durationMinutes: minutes, values: entryValues, tags: finalTags });
         // A new entry is active, so it has no place in the archive view.
         if (entryView !== "archived") setEntries((prev) => [newEntry, ...prev]);
       }
@@ -716,6 +723,9 @@ export default function ProjectDetailPage() {
             if (!entrySubmitting) void handleEntrySubmit();
           }}
         >
+          {!editingEntry && entryPrefilled && (
+            <p className="text-xs text-slate-500">Filled in from your last entry in this project. Change anything that's different.</p>
+          )}
           {entryError && (
             <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {entryError}
