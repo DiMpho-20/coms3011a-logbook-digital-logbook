@@ -75,6 +75,13 @@ export function validateFormula(formula: string, fields: Field[], selfId?: strin
   }
   const expression = formula.replace(REFERENCE, "1");
   if (!expression || !/^[0-9+\-*/().\s]+$/.test(expression)) throw new Error("Formula may only contain numbers, arithmetic operators, parentheses, and {field-id} references");
+  // The characters alone allow "{a} +" or "(1", which would then fail on
+  // every entry saved to the project. Compiling (not running) catches those.
+  try {
+    Function(`"use strict"; return (${expression})`);
+  } catch {
+    throw new Error("That formula is incomplete or malformed — check its operators and parentheses");
+  }
 
   if (!selfId) return;
   // Walk everything this formula reaches; coming back to selfId is a loop.

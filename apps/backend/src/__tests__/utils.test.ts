@@ -90,6 +90,13 @@ describe("validateFormula", () => {
     expect(() => validateFormula("{name}", fields)).toThrow(/numeric or computed fields/);
   });
 
+  it("rejects a formula that is incomplete or unbalanced", () => {
+    // These pass the character check but would fail on every entry saved.
+    for (const formula of ["{hours} +", "({hours} * 2", "{hours} * * 2", "()"]) {
+      expect(() => validateFormula(formula, fields)).toThrow(/incomplete or malformed/);
+    }
+  });
+
   it("rejects a formula that references an unknown field", () => {
     expect(() => validateFormula("{unknown}", fields)).toThrow(/numeric or computed fields/);
   });
