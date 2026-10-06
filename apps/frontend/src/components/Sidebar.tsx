@@ -121,7 +121,8 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
   };
 
   return (
-    <aside
+    <nav
+      aria-label="Primary"
       className={`sidebar-root ${collapsed ? "w-16" : "w-60"} flex flex-col h-full shrink-0 relative overflow-hidden transition-[width] duration-200`}
       style={{ background: "linear-gradient(180deg, #0a1628 0%, #0d1b3e 100%)" }}
     >
@@ -306,6 +307,6 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
           )}
         </button>
       </div>
-    </aside>
+    </nav>
   );
 }

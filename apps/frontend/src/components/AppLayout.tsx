@@ -93,6 +93,13 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
+      {/* Keyboard users land here first: jump straight past the navigation. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-blue-600 focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:shadow-lg"
+      >
+        Skip to content
+      </a>
       {/* Desktop sidebar */}
       <div className="hidden lg:flex">
         <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
@@ -157,7 +164,7 @@ export default function AppLayout() {
         )}
 
         {/* Page content */}
-        <div className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <div id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto p-6 lg:p-8 outline-none">
           <Outlet />
         </div>
       </main>
