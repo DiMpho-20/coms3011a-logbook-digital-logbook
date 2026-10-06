@@ -4,10 +4,13 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import EntryForm from "../../components/EntryForm";
 import type { Project, EntryField } from "../../api";
 
-// Mock the API module — createEntry is the only function EntryForm calls
+// Mock the API module — createEntry, and fetchEntryFields when the form
+// loads a project's fields itself (no fields prop).
 const mockCreateEntry = vi.fn();
+const mockFetchEntryFields = vi.fn();
 vi.mock("../../api", () => ({
   createEntry: (...args: unknown[]) => mockCreateEntry(...args),
+  fetchEntryFields: (...args: unknown[]) => mockFetchEntryFields(...args),
 }));
 
 // Mock Stopwatch since it uses setInterval internally
@@ -26,6 +29,15 @@ const FIELDS: EntryField[] = [
 ];
 
 const NO_FIELDS: EntryField[] = [];
+
+const RICH_FIELDS: EntryField[] = [
+  { id: "f-hours", name: "Hours", type: "NUMBER", required: false, formula: null } as EntryField,
+  { id: "f-tags", name: "Topics", type: "TAGS", required: false, formula: null } as EntryField,
+  { id: "f-steps", name: "Steps", type: "CHECKLIST", required: false, formula: null } as EntryField,
+  { id: "f-link", name: "Notes", type: "LINK", required: false, formula: null } as EntryField,
+  { id: "f-ref", name: "Partner", type: "REFERENCE", required: false, formula: null } as EntryField,
+  { id: "f-cost", name: "Cost", type: "COMPUTED", required: false, formula: "{f-hours} * 2" } as EntryField,
+];
 
 function renderForm(overrides: Partial<React.ComponentProps<typeof EntryForm>> = {}) {
   const onSave = vi.fn();
@@ -53,6 +65,9 @@ function setNativeValue(element: HTMLElement, value: string) {
 describe("EntryForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Prefill carries across saves through localStorage; clear it so each
+    // test starts from a blank logbook.
+    localStorage.clear();
   });
 
   it("renders the duration input and submit button", () => {
@@ -142,5 +157,145 @@ describe("EntryForm", () => {
   it("renders the stopwatch component", () => {
     renderForm();
     expect(screen.getByTestId("stopwatch")).toBeInTheDocument();
+  });
+});
+
+describe("EntryForm: every field type the project's format uses", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("splits a TAGS field's comma-separated input into a list", async () => {
+    mockCreateEntry.mockResolvedValueOnce({ id: "e1", durationMinutes: 10 });
+    renderForm({ projectId: "p1", fields: RICH_FIELDS });
+
+    const tagInput = screen.getByPlaceholderText(/comma-separated/i);
+    setNativeValue(tagInput, "design, testing");
+    fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
+
+    await waitFor(() => {
+      expect(mockCreateEntry).toHaveBeenCalledWith("p1", expect.objectContaining({
+        values: expect.objectContaining({ "f-tags": ["design", "testing"] }),
+      }));
+    });
+  });
+
+  it("collects CHECKLIST items and submits their labels", async () => {
+    mockCreateEntry.mockResolvedValueOnce({ id: "e1", durationMinutes: 10 });
+    renderForm({ projectId: "p1", fields: RICH_FIELDS });
+
+    const addItem = screen.getByPlaceholderText(/add checklist item/i);
+    setNativeValue(addItem, "Draft outline");
+    fireEvent.keyDown(addItem, { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
+
+    await waitFor(() => {
+      expect(mockCreateEntry).toHaveBeenCalledWith("p1", expect.objectContaining({
+        values: expect.objectContaining({
+          "f-steps": [{ label: "Draft outline", checked: false }],
+        }),
+      }));
+    });
+  });
+
+  it("submits a LINK field's URL as written", async () => {
+    mockCreateEntry.mockResolvedValueOnce({ id: "e1", durationMinutes: 10 });
+    renderForm({ projectId: "p1", fields: RICH_FIELDS });
+
+    setNativeValue(screen.getByPlaceholderText(/https:/i), "https://example.edu/notes");
+    fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
+
+    await waitFor(() => {
+      expect(mockCreateEntry).toHaveBeenCalledWith("p1", expect.objectContaining({
+        values: expect.objectContaining({ "f-link": "https://example.edu/notes" }),
+      }));
+    });
+  });
+
+  it("submits a REFERENCE field as the chosen project", async () => {
+    mockCreateEntry.mockResolvedValueOnce({ id: "e1", durationMinutes: 10 });
+    renderForm({ projectId: "p1", fields: RICH_FIELDS });
+
+    // The project selector is hidden (projectId preset), so the only
+    // combobox is the reference picker.
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "p2" } });
+    fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
+
+    await waitFor(() => {
+      expect(mockCreateEntry).toHaveBeenCalledWith("p1", expect.objectContaining({
+        values: expect.objectContaining({
+          "f-ref": { id: "p2", label: "Beta", kind: "project" },
+        }),
+      }));
+    });
+  });
+
+  it("shows a COMPUTED field's live value instead of an input", async () => {
+    mockCreateEntry.mockResolvedValueOnce({ id: "e1", durationMinutes: 10 });
+    renderForm({ projectId: "p1", fields: RICH_FIELDS });
+
+    // Hours is the first spinbutton after the duration box.
+    const spinbuttons = screen.getAllByRole("spinbutton");
+    setNativeValue(spinbuttons[1], "3");
+
+    expect(await screen.findByText("6")).toBeInTheDocument();
+    expect(screen.getByText(/calculated automatically from/i)).toBeInTheDocument();
+  });
+
+  it("loads the selected project's fields itself when none are passed in", async () => {
+    mockFetchEntryFields.mockResolvedValueOnce([
+      { id: "f-text", name: "Description", type: "TEXT", required: false, formula: null },
+    ]);
+    renderForm({ fields: undefined }); // no fields prop
+
+    expect(mockFetchEntryFields).toHaveBeenCalledWith("p1");
+    expect(await screen.findByText("Description")).toBeInTheDocument();
+  });
+
+  it("starts the next entry in a project from the last one saved", async () => {
+    mockCreateEntry.mockResolvedValue({ id: "e1", durationMinutes: 45 });
+    renderForm({ projectId: "p1", fields: RICH_FIELDS });
+
+    const spinbuttons = screen.getAllByRole("spinbutton");
+    setNativeValue(spinbuttons[0], "45");
+    setNativeValue(spinbuttons[1], "5");
+    fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
+    await waitFor(() => expect(mockCreateEntry).toHaveBeenCalledTimes(1));
+
+    // The form reset itself from the entry just saved — save again untouched.
+    fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
+    await waitFor(() => expect(mockCreateEntry).toHaveBeenCalledTimes(2));
+
+    expect(mockCreateEntry).toHaveBeenLastCalledWith("p1", expect.objectContaining({
+      durationMinutes: 45,
+      values: expect.objectContaining({ "f-hours": 5 }),
+    }));
+  });
+
+  it("carries nothing over for a field whose type changed since the last entry", async () => {
+    mockCreateEntry.mockResolvedValue({ id: "e1", durationMinutes: 45 });
+    const { unmount } = renderForm({ projectId: "p1", fields: RICH_FIELDS });
+    const spinbuttons = screen.getAllByRole("spinbutton");
+    setNativeValue(spinbuttons[1], "5");
+    fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
+    await waitFor(() => expect(mockCreateEntry).toHaveBeenCalledTimes(1));
+    unmount();
+
+    // Same project, but Hours has since become a TEXT field. The remembered
+    // number must not be offered to it (quickCapture keys values by type),
+    // so the new entry starts with the plain empty TEXT default.
+    renderForm({
+      projectId: "p1",
+      fields: [
+        { id: "f-hours", name: "Hours", type: "TEXT", required: false, formula: null } as EntryField,
+      ],
+    });
+    expect(await screen.findByText("Hours")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
+    await waitFor(() => expect(mockCreateEntry).toHaveBeenCalledTimes(2));
+    const payload = mockCreateEntry.mock.calls[1][1] as { values: Record<string, unknown> };
+    expect(payload.values["f-hours"]).toBe("");
   });
 });
