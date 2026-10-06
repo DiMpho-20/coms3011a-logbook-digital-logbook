@@ -211,3 +211,43 @@ describe("CalendarPage — switching project", () => {
     await waitFor(() => expect(api.get).toHaveBeenCalledWith("/projects/p2/entries"));
   });
 });
+
+describe("CalendarPage — what each day shows", () => {
+  const SUMMARY = { id: "sum", type: "TEXT" };
+  const described = (text: string, over: Record<string, unknown> = {}) =>
+    entry({ values: { sum: text }, format: { version: 1, fields: [SUMMARY] }, ...over });
+
+  it("names entries by their description", async () => {
+    vi.mocked(api.get).mockImplementation(serve([described("Wrote the intro")]));
+    renderPage();
+    expect(await screen.findByRole("button", { name: "Wrote the intro" })).toBeInTheDocument();
+  });
+
+  it("titles the opened day with the day that was clicked", async () => {
+    vi.mocked(api.get).mockImplementation(serve([described("Wrote the intro")]));
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Wrote the intro" }));
+    // Built from the day key in local time: west of UTC this used to read the 14th.
+    const expected = new Date(`${DAY_KEY}T00:00:00`).toLocaleDateString(undefined, {
+      weekday: "long", day: "numeric", month: "long", year: "numeric",
+    });
+    expect(await screen.findByText(expected)).toBeInTheDocument();
+  });
+
+  it("puts open work on the day it is due, but not finished work", async () => {
+    vi.mocked(api.get).mockImplementation(serve([
+      described("Hand in report", { id: "d1", entryDate: `${MONTH}-02T00:00:00.000Z`, dueDate: `${DAY_KEY}T00:00:00.000Z`, status: "OPEN" }),
+      described("Already done", { id: "d2", entryDate: `${MONTH}-02T00:00:00.000Z`, dueDate: `${DAY_KEY}T00:00:00.000Z`, status: "DONE" }),
+    ]));
+    renderPage();
+    expect(await screen.findByRole("button", { name: "Due: Hand in report" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Due: Already done" })).toBeNull();
+  });
+
+  it("says so when the entries cannot be loaded", async () => {
+    vi.mocked(api.get).mockImplementation(((url: string) =>
+      url === "/projects" ? Promise.resolve({ data: PROJECTS }) : Promise.reject(new Error("Network Error"))) as never);
+    renderPage();
+    expect(await screen.findByText(/Couldn't load this project's entries/)).toBeInTheDocument();
+  });
+});

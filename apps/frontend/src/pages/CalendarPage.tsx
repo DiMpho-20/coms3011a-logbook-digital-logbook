@@ -4,16 +4,35 @@ import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { api } from "../api/client";
 import Modal from "../components/Modal";
 import GoogleCalendarSync from "../components/GoogleCalendarSync";
-import { entryDateKey } from "../lib/utils";
+import { entryDateKey, fieldValueText, formatDuration } from "../lib/utils";
 
 type Entry = {
   id: string;
   projectId: string;
   entryDate: string | null;
+  dueDate?: string | null;
   createdAt: string;
   durationMinutes: number;
-  values: Record<string, any>;
+  status?: "OPEN" | "DONE";
+  values: Record<string, unknown>;
+  format?: { fields: { id: string; type: string }[] } | null;
 };
+
+type Project = { id: string; name: string; status?: string };
+
+/**
+ * What an entry is about: its first TEXT field, read with the format it was
+ * saved in (as on the Entries page). Older entries without one have none.
+ */
+function describe(e: Entry): string {
+  const field = e.format?.fields?.find((f) => f.type === "TEXT");
+  return field ? fieldValueText(e.values[field.id]) : "";
+}
+
+/** A day key as a local date, so "2026-10-15" is the 15th in every time zone. */
+function dayFromKey(key: string): Date {
+  return new Date(`${key}T00:00:00`);
+}
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -41,10 +60,11 @@ function ymd(d: Date) {
 
 export default function CalendarPage() {
   const [params, setParams] = useSearchParams();
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [cursor, setCursor] = useState(new Date());
   const [openDay, setOpenDay] = useState<string | null>(null);
 
@@ -52,10 +72,13 @@ export default function CalendarPage() {
 
   useEffect(() => {
     api.get("/projects").then((res) => {
-      setProjects(res.data);
-      if (!params.get("project") && res.data.length > 0) {
+      // Active projects first; an archived one is still there to look back on.
+      const all = res.data as Project[];
+      const sorted = [...all.filter((p) => p.status !== "ARCHIVED"), ...all.filter((p) => p.status === "ARCHIVED")];
+      setProjects(sorted);
+      if (!params.get("project") && sorted.length > 0) {
         setParams((prev) => {
-          prev.set("project", res.data[0].id);
+          prev.set("project", sorted[0].id);
           return prev;
         }, { replace: true });
       }
@@ -67,9 +90,13 @@ export default function CalendarPage() {
   useEffect(() => {
     if (!selectedProjectId) return;
     setLoadingEntries(true);
+    setLoadError(false);
     api.get(`/projects/${selectedProjectId}/entries`)
       .then((res) => setEntries(res.data))
-      .catch(() => setEntries([]))
+      .catch(() => {
+        setEntries([]);
+        setLoadError(true);
+      })
       .finally(() => setLoadingEntries(false));
   }, [selectedProjectId]);
 
@@ -84,10 +111,22 @@ export default function CalendarPage() {
     return map;
   }, [entries]);
 
+  // Work still to do, on the day it is due (the same dates Google sync sends).
+  const dueByDate = useMemo(() => {
+    const map: Record<string, Entry[]> = {};
+    for (const e of entries) {
+      if (!e.dueDate || e.status === "DONE") continue;
+      const key = e.dueDate.slice(0, 10);
+      (map[key] ??= []).push(e);
+    }
+    return map;
+  }, [entries]);
+
   const todayKey = ymd(new Date());
 
   const monthLabel = cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
   const openDayEntries = openDay ? entriesByDate[openDay] ?? [] : [];
+  const openDayDue = openDay ? dueByDate[openDay] ?? [] : [];
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -112,10 +151,14 @@ export default function CalendarPage() {
               className="w-full max-w-sm border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800"
             >
               {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>{p.status === "ARCHIVED" ? `${p.name} (archived)` : p.name}</option>
               ))}
             </select>
           </div>
+
+          {loadError && (
+            <p className="text-sm text-red-600">Couldn't load this project's entries. Check your connection and try again.</p>
+          )}
 
           <div className="rounded-lg border border-slate-200 bg-white">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
@@ -155,7 +198,12 @@ export default function CalendarPage() {
                 const inMonth = day.getMonth() === cursor.getMonth();
                 const isToday = key === todayKey;
                 const dayEntries = entriesByDate[key] ?? [];
-                const hasEntries = dayEntries.length > 0;
+                const dayDue = dueByDate[key] ?? [];
+                const hasEntries = dayEntries.length + dayDue.length > 0;
+                // Two chips fit a cell; due work first, since it needs doing.
+                const dueShown = dayDue.slice(0, 2);
+                const entriesShown = dayEntries.slice(0, 2 - dueShown.length);
+                const hidden = dayDue.length + dayEntries.length - dueShown.length - entriesShown.length;
                 return (
                   <div
                     key={key}
@@ -179,28 +227,39 @@ export default function CalendarPage() {
                       >
                         {day.getDate()}
                       </button>
-                      {hasEntries && (
+                      {dayEntries.length > 0 && (
                         <span className="text-[9px] font-semibold text-slate-400">
                           {dayEntries.length}
                         </span>
                       )}
                     </div>
                     <div className="space-y-0.5">
-                      {dayEntries.slice(0, 2).map((e) => (
+                      {dueShown.map((e) => (
+                        <button
+                          key={`due-${e.id}`}
+                          onClick={() => setOpenDay(key)}
+                          className={`block w-full text-left truncate text-[10px] rounded px-1 py-0.5 transition ${
+                            key < todayKey ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                          }`}
+                        >
+                          Due: {describe(e) || formatDuration(e.durationMinutes)}
+                        </button>
+                      ))}
+                      {entriesShown.map((e) => (
                         <button
                           key={e.id}
                           onClick={() => setOpenDay(key)}
                           className="block w-full text-left truncate text-[10px] rounded px-1 py-0.5 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 transition"
                         >
-                          {e.durationMinutes}m
+                          {describe(e) || `${e.durationMinutes}m`}
                         </button>
                       ))}
-                      {dayEntries.length > 2 && (
+                      {hidden > 0 && (
                         <button
                           onClick={() => setOpenDay(key)}
                           className="block w-full text-left text-[9px] text-cyan-700 hover:underline px-1"
                         >
-                          +{dayEntries.length - 2} more
+                          +{hidden} more
                         </button>
                       )}
                     </div>
@@ -217,7 +276,7 @@ export default function CalendarPage() {
         onClose={() => setOpenDay(null)}
         title={
           openDay
-            ? new Date(openDay).toLocaleDateString(undefined, {
+            ? dayFromKey(openDay).toLocaleDateString(undefined, {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
@@ -226,23 +285,52 @@ export default function CalendarPage() {
             : ""
         }
       >
-        <ul className="space-y-2">
-          {openDayEntries.map((e) => (
-            <li key={e.id} className="rounded-lg border border-slate-200 px-3 py-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500">{e.durationMinutes} min</span>
-                <Link
-                  to={`/projects/${e.projectId}`}
-                  className="text-xs text-cyan-700 hover:underline font-medium"
-                  onClick={() => setOpenDay(null)}
-                >
-                  Open project
-                </Link>
-              </div>
-            </li>
-          ))}
-        </ul>
+        {openDayDue.length > 0 && (
+          <div className="mb-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+              {openDay && openDay < todayKey ? "Overdue" : "Due"}
+            </p>
+            <ul className="space-y-2">
+              {openDayDue.map((e) => (
+                <DayItem key={`due-${e.id}`} entry={e} onOpen={() => setOpenDay(null)} />
+              ))}
+            </ul>
+          </div>
+        )}
+        {openDayEntries.length > 0 && (
+          <>
+            {openDayDue.length > 0 && (
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Logged</p>
+            )}
+            <ul className="space-y-2">
+              {openDayEntries.map((e) => (
+                <DayItem key={e.id} entry={e} onOpen={() => setOpenDay(null)} />
+              ))}
+            </ul>
+          </>
+        )}
       </Modal>
     </div>
+  );
+}
+
+function DayItem({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
+  const description = describe(entry);
+  return (
+    <li className="rounded-lg border border-slate-200 px-3 py-2">
+      {description && <p className="text-sm text-slate-800 mb-1">{description}</p>}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-slate-500">
+          {entry.durationMinutes} min{entry.status === "DONE" ? " · Done" : ""}
+        </span>
+        <Link
+          to={`/projects/${entry.projectId}`}
+          className="text-xs text-cyan-700 hover:underline font-medium"
+          onClick={onOpen}
+        >
+          Open project
+        </Link>
+      </div>
+    </li>
   );
 }
