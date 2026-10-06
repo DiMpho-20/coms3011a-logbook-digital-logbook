@@ -7,7 +7,8 @@ import {
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { exportLogbook, fetchDueReminders, fetchProjects, importLogbook, type Project } from "../api";
+import { exportLogbook, fetchDueReminders, fetchEntries, fetchEntryFields, fetchProjects, importLogbook, type Project } from "../api";
+import { entriesToCsv } from "../lib/csvExport";
 import {
   disableReminderNotifications,
   enableReminderNotifications,
@@ -453,12 +454,19 @@ export default function SettingsPage() {
   const handleExportCSV = async () => {
     try {
       const projs = await fetchProjects();
-      const rows: string[][] = [["Project ID", "Project Name", "Status", "Description"]];
-      projs.forEach((p) => rows.push([p.id, p.name, p.status, p.description || ""]));
-      const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
-      downloadFile("logbook-projects.csv", csv, "text/csv");
+      const data = await Promise.all(projs.map(async (project) => {
+        const [fields, entries] = await Promise.all([
+          fetchEntryFields(project.id),
+          fetchEntries(project.id, { archived: "include" }),
+        ]);
+        return { project, fields, entries };
+      }));
+      // The byte-order mark makes Excel read the file as UTF-8.
+      downloadFile("logbook-entries.csv", "﻿" + entriesToCsv(data), "text/csv");
+      const count = data.reduce((n, d) => n + d.entries.length, 0);
+      setDataMessage(`Exported ${count} entr${count === 1 ? "y" : "ies"} as CSV.`);
     } catch {
-      alert("CSV export failed. Check that the backend is running.");
+      setDataMessage("CSV export failed. Check your connection and try again.");
     }
   };
 
@@ -1163,7 +1171,7 @@ export default function SettingsPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-slate-800">Export logbook</p>
-            <p className="text-xs text-slate-500 mt-0.5">JSON includes projects, fields, and entries; CSV is a project summary.</p>
+            <p className="text-xs text-slate-500 mt-0.5">JSON is a full backup you can import again; CSV is every entry as a spreadsheet.</p>
           </div>
           <div className="flex gap-2 shrink-0">
             <button onClick={handleExportJSON} className="flex items-center gap-1.5 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
