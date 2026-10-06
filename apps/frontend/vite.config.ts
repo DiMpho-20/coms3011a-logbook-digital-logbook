@@ -22,6 +22,24 @@ export default defineConfig({
     },
   },
 
+  build: {
+    rollupOptions: {
+      output: {
+        // Framework code only changes when a dependency is upgraded, while
+        // the app shell changes on every deploy; keeping the two in separate
+        // chunks keeps returning visitors' caches warm for the big one.
+        advancedChunks: {
+          groups: [
+            {
+              name: 'react-vendor',
+              test: /node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/,
+            },
+          ],
+        },
+      },
+    },
+  },
+
   test: {
     environment: 'jsdom',
     globals: true,
