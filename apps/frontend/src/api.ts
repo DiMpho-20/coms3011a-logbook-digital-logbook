@@ -97,7 +97,12 @@ export interface LogbookBackupProject {
   description: string | null;
   status: ProjectStatus;
   fields: Array<Pick<EntryField, "id" | "name" | "type" | "required" | "formula">>;
-  entries: Array<Pick<Entry, "durationMinutes" | "entryDate" | "dueDate" | "values">>;
+  entries: Array<Pick<Entry, "durationMinutes" | "entryDate" | "dueDate" | "values"> & {
+    // Optional so backups written before these were exported still import.
+    status?: Entry["status"];
+    tags?: string[];
+    archived?: boolean;
+  }>;
 }
 
 export interface LogbookBackup {
@@ -538,15 +543,16 @@ export async function exportLogbook(): Promise<LogbookBackup> {
   const backupProjects = await Promise.all(projects.map(async (project) => {
     const [fields, entries] = await Promise.all([
       fetchEntryFields(project.id),
-      fetchEntries(project.id),
+      // Archived entries are still part of the record, so they are backed up too.
+      fetchEntries(project.id, { archived: "include" }),
     ]);
     return {
       name: project.name,
       description: project.description,
       status: project.status,
       fields: fields.map(({ id, name, type, required, formula }) => ({ id, name, type, required, formula })),
-      entries: entries.map(({ durationMinutes, entryDate, dueDate, values }) => ({
-        durationMinutes, entryDate, dueDate, values,
+      entries: entries.map(({ durationMinutes, entryDate, dueDate, values, status, tags, archivedAt }) => ({
+        durationMinutes, entryDate, dueDate, values, status, tags, archived: Boolean(archivedAt),
       })),
     };
   }));
@@ -592,7 +598,10 @@ function isBackup(value: unknown): value is LogbookBackup {
         && (entry.dueDate === null || typeof entry.dueDate === "string")
         && Boolean(entry.values)
         && typeof entry.values === "object"
-        && !Array.isArray(entry.values)));
+        && !Array.isArray(entry.values)
+        && (entry.status === undefined || entry.status === "OPEN" || entry.status === "DONE")
+        && (entry.tags === undefined || (Array.isArray(entry.tags) && entry.tags.every((t) => typeof t === "string")))
+        && (entry.archived === undefined || typeof entry.archived === "boolean")));
 }
 
 /**
@@ -625,9 +634,21 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
   // refer to a project that comes later in the file.
   const created: { project: (typeof value.projects)[number]; id: string; fieldIds: Map<string, string> }[] = [];
   const projectIdByName = new Map<string, string>();
+  // Project names are unique per student, so restoring into an account that
+  // still has a project of the same name used to fail half-way through
+  // (issue #87). Such a project is imported alongside it under a new name.
+  const takenNames = new Set((await fetchProjects()).map((p) => p.name.trim().toLowerCase()));
+  const freeName = (name: string) => {
+    let candidate = name;
+    for (let n = 1; takenNames.has(candidate.trim().toLowerCase()); n++) {
+      candidate = n === 1 ? `${name} (imported)` : `${name} (imported ${n})`;
+    }
+    takenNames.add(candidate.trim().toLowerCase());
+    return candidate;
+  };
   for (const project of value.projects) {
     const createdProject = await createProject({
-      name: project.name,
+      name: freeName(project.name),
       description: project.description ?? undefined,
       status: project.status,
     });
@@ -675,12 +696,15 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
         }
         values[newFieldId] = entryValue;
       }
-      await createEntry(projectId, {
+      const createdEntry = await createEntry(projectId, {
         durationMinutes: entry.durationMinutes,
         values,
         ...(entry.entryDate && { entryDate: entry.entryDate }),
         ...(entry.dueDate && { dueDate: entry.dueDate }),
+        ...(entry.tags?.length && { tags: entry.tags }),
       });
+      if (entry.status === "DONE") await api.patch(`/entries/${createdEntry.id}/status`, { status: "DONE" });
+      if (entry.archived) await setEntryArchived(createdEntry.id, true);
       importedEntries++;
     }
   }

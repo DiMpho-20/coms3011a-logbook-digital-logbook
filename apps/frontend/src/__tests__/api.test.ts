@@ -287,7 +287,10 @@ describe("exportLogbook", () => {
     vi.mocked(api.get).mockImplementation((url: string) => {
       if (url === "/projects") return Promise.resolve(ok([{ id: "p1", name: "Alpha", description: null, status: "ACTIVE" }]));
       if (url.endsWith("/entry-fields")) return Promise.resolve(ok([{ id: "f1", name: "Summary", type: "TEXT", required: true, formula: null }]));
-      return Promise.resolve(ok([{ id: "e1", durationMinutes: 30, entryDate: null, dueDate: null, values: {} }]));
+      return Promise.resolve(ok([{
+        id: "e1", durationMinutes: 30, entryDate: null, dueDate: null, values: {},
+        status: "DONE", tags: ["exam"], archivedAt: "2026-09-02T00:00:00.000Z",
+      }]));
     });
 
     const result = await exportLogbook();
@@ -296,7 +299,21 @@ describe("exportLogbook", () => {
     expect(result.version).toBe(1);
     expect(result.projects).toHaveLength(1);
     expect(result.projects[0].fields[0]).toEqual({ id: "f1", name: "Summary", type: "TEXT", required: true, formula: null });
-    expect(result.projects[0].entries[0]).toEqual({ durationMinutes: 30, entryDate: null, dueDate: null, values: {} });
+    expect(result.projects[0].entries[0]).toEqual({
+      durationMinutes: 30, entryDate: null, dueDate: null, values: {}, status: "DONE", tags: ["exam"], archived: true,
+    });
+  });
+
+  it("includes archived entries", async () => {
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === "/projects") return Promise.resolve(ok([{ id: "p1", name: "Alpha", description: null, status: "ACTIVE" }]));
+      if (url.endsWith("/entry-fields")) return Promise.resolve(ok([]));
+      return Promise.resolve(ok([]));
+    });
+
+    await exportLogbook();
+
+    expect(api.get).toHaveBeenCalledWith("/projects/p1/entries", { params: { archived: "include" } });
   });
 });
 
@@ -333,6 +350,40 @@ describe("importLogbook", () => {
       "/projects/new-p1/entries",
       expect.objectContaining({ values: { "new-f1": "did a thing" } })
     );
+  });
+
+  it("brings back an entry's status, tags and archive state", async () => {
+    vi.mocked(api.post).mockImplementation((url: string) => {
+      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
+      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-f1" }));
+      return Promise.resolve(ok({ id: "new-e1" }));
+    });
+    vi.mocked(api.patch).mockResolvedValue(ok({}));
+    const full = {
+      ...backup,
+      projects: [{ ...backup.projects[0], entries: [{ ...backup.projects[0].entries[0], status: "DONE", tags: ["exam"], archived: true }] }],
+    };
+
+    await importLogbook(full);
+
+    expect(api.post).toHaveBeenCalledWith("/projects/new-p1/entries", expect.objectContaining({ tags: ["exam"] }));
+    expect(api.patch).toHaveBeenCalledWith("/entries/new-e1/status", { status: "DONE" });
+    expect(api.patch).toHaveBeenCalledWith("/entries/new-e1/archive", { archived: true });
+  });
+
+  it("imports a project whose name is already taken under a new name", async () => {
+    vi.mocked(api.get).mockImplementation((url: string) =>
+      Promise.resolve(ok(url === "/projects" ? [{ id: "p0", name: "imported", status: "ACTIVE" }] : []))
+    );
+    vi.mocked(api.post).mockImplementation((url: string) => {
+      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
+      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-f1" }));
+      return Promise.resolve(ok({ id: "new-e1" }));
+    });
+
+    await importLogbook(backup);
+
+    expect(api.post).toHaveBeenCalledWith("/projects", expect.objectContaining({ name: "Imported (imported)" }));
   });
 
   it("accepts a backup that uses a newer field type", async () => {
