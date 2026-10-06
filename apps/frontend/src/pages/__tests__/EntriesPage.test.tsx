@@ -8,6 +8,13 @@ vi.mock("../../api", () => ({
   fetchTags: vi.fn().mockResolvedValue([]),
 }));
 
+// Saved filters sync with the account; with no server here they behave as
+// they do offline, kept on this device.
+vi.mock("../../api/client", () => {
+  const offline = () => Promise.reject(Object.assign(new Error("Network Error"), { code: "ERR_NETWORK" }));
+  return { api: { get: vi.fn(offline), post: vi.fn(offline), delete: vi.fn(offline) } };
+});
+
 import * as api from "../../api";
 import EntriesPage from "../EntriesPage";
 

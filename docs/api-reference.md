@@ -1057,6 +1057,41 @@ Go back to the default dashboard. **Response `204`:** No content.
 
 ---
 
+## Saved filters (`/api/saved-filters`) 🔒
+
+Named Entries-page filters, kept on the account so they follow the student
+between browsers and devices. The web app caches them in `localStorage` for
+offline use; a filter saved offline (or before filters were kept on the
+account) is uploaded on the next visit.
+
+A saved filter object:
+```json
+{ "id": "...", "name": "Overdue reports", "searchQuery": "report", "filterProjectId": "all", "filterTab": "overdue", "sortOrder": "newest", "selectedTags": ["exam"], "fieldFilters": [{ "fieldId": "...", "op": "gt", "value": "2" }], "archivedFilter": "include", "createdAt": "..." }
+```
+
+### `GET /api/saved-filters`
+
+The caller's saved filters, oldest first.
+
+**Response `200`:** Array of saved filter objects.
+
+### `POST /api/saved-filters`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `name` | string | Yes | Trimmed; 1–100 characters |
+| `filters` | object | Yes | `searchQuery`, `filterProjectId`, `filterTab` (`all`/`week`/`overdue`), `sortOrder` (`newest`/`oldest`), and optionally `selectedTags`, `fieldFilters`, `archivedFilter` (`exclude`/`include`/`only`) |
+
+**Response `201`:** The saved filter object.
+**Errors:** `400` (blank name, malformed filters, or already 50 saved filters)
+
+### `DELETE /api/saved-filters/:id`
+
+**Response `204`:** No content.
+**Errors:** `404` (not found, or not the caller's)
+
+---
+
 ## Push notifications (`/api/push`) 🔒
 
 Web push for reminders. When `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` are

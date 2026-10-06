@@ -17,6 +17,7 @@ import {
 } from "../lib/utils";
 import {
   loadSavedFilters,
+  syncSavedFilters,
   saveFilter,
   deleteFilter,
   type SavedFilter,
@@ -207,7 +208,10 @@ export default function EntriesPage() {
   }, [applied, projectsLoaded]);
 
   useEffect(() => {
+    // The cached copy at once, then the account's list (which also uploads
+    // any filter saved only on this device).
     setSavedFilters(loadSavedFilters());
+    syncSavedFilters().then(setSavedFilters).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -275,26 +279,34 @@ export default function EntriesPage() {
 
   const markManualChange = () => setActiveFilterId(null);
 
-  const handleSaveFilter = () => {
+  const handleSaveFilter = async () => {
     if (!filterName.trim()) return;
-    setSavedFilters(
-      saveFilter(filterName, {
-        searchQuery,
-        filterProjectId,
-        filterTab,
-        sortOrder,
-        selectedTags: tagFilters,
-        archivedFilter,
-        fieldFilters,
-      })
-    );
-    setFilterName("");
-    setShowSaveInput(false);
+    try {
+      setSavedFilters(
+        await saveFilter(filterName, {
+          searchQuery,
+          filterProjectId,
+          filterTab,
+          sortOrder,
+          selectedTags: tagFilters,
+          archivedFilter,
+          fieldFilters,
+        })
+      );
+      setFilterName("");
+      setShowSaveInput(false);
+    } catch (err) {
+      console.error("Failed to save filter:", err);
+    }
   };
 
-  const handleDeleteFilter = (id: string) => {
-    setSavedFilters(deleteFilter(id));
-    if (activeFilterId === id) setActiveFilterId(null);
+  const handleDeleteFilter = async (id: string) => {
+    try {
+      setSavedFilters(await deleteFilter(id));
+      if (activeFilterId === id) setActiveFilterId(null);
+    } catch (err) {
+      console.error("Failed to delete filter:", err);
+    }
   };
 
   const projectName = useCallback(

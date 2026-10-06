@@ -12,6 +12,7 @@ import automationRuleRoutes from "./routes/automationRule.routes.js";
 import reminderRoutes from "./routes/reminder.routes.js";
 import pushRoutes from "./routes/push.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
+import savedFilterRoutes from "./routes/savedFilter.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
 import assistantRoutes from "./routes/assistant.routes.js";
 import gradesRoutes from "./routes/grades.routes.js";
@@ -54,6 +55,7 @@ app.use("/api", tagRoutes);
 app.use("/api", reminderRoutes);
 app.use("/api", pushRoutes);
 app.use("/api", dashboardRoutes);
+app.use("/api", savedFilterRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", assistantRoutes);
 // Its own mount path, because the grades router applies requireAuth to every

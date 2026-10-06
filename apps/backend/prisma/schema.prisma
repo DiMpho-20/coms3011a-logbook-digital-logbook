@@ -104,6 +104,7 @@ model User {
   twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
   pushSubscriptions       PushSubscription[]
   dashboardLayout         DashboardLayout?
+  savedFilters            SavedFilter[]
   academicModules         AcademicModule[]
 
   @@map("users")
@@ -430,6 +431,22 @@ model DashboardLayout {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("dashboard_layouts")
+}
+
+// A named Entries-page filter, kept on the server so it follows the student
+// between browsers and devices. The frontend owns what a filter holds; the
+// API only checks its shape.
+model SavedFilter {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  filters   Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("saved_filters")
 }
 
 // The student's reminder rules. No row means the defaults below.
