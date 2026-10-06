@@ -319,7 +319,12 @@ describe("ownership and the reminders API", () => {
     // Dated relative to today, since the API applies the rules at the real time.
     const day = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
     const id = await addAssessment(s, { name: "Soon", date: day, dateKind: "DUE" });
-    await generateReminders(s.id, new Date(`${new Date().toISOString().slice(0, 10)}T12:00:00.000Z`));
+    // Made yesterday at noon, so it is already due whatever the time now. (Made
+    // at noon today, it was still in the future every morning and the count
+    // below read 0.) Four days out then and three now both fall in the 5-day
+    // reminder, so the API's own pass keeps it rather than replacing it.
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    await generateReminders(s.id, new Date(`${yesterday}T12:00:00.000Z`));
 
     const list = await request(app).get("/api/reminders").set(s.headers);
     expect(list.status).toBe(200);
