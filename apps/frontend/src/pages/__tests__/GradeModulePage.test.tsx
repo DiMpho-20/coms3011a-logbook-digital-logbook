@@ -341,21 +341,36 @@ describe("assessments", () => {
     );
   });
 
-  it("deletes an assessment after confirming", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("deletes an assessment after confirming in the dialog", async () => {
     vi.mocked(api.deleteAssessment).mockResolvedValue();
     renderPage();
     await loaded();
     fireEvent.click(screen.getByRole("button", { name: "Delete Exam" }));
+    const dialog = await screen.findByRole("dialog", { name: 'Delete "Exam"?' });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete assessment" }));
     await waitFor(() => expect(api.deleteAssessment).toHaveBeenCalledWith("Exam"));
   });
 
+  it("explains what deleting a module removes, and deletes nothing on Cancel", async () => {
+    renderPage();
+    await loaded();
+    fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Delete COMS3011A?" });
+    expect(dialog).toHaveTextContent("This will permanently delete this module and all of its assessments.");
+    // Cancel has focus, so Enter can't delete by accident.
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(api.deleteGradeModule).not.toHaveBeenCalled();
+  });
+
   it("deletes the module and returns to the overview", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.mocked(api.deleteGradeModule).mockResolvedValue();
     renderPage();
     await loaded();
     fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Delete COMS3011A?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete module" }));
     expect(await screen.findByText("Overview")).toBeInTheDocument();
     expect(api.deleteGradeModule).toHaveBeenCalledWith("coms");
   });

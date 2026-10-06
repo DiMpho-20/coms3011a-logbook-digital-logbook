@@ -12,6 +12,7 @@ import WhatIfPanel from "../components/grades/WhatIfPanel";
 import CalculationExplainer from "../components/grades/CalculationExplainer";
 import { AssessmentStatusBadge, Badge } from "../components/grades/GradeBadges";
 import { deleteAssessment, deleteGradeModule, fetchGradeModule, updateGradeModule, type GradeModule } from "../api";
+import { useConfirm } from "../lib/useConfirm";
 import {
   assessmentStatus,
   computeModule,
@@ -144,6 +145,7 @@ export default function GradeModulePage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [dialog, setDialog] = useState<AssessmentDialog>(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   const load = useCallback(async () => {
     if (!moduleId) return;
@@ -176,7 +178,12 @@ export default function GradeModulePage() {
   const fullYear = module.type === "FULL_YEAR";
 
   const removeModule = async () => {
-    if (!window.confirm(`Delete ${module.code} and all of its assessments? This can't be undone.`)) return;
+    const sure = await confirm({
+      title: `Delete ${module.code}?`,
+      message: "This will permanently delete this module and all of its assessments.",
+      confirmLabel: "Delete module",
+    });
+    if (!sure) return;
     try {
       await deleteGradeModule(module.id);
       navigate("/grades");
@@ -186,7 +193,12 @@ export default function GradeModulePage() {
   };
 
   const removeAssessment = async (assessment: GradeAssessment) => {
-    if (!window.confirm(`Delete "${assessment.name}"? Its weight and mark will be removed from this module.`)) return;
+    const sure = await confirm({
+      title: `Delete "${assessment.name}"?`,
+      message: "Its weight and mark will be removed from this module.",
+      confirmLabel: "Delete assessment",
+    });
+    if (!sure) return;
     setActionError(null);
     try {
       await deleteAssessment(assessment.id);
@@ -299,6 +311,7 @@ export default function GradeModulePage() {
 
       <p className="text-[11px] text-slate-400">{UNOFFICIAL_NOTE}</p>
 
+      {confirmDialog}
       <ModuleFormModal
         open={editing}
         onClose={() => setEditing(false)}

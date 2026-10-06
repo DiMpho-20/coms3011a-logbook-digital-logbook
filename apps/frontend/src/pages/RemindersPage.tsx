@@ -22,6 +22,7 @@ import {
   type ReminderSettings,
 } from "../api";
 import { isOfflineId } from "../lib/offlineProjects";
+import { useConfirm } from "../lib/useConfirm";
 
 type Tab = "due" | "upcoming" | "history";
 
@@ -394,6 +395,7 @@ function ReminderRules({ onSaved }: { onSaved: () => void }) {
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function RemindersPage() {
+  const [confirm, confirmDialog] = useConfirm();
   const [pending, setPending] = useState<Reminder[]>([]);
   const [history, setHistory] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -443,7 +445,12 @@ export default function RemindersPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Delete this reminder?")) return;
+    const sure = await confirm({
+      title: "Delete this reminder?",
+      message: "It will be removed for good.",
+      confirmLabel: "Delete reminder",
+    });
+    if (!sure) return;
     setActionError(null);
     try {
       await deleteReminder(id);
@@ -469,6 +476,7 @@ export default function RemindersPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <PageHeader
         title="Reminders"
         subtitle="Set your own reminders, or let your rules remind you about due dates and unlogged work."
