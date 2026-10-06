@@ -57,3 +57,73 @@ describe("BoardPage grouped by a reference field", () => {
     expect(screen.queryByText("[object Object]")).toBeNull();
   });
 });
+
+describe("BoardPage columns and cards", () => {
+  const renderBoard = () =>
+    render(
+      <MemoryRouter initialEntries={["/board?project=proj"]}>
+        <BoardPage />
+      </MemoryRouter>
+    );
+
+  const mockProject = (fields: unknown[], entries: unknown[]) =>
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/projects") return { data: [{ id: "proj", name: "Research", status: "ACTIVE" }] };
+      if (url.endsWith("/entry-fields")) return { data: fields };
+      return { data: entries };
+    });
+
+  const entry = (id: string, values: Record<string, unknown>, over: Record<string, unknown> = {}) => ({
+    id, projectId: "proj", entryDate: "2026-09-01", createdAt: "2026-09-01", durationMinutes: 30, status: "OPEN", values, ...over,
+  });
+
+  it("names each card by its description, not just its time", async () => {
+    mockProject([{ id: "sum", name: "Summary", type: "TEXT" }], [entry("e1", { sum: "Wrote the intro" })]);
+    renderBoard();
+    expect(await screen.findByText("Wrote the intro")).toBeInTheDocument();
+  });
+
+  it("groups by status when the project has no field that repeats, open before done", async () => {
+    mockProject(
+      [{ id: "sum", name: "Summary", type: "TEXT" }],
+      [entry("e1", { sum: "Finished" }, { status: "DONE" }), entry("e2", { sum: "Still going" })]
+    );
+    renderBoard();
+    await screen.findByText("Still going");
+    const headings = screen.getAllByTitle(/^(Open|Done)$/).map((el) => el.textContent);
+    expect(headings).toEqual(["Open", "Done"]);
+  });
+
+  it("puts an entry under each of its tags rather than one joined column", async () => {
+    mockProject(
+      [{ id: "sum", name: "Summary", type: "TEXT" }, { id: "tags", name: "Topics", type: "TAGS" }],
+      [entry("e1", { sum: "Both", tags: ["ml", "thesis"] }), entry("e2", { sum: "Untagged", tags: [] })]
+    );
+    renderBoard();
+    await screen.findAllByText("Both");
+    expect(screen.getByTitle("ml")).toBeInTheDocument();
+    expect(screen.getByTitle("thesis")).toBeInTheDocument();
+    expect(screen.queryByTitle("ml, thesis")).toBeNull();
+    expect(screen.getAllByText("Both")).toHaveLength(2);
+    expect(screen.getByTitle("—")).toBeInTheDocument();
+  });
+
+  it("names yes/no columns in words", async () => {
+    mockProject(
+      [{ id: "sum", name: "Summary", type: "TEXT" }, { id: "rev", name: "Reviewed", type: "BOOLEAN" }],
+      [entry("e1", { sum: "A", rev: true }), entry("e2", { sum: "B", rev: false })]
+    );
+    renderBoard();
+    expect(await screen.findByTitle("Yes")).toBeInTheDocument();
+    expect(screen.getByTitle("No")).toBeInTheDocument();
+  });
+
+  it("says so when the entries cannot be loaded", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/projects") return { data: [{ id: "proj", name: "Research", status: "ACTIVE" }] };
+      throw new Error("Network Error");
+    });
+    renderBoard();
+    expect(await screen.findByText(/Couldn't load this project's entries/)).toBeInTheDocument();
+  });
+});
