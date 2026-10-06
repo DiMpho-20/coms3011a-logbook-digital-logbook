@@ -421,7 +421,10 @@ export default function LandingPage() {
               v0.1 (Sprint 1)
             </span>
           </div>
-          <p style={{ margin: 0 }}>© {new Date().getFullYear()} Digital Logbook Team. All rights reserved.</p>
+          <p style={{ margin: 0 }}>
+            © {new Date().getFullYear()} Digital Logbook Team. All rights reserved. ·{" "}
+            <Link to="/privacy" style={{ color: "rgba(255, 255, 255, 0.7)" }}>Privacy Policy</Link>
+          </p>
         </div>
       </footer>
     </div>

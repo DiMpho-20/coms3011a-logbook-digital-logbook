@@ -13,6 +13,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { VerifyEmail } from "./pages/VerifyEmail";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import PrivacyPage from "./pages/PrivacyPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 // Redesigned pages & layout
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
 
         {/* Protected app routes with sidebar layout */}
         <Route element={<ProtectedRoute />}>
