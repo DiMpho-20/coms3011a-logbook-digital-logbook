@@ -21,6 +21,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/entries": "Entries",
   "/open-work": "Open Work",
   "/stats": "Stats",
+  "/grades": "My Grades",
   "/calendar": "Calendar",
   "/board": "Board",
   "/reminders": "Reminders",

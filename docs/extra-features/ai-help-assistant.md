@@ -223,10 +223,11 @@ remove the comment markers around each image.
 - **Accuracy depends on the hand-written app guide.** A feature missing from
   `APP_GUIDE` is unknown to the assistant, and the model may still phrase an
   answer imperfectly.
-- **Known gap:** the "Take me to" button names pages from a list in
-  `HelpAssistant.tsx` that does not yet include My Grades. If the assistant
-  points to `/grades`, the button reads "Take me to /grades" instead of
-  "Take me to My Grades". The navigation itself works.
+- **Two lists to keep in step.** The pages the assistant may point to
+  (`NAVIGABLE_PATHS` in the backend) and the names on its buttons
+  (`PAGE_NAMES` in `HelpAssistant.tsx`) are separate lists. A page added to
+  the first but not the second shows its path, such as "/grades", instead of
+  its name.
 - **Free-tier limits.** Shared quota can run out; the fallback model helps but
   cannot guarantee an answer. Free-tier prompts may be used by Google to
   improve its models, which is why no logbook data is sent.
@@ -239,7 +240,8 @@ remove the comment markers around each image.
 
 ## 9. Future Improvements
 
-- Add `/grades` to the page names in `HelpAssistant.tsx` (the known gap above).
+- Share one list of pages between the backend allowlist and the frontend's
+  button names, so they cannot drift apart.
 - Generate parts of `APP_GUIDE` from the route list, so new pages cannot be
   forgotten.
 - Stream answers for a faster feel.

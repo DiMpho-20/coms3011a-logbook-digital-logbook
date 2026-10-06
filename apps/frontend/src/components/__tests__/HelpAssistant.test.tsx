@@ -87,6 +87,17 @@ describe("HelpAssistant", () => {
     expect(screen.getByTestId("where").textContent).toBe("/reminders");
   });
 
+  it("names My Grades on its button rather than showing the path", async () => {
+    vi.mocked(api.askAssistant).mockResolvedValue({ reply: "Your modules are in My Grades.", navigateTo: "/grades" });
+    renderAt();
+    openPanel();
+
+    ask("where are my marks?");
+    fireEvent.click(await screen.findByRole("button", { name: "Take me to My Grades" }));
+
+    expect(screen.getByTestId("where").textContent).toBe("/grades");
+  });
+
   it("shows the server's error and keeps the question for a retry", async () => {
     vi.mocked(api.askAssistant).mockRejectedValue({
       response: { data: { error: "The help assistant is not set up on this server." } },
