@@ -20,7 +20,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/projects": "Projects",
   "/entries": "Entries",
   "/open-work": "Open Work",
-  "/stats": "Stats",
+  "/stats": "Statistics",
   "/grades": "My Grades",
   "/calendar": "Calendar",
   "/board": "Board",

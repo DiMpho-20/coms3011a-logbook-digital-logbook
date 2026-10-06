@@ -115,6 +115,35 @@ body {
   }
 }
 
+/* ── Keyboard focus ────────────────────────────────────────────
+   A visible ring whenever focus arrives from the keyboard, on every
+   link and button-like control. Mouse clicks don't show it
+   (:focus-visible), and :where() keeps it at zero specificity so a
+   component's own focus style still wins. Inputs keep their own
+   focus:ring styles. */
+:root { --focus-ring: #2563eb; }
+[data-theme="dark"] { --focus-ring: #60a5fa; }
+[data-accent="emerald"] { --focus-ring: #059669; }
+[data-accent="violet"] { --focus-ring: #7c3aed; }
+[data-accent="amber"] { --focus-ring: #d97706; }
+[data-accent="rose"] { --focus-ring: #e11d48; }
+:where(a, button, summary, [role="button"], [role="tab"], [role="switch"], [role="radio"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+/* The sidebar is dark whatever the theme. */
+.sidebar-root :focus-visible { outline-color: #22d3ee; }
+
+/* ── Readable helper text ──────────────────────────────────────
+   slate-400 (#94a3b8) is about 2.6:1 on white, below the 4.5:1 that
+   small text needs, and the app uses it for hints and secondary
+   lines. On the light pages and dialogs it is drawn as slate-500
+   (#64748b, 4.8:1) instead. The sidebar and the sign-in screens are
+   dark, so they keep the lighter shade, and dark mode has its own. */
+:root:not([data-theme="dark"]) :is(main, [role="dialog"]) .text-slate-400 {
+  color: #64748b;
+}
+
 /* ── Dark theme: coloured surfaces ───────────────────────────
    The overrides above cover the slate palette. Every tinted
    surface — error panels, deadline cards, stat tiles, tag chips —

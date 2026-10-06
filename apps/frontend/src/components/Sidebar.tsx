@@ -52,13 +52,25 @@ function useDueReminderCount(): number {
         .then((n) => { if (!cancelled) setCount(n); })
         .catch(() => {});
     };
+    // Each check runs the student's reminder rules on the server, so a hidden
+    // tab skips it, unless this tab is the one showing device notifications,
+    // which must keep arriving in the background. Coming back checks at once.
+    const poll = () => {
+      if (document.hidden && reminderNotificationMode() !== "in-app") return;
+      refresh();
+    };
+    const onVisible = () => {
+      if (!document.hidden) refresh();
+    };
     refresh();
-    const timer = window.setInterval(refresh, REMINDER_POLL_MS);
+    const timer = window.setInterval(poll, REMINDER_POLL_MS);
     window.addEventListener(REMINDERS_CHANGED_EVENT, refresh);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
       window.removeEventListener(REMINDERS_CHANGED_EVENT, refresh);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
   return count;
@@ -70,21 +82,34 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
 }
 
-const NAV_ITEMS = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/projects", label: "Projects", icon: FolderKanban, end: false },
-  { to: "/entries", label: "Entries", icon: ClipboardList, end: false },
-  { to: "/open-work", label: "Open Work", icon: Circle, end: false },
-  { to: "/stats", label: "Stats", icon: BarChart3, end: false },
-  { to: "/grades", label: "My Grades", icon: GraduationCap, end: false },
-  { to: "/calendar", label: "Calendar", icon: CalendarDays, end: false },
-  { to: "/board", label: "Board", icon: Kanban, end: false },
-  { to: "/reminders", label: "Reminders", icon: Bell, end: false },
-];
-
-const BOTTOM_ITEMS = [
-  { to: "/profile", label: "Profile", icon: UserIcon },
-  { to: "/settings", label: "Settings", icon: Settings },
+/**
+ * Grouped by what the student is doing: what's happening now, the logbook
+ * work itself, and their studies. Profile and Settings live in the account
+ * menu at the bottom, so the list stays short enough to scan.
+ */
+const NAV_GROUPS = [
+  {
+    label: "Today",
+    items: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
+      { to: "/reminders", label: "Reminders", icon: Bell, end: false },
+      { to: "/calendar", label: "Calendar", icon: CalendarDays, end: false },
+    ],
+  },
+  {
+    label: "Work",
+    items: [
+      { to: "/projects", label: "Projects", icon: FolderKanban, end: false },
+      { to: "/entries", label: "Entries", icon: ClipboardList, end: false },
+      { to: "/open-work", label: "Open Work", icon: Circle, end: false },
+      { to: "/board", label: "Board", icon: Kanban, end: false },
+      { to: "/stats", label: "Statistics", icon: BarChart3, end: false },
+    ],
+  },
+  {
+    label: "Academics",
+    items: [{ to: "/grades", label: "My Grades", icon: GraduationCap, end: false }],
+  },
 ];
 
 export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
@@ -157,87 +182,57 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
         )}
       </div>
 
-      {/* Main navigation */}
-      <nav className={`relative z-10 flex-1 px-3 pt-4 space-y-0.5 ${collapsed ? "px-2" : ""}`}>
-        {!collapsed && (
-          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            Main
-          </p>
-        )}
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            onClick={onClose}
-            className={({ isActive }) =>
-              `sidebar-nav-item flex items-center ${collapsed ? "justify-center px-2" : "gap-2.5 px-3"} py-2 rounded-lg text-sm font-medium transition-all duration-200 relative ${
-                isActive
-                  ? "sidebar-nav-active text-white"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
-              }`
-            }
-            title={collapsed ? item.label : undefined}
-            aria-label={collapsed ? item.label : undefined}
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <span className="sidebar-active-bar absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" />
-                )}
-                <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-cyan-400" : ""}`} />
-                {!collapsed && item.label}
-                {item.to === "/reminders" && dueReminders > 0 && (
-                  <span
-                    className={`${collapsed ? "absolute top-1 right-1 h-2 w-2 p-0" : "ml-auto px-1.5 py-0.5 text-[10px]"} rounded-full bg-amber-500 font-semibold text-white leading-none`}
-                    aria-label={`${dueReminders} reminder${dueReminders === 1 ? "" : "s"} due`}
-                  >
-                    {!collapsed && dueReminders}
-                  </span>
-                )}
-              </>
+      {/* Main navigation, in groups */}
+      <nav className={`relative z-10 flex-1 overflow-y-auto pt-4 ${collapsed ? "px-2" : "px-3"}`} aria-label="Main">
+        {NAV_GROUPS.map((group, groupIndex) => (
+          <div key={group.label} className={groupIndex > 0 ? "mt-4" : undefined}>
+            {collapsed ? (
+              groupIndex > 0 && <div className="mx-2 mb-3 h-px bg-white/[0.06]" aria-hidden="true" />
+            ) : (
+              <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                {group.label}
+              </p>
             )}
-          </NavLink>
+            <div className="space-y-0.5">
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `sidebar-nav-item flex items-center ${collapsed ? "justify-center px-2" : "gap-2.5 px-3"} py-2 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                      isActive
+                        ? "sidebar-nav-active text-white"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+                    }`
+                  }
+                  title={collapsed ? item.label : undefined}
+                  aria-label={collapsed ? item.label : undefined}
+                >
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <span className="sidebar-active-bar absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" />
+                      )}
+                      <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-cyan-400" : ""}`} />
+                      {!collapsed && item.label}
+                      {item.to === "/reminders" && dueReminders > 0 && (
+                        <span
+                          className={`${collapsed ? "absolute top-1 right-1 h-2 w-2 p-0" : "ml-auto px-1.5 py-0.5 text-[10px]"} rounded-full bg-amber-500 font-semibold text-white leading-none`}
+                          aria-label={`${dueReminders} reminder${dueReminders === 1 ? "" : "s"} due`}
+                        >
+                          {!collapsed && dueReminders}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
-
-      {/* Divider */}
-      <div className="relative z-10 mx-4 my-2 h-px bg-white/[0.06]" />
-
-      {/* Personal section */}
-      <div className={`relative z-10 px-3 pb-2 space-y-0.5 ${collapsed ? "px-2" : ""}`}>
-        {!collapsed && (
-          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            Personal
-          </p>
-        )}
-        {BOTTOM_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={onClose}
-            className={({ isActive }) =>
-              `sidebar-nav-item flex items-center ${collapsed ? "justify-center px-2" : "gap-2.5 px-3"} py-2 rounded-lg text-sm font-medium transition-all duration-200 relative ${
-                isActive
-                  ? "sidebar-nav-active text-white"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
-              }`
-            }
-            title={collapsed ? item.label : undefined}
-            aria-label={collapsed ? item.label : undefined}
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <span className="sidebar-active-bar absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" />
-                )}
-                <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-cyan-400" : ""}`} />
-                {!collapsed && item.label}
-              </>
-            )}
-          </NavLink>
-        ))}
-      </div>
 
       {/* User area */}
       <div ref={menuRef} className="relative z-10 shrink-0 border-t border-white/[0.06]">
