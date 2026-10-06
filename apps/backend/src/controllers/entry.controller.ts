@@ -168,7 +168,11 @@ export const getEntries = async (req: AuthenticatedRequest, res: Response) => {
     if (!(await ownedProject(projectId, req.userId!))) {
       return res.status(404).json({ error: "Project not found" });
     }
-    await materializeDueRecurringEntries(req.userId!);
+    // Catching up recurring entries must never stop the logbook being read;
+    // whatever is left is picked up by the next request or the timer.
+    await materializeDueRecurringEntries(req.userId!).catch((error) =>
+      console.error("Failed to generate recurring entries:", error)
+    );
     const { status, dueBefore } = req.query;
     const archived = parseArchivedFilter(req.query.archived);
     if (!archived) {
@@ -809,13 +813,16 @@ export const getOpenEntries = async (req: AuthenticatedRequest, res: Response) =
 function computeStreakFromDays(days: string[]): number {
   if (days.length === 0) return 0;
   const set = new Set(days);
+  // Days come from the database as UTC dates, so count in UTC too: local
+  // midnight read back through toISOString() lands on the previous day
+  // anywhere east of UTC, which dropped today from the streak.
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
 
   // Allow the streak to start today or yesterday.
   const todayKey = today.toISOString().slice(0, 10);
   const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   const yesterdayKey = yesterday.toISOString().slice(0, 10);
 
   let cursor: Date;
@@ -828,7 +835,7 @@ function computeStreakFromDays(days: string[]): number {
     const key = cursor.toISOString().slice(0, 10);
     if (!set.has(key)) break;
     streak++;
-    cursor.setDate(cursor.getDate() - 1);
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
   return streak;
 }
