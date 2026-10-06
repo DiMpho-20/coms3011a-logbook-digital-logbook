@@ -156,6 +156,22 @@ describe("EntryCard", () => {
     expect(screen.getByText("wrote the audit")).toBeInTheDocument();
   });
 
+  it("routes an entry-to-entry reference into the linked entry's project", () => {
+    const fields = [field("f-ref", "Related", "REFERENCE")];
+    const entry = makeEntry({
+      values: {
+        "f-ref": { id: "e9", label: "Reading · Sep 30 · chapter two", kind: "entry", projectId: "p7" },
+      } as Entry["values"],
+    });
+
+    renderCard({ entry, fields });
+
+    expect(screen.getByRole("link", { name: "Reading · Sep 30 · chapter two" })).toHaveAttribute(
+      "href",
+      "/projects/p7?entry=e9"
+    );
+  });
+
   it("skips a field the entry never filled in", () => {
     const fields = [field("f1", "Summary", "TEXT"), field("f2", "Notes", "TEXT")];
     renderCard({ entry: makeEntry({ values: { f1: "only this one" } as Entry["values"] }), fields });

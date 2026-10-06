@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Loader2, Check } from "lucide-react";
 import Stopwatch from "./Stopwatch";
 import ChecklistInput from "./ChecklistInput";
+import ReferencePicker from "./ReferencePicker";
 import { todayISO, defaultValuesForFields, isEmptyValue } from "../lib/utils";
 import { entryDefaults, rememberEntryDefaults, rememberProject } from "../lib/quickCapture";
 import { previewComputedValues, formulaIdsToNames } from "../lib/formulas";
@@ -93,12 +94,6 @@ export default function EntryForm({
   const computedPreview = useMemo(
     () => previewComputedValues(fieldsForSelection, values),
     [fieldsForSelection, values]
-  );
-
-  // A REFERENCE points at a project other than the one being logged against.
-  const otherProjects = useMemo(
-    () => projects.filter((p) => p.id !== (projectId || selectedProjectId)),
-    [projects, projectId, selectedProjectId]
   );
 
   /** Start a fresh entry from the last one saved, matching the modal's flow. */
@@ -322,19 +317,13 @@ export default function EntryForm({
                 />
               )}
               {field.type === "REFERENCE" && (
-                <select
-                  value={(values[field.id] as { id?: string } | null)?.id || ""}
-                  onChange={(e) => {
-                    const target = otherProjects.find((p) => p.id === e.target.value);
-                    handleFieldChange(field.id, target ? { id: target.id, label: target.name, kind: "project" } : null);
-                  }}
+                <ReferencePicker
+                  projects={projects}
+                  currentProjectId={projectId || selectedProjectId}
+                  value={values[field.id] ?? null}
+                  onChange={(v) => handleFieldChange(field.id, v)}
                   className={`${inputClassName} bg-white`}
-                >
-                  <option value="">— No project —</option>
-                  {otherProjects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                />
               )}
               {field.type === "COMPUTED" && (
                 <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">

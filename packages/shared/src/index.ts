@@ -57,6 +57,8 @@ export interface EntryReference {
   id: string;
   label?: string;
   kind?: "project" | "entry";
+  /** For kind "entry": the project the linked entry lives in, so the UI can route to it. */
+  projectId?: string;
 }
 
 export type EntryFieldValue = string | number | boolean | string[] | ChecklistItem[] | EntryReference | null;

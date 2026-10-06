@@ -50,6 +50,7 @@ import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 import { useToast } from "../components/ToastContext";
 import TagList from "../components/TagList";
+import ReferencePicker from "../components/ReferencePicker";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
 import ChecklistInput from "../components/ChecklistInput";
 import EntryHistoryModal from "../components/EntryHistoryModal";
@@ -150,12 +151,6 @@ export default function ProjectDetailPage() {
     fetchProjects().then(setAllProjects).catch(() => {});
   }, []);
 
-  // Candidates for a REFERENCE field: every other project, for linking one to another.
-  const otherProjects = useMemo(
-    () => allProjects.filter((p) => p.id !== id),
-    [allProjects, id]
-  );
-
   const load = useCallback(async () => {
     if (!id) return;
     // Switching between active and archived entries reloads in place rather
@@ -203,6 +198,22 @@ export default function ProjectDetailPage() {
     next.delete("new");
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, project, id]);
+
+  // Arriving from a link to a specific entry: open it once its row is in the
+  // list, then drop the flag so a reload or Back does not reopen it. An entry
+  // outside the current view (say, archived while this shows active) leaves
+  // the flag alone rather than yanking the reader into another view.
+  useEffect(() => {
+    const entryId = searchParams.get("entry");
+    if (!entryId || !project || project.id !== id) return;
+    const target = entries.find((e) => e.id === entryId);
+    if (!target) return;
+    setEditingEntry(target);
+    setEntryModalOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("entry");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, project, id, entries]);
 
   // Put the cursor in the first field, so capture needs no mouse.
   useEffect(() => {
@@ -798,19 +809,14 @@ export default function ProjectDetailPage() {
                     <input type="url" placeholder="https://…" value={(entryValues[field.id] as string) || ""} onChange={(e) => handleFieldChange(field.id, e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                   )}
                   {field.type === "REFERENCE" && (
-                    <select
-                      value={(entryValues[field.id] as { id?: string } | null)?.id || ""}
-                      onChange={(e) => {
-                        const target = otherProjects.find((p) => p.id === e.target.value);
-                        handleFieldChange(field.id, target ? { id: target.id, label: target.name, kind: "project" } : null);
-                      }}
+                    <ReferencePicker
+                      projects={allProjects}
+                      currentProjectId={id}
+                      excludeEntryId={editingEntry?.id}
+                      value={entryValues[field.id] ?? null}
+                      onChange={(v) => handleFieldChange(field.id, v)}
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white"
-                    >
-                      <option value="">— No project —</option>
-                      {otherProjects.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
+                    />
                   )}
                   {field.type === "COMPUTED" && (
                     <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">

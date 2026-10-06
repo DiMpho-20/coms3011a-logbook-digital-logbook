@@ -4,13 +4,16 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import EntryForm from "../../components/EntryForm";
 import type { Project, EntryField } from "../../api";
 
-// Mock the API module — createEntry, and fetchEntryFields when the form
-// loads a project's fields itself (no fields prop).
+// Mock the API module — createEntry, fetchEntryFields when the form loads a
+// project's fields itself, and fetchAllEntries for the reference picker's
+// pool of recent entries.
 const mockCreateEntry = vi.fn();
 const mockFetchEntryFields = vi.fn();
+const mockFetchAllEntries = vi.fn();
 vi.mock("../../api", () => ({
   createEntry: (...args: unknown[]) => mockCreateEntry(...args),
   fetchEntryFields: (...args: unknown[]) => mockFetchEntryFields(...args),
+  fetchAllEntries: (...args: unknown[]) => mockFetchAllEntries(...args),
 }));
 
 // Mock Stopwatch since it uses setInterval internally
@@ -68,6 +71,14 @@ describe("EntryForm", () => {
     // Prefill carries across saves through localStorage; clear it so each
     // test starts from a blank logbook.
     localStorage.clear();
+    // The reference picker fetches recent entries whenever a REFERENCE field
+    // renders; default to an empty logbook.
+    mockFetchAllEntries.mockResolvedValue({
+      entries: [],
+      truncated: false,
+      fieldsByProject: {},
+      projectsNeedingFields: [],
+    });
   });
 
   it("renders the duration input and submit button", () => {
@@ -226,6 +237,42 @@ describe("EntryForm: every field type the project's format uses", () => {
       expect(mockCreateEntry).toHaveBeenCalledWith("p1", expect.objectContaining({
         values: expect.objectContaining({
           "f-ref": { id: "p2", label: "Beta", kind: "project" },
+        }),
+      }));
+    });
+  });
+
+  it("submits a REFERENCE field as a linked entry, project id included", async () => {
+    const day = new Date("2026-09-30T12:00:00.000Z").toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+    mockFetchAllEntries.mockResolvedValue({
+      entries: [
+        {
+          id: "e9",
+          projectId: "p2",
+          entryDate: "2026-09-30T12:00:00.000Z",
+          createdAt: "2026-09-30T12:00:00.000Z",
+          values: { x: "chapter notes" },
+        },
+      ],
+      truncated: false,
+      fieldsByProject: {},
+      projectsNeedingFields: [],
+    });
+    mockCreateEntry.mockResolvedValueOnce({ id: "e1", durationMinutes: 10 });
+    renderForm({ projectId: "p1", fields: RICH_FIELDS });
+
+    // The option names the entry so the student can tell it from a project.
+    const option = await screen.findByText(`Beta · ${day} · chapter notes`);
+    fireEvent.change(option.closest("select")!, { target: { value: "e9" } });
+    fireEvent.click(screen.getByRole("button", { name: /save entry/i }));
+
+    await waitFor(() => {
+      expect(mockCreateEntry).toHaveBeenCalledWith("p1", expect.objectContaining({
+        values: expect.objectContaining({
+          "f-ref": { id: "e9", label: `Beta · ${day} · chapter notes`, kind: "entry", projectId: "p2" },
         }),
       }));
     });
