@@ -130,6 +130,7 @@ All routes are prefixed with `/api`. Apart from sign-up, sign-in, password reset
 | Projects | `/api/projects`, `/api/projects/:id`, `/api/projects/:id/status`, `/api/projects/:id/time-summary` |
 | Entry fields & formats | `/api/projects/:projectId/entry-fields`, `/api/projects/:projectId/entry-format-versions`, `/api/entry-fields/:id` |
 | Entries | `/api/entries`, `/api/projects/:projectId/entries`, `/api/entries/:id`, `/api/entries/:id/status`, `/api/me/open-entries` |
+| Backup & restore | `/api/import` |
 | History & archive | `/api/entries/:id/versions`, `/api/entries/:id/versions/at`, `/api/entries/:id/versions/:version/restore`, `/api/entries/archive`, `/api/entries/:id/archive` |
 | Statistics | `/api/projects/:projectId/stats/{group,timeline,expression}`, `/api/projects/:projectId/custom-statistics` |
 | Automation | `/api/projects/:projectId/automation-rules`, `/api/recurrences/:id` |

@@ -352,56 +352,25 @@ describe("importLogbook", () => {
     await expect(importLogbook(backup)).rejects.toThrow(/internet/i);
   });
 
-  it("recreates each project and remaps its field ids onto the new entries", async () => {
-    vi.mocked(api.post).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-f1" }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
+  it("sends the whole backup in one request and reports what the server imported (issue #87)", async () => {
+    vi.mocked(api.post).mockResolvedValue(ok({ projects: 1, entries: 1 }));
 
-    const result = await importLogbook(backup);
+    await expect(importLogbook(backup)).resolves.toEqual({ projects: 1, entries: 1 });
 
-    expect(result).toEqual({ projects: 1, entries: 1 });
-    // The entry must be written against the newly created field's id, not the
-    // one from the backup file.
-    expect(api.post).toHaveBeenCalledWith(
-      "/projects/new-p1/entries",
-      expect.objectContaining({ values: { "new-f1": "did a thing" } })
-    );
+    expect(api.post).toHaveBeenCalledTimes(1);
+    expect(api.post).toHaveBeenCalledWith("/import", backup);
   });
 
-  it("brings back an entry's status, tags and archive state", async () => {
-    vi.mocked(api.post).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-f1" }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
-    vi.mocked(api.patch).mockResolvedValue(ok({}));
-    const full = {
-      ...backup,
-      projects: [{ ...backup.projects[0], entries: [{ ...backup.projects[0].entries[0], status: "DONE", tags: ["exam"], archived: true }] }],
-    };
+  it("passes on the server's explanation when the import is refused", async () => {
+    vi.mocked(api.post).mockRejectedValue({ response: { data: { error: "An entry in \"Imported\" is invalid. Nothing was imported." } } });
 
-    await importLogbook(full);
-
-    expect(api.post).toHaveBeenCalledWith("/projects/new-p1/entries", expect.objectContaining({ tags: ["exam"] }));
-    expect(api.patch).toHaveBeenCalledWith("/entries/new-e1/status", { status: "DONE" });
-    expect(api.patch).toHaveBeenCalledWith("/entries/new-e1/archive", { archived: true });
+    await expect(importLogbook(backup)).rejects.toThrow(/Nothing was imported/);
   });
 
-  it("imports a project whose name is already taken under a new name", async () => {
-    vi.mocked(api.get).mockImplementation((url: string) =>
-      Promise.resolve(ok(url === "/projects" ? [{ id: "p0", name: "imported", status: "ACTIVE" }] : []))
-    );
-    vi.mocked(api.post).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-f1" }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
+  it("says nothing was imported when the request fails without an explanation", async () => {
+    vi.mocked(api.post).mockRejectedValue(networkError);
 
-    await importLogbook(backup);
-
-    expect(api.post).toHaveBeenCalledWith("/projects", expect.objectContaining({ name: "Imported (imported)" }));
+    await expect(importLogbook(backup)).rejects.toThrow(/Nothing was imported, so it is safe to try again/);
   });
 
   it("accepts a backup that uses a newer field type", async () => {
@@ -413,95 +382,8 @@ describe("importLogbook", () => {
         entries: [],
       }],
     };
-    vi.mocked(api.post).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-f1" }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
+    vi.mocked(api.post).mockResolvedValue(ok({ projects: 1, entries: 0 }));
 
     await expect(importLogbook(withTags)).resolves.toEqual({ projects: 1, entries: 0 });
-  });
-
-  it("points a reference at the recreated project, even one later in the file (issue #90)", async () => {
-    const withReference = {
-      ...backup,
-      projects: [
-        {
-          ...backup.projects[0],
-          name: "Thesis",
-          fields: [{ id: "old-ref", name: "Related to", type: "REFERENCE", required: false, formula: null }],
-          entries: [{
-            durationMinutes: 10, entryDate: null, dueDate: null,
-            values: { "old-ref": { id: "old-reading-id", label: "Reading", kind: "project" } },
-          }],
-        },
-        { ...backup.projects[0], name: "Reading", fields: [], entries: [] },
-      ],
-    };
-    vi.mocked(api.post).mockImplementation((url: string, body?: unknown) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: `new-${(body as { name: string }).name}` }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-ref" }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
-
-    await importLogbook(withReference);
-
-    expect(api.post).toHaveBeenCalledWith(
-      "/projects/new-Thesis/entries",
-      expect.objectContaining({ values: { "new-ref": { id: "new-Reading", label: "Reading", kind: "project" } } })
-    );
-  });
-
-  it("leaves out a reference to anything the backup does not contain", async () => {
-    const dangling = {
-      ...backup,
-      projects: [{
-        ...backup.projects[0],
-        fields: [{ id: "old-ref", name: "Related to", type: "REFERENCE", required: false, formula: null }],
-        entries: [
-          { durationMinutes: 10, entryDate: null, dueDate: null, values: { "old-ref": { id: "x", label: "Deleted project", kind: "project" } } },
-          { durationMinutes: 10, entryDate: null, dueDate: null, values: { "old-ref": { id: "y", kind: "entry" } } },
-        ],
-      }],
-    };
-    vi.mocked(api.post).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-ref" }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
-
-    await expect(importLogbook(dangling)).resolves.toEqual({ projects: 1, entries: 2 });
-    const entryBodies = vi.mocked(api.post).mock.calls
-      .filter(([url]) => url === "/projects/new-p1/entries")
-      .map(([, body]) => body as { values: Record<string, unknown> });
-    expect(entryBodies).toHaveLength(2);
-    for (const body of entryBodies) expect(body.values).toEqual({});
-  });
-
-  it("remaps a COMPUTED field's formula onto the ids its fields are recreated with", async () => {
-    const withComputed = {
-      ...backup,
-      projects: [{
-        ...backup.projects[0],
-        fields: [
-          { id: "old-hours", name: "Hours", type: "NUMBER", required: false, formula: null },
-          { id: "old-cost", name: "Cost", type: "COMPUTED", required: false, formula: "{old-hours} * 10" },
-        ],
-        entries: [],
-      }],
-    };
-    let fieldCalls = 0;
-    vi.mocked(api.post).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: `new-f${++fieldCalls}` }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
-
-    await importLogbook(withComputed);
-
-    expect(api.post).toHaveBeenCalledWith(
-      "/projects/new-p1/entry-fields",
-      expect.objectContaining({ type: "COMPUTED", formula: "{new-f1} * 10" })
-    );
   });
 });

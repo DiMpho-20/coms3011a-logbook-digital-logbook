@@ -480,6 +480,8 @@ export default function SettingsPage() {
       try {
         const data = JSON.parse(ev.target?.result as string);
         setImporting(true);
+        const result = await importLogbook(data);
+        // Only once the logbook itself is in, so a failed import changes nothing.
         let preferences = 0;
         for (const [key, value] of Object.entries(data)) {
           if (key.startsWith("logbook-") && key !== "logbook-avatar") {
@@ -487,7 +489,6 @@ export default function SettingsPage() {
             preferences++;
           }
         }
-        const result = await importLogbook(data);
         setDataMessage(`Imported ${result.projects} project${result.projects === 1 ? "" : "s"} and ${result.entries} entr${result.entries === 1 ? "y" : "ies"}${preferences ? `, plus ${preferences} preference${preferences === 1 ? "" : "s"}` : ""}.`);
         fetchProjects().then(setProjects).catch(() => {});
       } catch (error) {

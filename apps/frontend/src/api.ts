@@ -3,7 +3,6 @@
   ProjectWithFields,
   EntryField,
   EntryFieldValue,
-  EntryReference,
   Entry,
   TimeSummary,
   ProjectStatus,
@@ -37,7 +36,6 @@
 } from "@logbook/shared";
 import { api } from "./api/client";
 import { getPendingEntries, isOfflineRequest, queueEntry, removePendingEntriesForProject } from "./lib/offlineEntries";
-import { orderForSaving } from "./lib/formulas";
 import { cachedRequest } from "./lib/offlineCache";
 import {
   getPendingFields,
@@ -633,20 +631,10 @@ function isBackup(value: unknown): value is LogbookBackup {
 }
 
 /**
- * Point an imported reference at the project recreated from the backup.
- * A backup stores no project ids, but a project reference carries the
- * project's name, which is unique per student. Anything that cannot be
- * matched (an entry reference, or a project not in the backup) was already
- * a broken link, so it is left out rather than failing the whole import.
+ * Restore a backup. The server does it in one transaction (issue #87):
+ * either everything in the file is imported or nothing is, so a failure
+ * part-way can be retried without leaving duplicates behind.
  */
-function remapReference(value: unknown, projectIdByName: Map<string, string>): EntryReference | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const ref = value as Partial<EntryReference>;
-  if ((ref.kind ?? "project") !== "project" || typeof ref.label !== "string") return null;
-  const id = projectIdByName.get(ref.label);
-  return id ? { id, label: ref.label, kind: "project" } : null;
-}
-
 export async function importLogbook(value: unknown): Promise<{ projects: number; entries: number }> {
   if (!isBackup(value)) {
     throw new Error("This is not a valid Digital Logbook backup file.");
@@ -654,89 +642,12 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
   if (!navigator.onLine) {
     throw new Error("Connect to the internet before importing a backup.");
   }
-
-  let importedProjects = 0;
-  let importedEntries = 0;
-
-  // Every project and its fields first, then the entries, so an entry can
-  // refer to a project that comes later in the file.
-  const created: { project: (typeof value.projects)[number]; id: string; fieldIds: Map<string, string> }[] = [];
-  const projectIdByName = new Map<string, string>();
-  // Project names are unique per student, so restoring into an account that
-  // still has a project of the same name used to fail half-way through
-  // (issue #87). Such a project is imported alongside it under a new name.
-  const takenNames = new Set((await fetchProjects()).map((p) => p.name.trim().toLowerCase()));
-  const freeName = (name: string) => {
-    let candidate = name;
-    for (let n = 1; takenNames.has(candidate.trim().toLowerCase()); n++) {
-      candidate = n === 1 ? `${name} (imported)` : `${name} (imported ${n})`;
-    }
-    takenNames.add(candidate.trim().toLowerCase());
-    return candidate;
-  };
-  for (const project of value.projects) {
-    const createdProject = await createProject({
-      name: freeName(project.name),
-      description: project.description ?? undefined,
-      status: project.status,
-    });
-    importedProjects++;
-    projectIdByName.set(project.name, createdProject.id);
-    const fieldIds = new Map<string, string>();
-    for (const field of orderForSaving(project.fields)) {
-      // A COMPUTED field's formula embeds the ids of the fields it reads
-      // (e.g. "{old-id} * 2"), which no longer exist once the fields it
-      // depends on are recreated under new ids. orderForSaving puts every
-      // field a formula reads ahead of it — a computed field may read one
-      // defined after it — so fieldIds already holds the mapping by this point.
-      const formula = field.type === "COMPUTED" && field.formula
-        ? field.formula.replace(/\{([^}]+)\}/g, (match, oldId) => {
-            const newId = fieldIds.get(oldId.trim());
-            return newId ? `{${newId}}` : match;
-          })
-        : undefined;
-      const createdField = await createEntryField(createdProject.id, {
-        name: field.name,
-        type: field.type,
-        required: field.required,
-        formula,
-      });
-      fieldIds.set(field.id, createdField.id);
-    }
-    created.push({ project, id: createdProject.id, fieldIds });
+  try {
+    return (await api.post("/import", value)).data;
+  } catch (error) {
+    const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
+    throw new Error(message || "The backup could not be imported. Nothing was imported, so it is safe to try again.");
   }
-
-  for (const { project, id: projectId, fieldIds } of created) {
-    const referenceFields = new Set(project.fields.filter((f) => f.type === "REFERENCE").map((f) => f.id));
-    for (const entry of project.entries) {
-      if (!Number.isInteger(entry.durationMinutes) || entry.durationMinutes < 0 || !entry.values) {
-        throw new Error(`Backup contains an invalid entry in "${project.name}".`);
-      }
-      const values: Record<string, EntryFieldValue> = {};
-      for (const [oldFieldId, entryValue] of Object.entries(entry.values)) {
-        const newFieldId = fieldIds.get(oldFieldId);
-        if (!newFieldId) continue;
-        if (referenceFields.has(oldFieldId)) {
-          // A reference holds the old id of what it points at (issue #90).
-          const remapped = remapReference(entryValue, projectIdByName);
-          if (remapped) values[newFieldId] = remapped;
-          continue;
-        }
-        values[newFieldId] = entryValue;
-      }
-      const createdEntry = await createEntry(projectId, {
-        durationMinutes: entry.durationMinutes,
-        values,
-        ...(entry.entryDate && { entryDate: entry.entryDate }),
-        ...(entry.dueDate && { dueDate: entry.dueDate }),
-        ...(entry.tags?.length && { tags: entry.tags }),
-      });
-      if (entry.status === "DONE") await api.patch(`/entries/${createdEntry.id}/status`, { status: "DONE" });
-      if (entry.archived) await setEntryArchived(createdEntry.id, true);
-      importedEntries++;
-    }
-  }
-  return { projects: importedProjects, entries: importedEntries };
 }
 
 // ── Automation rules (US26) ──────────────────────────────────────────────
