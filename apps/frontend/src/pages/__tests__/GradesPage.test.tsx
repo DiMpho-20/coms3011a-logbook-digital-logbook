@@ -99,7 +99,9 @@ describe("GradesPage", () => {
     // Average on marked work and secured are two separate figures.
     expect(within(card).getByText("average on marked work")).toBeInTheDocument();
     expect(within(card).getByText("secured toward the final mark")).toBeInTheDocument();
-    expect(card).toHaveTextContent("60.0% marked · 40.0% remaining");
+    // By count, then by the weight the marks are worked out with.
+    expect(card).toHaveTextContent("3 of 4 assessments marked · 1 remaining");
+    expect(card).toHaveTextContent("60.0% of the module marked · 40.0% remaining");
     expect(within(card).getByText("On track")).toBeInTheDocument();
     expect(within(card).getByText("12.5%")).toBeInTheDocument(); // needed on the rest for the 50% target
     expect(card).toHaveTextContent("You need 12.5% on the remaining 40.0% to reach 50%.");

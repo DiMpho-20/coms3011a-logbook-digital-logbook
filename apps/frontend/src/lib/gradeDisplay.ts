@@ -43,6 +43,18 @@ export function moduleTypeLabel(module: Pick<GradeModule, "type" | "semester" | 
   return `Full year · S1 ${formatWeight(module.semester1Weight)} / S2 ${formatWeight(100 - module.semester1Weight)}`;
 }
 
+/**
+ * "3 of 5 assessments marked (1 missed) · 2 remaining", from the engine's counts.
+ * Counts only: every grade figure is still weighted by each assessment's weight.
+ */
+export function assessmentProgress(counts: { total: number; marked: number; missed: number; remaining: number }): string {
+  if (counts.total === 0) return "No assessments yet";
+  const noun = counts.total === 1 ? "assessment" : "assessments";
+  const missed = counts.missed > 0 ? ` (${counts.missed} missed)` : "";
+  if (counts.remaining === 0) return `All ${counts.total} ${noun} marked${missed}`;
+  return `${counts.marked} of ${counts.total} ${noun} marked${missed} · ${counts.remaining} remaining`;
+}
+
 export type TermFilter = "ALL" | 1 | 2;
 
 export type YearFilter = number | "ALL";

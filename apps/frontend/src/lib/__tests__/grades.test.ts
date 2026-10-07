@@ -704,3 +704,66 @@ describe("properties", () => {
     }
   });
 });
+
+// ── Weighting and assessment counts ──────────────────────────────────────
+
+describe("weighting by each assessment's own weight", () => {
+  // A 40% test at 50% and a 10% quiz at 100%. Equal weighting would call the
+  // average 75%; by weight it is (50×40 + 100×10) / 50 = 60%.
+  const weighted = () => semester(percent("Test", 40, 50), percent("Quiz", 10, 100), pending("Exam", 50));
+
+  it("averages marked work by weight, not by count", () => {
+    const summary = computeModule(weighted());
+    expect(summary.averageSoFar).toBeCloseTo(60);
+    expect(summary.averageSoFar).not.toBeCloseTo(75);
+  });
+
+  it("secures points out of 100 from each mark times its weight", () => {
+    const summary = computeModule(weighted());
+    expect(summary.securedPoints).toBeCloseTo(30); // 50% of 40 + 100% of 10
+    expect(summary.markedWeight).toBeCloseTo(50);
+    expect(summary.remainingWeight).toBeCloseTo(50);
+    expect(summary.highestPossible).toBeCloseTo(80);
+  });
+
+  it("asks of the remaining weight only what the target still needs", () => {
+    // 70 out of 100 needs 40 more points from the 50% still to come: 80% on it.
+    const target = computeModule(weighted(), { target: 70 }).target!;
+    expect(target.pointsNeeded).toBeCloseTo(40);
+    expect(target.required).toBeCloseTo(80);
+  });
+
+  it("weights a full-year module's assessments by their semester's share", () => {
+    const summary = computeModule(fullYear(60, percent("S1 test", 100, 70, 1), pending("S2 exam", 100, 2)));
+    expect(summary.securedPoints).toBeCloseTo(42); // 70% of Semester 1's 60
+    expect(summary.remainingWeight).toBeCloseTo(40);
+    expect(summary.averageSoFar).toBeCloseTo(70);
+  });
+});
+
+describe("assessment counts", () => {
+  it("counts marked and remaining assessments alongside the weights", () => {
+    expect(computeModule(comsExample()).assessments).toEqual({ total: 4, marked: 3, missed: 0, remaining: 1 });
+  });
+
+  it("counts a missed assessment as marked, at 0%", () => {
+    const summary = computeModule(semester(missed("A", 20), percent("B", 30, 80), pending("C", 50)));
+    expect(summary.assessments).toEqual({ total: 3, marked: 2, missed: 1, remaining: 1 });
+    expect(summary.averageSoFar).toBeCloseTo(48); // (0×20 + 80×30) / 50
+  });
+
+  it("never counts a what-if mark as marked", () => {
+    const summary = computeModule(comsExample(), { hypothetical: { all: 70 } });
+    expect(summary.assessments.marked).toBe(3);
+    expect(summary.assessments.remaining).toBe(1);
+  });
+
+  it("counts across both semesters of a full-year module", () => {
+    const summary = computeModule(fullYear(60, percent("S1 test", 100, 70, 1), pending("S2 exam", 100, 2)));
+    expect(summary.assessments).toEqual({ total: 2, marked: 1, missed: 0, remaining: 1 });
+  });
+
+  it("has nothing to count in an empty module", () => {
+    expect(computeModule(semester()).assessments).toEqual({ total: 0, marked: 0, missed: 0, remaining: 0 });
+  });
+});

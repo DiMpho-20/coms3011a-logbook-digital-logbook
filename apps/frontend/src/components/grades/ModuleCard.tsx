@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import type { GradeModule } from "@logbook/shared";
 import { formatPercent, formatRequired, formatSecured, formatWeight, type ModuleSummary } from "../../lib/grades";
-import { moduleTypeLabel } from "../../lib/gradeDisplay";
+import { assessmentProgress, moduleTypeLabel } from "../../lib/gradeDisplay";
 import StatusChip from "../StatusChip";
 import GradeBar from "./GradeBar";
 import { TargetStatusBadge } from "./GradeBadges";
@@ -49,6 +49,7 @@ export default function ModuleCard({ module, summary }: { module: GradeModule; s
           <p className="mt-0.5 text-sm text-slate-600">
             Add or complete the assessment weights to see where you stand and what you need.
           </p>
+          <p className="mt-2 text-xs tabular-nums text-slate-600">{assessmentProgress(summary.assessments)}</p>
           {summary.setup.issues.length > 0 && (
             <ul className="mt-2 space-y-0.5 text-xs text-slate-500">
               {summary.setup.issues.slice(0, 2).map((issue) => <li key={issue}>{issue}</li>)}
@@ -74,8 +75,10 @@ export default function ModuleCard({ module, summary }: { module: GradeModule; s
           </dl>
 
           <div className="space-y-2">
+            {/* By count, then by weight: the weight is what the marks are worked out with. */}
+            <p className="text-xs tabular-nums text-slate-600">{assessmentProgress(summary.assessments)}</p>
             <p className="text-xs tabular-nums text-slate-600">
-              <span className="font-semibold text-slate-800">{formatPercent(summary.markedWeight)}</span> marked ·{" "}
+              <span className="font-semibold text-slate-800">{formatPercent(summary.markedWeight)}</span> of the module marked ·{" "}
               <span className="font-semibold text-slate-800">{remaining}</span> remaining
             </p>
             <GradeBar summary={summary} target={module.targetMark} labelled />

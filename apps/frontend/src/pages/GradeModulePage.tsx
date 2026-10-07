@@ -296,8 +296,21 @@ export default function GradeModulePage() {
             size="lg"
           />
           <Stat label="Secured" value={formatSecured(summary.securedPoints)} />
-          <Stat label="Marked" value={formatPercent(summary.markedWeight)} />
-          <Stat label="Remaining" value={formatPercent(summary.remainingWeight)} />
+          {/* Weight is what the marks are worked out with; the counts show the progress behind it. */}
+          <Stat
+            label="Marked"
+            value={formatPercent(summary.markedWeight)}
+            hint={
+              summary.assessments.total === 0
+                ? "No assessments yet"
+                : `${summary.assessments.marked} of ${summary.assessments.total} ${summary.assessments.total === 1 ? "assessment" : "assessments"}${summary.assessments.missed > 0 ? ` (${summary.assessments.missed} missed)` : ""}`
+            }
+          />
+          <Stat
+            label="Remaining"
+            value={formatPercent(summary.remainingWeight)}
+            hint={`${summary.assessments.remaining} ${summary.assessments.remaining === 1 ? "assessment" : "assessments"} to come`}
+          />
         </div>
         <GradeBar summary={summary} target={module.targetMark} size="lg" labelled />
         {summary.complete ? (
