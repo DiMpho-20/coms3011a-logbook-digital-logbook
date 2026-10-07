@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo } from "react";
+import { createContext, useContext, useState, useEffect, useRef, useMemo } from "react";
 import {
   User, Palette, Bell, BookOpen, Download, Upload, Trash2,
   Check, Sun, Moon, Monitor, Shield, ShieldCheck, X,
@@ -34,7 +34,7 @@ interface LogbookPrefs {
 }
 
 const DEFAULTS = {
-  theme: "system" as Theme,
+  theme: "light" as Theme,
   accent: "blue" as AccentColor,
   density: "comfortable" as Density,
   logbook: { defaultProjectId: "", defaultView: "timeline", defaultSort: "newest", weekStartsOn: "monday", timeFormat: "24h" } as LogbookPrefs,
@@ -56,14 +56,28 @@ function save(key: string, value: unknown) {
 
 // -- reusable small components --
 
-function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
+/** The settings search, so a label can mark the words that matched it. */
+const QueryContext = createContext("");
+
+/** A label with the part that matches the settings search highlighted. */
+function Highlight({ text }: { text: string }) {
+  const query = useContext(QueryContext);
+  const at = query ? text.toLowerCase().indexOf(query) : -1;
+  if (at < 0) return <>{text}</>;
   return (
-    <section className="bg-white rounded-xl border border-slate-200">
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-        <Icon className="h-4 w-4 text-slate-500" aria-hidden="true" />
-        <h2 className="text-[15px] font-semibold text-slate-900">{title}</h2>
-      </div>
-      <div className="p-5 space-y-4">{children}</div>
+    <>
+      {text.slice(0, at)}
+      <mark className="bg-amber-100 text-inherit rounded px-1 -mx-1">{text.slice(at, at + query.length)}</mark>
+      {text.slice(at + query.length)}
+    </>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
+      <h2 className="text-[15px] font-semibold text-slate-900">{title}</h2>
+      {children}
     </section>
   );
 }
@@ -71,9 +85,18 @@ function Section({ icon: Icon, title, children }: { icon: React.ElementType; tit
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-slate-700 mb-1"><Highlight text={label} /></label>
       {children}
     </div>
+  );
+}
+
+/** The small heading over each group of options inside a section. */
+function GroupLabel({ text }: { text: string }) {
+  return (
+    <p className="text-sm text-slate-700 mb-3">
+      <Highlight text={text} />
+    </p>
   );
 }
 
@@ -97,9 +120,9 @@ const SECTIONS = [
     keywords: "reminders due overdue stalled daily browser desktop permission alerts" },
   { id: "security", label: "Security", icon: Lock,
     keywords: "two factor 2fa authenticator totp google recovery codes verification sign in" },
-  { id: "privacy", label: "Data & Privacy", icon: Database,
+  { id: "privacy", label: "Data & privacy", icon: Database,
     keywords: "storage local browser server what is stored privacy clear cached offline" },
-  { id: "export", label: "Export / Import", icon: Download,
+  { id: "export", label: "Export / import", icon: Download,
     keywords: "export import backup json download upload restore copy" },
 ] as const;
 
@@ -113,7 +136,7 @@ function SettingsNav({
   matches: readonly SectionId[] | null;
 }) {
   return (
-    <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible -mx-1 px-1 pb-1 lg:pb-0">
+    <nav className="flex lg:flex-col gap-0.5 overflow-x-auto lg:overflow-visible -mx-1 px-1 pb-1 lg:pb-0">
       {SECTIONS.map((section) => {
         // When a search is running, sections that cannot match are dimmed
         // rather than removed: a nav that changes length as you type is
@@ -125,11 +148,11 @@ function SettingsNav({
             key={section.id}
             onClick={() => onSelect(section.id)}
             aria-current={isActive ? "page" : undefined}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap text-left shrink-0 lg:w-full ${
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition whitespace-nowrap text-left shrink-0 lg:w-full ${
               isActive
-                ? "bg-blue-50 text-blue-700"
-                : "text-slate-600 hover:bg-slate-50"
-            } ${dimmed ? "opacity-40" : ""}`}
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-slate-600 hover:bg-white"
+            } ${dimmed ? "opacity-50" : ""}`}
           >
             <section.icon className="h-4 w-4 shrink-0" />
             {section.label}
@@ -409,7 +432,7 @@ export default function SettingsPage() {
       }
       keys.forEach((k) => localStorage.removeItem(k));
       localStorage.removeItem("token");
-      applyTheme("system");
+      applyTheme(DEFAULTS.theme);
 
       const date = encodeURIComponent(res.data.scheduledDeletionAt);
       window.location.href = `/login?deletionScheduled=${date}`;
@@ -485,10 +508,10 @@ export default function SettingsPage() {
       if (k?.startsWith("logbook-") && k !== "logbook-avatar") keys.push(k);
     }
     keys.forEach((k) => localStorage.removeItem(k));
-    applyTheme("system");
+    applyTheme(DEFAULTS.theme);
     setName("Student");
     setEmail("");
-    setTheme("system");
+    setTheme(DEFAULTS.theme);
     setAccent("blue");
     setLogbook(DEFAULTS.logbook);
   };
@@ -620,39 +643,54 @@ export default function SettingsPage() {
     ).map((section) => section.id);
   }, [trimmedQuery]);
 
+  // Searching jumps to the first section that matches, so the highlighted
+  // setting is on screen rather than behind another nav item.
+  useEffect(() => {
+    if (matches && matches.length > 0 && !matches.includes(active)) setActive(matches[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches]);
+
   return (
-    <div className="space-y-5 max-w-5xl">
-      <PageHeader title="Settings" subtitle="Manage your account, appearance, and preferences." />
+    <QueryContext.Provider value={trimmedQuery}>
+    <div className="space-y-6 max-w-6xl">
+      <PageHeader title="Settings" subtitle="Your account, how the app looks, and what it does with your data." />
 
-      <div className="relative max-w-sm">
-        <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search settings…"
-          aria-label="Search settings"
-          className="w-full border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
-        />
-      </div>
+      <div className="grid lg:grid-cols-[232px_1fr] gap-6 items-start">
+        <div className="space-y-3 min-w-0">
+          <div className="relative">
+            <Search className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search settings…"
+              aria-label="Search settings"
+              className="w-full border border-slate-200 rounded-xl pl-10 pr-3 py-2.5 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
+            />
+          </div>
 
-      {matches !== null && (
-        <p className="text-xs text-slate-500" role="status">
-          {matches.length === 0
-            ? "Nothing matches that. Try \u201cdark\u201d, \u201c2fa\u201d or \u201cexport\u201d."
-            : `In ${matches.length} section${matches.length === 1 ? "" : "s"}: ${matches
-                .map((id) => SECTIONS.find((section) => section.id === id)!.label)
-                .join(", ")}`}
-        </p>
-      )}
+          {matches !== null && (
+            <p className="text-xs text-slate-500" role="status">
+              {matches.length === 0 ? (
+                "Nothing matches that. Try \u201cdark\u201d, \u201c2fa\u201d or \u201cexport\u201d."
+              ) : (
+                <>
+                  {matches.length} match{matches.length === 1 ? "" : "es"} in{" "}
+                  <span className="font-medium text-slate-700">
+                    {matches.map((id) => SECTIONS.find((section) => section.id === id)!.label).join(", ")}
+                  </span>
+                </>
+              )}
+            </p>
+          )}
 
-      <div className="grid lg:grid-cols-[200px_1fr] gap-5 items-start">
-        <SettingsNav active={active} onSelect={setActive} matches={matches} />
+          <SettingsNav active={active} onSelect={setActive} matches={matches} />
+        </div>
 
         <div className="space-y-5 min-w-0">
 
       {active === "account" && (
-      <Section icon={User} title="Account">
+      <Section title="Account">
         <Field label="Display name">
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} maxLength={255} />
         </Field>
@@ -726,7 +764,7 @@ export default function SettingsPage() {
       )}
 
       {active === "security" && (
-      <Section icon={Lock} title="Security">
+      <Section title="Security">
         {/* The checklist is deliberately a list of specific things rather than
             a score out of ten: "2 of 3" tells you what to do next, a number
             out of a hundred only tells you how to feel. */}
@@ -993,10 +1031,10 @@ export default function SettingsPage() {
       )}
 
       {active === "appearance" && (
-      <Section icon={Palette} title="Appearance">
+      <Section title="Appearance">
         <div>
-          <p className="text-sm text-slate-600 mb-3">Theme</p>
-          <div className="flex gap-3">
+          <GroupLabel text="Theme" />
+          <div className="flex flex-wrap gap-3">
             {([
               { value: "light" as const, icon: Sun, label: "Light" },
               { value: "dark" as const, icon: Moon, label: "Dark" },
@@ -1005,43 +1043,48 @@ export default function SettingsPage() {
               <button
                 key={value}
                 onClick={() => setTheme(value)}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition min-w-[90px] ${
-                  theme === value ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:border-slate-300"
+                aria-pressed={theme === value}
+                className={`flex flex-col items-center justify-center gap-2 w-[104px] h-[74px] rounded-xl border-2 bg-white transition ${
+                  theme === value ? "border-blue-500 text-blue-700" : "border-slate-200 text-slate-700 hover:border-slate-300"
                 }`}
               >
-                <Icon className="h-5 w-5" />
-                <span className="text-xs font-medium">{label}</span>
+                <Icon className="h-4 w-4" />
+                <span className="text-[13px] font-medium">{label}</span>
               </button>
             ))}
           </div>
         </div>
-        <div className="border-t border-slate-100 pt-4">
-          <p className="text-sm text-slate-600 mb-3">Accent colour</p>
-          <div className="flex gap-2">
+        <div className="border-t border-slate-100 pt-6">
+          <GroupLabel text="Accent colour" />
+          <div className="flex gap-3">
             {([
-              { value: "blue" as const, bg: "bg-blue-500" },
-              { value: "emerald" as const, bg: "bg-emerald-500" },
-              { value: "violet" as const, bg: "bg-violet-500" },
-              { value: "amber" as const, bg: "bg-amber-500" },
-              { value: "rose" as const, bg: "bg-rose-500" },
-            ]).map(({ value, bg }) => (
+              // Fixed colours rather than bg-* classes: the accent stylesheet
+              // remaps the blue utilities, and the swatches must not move.
+              { value: "blue" as const, color: "#2563eb" },
+              { value: "emerald" as const, color: "#059669" },
+              { value: "violet" as const, color: "#7c3aed" },
+              { value: "amber" as const, color: "#d97706" },
+              { value: "rose" as const, color: "#e11d48" },
+            ]).map(({ value, color }) => (
               <button
                 key={value}
                 onClick={() => setAccent(value)}
-                className={`h-8 w-8 rounded-full ${bg} transition ${
-                  accent === value ? "ring-2 ring-offset-2 ring-blue-500" : "ring-1 ring-slate-200"
+                style={{ backgroundColor: color }}
+                className={`h-9 w-9 rounded-full transition ${
+                  accent === value ? "ring-2 ring-offset-2 ring-blue-500" : "hover:scale-105"
                 }`}
                 aria-label={value}
+                aria-pressed={accent === value}
               />
             ))}
           </div>
-          <p className="text-[11px] text-slate-400 mt-2">
+          <p className="text-xs text-slate-400 mt-3">
             Recolours buttons, links and highlights across the app.
           </p>
         </div>
-        <div className="border-t border-slate-100 pt-4">
-          <p className="text-sm text-slate-600 mb-3">Density</p>
-          <div className="flex gap-3">
+        <div className="border-t border-slate-100 pt-6">
+          <GroupLabel text="Density" />
+          <div className="flex flex-wrap gap-3">
             {([
               { value: "comfortable" as const, icon: AlignJustify, label: "Comfortable", hint: "Default spacing" },
               { value: "compact" as const, icon: Rows3, label: "Compact", hint: "More on screen" },
@@ -1049,19 +1092,20 @@ export default function SettingsPage() {
               <button
                 key={value}
                 onClick={() => setDensity(value)}
-                className={`flex items-start gap-2.5 p-3 rounded-lg border-2 transition text-left flex-1 max-w-[220px] ${
-                  density === value ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:border-slate-300"
+                aria-pressed={density === value}
+                className={`flex items-start gap-3 px-4 py-3 rounded-xl border-2 transition text-left w-full sm:w-[250px] ${
+                  density === value ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"
                 }`}
               >
-                <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${density === value ? "text-blue-700" : "text-slate-500"}`} />
+                <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${density === value ? "text-blue-700" : "text-slate-600"}`} />
                 <span>
-                  <span className={`block text-xs font-medium ${density === value ? "text-blue-700" : "text-slate-700"}`}>{label}</span>
-                  <span className="block text-[11px] text-slate-400 mt-0.5">{hint}</span>
+                  <span className={`block text-[13px] font-medium ${density === value ? "text-blue-700" : "text-slate-800"}`}>{label}</span>
+                  <span className="block text-xs text-slate-500 mt-0.5">{hint}</span>
                 </span>
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-slate-400 mt-2">
+          <p className="text-xs text-slate-400 mt-3">
             Tightens padding only — text stays the same size.
           </p>
         </div>
@@ -1070,7 +1114,7 @@ export default function SettingsPage() {
 
       {/* 3. Notifications — the rules live on the server, with the reminders themselves */}
       {active === "notifications" && (
-      <Section icon={Bell} title="Notifications">
+      <Section title="Notifications">
         <p className="text-sm text-slate-600">
           Due-date, overdue, stalled-entry and daily logbook reminders are configured with your reminders.
         </p>
@@ -1086,7 +1130,7 @@ export default function SettingsPage() {
 
       {/* 4. Logbook Preferences */}
       {active === "logbook" && (
-      <Section icon={BookOpen} title="Logbook Preferences">
+      <Section title="Logbook Preferences">
         <Field label="Default project for new entries">
           <select
             value={logbook.defaultProjectId}
@@ -1146,7 +1190,7 @@ export default function SettingsPage() {
 
       {/* 5. Export / Import */}
       {active === "export" && (
-      <Section icon={Download} title="Export / Import">
+      <Section title="Export / import">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-slate-800">Export logbook</p>
@@ -1177,7 +1221,7 @@ export default function SettingsPage() {
 
       {/* 6. Data & Privacy — where each thing actually lives */}
       {active === "privacy" && (
-      <Section icon={Database} title="Data & Privacy">
+      <Section title="Data & privacy">
         <p className="text-sm text-slate-600">
           Your logbook is split between two places, and the difference matters: one
           follows you to any device you sign in on, the other does not.
@@ -1258,13 +1302,10 @@ export default function SettingsPage() {
       </Section>
       )}
 
-      <p className="text-xs text-slate-400 pt-2">
-        Digital Logbook — COMS3011A Software Design Project
-      </p>
-
         </div>
       </div>
     </div>
+    </QueryContext.Provider>
   );
 }
 

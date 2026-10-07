@@ -47,6 +47,12 @@ describe("appearance", () => {
     expect(theme()).toBe("dark");
   });
 
+  it("defaults to light when nothing is saved, even if the operating system is dark", () => {
+    osDark = true;
+    restoreAppearance();
+    expect(theme()).toBeNull();
+  });
+
   it("restores saved choices on start-up and ignores anything unexpected", () => {
     localStorage.setItem("logbook-theme", JSON.stringify("dark"));
     localStorage.setItem("logbook-accent", JSON.stringify("violet"));

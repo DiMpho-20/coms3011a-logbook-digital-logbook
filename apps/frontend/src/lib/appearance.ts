@@ -4,7 +4,7 @@ export type Density = "comfortable" | "compact";
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
-let current: Theme = "system";
+let current: Theme = "light";
 let listening = false;
 
 function systemPrefersDark(): boolean {
@@ -55,7 +55,7 @@ function stored<T extends string>(key: string, allowed: readonly T[], fallback: 
 
 /** Puts back the saved theme, accent and density before the first render, on every page. */
 export function restoreAppearance() {
-  applyTheme(stored<Theme>("logbook-theme", ["light", "dark", "system"], "system"));
+  applyTheme(stored<Theme>("logbook-theme", ["light", "dark", "system"], "light"));
   applyAccent(stored<AccentColor>("logbook-accent", ["blue", "emerald", "violet", "amber", "rose"], "blue"));
   applyDensity(stored<Density>("logbook-density", ["comfortable", "compact"], "comfortable"));
 }
