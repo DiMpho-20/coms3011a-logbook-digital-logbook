@@ -1,6 +1,8 @@
-# CI only: installs, typechecks, lints, tests and builds. It deploys nothing —
-# the backend goes to Render and the frontend to Cloudflare Pages by hand
-# (see the deployment guides).
+# CI/CD. Every push installs, typechecks, lints, tests and builds. A push to
+# main that passes all of that then deploys: the API to Render (which applies
+# any new database migrations as it starts) and the frontend to Cloudflare
+# Pages. Each deploy step runs only once its secret is set, so the pipeline
+# stays green before then. See "Deployment" in the setup guide.
 name: CI - Test and Build
 
 on:
@@ -10,6 +12,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The backend suite gets a database of its own, created for this run and
+    # thrown away after it, so tests never write into production data.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: logbook
+          POSTGRES_PASSWORD: logbook
+          POSTGRES_DB: logbook_test
+        options: >-
+          --health-cmd "pg_isready -U logbook -d logbook_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      # A TEST_DATABASE_URL secret wins, for a runner that cannot start
+      # service containers; otherwise the throwaway database above.
+      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL || 'postgresql://logbook:logbook@postgres:5432/logbook_test' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,14 +65,19 @@ jobs:
       # test:coverage rather than test: the v8 text reporter prints the
       # coverage table into this log, which is the visible evidence the
       # client asked for. The plain test scripts are unchanged for local use.
-      # The suite runs against a live Neon database, so the connection string
-      # comes from the repository secret of the same name.
+      # The suite runs against the run's own database (never production), so
+      # its schema is built from the migrations first.
+      - name: Prepare test database
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+        run: npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
+
       # if: always() — coverage must reach the commit on every push, even one
       # whose earlier step failed; the report below needs both summaries.
       - name: Run backend tests with coverage
         if: always()
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
         run: npm run test:coverage --workspace=apps/backend
 
       # Same reasoning as the backend step: run regardless of earlier
@@ -120,3 +145,52 @@ jobs:
 
       - name: Build Frontend
         run: npm run build --workspace=apps/frontend
+
+  # ── CD: deploy main once everything above has passed ──────────────────────
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'coms3011a-logbook' }}
+    steps:
+      # Render rebuilds the API from main; the container runs any pending
+      # migrations before it starts serving (apps/backend "start:deploy").
+      - name: Deploy API to Render
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
+
+      - name: Checkout code
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Build frontend
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: |
+          npm ci
+          npm run build --workspace=packages/shared
+          npm run build --workspace=apps/frontend
+
+      - name: Deploy frontend to Cloudflare Pages
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: npx --yes wrangler@3 pages deploy apps/frontend/dist --project-name="$CLOUDFLARE_PAGES_PROJECT" --branch=main
+
+      # The free tier sleeps; after a deploy, wake it so the first visitor
+      # isn't the one who waits.
+      - name: Wake the API
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
+        run: |
+          for i in $(seq 1 20); do
+            curl -fsS --max-time 30 https://digital-logbook-backend-latest.onrender.com/api/health && exit 0
+            sleep 15
+          done
+          echo "The API did not answer yet; Render may still be building."

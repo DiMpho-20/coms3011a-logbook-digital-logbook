@@ -11,6 +11,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:deploy": "prisma migrate deploy && node dist/index.js",
+    "seed:demo": "tsx scripts/seedDemo.ts",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
