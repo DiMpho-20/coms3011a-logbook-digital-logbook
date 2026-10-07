@@ -719,6 +719,30 @@ Archive (or restore) several selected entries at once. Ids that aren't the calle
 
 ---
 
+## Backup & Restore (`/api/import`) 🔒
+
+### `POST /api/import`
+
+Restore a JSON backup made by **Settings → Export / Import**. The whole backup is imported in one database transaction: either every project, field and entry in the file is imported, or nothing is. That means a failed import can simply be retried.
+
+The body is the backup file itself (up to 10 MB):
+
+| Field | Type | Required |
+|---|---|---|
+| `format` | string | Yes — `"digital-logbook-backup"` |
+| `version` | number | Yes — `1` |
+| `projects` | array | Yes — each with `name`, `description`, `status`, `fields` (`id`, `name`, `type`, `required`, `formula`) and `entries` (`durationMinutes`, `entryDate`, `dueDate`, `values` keyed by the backup's field ids, and optionally `status`, `tags`, `archived`) |
+
+- Fields and entries get new ids. Entry values, computed-field formulas and project references are rewritten to point at them. A reference to anything outside the backup is dropped.
+- Computed results are recalculated rather than copied from the file.
+- If a project's name is already taken, it is imported as `Name (imported)`, `Name (imported 2)` and so on.
+- Required fields are not enforced, so entries logged before a field became required still restore.
+
+**Response `201`:** `{ "projects": 2, "entries": 37 }`
+**Errors:** `400` (not a valid backup, or an invalid field, formula or entry value), `409` (two fields in one project whose names differ only by case). Every error message ends with "Nothing was imported."
+
+---
+
 ## Statistics (`/api/...`) 🔒
 
 ### `POST /api/projects/:projectId/stats/group`

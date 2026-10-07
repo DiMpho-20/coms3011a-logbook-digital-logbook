@@ -133,6 +133,7 @@ All routes are under `/api` and, apart from sign-up, sign-in, password reset and
 | Projects | `/projects`, `/projects/:id`, `/projects/:id/time-summary`, `/projects/:id/status` |
 | Entry fields & formats | `/projects/:projectId/entry-fields`, `/projects/:projectId/entry-format-versions`, `/entry-fields/:id` |
 | Entries | `/entries`, `/projects/:projectId/entries`, `/entries/:id`, `/entries/:id/status`, `/me/open-entries` |
+| Backup & restore | `/import` |
 | History & archive | `/entries/:id/versions`, `/entries/:id/versions/at`, `/entries/:id/versions/:version/restore`, `/entries/archive`, `/entries/:id/archive` |
 | Statistics | `/projects/:projectId/stats/{group,timeline,expression}`, `/projects/:projectId/custom-statistics` |
 | Automation | `/projects/:projectId/automation-rules`, `/recurrences/:id` |
