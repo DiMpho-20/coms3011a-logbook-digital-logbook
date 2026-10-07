@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Loader2 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import Skeleton from "../components/Skeleton";
@@ -9,6 +9,7 @@ import { api } from "../api/client";
 import Modal from "../components/Modal";
 import GoogleCalendarSync from "../components/GoogleCalendarSync";
 import { entryDateKey, fieldValueText, formatDuration } from "../lib/utils";
+import { button } from "../lib/ui";
 
 type Entry = {
   id: string;
@@ -42,10 +43,27 @@ function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-function buildGrid(monthStart: Date): Date[] {
+/**
+ * The "Week starts on" choice from Settings › Logbook. Settings shows Monday
+ * until the student picks otherwise, so the calendar does the same.
+ */
+function weekStartsOnMonday(): boolean {
+  try {
+    const prefs = JSON.parse(localStorage.getItem("logbook-prefs") ?? "{}") as { weekStartsOn?: string };
+    return prefs.weekStartsOn !== "sunday";
+  } catch {
+    return true;
+  }
+}
+
+const SUNDAY_FIRST = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONDAY_FIRST = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function buildGrid(monthStart: Date, mondayFirst: boolean): Date[] {
   const start = new Date(monthStart);
-  const day = start.getDay();
-  start.setDate(start.getDate() - day);
+  // How many days back to the first day of the week the month starts in.
+  const back = mondayFirst ? (start.getDay() + 6) % 7 : start.getDay();
+  start.setDate(start.getDate() - back);
   const cells: Date[] = [];
   for (let i = 0; i < 42; i++) {
     const d = new Date(start);
@@ -66,6 +84,10 @@ export default function CalendarPage() {
   const [params, setParams] = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
+  const [projectsFailed, setProjectsFailed] = useState(false);
+  // Bumped by "Try again" to load the same project's entries once more.
+  const [reloadKey, setReloadKey] = useState(0);
+  const [mondayFirst] = useState(weekStartsOnMonday);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -76,7 +98,9 @@ export default function CalendarPage() {
 
   const selectedProjectId = params.get("project") ?? "";
 
-  useEffect(() => {
+  const loadProjects = () => {
+    setLoadingProjects(true);
+    setProjectsFailed(false);
     api.get("/projects").then((res) => {
       // Active projects first; an archived one is still there to look back on.
       const all = res.data as Project[];
@@ -89,7 +113,15 @@ export default function CalendarPage() {
         }, { replace: true });
       }
       setLoadingProjects(false);
-    }).catch(() => setLoadingProjects(false));
+    }).catch(() => {
+      // Say it failed, rather than that there are no projects.
+      setProjectsFailed(true);
+      setLoadingProjects(false);
+    });
+  };
+
+  useEffect(() => {
+    loadProjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -104,9 +136,9 @@ export default function CalendarPage() {
         setLoadError(true);
       })
       .finally(() => setLoadingEntries(false));
-  }, [selectedProjectId]);
+  }, [selectedProjectId, reloadKey]);
 
-  const grid = useMemo(() => buildGrid(startOfMonth(cursor)), [cursor]);
+  const grid = useMemo(() => buildGrid(startOfMonth(cursor), mondayFirst), [cursor, mondayFirst]);
   const entriesByDate = useMemo(() => {
     const map: Record<string, Entry[]> = {};
     for (const e of entries) {
@@ -133,6 +165,11 @@ export default function CalendarPage() {
   const monthLabel = cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
   const openDayEntries = openDay ? entriesByDate[openDay] ?? [] : [];
   const openDayDue = openDay ? dueByDate[openDay] ?? [] : [];
+  // The phone agenda lists only this month's days that have something on them.
+  const agendaDays = grid
+    .filter((day) => day.getMonth() === cursor.getMonth())
+    .map((day) => ymd(day))
+    .filter((key) => (entriesByDate[key]?.length ?? 0) + (dueByDate[key]?.length ?? 0) > 0);
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -143,6 +180,15 @@ export default function CalendarPage() {
           <span className="sr-only" role="status">Loading projects…</span>
           <Skeleton className="h-9 w-64" />
           <div className="rounded-xl border border-slate-200 bg-white p-5"><Skeleton className="h-64 w-full" /></div>
+        </div>
+      ) : projectsFailed ? (
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <EmptyState
+            icon={CircleAlert}
+            title="Your projects couldn't be loaded"
+            description="The calendar shows one project at a time, so there's nothing to show yet. Check your connection and try again."
+            action={<button onClick={loadProjects} className={button("secondary")}>Try again</button>}
+          />
         </div>
       ) : projects.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white">
@@ -169,7 +215,10 @@ export default function CalendarPage() {
           </div>
 
           {loadError && (
-            <p role="alert" className="text-sm text-red-600">Couldn't load this project's entries. Check your connection and try again.</p>
+            <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              Couldn't load this project's entries. Check your connection and try again.
+              <button onClick={() => setReloadKey((k) => k + 1)} className={button("secondary", "sm")}>Try again</button>
+            </div>
           )}
 
           <div className="rounded-xl border border-slate-200 bg-white">
@@ -201,12 +250,13 @@ export default function CalendarPage() {
             </div>
 
             {narrow ? (
+              agendaDays.length === 0 ? (
+                <p className="px-4 py-6 text-center text-sm text-slate-500">
+                  {loadingEntries ? "Loading…" : `Nothing due or logged in ${monthLabel}.`}
+                </p>
+              ) : (
               <ul className="divide-y divide-slate-100" aria-label={`${monthLabel} agenda`}>
-                {grid
-                  .filter((day) => day.getMonth() === cursor.getMonth())
-                  .map((day) => ymd(day))
-                  .filter((key) => (entriesByDate[key]?.length ?? 0) + (dueByDate[key]?.length ?? 0) > 0)
-                  .map((key) => {
+                {agendaDays.map((key) => {
                     const day = dayFromKey(key);
                     const due = dueByDate[key] ?? [];
                     const logged = entriesByDate[key] ?? [];
@@ -242,10 +292,11 @@ export default function CalendarPage() {
                     );
                   })}
               </ul>
+              )
             ) : (
               <>
             <div className="grid grid-cols-7 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+              {(mondayFirst ? MONDAY_FIRST : SUNDAY_FIRST).map((d) => (
                 <div key={d} className="px-3 py-2 text-center border-b border-slate-100">{d}</div>
               ))}
             </div>
@@ -309,7 +360,7 @@ export default function CalendarPage() {
                           onClick={() => setOpenDay(key)}
                           className="block w-full text-left truncate text-xs leading-snug rounded px-1.5 py-0.5 bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
                         >
-                          {describe(e) || `${e.durationMinutes}m`}
+                          {describe(e) || formatDuration(e.durationMinutes)}
                         </button>
                       ))}
                       {hidden > 0 && (
@@ -383,14 +434,15 @@ function DayItem({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
       {description && <p className="text-sm text-slate-800 mb-1">{description}</p>}
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-slate-500">
-          {entry.durationMinutes} min{entry.status === "DONE" ? " · Done" : ""}
+          {formatDuration(entry.durationMinutes)}{entry.status === "DONE" ? " · Done" : ""}
         </span>
+        {/* Opens this entry itself on its project page, where it can be edited. */}
         <Link
-          to={`/projects/${entry.projectId}`}
+          to={`/projects/${entry.projectId}?entry=${entry.id}`}
           className="text-xs text-blue-700 hover:underline font-medium"
           onClick={onOpen}
         >
-          Open project
+          Open entry
         </Link>
       </div>
     </li>

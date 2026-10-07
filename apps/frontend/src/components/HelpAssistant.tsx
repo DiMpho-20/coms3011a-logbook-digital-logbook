@@ -200,8 +200,8 @@ export default function HelpAssistant() {
 
       <button
         onClick={() => setOpen((v) => !v)}
-        className="fixed z-50 bottom-4 right-4 h-12 w-12 flex items-center justify-center rounded-full text-white shadow-lg hover:scale-105 transition"
-        style={{ background: "linear-gradient(135deg, #0072ff, #7000ff)" }}
+        // The accent colour from Settings, like the app's other primary buttons.
+        className="fixed z-50 bottom-4 right-4 h-12 w-12 flex items-center justify-center rounded-full bg-blue-600 text-white shadow-md transition-colors duration-150 hover:bg-blue-700"
         aria-label={open ? "Close help assistant" : "Ask for help"}
         aria-expanded={open}
         title="Ask for help"
