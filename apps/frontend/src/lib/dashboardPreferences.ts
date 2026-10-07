@@ -30,7 +30,13 @@ export type StatisticPanelId = `stat:${string}:${string}`;
 export type DashboardPanelId = BuiltInPanelId | StatisticPanelId;
 
 export const DASHBOARD_PANELS_STORAGE_KEY = "logbook-dashboard-panels";
-export const DEFAULT_DASHBOARD_PANELS: DashboardPanelId[] = [...DASHBOARD_PANELS];
+/**
+ * A new dashboard starts small: the Today section above the panels already
+ * covers upcoming deadlines, and the charts live on the Statistics page. Every
+ * other panel is still one click away under Customize, and a layout a student
+ * has already saved is left exactly as it is.
+ */
+export const DEFAULT_DASHBOARD_PANELS: DashboardPanelId[] = ["entry-streak", "activity", "current-projects", "recent-entries"];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

@@ -16,16 +16,14 @@ import {
   reminderNotificationMode,
 } from "../lib/reminderNotifications";
 import { api } from "../api/client";
+import { applyAccent, applyDensity, applyTheme, type AccentColor, type Density, type Theme } from "../lib/appearance";
 
 // -- types --
 
-type Theme = "light" | "dark" | "system";
 type EntryView = "timeline" | "list";
 type SortOrder = "newest" | "oldest";
 type WeekStart = "monday" | "sunday";
 type TimeFormat = "12h" | "24h";
-type AccentColor = "blue" | "emerald" | "violet" | "amber" | "rose";
-type Density = "comfortable" | "compact";
 
 interface LogbookPrefs {
   defaultProjectId: string;
@@ -56,33 +54,14 @@ function save(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-function applyTheme(theme: Theme) {
-  const root = document.documentElement;
-  if (theme === "system") root.removeAttribute("data-theme");
-  else root.setAttribute("data-theme", theme);
-}
-
-function applyAccent(color: AccentColor) {
-  document.documentElement.setAttribute("data-accent", color);
-}
-
-// Comfortable is the stylesheet's own spacing, so it clears the attribute
-// rather than writing a second set of rules that say what the defaults
-// already say.
-function applyDensity(density: Density) {
-  const root = document.documentElement;
-  if (density === "comfortable") root.removeAttribute("data-density");
-  else root.setAttribute("data-density", density);
-}
-
 // -- reusable small components --
 
 function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white rounded-lg border border-slate-200">
+    <section className="bg-white rounded-xl border border-slate-200">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-        <Icon className="h-4 w-4 text-slate-500" />
-        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+        <Icon className="h-4 w-4 text-slate-500" aria-hidden="true" />
+        <h2 className="text-[15px] font-semibold text-slate-900">{title}</h2>
       </div>
       <div className="p-5 space-y-4">{children}</div>
     </section>

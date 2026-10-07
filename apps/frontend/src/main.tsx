@@ -4,6 +4,9 @@ import App from './App'
 import { ToastProvider } from './components/Toast'
 import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
+import { restoreAppearance } from './lib/appearance'
+
+restoreAppearance()
 
 // Production only: in development the service worker would serve stale
 // modules and fight Vite's hot reload.
