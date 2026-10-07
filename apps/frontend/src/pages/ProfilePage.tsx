@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
-  Camera, Edit2, Check, X, GraduationCap, Hash, Mail, CalendarDays,
-  NotebookPen, Clock, FolderKanban, Flame, Trash2, Loader2, AlertCircle, ArrowRight,
+  Camera, Edit2, Check, X, Hash, Mail, CalendarDays,
+  Trash2, Loader2, AlertCircle, ArrowRight,
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Skeleton from "../components/Skeleton";
+import Stat from "../components/Stat";
 import { api } from "../api/client";
-import { getTagColor } from "../lib/tagColors";
+import { button } from "../lib/ui";
+import { countdownLabel, daysUntil } from "../lib/gradeDisplay";
+import { localDateKey } from "../lib/utils";
 import {
-  summariseActivity, buildHeatmap, topTags, projectActivity, formatDuration, entryHeadline,
+  summariseActivity, buildHeatmap, topTags, projectActivity, formatDuration,
   type ActivityEntry, type HeatmapCell,
 } from "../lib/profileActivity";
 
@@ -132,13 +135,13 @@ function Avatar({
         <img
           src={src}
           alt={`${name}'s profile photo`}
-          className="rounded-2xl object-cover ring-4 ring-white shadow-sm bg-slate-100"
+          className="rounded-xl object-cover border border-slate-200 bg-slate-100"
           style={{ width: size, height: size }}
         />
       ) : (
         <div
-          className="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold ring-4 ring-white shadow-sm select-none"
-          style={{ width: size, height: size, fontSize: size * 0.38 }}
+          className="rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700 font-semibold select-none"
+          style={{ width: size, height: size, fontSize: size * 0.4 }}
           aria-hidden="true"
         >
           {initial}
@@ -149,7 +152,7 @@ function Avatar({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="absolute inset-0 rounded-2xl bg-slate-900/50 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 focus:opacity-100 transition cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="absolute inset-0 rounded-xl bg-slate-900/50 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 focus:opacity-100 transition cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <Camera className="h-5 w-5 text-white" />
             <span className="text-[11px] font-medium text-white">Change</span>
@@ -168,41 +171,16 @@ function Avatar({
   );
 }
 
-// ── Stat tile ───────────────────────────────────────────────────────────
-
-function StatTile({
-  icon: Icon, label, value, hint, tint,
-}: {
-  icon: typeof NotebookPen;
-  label: string;
-  value: string;
-  hint?: string;
-  tint: string;
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="flex items-center gap-2">
-        <span className={`h-7 w-7 rounded-lg flex items-center justify-center ${tint}`}>
-          <Icon className="h-4 w-4" />
-        </span>
-        <span className="text-xs font-medium text-slate-500">{label}</span>
-      </div>
-      {/* The figure is the point of the tile, so it gets the size. */}
-      <p className="mt-3 text-2xl font-bold text-slate-900 tabular-nums tracking-tight">{value}</p>
-      {hint && <p className="text-xs text-slate-400 mt-0.5">{hint}</p>}
-    </div>
-  );
-}
-
 // ── Activity heatmap ────────────────────────────────────────────────────
 
 /**
- * A single-hue sequential ramp, light to dark: more entries, darker square.
- *
- * Level 0 is a near-surface grey rather than the palest blue, so "nothing
- * logged" reads as absence instead of as a very small amount.
+ * Five steps of the accent colour, from nothing to the busiest band. The
+ * cells take the accent through currentColor (the wrapper's accent-recoloured
+ * text class), so they follow the Settings choice and stay legible in dark
+ * mode; level 0 is the neutral surface, so "nothing" reads as absence.
  */
-const LEVEL_COLORS = ["#eef2f7", "#cde2fb", "#86b6ef", "#3987e5", "#1c5cab"];
+const LEVEL_OPACITY = [0, 0.25, 0.45, 0.7, 1];
+const LEVEL_WORDS = ["none", "1 entry", "2 entries", "3–4 entries", "5 or more"];
 const WEEKDAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
 
 function cellTitle(cell: HeatmapCell): string {
@@ -211,6 +189,19 @@ function cellTitle(cell: HeatmapCell): string {
   });
   if (cell.count === 0) return `No entries on ${date}`;
   return `${cell.count} ${cell.count === 1 ? "entry" : "entries"} on ${date}`;
+}
+
+function HeatCell({ level, title }: { level: number; title?: string }) {
+  return (
+    <span
+      className="relative block h-3.5 w-3.5 overflow-hidden rounded-[3px] bg-slate-100"
+      title={title}
+      role={title ? "img" : undefined}
+      aria-label={title}
+    >
+      {level > 0 && <span className="absolute inset-0 bg-current" style={{ opacity: LEVEL_OPACITY[level] }} />}
+    </span>
+  );
 }
 
 function ActivityHeatmap({ grid }: { grid: HeatmapCell[][] }) {
@@ -223,52 +214,39 @@ function ActivityHeatmap({ grid }: { grid: HeatmapCell[][] }) {
   });
 
   return (
-    <div className="overflow-x-auto">
-      <div className="inline-flex flex-col gap-1 min-w-full">
-        <div className="flex gap-[3px] pl-8">
+    // The grid scrolls inside itself on a narrow screen; the page never does.
+    <div className="overflow-x-auto text-blue-600">
+      <div className="inline-flex min-w-max flex-col gap-1">
+        <div className="flex gap-1 pl-9" aria-hidden="true">
           {monthLabels.map((label, index) => (
-            <div key={index} className="w-[11px] text-[10px] text-slate-400 whitespace-nowrap">
-              {label}
-            </div>
+            <div key={index} className="w-3.5 whitespace-nowrap text-[11px] text-slate-500">{label}</div>
           ))}
         </div>
-        <div className="flex gap-[3px]">
-          <div className="flex flex-col gap-[3px] w-8 shrink-0">
+        <div className="flex gap-1">
+          <div className="flex w-8 shrink-0 flex-col gap-1" aria-hidden="true">
             {WEEKDAY_LABELS.map((label, index) => (
-              <div key={index} className="h-[11px] text-[10px] leading-[11px] text-slate-400">
-                {label}
-              </div>
+              <div key={index} className="h-3.5 text-[11px] leading-[14px] text-slate-500">{label}</div>
             ))}
           </div>
           {grid.map((week, weekIndex) => (
-            <div key={weekIndex} className="flex flex-col gap-[3px]">
-              {week.map((cell) => (
-                <div
-                  key={cell.date}
-                  // A future day is a gap in the grid, not a zero — showing it
-                  // as an empty square would claim nothing was logged on a day
-                  // that has not happened.
-                  className={`h-[11px] w-[11px] rounded-[2px] ${cell.future ? "" : "ring-1 ring-inset ring-slate-900/5"}`}
-                  style={{ backgroundColor: cell.future ? "transparent" : LEVEL_COLORS[cell.level] }}
-                  title={cell.future ? undefined : cellTitle(cell)}
-                  aria-hidden={cell.future ? "true" : undefined}
-                  role={cell.future ? undefined : "img"}
-                  aria-label={cell.future ? undefined : cellTitle(cell)}
-                />
-              ))}
+            <div key={weekIndex} className="flex flex-col gap-1">
+              {week.map((cell) =>
+                // A future day is a gap in the grid, not a zero: it hasn't happened.
+                cell.future ? (
+                  <span key={cell.date} className="block h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <HeatCell key={cell.date} level={cell.level} title={cellTitle(cell)} />
+                )
+              )}
             </div>
           ))}
         </div>
-        <div className="flex items-center gap-1.5 justify-end pt-1">
-          <span className="text-[10px] text-slate-400">Less</span>
-          {LEVEL_COLORS.map((color) => (
-            <span
-              key={color}
-              className="h-[11px] w-[11px] rounded-[2px] ring-1 ring-inset ring-slate-900/5"
-              style={{ backgroundColor: color }}
-            />
+        <div className="flex items-center justify-end gap-1.5 pt-2" aria-label="Legend: lighter is fewer entries, darker is more">
+          <span className="text-[11px] text-slate-500">Less</span>
+          {LEVEL_OPACITY.map((_, level) => (
+            <HeatCell key={level} level={level} title={LEVEL_WORDS[level]} />
           ))}
-          <span className="text-[10px] text-slate-400">More</span>
+          <span className="text-[11px] text-slate-500">More</span>
         </div>
       </div>
     </div>
@@ -278,28 +256,32 @@ function ActivityHeatmap({ grid }: { grid: HeatmapCell[][] }) {
 // ── Section shell ───────────────────────────────────────────────────────
 
 function Section({
-  title, description, children,
+  title, description, action, children,
 }: {
   title: string;
   description?: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="bg-white rounded-xl border border-slate-200 p-5">
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-        {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-[15px] font-semibold text-slate-900">{title}</h2>
+          {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
+        </div>
+        {action}
       </div>
       {children}
     </section>
   );
 }
 
-function MetaPill({ icon: Icon, children }: { icon: typeof Mail; children: React.ReactNode }) {
+function MetaItem({ icon: Icon, children }: { icon: typeof Mail; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-full px-2.5 py-1">
-      <Icon className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-      {children}
+    <span className="inline-flex min-w-0 items-center gap-1.5 text-sm text-slate-600">
+      <Icon className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+      <span className="min-w-0 break-words">{children}</span>
     </span>
   );
 }
@@ -369,12 +351,16 @@ export default function ProfilePage() {
   const summary = useMemo(() => summariseActivity(entries), [entries]);
   const grid = useMemo(() => buildHeatmap(summary.byDay, new Date(), HEATMAP_WEEKS), [summary.byDay]);
   const tags = useMemo(() => topTags(entries, 8), [entries]);
-  const recent = useMemo(() => entries.slice(0, 5), [entries]);
   const projects = useMemo(() => projectActivity(entries, projectNames, 4), [entries, projectNames]);
-  const projectCount = useMemo(
-    () => new Set(entries.map((entry) => entry.projectId)).size,
-    [entries]
-  );
+  // What the visible twelve weeks hold, worded from the grid itself.
+  const heatmapTotals = useMemo(() => {
+    const cells = grid.flat().filter((cell) => !cell.future);
+    return {
+      entries: cells.reduce((sum, cell) => sum + cell.count, 0),
+      days: cells.filter((cell) => cell.count > 0).length,
+    };
+  }, [grid]);
+  const today = localDateKey(new Date());
 
   const startEditing = () => {
     if (!profile) return;
@@ -418,10 +404,10 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Profile" subtitle="Your details and your logbook activity." />
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center gap-5" aria-busy="true">
+        <PageHeader title="Profile" subtitle="Who you are, and what you\u2019ve been working on." />
+        <div className="bg-white rounded-xl border border-slate-200 p-6 flex items-center gap-5" aria-busy="true">
           <span className="sr-only" role="status">Loading your profile…</span>
-          <Skeleton className="h-20 w-20 rounded-2xl" />
+          <Skeleton className="h-20 w-20 rounded-xl" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-6 w-48" />
             <Skeleton className="h-4 w-64" />
@@ -434,14 +420,11 @@ export default function ProfilePage() {
   if (loadError || !profile) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Profile" subtitle="Your details and your logbook activity." />
+        <PageHeader title="Profile" subtitle="Who you are, and what you\u2019ve been working on." />
         <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
           <AlertCircle className="h-6 w-6 text-slate-400 mx-auto" />
           <p className="text-sm text-slate-600 mt-3">{loadError}</p>
-          <button
-            onClick={() => void load()}
-            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition"
-          >
+          <button onClick={() => void load()} className={`${button("secondary", "sm")} mt-4`}>
             Try again
           </button>
         </div>
@@ -450,323 +433,243 @@ export default function ProfilePage() {
   }
 
   const shown = editing ? draft! : profile;
+  // The account's creation date: when this logbook began, not the first entry.
   const memberSince = new Date(profile.memberSince).toLocaleDateString(undefined, {
     month: "long", year: "numeric",
   });
+  // The figures cover what the profile loaded: up to a year, at most 500 entries.
+  const coverage = truncated ? "most recent 500 entries" : "in the last year";
 
   return (
     <div className="space-y-5 max-w-4xl">
-      <PageHeader
-        title="Profile"
-        subtitle="Your details and your logbook activity."
-        action={
-          !editing && (
-            <button
-              onClick={startEditing}
-              className="flex items-center gap-1.5 border border-slate-200 bg-white px-3 py-1.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
-            >
-              <Edit2 className="h-3.5 w-3.5" /> Edit profile
-            </button>
-          )
-        }
-      />
+      <PageHeader title="Profile" subtitle="Who you are, and what you’ve been working on." />
 
       {saved && (
-        <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 flex items-center gap-2">
-          <Check className="h-4 w-4 shrink-0" /> Profile saved.
+        <p role="status" className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 flex items-center gap-2">
+          <Check className="h-4 w-4 shrink-0" aria-hidden="true" /> Profile saved.
         </p>
       )}
 
-      {/* ── Identity card ─────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div
-          className="h-28 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600"
-          // A faint dot field stops the band reading as a flat block of colour.
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.22) 1px, transparent 0)",
-            backgroundSize: "14px 14px",
-          }}
-        />
+      {/* ── 1. Identity ───────────────────────────────────────────────── */}
+      <section aria-labelledby="profile-name" className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <Avatar
+            src={shown.avatar}
+            name={profile.fullName}
+            size={72}
+            editable={editing}
+            onUpload={(avatar) => patchDraft({ avatar })}
+            onError={setSaveError}
+          />
 
-        <div className="px-5 pb-5">
-          <div className="-mt-14 flex flex-col sm:flex-row sm:items-end gap-4">
-            <Avatar
-              src={shown.avatar}
-              name={profile.fullName}
-              editable={editing}
-              onUpload={(avatar) => patchDraft({ avatar })}
-              onError={setSaveError}
-            />
-
-            <div className="flex-1 min-w-0 sm:pb-1">
-              <h2 className="text-xl font-bold text-slate-900 truncate">{profile.fullName}</h2>
-              {editing ? (
-                <div className="mt-1.5">
-                  <input
-                    type="text"
-                    value={draft!.bio ?? ""}
-                    onChange={(event) => patchDraft({ bio: event.target.value })}
-                    maxLength={280}
-                    className={`${inputClass} w-full`}
-                    placeholder="A short line about what you're working on"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    {(draft!.bio ?? "").length}/280
-                  </p>
-                </div>
-              ) : profile.bio ? (
-                <p className="text-sm text-slate-600 mt-1">{profile.bio}</p>
-              ) : (
-                <p className="text-sm text-slate-400 mt-1 italic">
-                  No bio yet — add one to say what you're working on.
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Details */}
-          {editing ? (
-            <div className="mt-5 pt-4 border-t border-slate-100 grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-slate-600">Degree</span>
-                <input
-                  type="text"
-                  value={draft!.degree ?? ""}
-                  onChange={(event) => patchDraft({ degree: event.target.value })}
-                  maxLength={120}
-                  className={inputClass}
-                  placeholder="e.g. BSc Computer Science"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-slate-600">Year of study</span>
-                <select
-                  value={draft!.yearOfStudy ?? ""}
-                  onChange={(event) => patchDraft({ yearOfStudy: event.target.value })}
-                  className={inputClass}
-                >
-                  <option value="">Not set</option>
-                  {YEARS.map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-slate-600">Student number</span>
-                <input
-                  type="text"
-                  value={draft!.studentNumber ?? ""}
-                  onChange={(event) => patchDraft({ studentNumber: event.target.value })}
-                  maxLength={32}
-                  className={inputClass}
-                  placeholder="Optional"
-                />
-              </label>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-slate-600">Email</span>
-                <p className="text-sm text-slate-500 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg truncate">
-                  {profile.email}
-                </p>
-                <span className="text-[11px] text-slate-400">
-                  Managed by your account — change it in Settings.
-                </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 id="profile-name" className="text-xl font-semibold text-slate-900 break-words">{profile.fullName}</h2>
+                {!editing && (profile.degree || profile.yearOfStudy) && (
+                  <p className="text-sm text-slate-600">{[profile.degree, profile.yearOfStudy].filter(Boolean).join(" · ")}</p>
+                )}
               </div>
-            </div>
-          ) : (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <MetaPill icon={Mail}>{profile.email}</MetaPill>
-              {(profile.degree || profile.yearOfStudy) && (
-                <MetaPill icon={GraduationCap}>
-                  {[profile.degree, profile.yearOfStudy].filter(Boolean).join(" · ")}
-                </MetaPill>
-              )}
-              {profile.studentNumber && <MetaPill icon={Hash}>{profile.studentNumber}</MetaPill>}
-              <MetaPill icon={CalendarDays}>Logging since {memberSince}</MetaPill>
-            </div>
-          )}
-
-          {saveError && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-4 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0" /> {saveError}
-            </p>
-          )}
-
-          {editing && (
-            <div className="flex items-center gap-2 mt-5 pt-4 border-t border-slate-100">
-              {draft!.avatar && (
-                <button
-                  onClick={() => patchDraft({ avatar: null })}
-                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 font-medium mr-auto transition"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Remove photo
+              {!editing && (
+                <button onClick={startEditing} className={button("secondary", "sm")}>
+                  <Edit2 className="h-3.5 w-3.5" aria-hidden="true" /> Edit profile
                 </button>
               )}
-              <button
-                onClick={() => { setDraft(null); setSaveError(null); }}
-                disabled={saving}
-                className="flex items-center gap-1.5 border border-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 ml-auto"
-              >
-                <X className="h-3.5 w-3.5" /> Cancel
-              </button>
-              <button
-                onClick={() => void handleSave()}
-                disabled={saving}
-                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition disabled:opacity-60"
-              >
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                {saving ? "Saving…" : "Save changes"}
-              </button>
             </div>
-          )}
+
+            {editing ? (
+              <div className="mt-2">
+                <label className="sr-only" htmlFor="profile-bio">Bio</label>
+                <input
+                  id="profile-bio"
+                  type="text"
+                  value={draft!.bio ?? ""}
+                  onChange={(event) => patchDraft({ bio: event.target.value })}
+                  maxLength={280}
+                  className={`${inputClass} w-full`}
+                  placeholder="A short line about what you're working on"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">{(draft!.bio ?? "").length}/280</p>
+              </div>
+            ) : profile.bio ? (
+              <p className="mt-2 text-sm text-slate-700">{profile.bio}</p>
+            ) : (
+              <p className="mt-2 text-sm italic text-slate-500">No bio yet. Add one to say what you're working on.</p>
+            )}
+
+            {!editing && (
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
+                <MetaItem icon={Mail}>{profile.email}</MetaItem>
+                {profile.studentNumber && <MetaItem icon={Hash}>{profile.studentNumber}</MetaItem>}
+                <MetaItem icon={CalendarDays}>Member since {memberSince}</MetaItem>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* ── Headline numbers ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatTile
-          icon={NotebookPen}
-          label="Entries logged"
-          value={`${summary.totalEntries}`}
-          hint={summary.activeDays > 0 ? `across ${summary.activeDays} ${summary.activeDays === 1 ? "day" : "days"}` : "nothing logged yet"}
-          tint="bg-blue-50 text-blue-600"
-        />
-        <StatTile
-          icon={Clock}
-          label="Time logged"
-          value={formatDuration(summary.totalMinutes)}
-          hint="in the last year"
-          tint="bg-indigo-50 text-indigo-600"
-        />
-        <StatTile
-          icon={FolderKanban}
-          label="Projects"
-          value={`${projectCount}`}
-          hint={projectCount === 1 ? "with entries" : "with entries"}
-          tint="bg-emerald-50 text-emerald-600"
-        />
-        <StatTile
-          icon={Flame}
-          label="Current streak"
-          value={`${summary.currentStreak} ${summary.currentStreak === 1 ? "day" : "days"}`}
-          hint={summary.longestStreak > 0 ? `best: ${summary.longestStreak}` : "start one today"}
-          tint="bg-amber-50 text-amber-600"
-        />
-      </div>
+        {/* Details, while editing */}
+        {editing && (
+          <div className="mt-5 pt-4 border-t border-slate-100 grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-slate-600">Degree</span>
+              <input
+                type="text"
+                value={draft!.degree ?? ""}
+                onChange={(event) => patchDraft({ degree: event.target.value })}
+                maxLength={120}
+                className={inputClass}
+                placeholder="e.g. BSc Computer Science"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-slate-600">Year of study</span>
+              <select
+                value={draft!.yearOfStudy ?? ""}
+                onChange={(event) => patchDraft({ yearOfStudy: event.target.value })}
+                className={inputClass}
+              >
+                <option value="">Not set</option>
+                {YEARS.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-slate-600">Student number</span>
+              <input
+                type="text"
+                value={draft!.studentNumber ?? ""}
+                onChange={(event) => patchDraft({ studentNumber: event.target.value })}
+                maxLength={32}
+                className={inputClass}
+                placeholder="Optional"
+              />
+            </label>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-slate-600">Email</span>
+              <p className="text-sm text-slate-500 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg truncate">
+                {profile.email}
+              </p>
+              <span className="text-[11px] text-slate-500">Managed by your account — change it in Settings.</span>
+            </div>
+          </div>
+        )}
 
-      {/* ── Activity ──────────────────────────────────────────────────── */}
+        {saveError && (
+          <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-4 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" /> {saveError}
+          </p>
+        )}
+
+        {editing && (
+          <div className="flex flex-wrap items-center gap-2 mt-5 pt-4 border-t border-slate-100">
+            {draft!.avatar && (
+              <button
+                onClick={() => patchDraft({ avatar: null })}
+                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 font-medium mr-auto transition"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Remove photo
+              </button>
+            )}
+            <button
+              onClick={() => { setDraft(null); setSaveError(null); }}
+              disabled={saving}
+              className={`${button("secondary", "sm")} ml-auto`}
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" /> Cancel
+            </button>
+            <button onClick={() => void handleSave()} disabled={saving} className={button("primary", "sm")}>
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        )}
+
+        {/* Compact figures, from the same activity summary as before. */}
+        <div className="mt-5 grid grid-cols-3 gap-4 border-t border-slate-100 pt-4">
+          <Stat
+            label="Entries"
+            value={summary.totalEntries.toLocaleString()}
+            hint={summary.activeDays > 0 ? `on ${summary.activeDays} ${summary.activeDays === 1 ? "day" : "days"}, ${coverage}` : "nothing logged yet"}
+          />
+          <Stat label="Logged" value={formatDuration(summary.totalMinutes)} hint={coverage} />
+          <Stat
+            label="Streak"
+            value={`${summary.currentStreak} ${summary.currentStreak === 1 ? "day" : "days"}`}
+            hint={summary.longestStreak > 0 ? `best ${summary.longestStreak}` : "no entries yet"}
+          />
+        </div>
+      </section>
+
+      {/* ── 2. Activity ───────────────────────────────────────────────── */}
       <Section
         title="Activity"
         description={
           truncated
-            ? "Your most recent 500 entries — earlier ones aren't counted here."
+            ? "Entries written over the last twelve weeks, from your most recent 500 entries."
             : "Entries written over the last twelve weeks."
         }
       >
         {summary.totalEntries === 0 ? (
-          <p className="text-sm text-slate-400 py-6 text-center">
-            Nothing logged yet. Your first entry will show up here.
-          </p>
+          <p className="text-sm text-slate-500 py-4">Nothing logged yet. Your first entry will show up here.</p>
         ) : (
-          <ActivityHeatmap grid={grid} />
+          <>
+            <ActivityHeatmap grid={grid} />
+            <p className="mt-2 text-xs text-slate-500">
+              {heatmapTotals.entries === 0
+                ? "No entries in these twelve weeks."
+                : `${heatmapTotals.entries} ${heatmapTotals.entries === 1 ? "entry" : "entries"} on ${heatmapTotals.days} ${heatmapTotals.days === 1 ? "day" : "days"} in these twelve weeks.`}
+            </p>
+          </>
         )}
       </Section>
 
-      {/* Recent entries is the tallest panel, so the two shorter ones stack
-          beside it rather than each taking a half-width card of its own. */}
-      <div className="grid gap-5 lg:grid-cols-2 items-start">
-        <div className="space-y-5">
-        {/* ── Recent projects ─────────────────────────────────────────── */}
-        <Section title="Recent projects" description="Where your work has been going.">
+      {/* ── 3. Recent projects + tags ─────────────────────────────────── */}
+      <div className="grid gap-5 md:grid-cols-2 items-start">
+        <Section
+          title="Recent projects"
+          description="Where your work has been going."
+          action={
+            <Link to="/projects" className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700">
+              All projects <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          }
+        >
           {projects.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4">No projects with entries yet.</p>
-          ) : (
-            <>
-              <ul className="divide-y divide-slate-100 -mt-2">
-                {projects.map((project) => (
-                  <li key={project.projectId} className="py-2.5 flex items-center gap-3">
-                    <span className="h-8 w-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0">
-                      <FolderKanban className="h-4 w-4 text-slate-400" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-800 truncate">{project.name}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {project.entries} {project.entries === 1 ? "entry" : "entries"}
-                        {project.minutes > 0 && ` · ${formatDuration(project.minutes)}`}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                to="/projects"
-                className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 mt-3 transition"
-              >
-                View all projects <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </>
-          )}
-        </Section>
-          {/* ── Tags ──────────────────────────────────────────────────── */}
-        <Section title="Most-used tags" description="What you label your work with.">
-            {tags.length === 0 ? (
-              <p className="text-sm text-slate-400 py-4">No tags used yet.</p>
-            ) : (
-              <ul className="flex flex-wrap gap-2">
-                {tags.map((tag) => {
-                  const color = getTagColor(tag.name);
-                  return (
-                    <li key={tag.name}>
-                      <span
-                        className="inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-1 border"
-                        style={{
-                          backgroundColor: color.background,
-                          color: color.foreground,
-                          borderColor: color.border,
-                        }}
-                      >
-                        {tag.name}
-                        <span className="tabular-nums opacity-70">{tag.count}</span>
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-        </Section>
-        </div>
-
-        {/* ── Recent entries ──────────────────────────────────────────── */}
-        <Section title="Recent entries" description="The last five things you logged.">
-          {recent.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4">Nothing logged yet.</p>
+            <p className="text-sm text-slate-500 py-2">No projects with entries yet.</p>
           ) : (
             <ul className="divide-y divide-slate-100 -my-2">
-              {recent.map((entry) => {
-                const project = projectNames.get(entry.projectId) ?? "Unknown project";
-                const when = new Date(entry.entryDate ?? entry.createdAt).toLocaleDateString(undefined, {
-                  day: "numeric", month: "short",
-                });
-                return (
-                  <li key={entry.id} className="py-2.5 flex items-start gap-3">
-                    <span
-                      className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${
-                        entry.status === "DONE" ? "bg-emerald-500" : "bg-amber-400"
-                      }`}
-                      aria-hidden="true"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-slate-800 truncate">
-                        {entryHeadline(entry.values as Record<string, unknown>, project)}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5 truncate">
-                        {project} · {when}
-                        {entry.durationMinutes > 0 && ` · ${formatDuration(entry.durationMinutes)}`}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
+              {projects.map((project) => (
+                <li key={project.projectId} className="py-2.5">
+                  <Link to={`/projects/${project.projectId}`} className="block rounded hover:text-blue-700">
+                    <span className="block truncate text-sm font-medium text-slate-900">{project.name}</span>
+                    <span className="block text-xs text-slate-500 tabular-nums">
+                      {project.entries} {project.entries === 1 ? "entry" : "entries"}
+                      {project.minutes > 0 && ` · ${formatDuration(project.minutes)}`}
+                      {` · ${countdownLabel(daysUntil(project.lastActivity, today)).toLowerCase()}`}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section title="Tags" description="How you label your work.">
+          {tags.length === 0 ? (
+            <p className="text-sm text-slate-500 py-2">No tags used yet.</p>
+          ) : (
+            <ul className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <li key={tag.name}>
+                  <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
+                    {tag.name}
+                    <span className="tabular-nums text-slate-500" aria-label={`${tag.count} ${tag.count === 1 ? "entry" : "entries"}`}>
+                      {tag.count}
+                    </span>
+                  </span>
+                </li>
+              ))}
             </ul>
           )}
         </Section>
