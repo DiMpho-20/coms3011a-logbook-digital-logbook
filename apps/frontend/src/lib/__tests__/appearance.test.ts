@@ -53,7 +53,23 @@ describe("appearance", () => {
     expect(theme()).toBeNull();
   });
 
+  it("clears a theme saved before the light default exactly once", () => {
+    localStorage.setItem("logbook-theme", JSON.stringify("dark"));
+    restoreAppearance();
+    expect(theme()).toBeNull();
+    expect(localStorage.getItem("logbook-theme")).toBeNull();
+    expect(localStorage.getItem("logbook-theme-migrated")).toBe("true");
+  });
+
+  it("respects choices saved after the migration", () => {
+    localStorage.setItem("logbook-theme-migrated", JSON.stringify(true));
+    localStorage.setItem("logbook-theme", JSON.stringify("dark"));
+    restoreAppearance();
+    expect(theme()).toBe("dark");
+  });
+
   it("restores saved choices on start-up and ignores anything unexpected", () => {
+    localStorage.setItem("logbook-theme-migrated", JSON.stringify(true));
     localStorage.setItem("logbook-theme", JSON.stringify("dark"));
     localStorage.setItem("logbook-accent", JSON.stringify("violet"));
     localStorage.setItem("logbook-density", JSON.stringify("compact"));

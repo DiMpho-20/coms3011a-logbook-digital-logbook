@@ -53,8 +53,26 @@ function stored<T extends string>(key: string, allowed: readonly T[], fallback: 
   }
 }
 
+// One-time reset so the light default actually reaches browsers holding a
+// theme saved by older builds: the old Settings page persisted its loaded
+// value merely on being opened, so "dark"/"system" got stored for people
+// who never picked anything and out-ranked the light default forever. The
+// flag marks the wipe done; anything saved after it is a real choice.
+const THEME_MIGRATED_KEY = "logbook-theme-migrated";
+
+function migrateLegacyTheme() {
+  try {
+    if (localStorage.getItem(THEME_MIGRATED_KEY)) return;
+    localStorage.removeItem("logbook-theme");
+    localStorage.setItem(THEME_MIGRATED_KEY, JSON.stringify(true));
+  } catch {
+    // Storage unavailable — fall through and use the default.
+  }
+}
+
 /** Puts back the saved theme, accent and density before the first render, on every page. */
 export function restoreAppearance() {
+  migrateLegacyTheme();
   applyTheme(stored<Theme>("logbook-theme", ["light", "dark", "system"], "light"));
   applyAccent(stored<AccentColor>("logbook-accent", ["blue", "emerald", "violet", "amber", "rose"], "blue"));
   applyDensity(stored<Density>("logbook-density", ["comfortable", "compact"], "comfortable"));
