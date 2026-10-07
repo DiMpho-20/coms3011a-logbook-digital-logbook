@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { BarChart3, TrendingUp, Loader2, Clock, Sigma, Bookmark, Pencil, Trash2 } from "lucide-react";
+import { BarChart3, Loader2, Bookmark, Pencil, Trash2, Plus, CircleAlert } from "lucide-react";
 import { api } from "../api/client";
 import {
   fetchProjects,
@@ -15,7 +15,6 @@ import EmptyState from "../components/EmptyState";
 import Skeleton from "../components/Skeleton";
 import { button } from "../lib/ui";
 import Modal from "../components/Modal";
-import BarChart from "../components/BarChart";
 import TrendChart from "../components/TrendChart";
 
 type GroupResult = { groups: { key: string; value: number }[] };
@@ -46,12 +45,99 @@ function formatNumber(v: number): string {
   return Number.isInteger(v) ? v.toLocaleString() : v.toFixed(1);
 }
 
+/** The operations, in words. The values sent to the server are unchanged. */
+const OPERATION_LABELS: Record<Operation, string> = {
+  sum: "Total",
+  avg: "Average",
+  count: "Count",
+  min: "Lowest",
+  max: "Highest",
+};
+
+const asDay = (iso: string) => new Date(`${iso}T00:00:00`);
+const shortDay = (date: Date) => date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+/** A bucket's start date, as a reader would name the period: "Sep 3", "Sep 1–7", "Sep 2026". */
+function periodLabel(iso: string, bucket: Bucket): string {
+  const start = asDay(iso);
+  if (bucket === "day") return shortDay(start);
+  if (bucket === "month") return start.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  return start.getMonth() === end.getMonth()
+    ? `${shortDay(start)}–${end.getDate()}`
+    : `${shortDay(start)} – ${shortDay(end)}`;
+}
+
+const selectClass =
+  "w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
+const labelClass = "block text-xs font-medium text-slate-600 mb-1";
+
+/**
+ * Label, a thin bar for its share of the largest value, and the value itself.
+ * One row per item with hairline dividers; the bar is in the accent colour.
+ */
+function MeterList({ data, formatValue }: { data: { label: string; value: number }[]; formatValue: (v: number) => string }) {
+  const max = Math.max(...data.map((d) => Math.abs(d.value)), 1);
+  return (
+    <ul className="divide-y divide-slate-100">
+      {data.map((d, i) => {
+        const pct = Math.min((Math.abs(d.value) / max) * 100, 100);
+        return (
+          <li
+            key={`${d.label}-${i}`}
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 py-2.5 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_5.5rem]"
+          >
+            <span className="truncate text-sm text-slate-700" title={d.label}>{d.label}</span>
+            <span className="text-right text-sm font-semibold tabular-nums text-slate-900 sm:order-3">{formatValue(d.value)}</span>
+            <div
+              className="col-span-2 h-1.5 rounded-full bg-slate-100 sm:order-2 sm:col-span-1"
+              role="img"
+              aria-label={`${d.label}: ${formatValue(d.value)}`}
+            >
+              <div
+                className="h-full rounded-full bg-blue-600"
+                style={{ width: `${pct}%`, minWidth: d.value !== 0 ? "3px" : 0 }}
+              />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** A white card with a heading, a line of context, and an optional action on the right. */
+function Panel({ title, description, action, children, level = 2 }: {
+  title: string;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  level?: 2 | 3;
+}) {
+  const Heading = level === 2 ? "h2" : "h3";
+  return (
+    <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Heading className="text-[15px] font-semibold text-slate-900">{title}</Heading>
+          {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export default function StatsPage() {
   const [params, setParams] = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [fields, setFields] = useState<EntryField[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingFields, setLoadingFields] = useState(false);
+  const [projectsFailed, setProjectsFailed] = useState(false);
+  const [projectTimesFailed, setProjectTimesFailed] = useState(false);
 
   // Cross-project time overview — the page's headline, needs no setup.
   const [projectTimes, setProjectTimes] = useState<{ label: string; value: number }[] | null>(null);
@@ -96,7 +182,9 @@ export default function StatsPage() {
 
   const selectedProjectId = params.get("project") ?? "";
 
-  useEffect(() => {
+  const loadProjects = useCallback(() => {
+    setLoadingProjects(true);
+    setProjectsFailed(false);
     fetchProjects()
       .then((data) => {
         setProjects(data);
@@ -105,9 +193,16 @@ export default function StatsPage() {
         }
         setLoadingProjects(false);
       })
-      .catch(() => setLoadingProjects(false));
+      .catch(() => {
+        setProjectsFailed(true);
+        setLoadingProjects(false);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   // Time logged per active project — independent of which one is "selected".
   useEffect(() => {
@@ -117,6 +212,7 @@ export default function StatsPage() {
       return;
     }
     let cancelled = false;
+    setProjectTimesFailed(false);
     fetchAllProjectTimeSummaries()
       .then((rows) => {
         if (cancelled) return;
@@ -127,7 +223,8 @@ export default function StatsPage() {
         );
       })
       .catch(() => {
-        if (!cancelled) setProjectTimes(active.map((p) => ({ label: p.name, value: 0 })));
+        // Say it failed, rather than drawing every project at zero.
+        if (!cancelled) setProjectTimesFailed(true);
       });
     return () => {
       cancelled = true;
@@ -322,10 +419,23 @@ export default function StatsPage() {
     timelinePlot !== COUNT_MODE ? fields.find((f) => f.id === timelinePlot)?.name : null;
   const plottingByEntryDate = dateFieldId === ENTRY_DATE_OPTION;
   const dateFieldName = fields.find((f) => f.id === dateFieldId)?.name ?? "date";
+  const timelineRange =
+    timeline && timeline.points.length > 0
+      ? `${periodLabel(timeline.points[0].date, bucket)} to ${periodLabel(timeline.points[timeline.points.length - 1].date, bucket)}`
+      : null;
+
+  const openNewStatistic = (expressionText = "") => {
+    setDraftError(null);
+    setDraft({ id: "", name: "", expression: expressionText });
+  };
+
+  const header = (
+    <PageHeader title="Statistics" subtitle="How you're working, and whatever your own fields can add up." />
+  );
 
   if (loadingProjects) {
     return (
-      <div className="space-y-6 max-w-3xl" aria-busy="true">
+      <div className="space-y-6 max-w-5xl" aria-busy="true">
         <span className="sr-only" role="status">Loading projects…</span>
         <div className="space-y-2">
           <Skeleton className="h-7 w-36" />
@@ -338,10 +448,26 @@ export default function StatsPage() {
     );
   }
 
+  if (projectsFailed) {
+    return (
+      <div className="space-y-6 max-w-5xl">
+        {header}
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <EmptyState
+            icon={CircleAlert}
+            title="Your projects couldn't be loaded"
+            description="Statistics are worked out per project, so there's nothing to show yet. Check your connection and try again."
+            action={<button onClick={loadProjects} className={button("secondary")}>Try again</button>}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (projects.length === 0) {
     return (
-      <div className="space-y-6 max-w-3xl">
-        <PageHeader title="Statistics" subtitle="How you're working: your time and what your own fields add up to." />
+      <div className="space-y-6 max-w-5xl">
+        {header}
         <div className="rounded-xl border border-slate-200 bg-white">
           <EmptyState
             icon={BarChart3}
@@ -354,401 +480,383 @@ export default function StatsPage() {
     );
   }
 
+  const loadingLine = (text: string) => (
+    <div className="flex items-center gap-2 py-4 text-xs text-slate-500" role="status">
+      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> {text}
+    </div>
+  );
+  // Only errors from something the student just did are announced; panel load errors are not.
+  const errorLine = (text: string, announce = true) => (
+    <p role={announce ? "alert" : undefined} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{text}</p>
+  );
+
   return (
-    <div className="space-y-6 max-w-3xl">
-      <PageHeader
-        title="Statistics"
-        subtitle="How you're working: time per project, and whatever your own fields can total, group or plot."
-      />
+    <div className="space-y-8 max-w-5xl">
+      {header}
 
-      {/* Time per project — the headline, no setup required */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-slate-400" aria-hidden="true" />
-          <h2 className="text-sm font-semibold text-slate-900">Time per project</h2>
-        </div>
-        {projectTimes === null ? (
-          <div className="flex items-center gap-2 text-xs text-slate-400 py-4">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
-          </div>
+      {/* ── 1. Time logged: the headline, no setup ─────────────────────── */}
+      <Panel title="Time logged" description="Across all projects">
+        {projectTimesFailed ? (
+          <p className="text-sm text-slate-500">Time per project couldn't be loaded just now. Reload the page to try again.</p>
+        ) : projectTimes === null ? (
+          loadingLine("Loading…")
         ) : projectTimes.every((p) => p.value === 0) ? (
-          <p className="text-xs text-slate-500">No time logged yet — entries you add will show up here.</p>
+          <p className="text-sm text-slate-500">No time logged yet — entries you add will show up here.</p>
         ) : (
-          <BarChart
-            data={projectTimes.filter((p) => p.value > 0)}
-            formatValue={formatDuration}
-          />
+          <MeterList data={projectTimes.filter((p) => p.value > 0)} formatValue={formatDuration} />
         )}
-      </section>
+      </Panel>
 
-      <div>
-        <label className="block text-xs font-medium text-slate-500 mb-1">Project</label>
-        <select
-          value={selectedProjectId}
-          onChange={(e) => setParams({ project: e.target.value })}
-          className="w-full max-w-sm border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800"
-        >
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Total / Group */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-slate-400" aria-hidden="true" />
-          <h2 className="text-sm font-semibold text-slate-900">Total &amp; Group</h2>
-        </div>
-
-        {loadingFields ? (
-          <p className="text-xs text-slate-500">Loading fields…</p>
-        ) : fields.length === 0 ? (
-          <p className="text-xs text-slate-500">
-            This project has no entry fields yet — add one to see it here.
-          </p>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Field</label>
-                <select
-                  value={metricFieldId}
-                  onChange={(e) => setMetricFieldId(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  {fields.map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Operation</label>
-                <select
-                  value={operation}
-                  onChange={(e) => setOperation(e.target.value as Operation)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  {availableOperations.map((op) => (
-                    <option key={op} value={op}>{op}</option>
-                  ))}
-                </select>
-                {!isNumericMetric && (
-                  <p className="text-[10px] text-slate-400 mt-1">Only count works on a non-number field.</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Group by (optional)</label>
-                <select
-                  value={groupByFieldId}
-                  onChange={(e) => setGroupByFieldId(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">None — one total</option>
-                  {anyFields.filter((f) => f.id !== metricFieldId).map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="pt-1">
-              {computing ? (
-                <div className="flex items-center gap-2 text-xs text-slate-400 py-4">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Computing…
-                </div>
-              ) : error ? (
-                <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
-              ) : result && result.groups.length === 1 && result.groups[0].key === "total" ? (
-                <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-5 text-center">
-                  <p className="text-3xl font-bold text-slate-900 tabular-nums">{formatNumber(result.groups[0].value)}</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {operation} of {selectedMetricField?.name}
-                  </p>
-                </div>
-              ) : result && result.groups.length > 0 ? (
-                <BarChart
-                  data={result.groups.map((g) => ({ label: g.key, value: g.value }))}
-                  formatValue={formatNumber}
-                />
-              ) : result ? (
-                <p className="text-xs text-slate-500 py-2">No entries have this field filled in yet.</p>
-              ) : null}
-            </div>
-          </>
-        )}
-      </section>
-
-      {/* Over Time */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-slate-400" aria-hidden="true" /> Over Time
+      {/* ── 2. Project statistics: the selector, then what it controls ─── */}
+      <section aria-labelledby="project-statistics-heading" className="space-y-4">
+        <div className="border-t border-slate-200 pt-6">
+          <h2 id="project-statistics-heading" className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Project statistics
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            {plottingByEntryDate
-              ? plottedFieldName
-                ? `Total ${plottedFieldName} across entries, added up per ${bucket} by the day each was logged.`
-                : `How many entries were logged, per ${bucket}.`
-              : plottedFieldName
-                ? `Total ${plottedFieldName} across entries, added up per ${bucket} by each entry's ${dateFieldName}.`
-                : `How many entries have a ${dateFieldName} value, counted per ${bucket}.`}
-          </p>
+          <div className="mt-3 max-w-sm">
+            <label htmlFor="stats-project" className={labelClass}>Project</label>
+            <select
+              id="stats-project"
+              value={selectedProjectId}
+              onChange={(e) => setParams({ project: e.target.value })}
+              aria-describedby="stats-project-hint"
+              className={selectClass}
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <p id="stats-project-hint" className="mt-1.5 text-xs text-slate-500">The sections below are calculated for this project.</p>
         </div>
 
-        {loadingFields ? (
-          <p className="text-xs text-slate-500">Loading fields…</p>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-3 items-end">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Date field</label>
-                <select
-                  value={dateFieldId}
-                  onChange={(e) => setDateFieldId(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  {dateFields.map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                  {/* Always offered: an entry is dated by the day it was logged
-                      whether or not its project defines a DATE field. */}
-                  <option value={ENTRY_DATE_OPTION}>Entry date</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Plot</label>
-                <select
-                  value={timelinePlot}
-                  onChange={(e) => setTimelinePlot(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value={COUNT_MODE}>Number of entries</option>
-                  {numericFields.map((f) => (
-                    <option key={f.id} value={f.id}>Total {f.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex border border-slate-200 rounded-lg overflow-hidden">
-                {(["day", "week", "month"] as const).map((b) => (
-                  <button
-                    key={b}
-                    onClick={() => setBucket(b)}
-                    className={`px-3 py-2 text-xs font-medium capitalize transition ${
-                      bucket === b ? "bg-cyan-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    {b}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-1">
-              {computingTimeline ? (
-                <div className="flex items-center gap-2 text-xs text-slate-400 py-8">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Computing…
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start">
+          {/* ── 3. Breakdown ─────────────────────────────────────────── */}
+          <Panel level={3} title="Breakdown" description="What a field adds up to, in total or split by another field.">
+            {loadingFields ? (
+              <p className="text-xs text-slate-500">Loading fields…</p>
+            ) : fields.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                This project has no entry fields yet — add one to see it here.
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <label htmlFor="breakdown-measure" className={labelClass}>Measure</label>
+                    <select id="breakdown-measure" value={metricFieldId} onChange={(e) => setMetricFieldId(e.target.value)} className={selectClass}>
+                      {fields.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="breakdown-operation" className={labelClass}>Calculate</label>
+                    <select
+                      id="breakdown-operation"
+                      value={operation}
+                      onChange={(e) => setOperation(e.target.value as Operation)}
+                      aria-describedby={!isNumericMetric ? "breakdown-operation-hint" : undefined}
+                      className={selectClass}
+                    >
+                      {availableOperations.map((op) => (
+                        <option key={op} value={op}>{OPERATION_LABELS[op]}</option>
+                      ))}
+                    </select>
+                    {!isNumericMetric && (
+                      <p id="breakdown-operation-hint" className="mt-1 text-[11px] text-slate-500">Only count works on a non-number field.</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="breakdown-group" className={labelClass}>Group by</label>
+                    <select id="breakdown-group" value={groupByFieldId} onChange={(e) => setGroupByFieldId(e.target.value)} className={selectClass}>
+                      <option value="">Nothing — one total</option>
+                      {anyFields.filter((f) => f.id !== metricFieldId).map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              ) : timelineError ? (
-                <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{timelineError}</p>
-              ) : timeline && timeline.points.length > 0 ? (
-                <TrendChart
-                  data={timeline.points.map((p) => ({ label: p.date, value: p.value }))}
-                  formatValue={plottedFieldName ? formatNumber : (v) => String(Math.round(v))}
-                />
-              ) : timeline ? (
-                <p className="text-xs text-slate-500 py-2">No dated entries yet.</p>
-              ) : null}
-            </div>
-          </>
-        )}
-      </section>
 
-      {/* Custom Expression (US16) — one number across the whole project */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-            <Sigma className="h-4 w-4 text-slate-400" aria-hidden="true" /> Custom Expression
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Your own calculation over every entry in this project — for example
-            {" "}
-            <span className="font-mono text-slate-600">SUM(&#123;Hours&#125;) / COUNT()</span>.
-          </p>
-        </div>
+                <div>
+                  {computing ? (
+                    loadingLine("Computing…")
+                  ) : error ? (
+                    errorLine(error, false)
+                  ) : result && result.groups.length === 1 && result.groups[0].key === "total" ? (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                      <p className="text-2xl font-semibold tabular-nums text-slate-900">{formatNumber(result.groups[0].value)}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {OPERATION_LABELS[operation]} of {selectedMetricField?.name}
+                      </p>
+                    </div>
+                  ) : result && result.groups.length > 0 ? (
+                    <MeterList data={result.groups.map((g) => ({ label: g.key, value: g.value }))} formatValue={formatNumber} />
+                  ) : result ? (
+                    <p className="py-2 text-sm text-slate-500">No entries have this field filled in yet.</p>
+                  ) : null}
+                </div>
+              </>
+            )}
+          </Panel>
 
-        {loadingFields ? (
-          <p className="text-xs text-slate-500">Loading fields…</p>
-        ) : (
-          <>
-            <form onSubmit={runExpression} className="flex flex-wrap gap-2 items-end">
-              <div className="flex-1 min-w-[240px]">
-                <label htmlFor="custom-expression" className="block text-xs font-medium text-slate-500 mb-1">
-                  Expression
-                </label>
-                <input
-                  id="custom-expression"
-                  value={expression}
-                  onChange={(e) => setExpression(e.target.value)}
-                  placeholder="SUM({Hours}) / COUNT()"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono text-slate-800 bg-white outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={evaluating || !expression.trim()}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              >
-                Calculate
-              </button>
-            </form>
-
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-[11px]">
-              <div>
-                <p className="font-medium text-slate-500 mb-1">Fields you can use</p>
-                {numericFields.length === 0 ? (
-                  <p className="text-slate-500">
-                    This project has no Number or Computed fields yet, so only COUNT() will work.
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-1">
-                    {numericFields.map((f) => (
+          {/* ── 4. Over time ─────────────────────────────────────────── */}
+          <Panel
+            level={3}
+            title="Over time"
+            description={
+              plottingByEntryDate
+                ? plottedFieldName
+                  ? `Total ${plottedFieldName} across entries, added up per ${bucket} by the day each was logged.`
+                  : `How many entries were logged, per ${bucket}.`
+                : plottedFieldName
+                  ? `Total ${plottedFieldName} across entries, added up per ${bucket} by each entry's ${dateFieldName}.`
+                  : `How many entries have a ${dateFieldName} value, counted per ${bucket}.`
+            }
+          >
+            {loadingFields ? (
+              <p className="text-xs text-slate-500">Loading fields…</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                  <div>
+                    <label htmlFor="timeline-date" className={labelClass}>Date</label>
+                    <select id="timeline-date" value={dateFieldId} onChange={(e) => setDateFieldId(e.target.value)} className={selectClass}>
+                      {dateFields.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                      {/* Always offered: an entry is dated by the day it was logged
+                          whether or not its project defines a DATE field. */}
+                      <option value={ENTRY_DATE_OPTION}>Entry date</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="timeline-plot" className={labelClass}>Plot</label>
+                    <select id="timeline-plot" value={timelinePlot} onChange={(e) => setTimelinePlot(e.target.value)} className={selectClass}>
+                      <option value={COUNT_MODE}>Number of entries</option>
+                      {numericFields.map((f) => (
+                        <option key={f.id} value={f.id}>Total {f.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div role="group" aria-label="Period" className="flex h-10 overflow-hidden rounded-lg border border-slate-200">
+                    {(["day", "week", "month"] as const).map((b) => (
                       <button
-                        key={f.id}
-                        type="button"
-                        onClick={() => setExpression((current) => `${current}${referenceFor(f.name)}`)}
-                        title={`Add ${f.name} to the expression`}
-                        className="px-2 py-0.5 rounded-md font-mono bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition"
+                        key={b}
+                        onClick={() => setBucket(b)}
+                        aria-pressed={bucket === b}
+                        className={`flex-1 px-3 text-xs font-medium capitalize transition-colors duration-150 ${
+                          bucket === b ? "bg-blue-50 text-blue-700" : "bg-white text-slate-600 hover:bg-slate-50"
+                        }`}
                       >
-                        {f.name}
+                        {b}
                       </button>
                     ))}
                   </div>
-                )}
-              </div>
-              <div>
-                <p className="font-medium text-slate-500 mb-1">Functions</p>
-                <div className="flex flex-wrap gap-1">
-                  {["COUNT()", "SUM(field)", "AVG(field)", "MIN(field)", "MAX(field)"].map((fn) => (
-                    <span
-                      key={fn}
-                      className="px-2 py-0.5 rounded-md font-mono bg-slate-100 text-slate-600 border border-slate-200"
-                    >
-                      {fn}
-                    </span>
-                  ))}
                 </div>
-                <p className="text-slate-500 mt-1">with + - * / and parentheses</p>
-              </div>
-            </div>
 
-            <div className="pt-1">
-              {evaluating ? (
-                <div className="flex items-center gap-2 text-xs text-slate-400 py-4">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Calculating…
+                <div>
+                  {computingTimeline ? (
+                    loadingLine("Computing…")
+                  ) : timelineError ? (
+                    errorLine(timelineError, false)
+                  ) : timeline && timeline.points.length > 0 ? (
+                    <>
+                      <TrendChart
+                        accent
+                        data={timeline.points.map((p) => ({ label: periodLabel(p.date, bucket), value: p.value }))}
+                        formatValue={plottedFieldName ? formatNumber : (v) => String(Math.round(v))}
+                      />
+                      {timelineRange && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {timelineRange}, per {bucket}. Periods with nothing logged are skipped.
+                        </p>
+                      )}
+                    </>
+                  ) : timeline ? (
+                    <p className="py-2 text-sm text-slate-500">No dated entries yet.</p>
+                  ) : null}
                 </div>
-              ) : expressionError ? (
-                <p role="alert" className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {expressionError}
-                </p>
-              ) : expressionValue !== null ? (
-                <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-5 text-center">
-                  <p className="text-3xl font-bold text-slate-900 tabular-nums">{formatNumber(expressionValue)}</p>
-                  <p className="text-xs text-slate-500 mt-1 font-mono break-all">{evaluatedExpression}</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDraftError(null);
-                      setDraft({ id: "", name: "", expression: evaluatedExpression });
-                    }}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
-                  >
-                    <Bookmark className="h-3.5 w-3.5" /> Save as statistic
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </>
-        )}
-      </section>
-
-      {/* My Custom Statistics (US17) — saved definitions, valued right now */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-            <Bookmark className="h-4 w-4 text-slate-400" aria-hidden="true" /> My Custom Statistics
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Your own saved calculations. Each one is worked out again from the current entries,
-            so the numbers keep up as you log more work.
-          </p>
+              </>
+            )}
+          </Panel>
         </div>
 
-        {loadingSaved ? (
-          <p className="text-xs text-slate-500">Loading your statistics…</p>
-        ) : savedError ? (
-          <p role="alert" className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            {savedError}
-          </p>
-        ) : saved.length === 0 ? (
-          <p className="text-xs text-slate-500">
-            Nothing saved yet. Work out an expression above, then choose “Save as statistic”.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {saved.map((statistic) => (
-              <li
-                key={statistic.id}
-                className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-900">{statistic.name}</p>
+        {/* ── 5. Saved statistics ──────────────────────────────────────── */}
+        <Panel
+          level={3}
+          title="Your saved statistics"
+          description="Your own calculations for this project, worked out again from the current entries each time."
+          action={
+            saved.length > 0 && (
+              <button type="button" onClick={() => openNewStatistic()} className={button("secondary", "sm")}>
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" /> New statistic
+              </button>
+            )
+          }
+        >
+          {loadingSaved ? (
+            <p className="text-xs text-slate-500">Loading your statistics…</p>
+          ) : savedError ? (
+            errorLine(savedError)
+          ) : saved.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-slate-300 px-4 py-6 text-center">
+              <p className="text-sm font-medium text-slate-800">No saved statistics yet</p>
+              <p className="mt-0.5 text-sm text-slate-500">
+                Create one when you want to calculate something custom.
+              </p>
+              <button type="button" onClick={() => openNewStatistic()} className={`${button("secondary", "sm")} mt-3`}>
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" /> New statistic
+              </button>
+            </div>
+          ) : (
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {saved.map((statistic) => (
+                <li key={statistic.id} className="flex flex-col rounded-lg border border-slate-200 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 text-sm font-semibold text-slate-900">{statistic.name}</p>
+                    <div className="-mr-1.5 -mt-1 flex shrink-0 items-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraftError(null);
+                          setDraft({ id: statistic.id, name: statistic.name, expression: statistic.expression });
+                        }}
+                        aria-label={`Edit ${statistic.name}`}
+                        title={`Edit ${statistic.name}`}
+                        className="rounded-md p-2 text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-800"
+                      >
+                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleting(statistic)}
+                        aria-label={`Delete ${statistic.name}`}
+                        title={`Delete ${statistic.name}`}
+                        className="rounded-md p-2 text-slate-500 transition-colors duration-150 hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-0.5 break-all font-mono text-[11px] text-slate-500">{statistic.expression}</p>
                   {statistic.error ? (
                     // A saved statistic can stop working — its field may have
                     // been renamed since — so it says so instead of vanishing.
-                    <p className="text-xs text-red-600 mt-0.5">{statistic.error}</p>
+                    <p className="mt-3 flex items-start gap-1.5 text-xs text-red-700">
+                      <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span>{statistic.error}</span>
+                    </p>
                   ) : (
-                    <p className="text-xl font-bold text-slate-900 tabular-nums leading-tight">
+                    <p className="mt-3 text-2xl font-semibold tabular-nums leading-tight text-slate-900">
                       {statistic.value === null ? "—" : formatNumber(statistic.value)}
                     </p>
                   )}
-                  <p className="text-[11px] text-slate-500 font-mono break-all mt-0.5">{statistic.expression}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        {/* Trying an expression before saving it (US16) */}
+        <Panel
+          level={3}
+          title="Try a calculation"
+          description={
+            <>
+              Work something out over every entry in this project — for example{" "}
+              <span className="font-mono text-slate-600">SUM(&#123;Hours&#125;) / COUNT()</span>.
+            </>
+          }
+        >
+          {loadingFields ? (
+            <p className="text-xs text-slate-500">Loading fields…</p>
+          ) : (
+            <>
+              <form onSubmit={runExpression} className="flex flex-wrap items-end gap-2">
+                <div className="min-w-[220px] flex-1">
+                  <label htmlFor="custom-expression" className={labelClass}>
+                    Expression
+                  </label>
+                  <input
+                    id="custom-expression"
+                    value={expression}
+                    onChange={(e) => setExpression(e.target.value)}
+                    placeholder="SUM({Hours}) / COUNT()"
+                    className={`${selectClass} font-mono`}
+                  />
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDraftError(null);
-                      setDraft({ id: statistic.id, name: statistic.name, expression: statistic.expression });
-                    }}
-                    title={`Edit ${statistic.name}`}
-                    className="rounded-md border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50 transition"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeleting(statistic)}
-                    title={`Delete ${statistic.name}`}
-                    className="rounded-md border border-slate-200 p-1.5 text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                <button type="submit" disabled={evaluating || !expression.trim()} className={button("primary")}>
+                  Calculate
+                </button>
+              </form>
+
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-[11px]">
+                <div>
+                  <p className="mb-1 font-medium text-slate-500">Fields you can use</p>
+                  {numericFields.length === 0 ? (
+                    <p className="text-slate-500">
+                      This project has no Number or Computed fields yet, so only COUNT() will work.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {numericFields.map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setExpression((current) => `${current}${referenceFor(f.name)}`)}
+                          title={`Add ${f.name} to the expression`}
+                          className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-slate-600 transition-colors duration-150 hover:bg-slate-100"
+                        >
+                          {f.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                <div>
+                  <p className="mb-1 font-medium text-slate-500">Functions</p>
+                  <div className="flex flex-wrap gap-1">
+                    {["COUNT()", "SUM(field)", "AVG(field)", "MIN(field)", "MAX(field)"].map((fn) => (
+                      <span key={fn} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-slate-600">
+                        {fn}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-slate-500">with + - * / and parentheses</p>
+                </div>
+              </div>
+
+              <div>
+                {evaluating ? (
+                  loadingLine("Calculating…")
+                ) : expressionError ? (
+                  errorLine(expressionError)
+                ) : expressionValue !== null ? (
+                  <div className="flex flex-wrap items-end justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                    <div className="min-w-0">
+                      <p className="text-2xl font-semibold tabular-nums text-slate-900">{formatNumber(expressionValue)}</p>
+                      <p className="mt-0.5 break-all font-mono text-xs text-slate-500">{evaluatedExpression}</p>
+                    </div>
+                    <button type="button" onClick={() => openNewStatistic(evaluatedExpression)} className={button("secondary", "sm")}>
+                      <Bookmark className="h-3.5 w-3.5" aria-hidden="true" /> Save as statistic
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          )}
+        </Panel>
       </section>
 
       <Modal
         open={draft !== null}
         onClose={() => setDraft(null)}
-        title={draft?.id ? "Edit statistic" : "Save custom statistic"}
+        title={draft?.id ? "Edit statistic" : "New statistic"}
       >
         <form onSubmit={submitDraft} className="space-y-3">
           <div>
-            <label htmlFor="statistic-name" className="block text-xs font-medium text-slate-500 mb-1">
+            <label htmlFor="statistic-name" className={labelClass}>
               Name
             </label>
             <input
@@ -756,38 +864,31 @@ export default function StatsPage() {
               value={draft?.name ?? ""}
               onChange={(e) => setDraft((current) => (current ? { ...current, name: e.target.value } : current))}
               placeholder="Average Hours Per Entry"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              className={selectClass}
             />
           </div>
           <div>
-            <label htmlFor="statistic-expression" className="block text-xs font-medium text-slate-500 mb-1">
+            <label htmlFor="statistic-expression" className={labelClass}>
               Expression
             </label>
             <input
               id="statistic-expression"
               value={draft?.expression ?? ""}
               onChange={(e) => setDraft((current) => (current ? { ...current, expression: e.target.value } : current))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono text-slate-800 bg-white outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              placeholder="SUM({Hours}) / COUNT()"
+              className={`${selectClass} font-mono`}
             />
-            <p className="text-[11px] text-slate-500 mt-1">Saved against this project, and worked out again every time it is shown.</p>
+            <p className="mt-1 text-[11px] text-slate-500">Saved against this project, and worked out again every time it is shown.</p>
           </div>
-          {draftError && (
-            <p role="alert" className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              {draftError}
-            </p>
-          )}
+          {draftError && errorLine(draftError)}
           <div className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => setDraft(null)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition"
-            >
+            <button type="button" onClick={() => setDraft(null)} className={button("secondary")}>
               Cancel
             </button>
             <button
               type="submit"
               disabled={savingDraft || !draft?.name.trim() || !draft?.expression.trim()}
-              className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className={button("primary")}
             >
               {savingDraft ? "Saving…" : "Save"}
             </button>
@@ -800,18 +901,10 @@ export default function StatsPage() {
           Delete “{deleting?.name}”? The expression is removed; nothing you have logged is touched.
         </p>
         <div className="flex justify-end gap-2 pt-4">
-          <button
-            type="button"
-            onClick={() => setDeleting(null)}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition"
-          >
+          <button type="button" onClick={() => setDeleting(null)} className={button("secondary")}>
             Cancel
           </button>
-          <button
-            type="button"
-            onClick={confirmDelete}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition"
-          >
+          <button type="button" onClick={confirmDelete} className={button("danger")}>
             Delete
           </button>
         </div>

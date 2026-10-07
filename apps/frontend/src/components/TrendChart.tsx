@@ -8,6 +8,11 @@ export interface TrendPoint {
 interface TrendChartProps {
   data: TrendPoint[];
   formatValue?: (value: number) => string;
+  /**
+   * Draw in the accent colour chosen in Settings (via currentColor on an
+   * accent-recoloured class) with a flat, faint fill instead of the gradient.
+   */
+  accent?: boolean;
 }
 
 const WIDTH = 480;
@@ -15,7 +20,7 @@ const HEIGHT = 160;
 const PAD = { top: 16, right: 16, bottom: 26, left: 16 };
 
 /** Single-series line/area chart with a hover crosshair and tooltip. */
-export default function TrendChart({ data, formatValue = (v) => String(v) }: TrendChartProps) {
+export default function TrendChart({ data, formatValue = (v) => String(v), accent = false }: TrendChartProps) {
   const [hovered, setHovered] = useState<number | null>(null);
 
   if (data.length === 0) return null;
@@ -34,9 +39,10 @@ export default function TrendChart({ data, formatValue = (v) => String(v) }: Tre
 
   const active = hovered !== null ? data[hovered] : null;
   const activePoint = hovered !== null ? points[hovered] : null;
+  const ink = accent ? "currentColor" : "#3b82f6";
 
   return (
-    <div className="relative">
+    <div className={`relative ${accent ? "text-blue-600" : ""}`}>
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         preserveAspectRatio="none"
@@ -64,8 +70,8 @@ export default function TrendChart({ data, formatValue = (v) => String(v) }: Tre
         ))}
 
         {/* Area + line */}
-        <path d={areaPath} fill="url(#trendFill)" />
-        <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={areaPath} fill={accent ? "currentColor" : "url(#trendFill)"} fillOpacity={accent ? 0.06 : undefined} />
+        <path d={linePath} fill="none" stroke={ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 
         {/* Crosshair */}
         {activePoint && (
@@ -87,7 +93,7 @@ export default function TrendChart({ data, formatValue = (v) => String(v) }: Tre
               cx={p.x}
               cy={p.y}
               r={hovered === i ? 5 : 3.5}
-              fill="#3b82f6"
+              fill={ink}
               stroke="#fff"
               strokeWidth="2"
             />
