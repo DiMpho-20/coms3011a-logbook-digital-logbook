@@ -238,20 +238,21 @@ describe("ProjectCard", () => {
     const summary = { projectId: "p1", totalMinutes: 140, totalHours: 2.3, entryCount: 3, lastEntryAt: daysAgo(0) } as TimeSummary;
     renderCard({ summary });
 
-    expect(screen.getByText("3 entries")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("entries")).toBeInTheDocument();
     expect(screen.getByText("2h 20m")).toBeInTheDocument();
     expect(screen.getByText("Today")).toBeInTheDocument();
   });
 
   it("says 'entry' in the singular", () => {
     renderCard({ summary: { projectId: "p1", totalMinutes: 10, totalHours: 0.2, entryCount: 1, lastEntryAt: daysAgo(1) } as TimeSummary });
-    expect(screen.getByText("1 entry")).toBeInTheDocument();
+    expect(screen.getByText("entry")).toBeInTheDocument();
     expect(screen.getByText("Yesterday")).toBeInTheDocument();
   });
 
   it("describes a project that has a summary but no entries yet", () => {
     renderCard({ summary: { projectId: "p1", totalMinutes: 0, totalHours: 0, entryCount: 0, lastEntryAt: null } as TimeSummary });
-    expect(screen.getByText("No entries yet")).toBeInTheDocument();
+    expect(screen.getByText("No activity yet")).toBeInTheDocument();
   });
 
   it("dates older activity in days", () => {
@@ -262,10 +263,13 @@ describe("ProjectCard", () => {
   it("notes an active project that has gone quiet, but not a recent or archived one", () => {
     const quiet = { projectId: "p1", totalMinutes: 5, totalHours: 0.1, entryCount: 1, lastEntryAt: daysAgo(20) } as TimeSummary;
     const { unmount } = renderCard({ summary: quiet });
-    expect(screen.getByText("Quiet for a while")).toBeInTheDocument();
+    // A status in words with an icon, in place of "Active".
+    expect(screen.getByText("Quiet")).toBeInTheDocument();
+    expect(screen.queryByText("Active")).toBeNull();
     unmount();
     renderCard({ summary: quiet, project: project({ status: "ARCHIVED" }) });
-    expect(screen.queryByText("Quiet for a while")).toBeNull();
+    expect(screen.queryByText("Quiet")).toBeNull();
+    expect(screen.getByText("Archived")).toBeInTheDocument();
   });
 
   it("can be opened from the keyboard through its name", () => {
@@ -278,8 +282,11 @@ describe("ProjectCard", () => {
     const onToggleArchive = vi.fn();
     renderCard({ onEdit, onToggleArchive });
 
-    fireEvent.click(screen.getByTitle("Edit project"));
-    fireEvent.click(screen.getByTitle("Archive"));
+    const more = screen.getByRole("button", { name: "More actions for Campus Marketplace" });
+    fireEvent.click(more);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit project" }));
+    fireEvent.click(more);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
 
     expect(onEdit).toHaveBeenCalled();
     expect(onToggleArchive).toHaveBeenCalled();
@@ -287,7 +294,8 @@ describe("ProjectCard", () => {
 
   it("offers to unarchive an archived project", () => {
     renderCard({ project: project({ status: "ARCHIVED" }) });
-    expect(screen.getByTitle("Unarchive")).toBeInTheDocument();
-    expect(screen.queryByTitle("Archive")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Campus Marketplace" }));
+    expect(screen.getByRole("menuitem", { name: "Unarchive" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Archive" })).not.toBeInTheDocument();
   });
 });

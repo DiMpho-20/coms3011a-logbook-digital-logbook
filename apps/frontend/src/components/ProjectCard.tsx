@@ -1,5 +1,6 @@
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Archive, ArchiveRestore, CircleDot, CloudOff, Edit2, Moon, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, CircleDot, CloudOff, Edit2, Moon, MoreHorizontal, Trash2 } from "lucide-react";
 import { formatDuration } from "../lib/utils";
 import TagList from "./TagList";
 import StatusChip from "./StatusChip";
@@ -10,8 +11,10 @@ interface ProjectCardProps {
   summary?: TimeSummary;
   onEdit: (project: Project) => void;
   onToggleArchive: (project: Project) => void;
-  /** When provided, shows a button to delete the project permanently. */
+  /** When provided, the menu offers to delete the project permanently. */
   onDelete?: (project: Project) => void;
+  /** A card in the grid, or a compact row in the list. */
+  layout?: "grid" | "list";
 }
 
 /** An active project with no entry for this long reads as quiet: worth a look, not a warning. */
@@ -25,12 +28,127 @@ function daysSince(dateStr: string): number {
   return Math.floor((today.getTime() - target.getTime()) / 86400000);
 }
 
+/** "Today", "Yesterday", "24 days ago" — then a date once counting days stops helping. */
 function relativeDay(dateStr: string): string {
   const diffDays = daysSince(dateStr);
-  if (diffDays === 0) return "Today";
+  if (diffDays <= 0) return "Today";
   if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-  return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (diffDays < 45) return `${diffDays} days ago`;
+  const date = new Date(dateStr);
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
+  });
+}
+
+/**
+ * The card's secondary actions behind one "More" button: a small menu that
+ * opens on click or keyboard, moves with the arrow keys, and closes on
+ * Escape, Tab or a click elsewhere.
+ */
+function ProjectMenu({ project, onEdit, onToggleArchive, onDelete }: Omit<ProjectCardProps, "summary" | "layout">) {
+  const [open, setOpen] = useState(false);
+  const menuId = useId();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const isArchived = project.status === "ARCHIVED";
+
+  const items = [
+    { key: "edit", label: "Edit project", icon: Edit2, run: () => onEdit(project), danger: false },
+    isArchived
+      ? { key: "archive", label: "Unarchive", icon: ArchiveRestore, run: () => onToggleArchive(project), danger: false }
+      : { key: "archive", label: "Archive", icon: Archive, run: () => onToggleArchive(project), danger: false },
+    ...(onDelete ? [{ key: "delete", label: "Delete project", icon: Trash2, run: () => onDelete(project), danger: true }] : []),
+  ];
+
+  useEffect(() => {
+    if (!open) return;
+    wrapperRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const close = (event: MouseEvent) => {
+      if (!wrapperRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const onMenuKey = (event: KeyboardEvent) => {
+    const all = Array.from(wrapperRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    const at = all.indexOf(document.activeElement as HTMLElement);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      all[(at + step + all.length) % all.length]?.focus();
+    } else if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      all[event.key === "Home" ? 0 : all.length - 1]?.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    } else if (event.key === "Tab") {
+      setOpen(false);
+    }
+  };
+
+  return (
+    // Above the card's stretched link, and its clicks stay its own.
+    <div ref={wrapperRef} className="relative z-10" onClick={(e) => e.stopPropagation()}>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" && !open) {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-label={`More actions for ${project.name}`}
+        title="More actions"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-800"
+      >
+        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+      </button>
+      {open && (
+        <div
+          id={menuId}
+          role="menu"
+          aria-label={`Actions for ${project.name}`}
+          onKeyDown={onMenuKey}
+          className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+        >
+          {items.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.key}>
+                {item.danger && <div className="my-1 border-t border-slate-100" role="separator" />}
+                <button
+                  type="button"
+                  role="menuitem"
+                  tabIndex={-1}
+                  title={item.label}
+                  onClick={() => {
+                    setOpen(false);
+                    item.run();
+                  }}
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors duration-150 ${
+                    item.danger ? "text-red-700 hover:bg-red-50" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {item.label}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ProjectCard({
@@ -39,122 +157,98 @@ export default function ProjectCard({
   onEdit,
   onToggleArchive,
   onDelete,
+  layout = "grid",
 }: ProjectCardProps) {
   const navigate = useNavigate();
   const isArchived = project.status === "ARCHIVED";
   const quiet =
     !isArchived && summary?.lastEntryAt != null && daysSince(summary.lastEntryAt) >= QUIET_AFTER_DAYS;
 
-  const iconButton = "relative z-10 p-2 rounded-lg transition";
+  // Status in words and an icon, not colour alone. Quiet is the same rule as before, shown as a status.
+  const status = isArchived ? (
+    <StatusChip icon={Archive}>Archived</StatusChip>
+  ) : quiet ? (
+    <StatusChip icon={Moon} title={`No entries in the last ${QUIET_AFTER_DAYS} days`}>Quiet</StatusChip>
+  ) : (
+    <StatusChip tone="success" icon={CircleDot}>Active</StatusChip>
+  );
+  const offline = project.id.startsWith("offline-") && (
+    <span title="Created offline. It will be saved to your account when you reconnect.">
+      <StatusChip tone="caution" icon={CloudOff}>Not synced yet</StatusChip>
+    </span>
+  );
+
+  const entries = summary ? summary.entryCount.toLocaleString() : "—";
+  const time = summary ? formatDuration(summary.totalMinutes) : "—";
+  const lastActivity = !summary ? "—" : summary.lastEntryAt ? relativeDay(summary.lastEntryAt) : "No activity yet";
+
+  const nameLink = (
+    // The name is the card's link, stretched over it, so keyboards can open it too.
+    <Link
+      to={`/projects/${project.id}`}
+      onClick={(e) => e.stopPropagation()}
+      className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none"
+    >
+      {project.name}
+    </Link>
+  );
+
+  // Archived projects sit on a softer surface; everything else on white.
+  const shell = `relative rounded-xl border border-slate-200 transition-colors duration-150 hover:border-slate-300 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-blue-500 cursor-pointer ${
+    isArchived ? "bg-slate-50" : "bg-white"
+  }`;
+
+  if (layout === "list") {
+    return (
+      <li className={`${shell} flex items-start gap-2 px-4 py-3 sm:items-center`} onClick={() => navigate(`/projects/${project.id}`)}>
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <div className="min-w-0 flex-1">
+            <h3 className={`truncate text-sm font-semibold ${isArchived ? "text-slate-600" : "text-slate-900"}`}>{nameLink}</h3>
+            {project.description && <p className="truncate text-xs text-slate-500">{project.description}</p>}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">{status}{offline}</div>
+          <dl className="flex shrink-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-xs tabular-nums text-slate-500 sm:w-64 sm:justify-end">
+            <div><dt className="sr-only">Entries</dt><dd><span className="font-semibold text-slate-800">{entries}</span> {summary?.entryCount === 1 ? "entry" : "entries"}</dd></div>
+            <div><dt className="sr-only">Time logged</dt><dd><span className="font-semibold text-slate-800">{time}</span> logged</dd></div>
+            <div><dt className="sr-only">Last activity</dt><dd>{lastActivity}</dd></div>
+          </dl>
+        </div>
+        <ProjectMenu project={project} onEdit={onEdit} onToggleArchive={onToggleArchive} onDelete={onDelete} />
+      </li>
+    );
+  }
 
   return (
-    <div
-      className={`relative flex flex-col bg-white rounded-xl border border-slate-200 p-5 transition duration-150 hover:border-slate-300 hover:shadow-sm has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-blue-500 group cursor-pointer ${
-        isArchived ? "opacity-70" : ""
-      }`}
-      onClick={() => navigate(`/projects/${project.id}`)}
-    >
+    <li className={`${shell} flex flex-col p-5`} onClick={() => navigate(`/projects/${project.id}`)}>
       <div className="flex items-start justify-between gap-3">
-        <h3 className="min-w-0 text-[15px] font-semibold text-slate-900">
-          {/* The name is the card's link, stretched over it, so keyboards can open it too. */}
-          <Link
-            to={`/projects/${project.id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none"
-          >
-            {project.name}
-          </Link>
-        </h3>
-        <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
-          {isArchived ? (
-            <StatusChip icon={Archive}>Archived</StatusChip>
-          ) : (
-            <StatusChip tone="success" icon={CircleDot}>Active</StatusChip>
-          )}
-          {project.id.startsWith("offline-") && (
-            <span title="Created offline. It will be saved to your account when you reconnect.">
-              <StatusChip tone="caution" icon={CloudOff}>Not synced yet</StatusChip>
-            </span>
-          )}
-        </div>
+        <h3 className={`min-w-0 text-[15px] font-semibold break-words ${isArchived ? "text-slate-600" : "text-slate-900"}`}>{nameLink}</h3>
+        <ProjectMenu project={project} onEdit={onEdit} onToggleArchive={onToggleArchive} onDelete={onDelete} />
       </div>
 
       {project.description && (
-        <p className="mt-1.5 text-sm text-slate-500 line-clamp-2">{project.description}</p>
+        <p className="mt-1 text-sm text-slate-500 line-clamp-2">{project.description}</p>
       )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">{status}{offline}</div>
 
       {project.tags && project.tags.length > 0 && <TagList tags={project.tags} className="mt-3" />}
 
+      {/* Figures first to the eye, labels first in the markup (dt before dd). */}
+      <div className="flex-1" />
       <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-slate-100 pt-3">
-        <div>
-          <dt className="text-xs text-slate-500">Entries</dt>
-          <dd className="text-sm font-semibold tabular-nums text-slate-800">
-            {summary ? `${summary.entryCount} ${summary.entryCount === 1 ? "entry" : "entries"}` : "—"}
-          </dd>
+        <div className="flex min-w-0 flex-col-reverse">
+          <dt className="text-xs text-slate-500">{summary?.entryCount === 1 ? "entry" : "entries"}</dt>
+          <dd className="text-sm font-semibold tabular-nums text-slate-900">{entries}</dd>
         </div>
-        <div>
-          <dt className="text-xs text-slate-500">Time logged</dt>
-          <dd className="text-sm font-semibold tabular-nums text-slate-800">
-            {summary ? formatDuration(summary.totalMinutes) : "—"}
-          </dd>
+        <div className="flex min-w-0 flex-col-reverse">
+          <dt className="text-xs text-slate-500">logged</dt>
+          <dd className="text-sm font-semibold tabular-nums text-slate-900">{time}</dd>
         </div>
-        <div>
-          <dt className="text-xs text-slate-500">Last activity</dt>
-          <dd className="text-sm font-medium text-slate-700">
-            {!summary ? "—" : summary.lastEntryAt ? relativeDay(summary.lastEntryAt) : "No entries yet"}
-          </dd>
+        <div className="flex min-w-0 flex-col-reverse">
+          <dt className="text-xs text-slate-500">last activity</dt>
+          <dd className="truncate text-sm font-semibold text-slate-900">{lastActivity}</dd>
         </div>
       </dl>
-
-      <div className="mt-3 flex items-center justify-between gap-2">
-        {quiet ? (
-          <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-            <Moon className="h-3.5 w-3.5" aria-hidden="true" /> Quiet for a while
-          </span>
-        ) : (
-          <span />
-        )}
-        {/* Always there on touch screens; on larger screens they appear on hover or keyboard focus. */}
-        <div className="flex items-center gap-0.5 transition sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(project);
-            }}
-            className={`${iconButton} text-slate-500 hover:bg-slate-100 hover:text-slate-700`}
-            title="Edit project"
-            aria-label={`Edit ${project.name}`}
-          >
-            <Edit2 className="h-4 w-4" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleArchive(project);
-            }}
-            className={`${iconButton} ${
-              isArchived ? "text-emerald-600 hover:bg-emerald-50" : "text-slate-500 hover:bg-slate-100 hover:text-amber-600"
-            }`}
-            title={isArchived ? "Unarchive" : "Archive"}
-            aria-label={isArchived ? `Unarchive ${project.name}` : `Archive ${project.name}`}
-          >
-            {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-          </button>
-          {onDelete && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(project);
-              }}
-              className={`${iconButton} text-slate-500 hover:bg-red-50 hover:text-red-600`}
-              title="Delete project permanently"
-              aria-label="Delete project"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    </li>
   );
 }
