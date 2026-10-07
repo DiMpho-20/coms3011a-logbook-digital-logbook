@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render as rtlRender, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import type { ReactElement } from "react";
 
 vi.mock("../../api", () => ({
   fetchProjects: vi.fn(),
@@ -17,6 +19,11 @@ vi.mock("../../api/client", () => {
 
 import * as api from "../../api";
 import EntriesPage from "../EntriesPage";
+
+// The page links to entries and Open Work, so it needs a router around it.
+const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
+/** The less common filters sit behind the Filters button. */
+const openFilters = () => fireEvent.click(screen.getByRole("button", { name: /^filters/i }));
 
 const SUMMARY_FIELD = { id: "f-sum", name: "Summary", type: "TEXT", required: false };
 const MOOD_FIELD = { id: "f-mood", name: "Mood", type: "TEXT", required: false };
@@ -83,8 +90,8 @@ describe("EntriesPage — shell and loading", () => {
     // deliberately not used here — it is also a filter option, so it matches
     // twice; "Total Entries" and "Day Streak" are stat labels only.)
     expect(await screen.findByText("Entries")).toBeInTheDocument();
-    expect(screen.getByText("Total Entries")).toBeInTheDocument();
-    expect(screen.getByText("Day Streak")).toBeInTheDocument();
+    expect(screen.getByText("All time")).toBeInTheDocument();
+    expect(screen.getByText("Streak")).toBeInTheDocument();
     // And the list shows a busy placeholder rather than an empty state.
     expect(document.querySelector('[aria-busy="true"]')).toBeTruthy();
   });
@@ -147,7 +154,8 @@ describe("EntriesPage — shell and loading", () => {
     vi.mocked(api.fetchAllEntries).mockResolvedValue(listing([entry()], { truncated: true }) as never);
     render(<EntriesPage />);
 
-    fireEvent.change(await screen.findByLabelText("Archived entries"), { target: { value: "only" } });
+    fireEvent.click(await screen.findByRole("button", { name: /^filters/i }));
+    fireEvent.change(screen.getByLabelText("Archived entries"), { target: { value: "only" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     await waitFor(() =>
       expect(vi.mocked(api.fetchAllEntries).mock.calls.at(-1)![0]).toMatchObject({ archived: "only", offset: 0 })
@@ -213,14 +221,38 @@ describe("EntriesPage — the timeline", () => {
     await waitFor(() => expect(screen.getAllByText("2").length).toBeGreaterThan(0));
   });
 
-  it("marks an overdue entry with a badge", async () => {
+  it("shows a due date as quiet context on the entry, not as a warning", async () => {
     await setup([entry({ dueDate: daysAgo(2) })], [project()], {
       total: 1, weekCount: 1, weekMinutes: 45, overdueCount: 1, streak: 1,
     });
 
-    await screen.findByText("Wrote the report");
-    // The stat-card label, the filter option, and the badge on the entry.
-    expect(screen.getAllByText("Overdue")).toHaveLength(3);
+    const item = (await screen.findByText("Wrote the report")).closest("li")!;
+    expect(within(item).getByText(/^Due /)).toBeInTheDocument();
+    expect(within(item).getByText("Overdue")).toBeInTheDocument();
+    expect(within(item).getByRole("link", { name: /open work/i })).toHaveAttribute("href", "/open-work");
+    // No page-level overdue figure or banner.
+    expect(screen.getAllByText("Overdue")).toHaveLength(1);
+  });
+
+  it("does not treat an entry without a due date as a task", async () => {
+    await setup([entry()]);
+    const item = (await screen.findByText("Wrote the report")).closest("li")!;
+    expect(within(item).queryByText(/open|done|completed|overdue/i)).toBeNull();
+    expect(within(item).getByRole("link", { name: /view entry/i })).toHaveAttribute("href", "/projects/p1?entry=e1");
+  });
+
+  it("says when there are no entries at all, apart from when filters match nothing", async () => {
+    await setup([]);
+    expect(await screen.findByText("No entries yet")).toBeInTheDocument();
+    expect(screen.queryByText("No entries match these filters.")).toBeNull();
+  });
+
+  it("explains a failed load and offers to try again", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
+    vi.mocked(api.fetchAllEntries).mockRejectedValueOnce(new Error("boom")).mockResolvedValue(listing([entry()]) as never);
+    render(<EntriesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Wrote the report")).toBeInTheDocument();
   });
 
   it("filters by the search box across project name and values", async () => {
@@ -247,8 +279,9 @@ describe("EntriesPage — the timeline", () => {
     fireEvent.change(screen.getByPlaceholderText("Search entries..."), { target: { value: "zzzz" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-    expect(await screen.findByText("No entries match.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /clear filters/i }));
+    expect(await screen.findByText("No entries match these filters.")).toBeInTheDocument();
+    const list = screen.getByRole("region", { name: "Your entries" });
+    fireEvent.click(within(list).getByRole("button", { name: /clear filters/i }));
     // Clearing reloads without the search, rather than only emptying the box.
     expect(await screen.findByText("Wrote the report")).toBeInTheDocument();
     expect(vi.mocked(api.fetchAllEntries).mock.calls.at(-1)![0]).not.toHaveProperty("search");
@@ -259,6 +292,7 @@ describe("EntriesPage — the timeline", () => {
     await screen.findByText("Wrote the report");
     vi.mocked(api.fetchAllEntries).mockResolvedValueOnce(listing([]) as never);
 
+    openFilters();
     const tabSelect = screen.getAllByRole("combobox").find((s) =>
       Array.from((s as HTMLSelectElement).options).some((o) => o.value === "overdue")
     )!;
@@ -290,10 +324,11 @@ describe("EntriesPage — the timeline", () => {
     await setup([entry()]);
     await screen.findByText("Wrote the report");
 
-    const toggle = screen.getByRole("button", { name: /newest/i });
-    fireEvent.click(toggle);
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort order" }), { target: { value: "oldest" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-    expect(await screen.findByRole("button", { name: /oldest/i })).toBeInTheDocument();
+    await waitFor(() => expect(api.fetchAllEntries).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.fetchAllEntries).mock.calls[1][0]).toMatchObject({ sort: "oldest" });
   });
 });
 
