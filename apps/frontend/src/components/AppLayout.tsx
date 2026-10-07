@@ -104,7 +104,8 @@ export default function AppLayout() {
         Skip to content
       </a>
       {/* Desktop sidebar */}
-      <div className="hidden lg:flex">
+      {/* An inset panel: a little page shows around it, so it reads as part of the desk. */}
+      <div className="hidden lg:flex p-3 pr-0">
         <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
       </div>
 

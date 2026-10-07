@@ -84,21 +84,39 @@ body {
   color: #475569;
 }
 
-/* ── Sidebar visual effects ─────────────────────────────────── */
+/* ── Sidebar ─────────────────────────────────────────────────
+   The sidebar is a dark panel whatever the page theme. Its accent is the
+   one chosen in Settings, in a lighter tone that reads on dark: each
+   data-accent sets --nav-accent, and the active item, its edge and its
+   badge all take their colour from it. */
+:root { --nav-accent: #60a5fa; }
+[data-accent="emerald"] { --nav-accent: #34d399; }
+[data-accent="violet"] { --nav-accent: #a78bfa; }
+[data-accent="amber"] { --nav-accent: #fbbf24; }
+[data-accent="rose"] { --nav-accent: #fb7185; }
 
-/* Active nav item background glow */
+.sidebar-root {
+  background-color: #0f172a;
+  color: #cbd5e1;
+}
+/* In the dark theme the page is near-black too, so the panel's edge carries it. */
+[data-theme="dark"] .sidebar-root {
+  background-color: #111a2e;
+}
+
+/* Active: a tinted wash, accent text, and an edge on the left — more than colour alone. */
 .sidebar-nav-active {
-  background: rgba(0, 174, 255, 0.08);
+  background-color: color-mix(in srgb, var(--nav-accent) 14%, transparent);
+  color: color-mix(in srgb, var(--nav-accent) 55%, #ffffff);
 }
-
 .sidebar-nav-active:hover {
-  background: rgba(0, 174, 255, 0.12);
+  background-color: color-mix(in srgb, var(--nav-accent) 18%, transparent);
 }
-
-/* Active indicator bar (cyan with glow) */
 .sidebar-active-bar {
-  background: linear-gradient(180deg, #00c6ff, #0072ff);
-  box-shadow: 0 0 8px rgba(0, 198, 255, 0.5), 0 0 16px rgba(0, 198, 255, 0.2);
+  background-color: var(--nav-accent);
+}
+.sidebar-accent-text {
+  color: color-mix(in srgb, var(--nav-accent) 55%, #ffffff);
 }
 
 /* ── Motion preference ───────────────────────────────────────
@@ -131,8 +149,8 @@ body {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
-/* The sidebar is dark whatever the theme. */
-.sidebar-root :focus-visible { outline-color: #22d3ee; }
+/* The sidebar is dark whatever the theme: a light ring, distinct from the accent active state. */
+.sidebar-root :focus-visible { outline-color: #e2e8f0; outline-offset: 1px; }
 
 /* ── Readable helper text ──────────────────────────────────────
    slate-400 (#94a3b8) is about 2.6:1 on white, below the 4.5:1 that
