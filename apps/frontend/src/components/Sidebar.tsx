@@ -155,7 +155,7 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
   return (
     <div
       className={`sidebar-root flex h-full shrink-0 flex-col overflow-hidden transition-[width] duration-200 ${
-        collapsed ? "w-16" : "w-60"
+        collapsed ? "w-16" : "w-64"
       } ${inset ? "rounded-2xl border border-white/[0.08]" : ""}`}
     >
       {/* Brand area */}
