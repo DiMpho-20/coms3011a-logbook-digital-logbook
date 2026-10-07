@@ -88,6 +88,9 @@ describe("module summary", () => {
     expect(tile("Average on marked work")).toHaveTextContent("75.0%");
     expect(tile("Marked")).toHaveTextContent("60.0%");
     expect(tile("Remaining")).toHaveTextContent("40.0%");
+    // The counts behind the weights.
+    expect(tile("Marked")).toHaveTextContent("3 of 4 assessments");
+    expect(tile("Remaining")).toHaveTextContent("1 assessment to come");
     expect(screen.queryByText(/current mark/i)).toBeNull();
   });
 

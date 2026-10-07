@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { GraduationCap, Plus } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
-import Stat from "../components/Stat";
 import Skeleton from "../components/Skeleton";
 import ErrorState from "../components/ErrorState";
 import EmptyState from "../components/EmptyState";
@@ -17,7 +16,6 @@ import {
   TARGET_STATUS_META,
   UNOFFICIAL_NOTE,
   academicYears,
-  countdownLabel,
   apiError,
   defaultAcademicYear,
   moduleInTerm,
@@ -73,7 +71,6 @@ export default function GradesPage() {
     [modules]
   );
 
-  const shownUpcoming = upcomingAssessments(shown);
   const statusCounts = new Map<TargetStatus, number>();
   for (const m of shown) {
     const status = summaries.get(m.id)?.target?.status;
@@ -84,22 +81,23 @@ export default function GradesPage() {
     .map(([status, n]) => `${n} ${TARGET_STATUS_META[status].label.toLowerCase()}`)
     .join(" · ");
 
+  // A normal action: the grades, not adding modules, lead the page.
   const addButton = (
-    <button onClick={() => setAdding(true)} className={button("primary")}>
+    <button onClick={() => setAdding(true)} className={button("secondary")}>
       <Plus className="h-4 w-4" aria-hidden="true" /> Add module
     </button>
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl">
       <PageHeader
         title="My Grades"
-        subtitle="Track your academic progress and see what you need to reach your targets."
+        subtitle="Where each module stands, and what the remaining work has to do."
         action={addButton}
       />
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" aria-busy="true" aria-label="Loading your modules">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy="true" aria-label="Loading your modules">
           {[0, 1, 2].map((i) => (
             <div key={i} className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
               <Skeleton className="h-4 w-24" />
@@ -110,7 +108,7 @@ export default function GradesPage() {
           ))}
         </div>
       ) : error ? (
-        <ErrorState message={error} onRetry={load} />
+        <Card><ErrorState message={error} onRetry={load} /></Card>
       ) : modules.length === 0 ? (
         <Card>
           <EmptyState
@@ -122,12 +120,41 @@ export default function GradesPage() {
         </Card>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-3">
+          {/* What's coming owns the top; the counts beside it stay quiet. */}
+          <UpcomingAssessments
+            items={upcoming}
+            summaries={summaries}
+            aside={
+              <dl className="space-y-3 text-sm">
+                <div>
+                  <dt className="text-xs text-slate-500">Modules</dt>
+                  <dd className="font-semibold tabular-nums text-slate-900">
+                    {shown.length} <span className="font-normal text-slate-500">{year === "ALL" ? "across all years" : `in ${year}`}</span>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-slate-500">Targets</dt>
+                  <dd className="text-slate-700">
+                    {withTargets === 0 ? (
+                      <span className="text-slate-500">None set yet. Set one on a module to see what you need.</span>
+                    ) : (
+                      <>
+                        <span className="font-semibold tabular-nums text-slate-900">{withTargets}</span> set
+                        <span className="block text-xs text-slate-500">{statusLine}</span>
+                      </>
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            }
+          />
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             {years.length > 0 && (
               <label className="flex items-center gap-2 text-sm text-slate-600">
                 Academic year
                 <select
-                  className="h-8 border border-slate-200 rounded-lg px-2 text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                  className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                   value={String(year)}
                   onChange={(e) => setChosenYear(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
                 >
@@ -136,7 +163,7 @@ export default function GradesPage() {
                 </select>
               </label>
             )}
-            <div role="tablist" aria-label="Semester" className="flex gap-1">
+            <div role="tablist" aria-label="Semester" className="flex flex-wrap gap-1">
               {TERMS.map((t) => (
                 <button
                   key={t.label}
@@ -152,41 +179,24 @@ export default function GradesPage() {
             {term !== "ALL" && <span className="text-xs text-slate-500">Full-year modules show under both semesters.</span>}
           </div>
 
-          {shown.length > 0 && (
-            <Card bodyClassName="grid grid-cols-1 sm:grid-cols-3 gap-4 p-5">
-              <Stat label="Modules" value={shown.length} hint={year === "ALL" ? "All years" : `In ${year}`} />
-              <Stat
-                label="Next assessment"
-                value={shownUpcoming[0] ? <span className="block truncate text-base">{shownUpcoming[0].assessment.name}</span> : "—"}
-                hint={
-                  shownUpcoming[0]
-                    ? `${shownUpcoming[0].module.code} · ${countdownLabel(shownUpcoming[0].days)}`
-                    : "Nothing dated in the next 14 days"
-                }
-              />
-              <Stat
-                label="Targets"
-                value={withTargets === 0 ? "—" : withTargets}
-                hint={withTargets === 0 ? "Set a target on a module to track it" : statusLine}
-              />
-            </Card>
-          )}
-
-          {upcoming.length > 0 && <UpcomingAssessments items={upcoming} />}
-
           {shown.length === 0 ? (
             <Card>
               <EmptyState
                 icon={GraduationCap}
-                title={year === "ALL" ? "No modules here" : `No modules here for ${year}`}
+                compact
+                title={
+                  term === "ALL"
+                    ? year === "ALL" ? "No modules here" : `No modules here for ${year}`
+                    : `No Semester ${term} modules${year === "ALL" ? "" : ` in ${year}`}`
+                }
                 description="Try another year or semester, or add a module."
                 action={addButton}
               />
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <section aria-label="Modules" className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {shown.map((m) => <ModuleCard key={m.id} module={m} summary={summaries.get(m.id)!} />)}
-            </div>
+            </section>
           )}
 
           <p className="text-xs text-slate-500">{UNOFFICIAL_NOTE}</p>

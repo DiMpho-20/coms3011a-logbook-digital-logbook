@@ -14,8 +14,13 @@ vi.mock("../../api", () => ({
   // The dashboard moved to the user-scoped listing endpoint. Without this
   // entry the page's loader threw on every render and the catch block
   // swallowed it, so these tests passed while the data path was broken.
+  // An established logbook by default: one ordinary entry, so the page shows
+  // its normal state. The first-use tests below ask for none.
   fetchAllEntries: vi.fn().mockResolvedValue({
-    entries: [],
+    entries: [
+      { id: "e0", projectId: "p1", durationMinutes: 30, entryDate: null, createdAt: "2026-01-05T10:00:00.000Z",
+        dueDate: null, status: "DONE", values: {}, tags: [], archivedAt: null },
+    ],
     truncated: false,
     fieldsByProject: {},
     projectsNeedingFields: [],
@@ -456,5 +461,76 @@ describe("DashboardPage — today", () => {
     const nextUp = screen.getByRole("region", { name: "Next up" });
     expect(within(nextUp).getByRole("link", { name: /new reminder/i })).toHaveAttribute("href", "/reminders?new=1");
     expect(within(nextUp).getByRole("link", { name: /view all upcoming/i })).toHaveAttribute("href", "/calendar");
+  });
+});
+
+// ── First use: how to begin, rather than a page of empty cards ─────────
+
+describe("DashboardPage — first use", () => {
+  const noEntries = { entries: [], truncated: false, fieldsByProject: {}, projectsNeedingFields: [] };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.removeItem("logbook-dashboard-panels");
+  });
+
+  it("walks a brand-new account through starting, without empty panels", async () => {
+    const api = await import("../../api");
+    vi.mocked(api.fetchProjects).mockResolvedValueOnce([]);
+    vi.mocked(api.fetchAllEntries).mockResolvedValueOnce(noEntries as never);
+    renderDashboard();
+
+    const start = await screen.findByRole("region", { name: "Start with one thing you did today." });
+    expect(within(start).getByRole("link", { name: /Create your first project/ })).toHaveAttribute("href", "/projects");
+    expect(within(start).getByRole("link", { name: /Import a backup/ })).toHaveAttribute("href", "/settings?section=export");
+    expect(within(start).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "1Make a project.One per module, or one per piece of work.",
+      "2Log an entry.What you did, how long it took.",
+      "3Add your modules.Only if you want to track marks.",
+    ]);
+    expect(screen.getByText("Here's how you get started.")).toBeInTheDocument();
+    // No sea of empty cards.
+    expect(screen.queryByRole("button", { name: /customize dashboard/i })).toBeNull();
+    expect(screen.queryByRole("region", { name: "On your radar" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Modules at a glance" })).toBeNull();
+  });
+
+  it("with a project but no entries yet, points straight at the first entry", async () => {
+    const api = await import("../../api");
+    vi.mocked(api.fetchAllEntries).mockResolvedValueOnce(noEntries as never);
+    renderDashboard();
+
+    const start = await screen.findByRole("region", { name: "Now log your first entry." });
+    expect(within(start).getByRole("link", { name: /Log your first entry/ })).toHaveAttribute("href", "/projects/p1?new=1");
+    expect(within(start).getAllByRole("listitem")[0]).toHaveTextContent("Done");
+  });
+
+  it("keeps anything real in view while onboarding, such as a module", async () => {
+    const api = await import("../../api");
+    vi.mocked(api.fetchAllEntries).mockResolvedValueOnce(noEntries as never);
+    vi.mocked(api.fetchGradeModules).mockResolvedValueOnce([
+      { id: "m1", code: "MATH2015", name: "Discrete Maths", academicYear: new Date().getFullYear(), type: "SEMESTER",
+        semester: 2, semester1Weight: null, targetMark: null, createdAt: "", updatedAt: "", assessments: [] },
+    ] as never);
+    renderDashboard();
+
+    const start = await screen.findByRole("region", { name: "Now log your first entry." });
+    expect(await screen.findByRole("region", { name: "Modules at a glance" })).toBeInTheDocument();
+    expect(within(start).getAllByRole("listitem")[2]).toHaveTextContent("Done");
+  });
+
+  it("shows the normal dashboard once there are entries", async () => {
+    renderDashboard();
+    expect(await screen.findByRole("button", { name: /customize dashboard/i })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /Start with one thing|Now log your first entry/ })).toBeNull();
+    expect(screen.getByText("Here's what matters today.")).toBeInTheDocument();
+  });
+
+  it("doesn't mistake a failed load for a new account", async () => {
+    const api = await import("../../api");
+    vi.mocked(api.fetchAllEntries).mockRejectedValueOnce(new Error("offline"));
+    renderDashboard();
+    expect(await screen.findByRole("button", { name: /customize dashboard/i })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /Start with one thing|Now log your first entry/ })).toBeNull();
   });
 });

@@ -152,6 +152,14 @@ export interface ModuleSummary {
   markedWeight: number;
   /** Share of the module still to be marked. */
   remainingWeight: number;
+  /**
+   * How many assessments the module has, by count rather than weight: marked
+   * ones (a missed assessment is marked, at 0%), of which missed, and those
+   * still to come. Real marks only — a what-if mark never counts as marked.
+   * Every figure above is still weighted by each assessment's own weight;
+   * these counts only make progress readable.
+   */
+  assessments: { total: number; marked: number; missed: number; remaining: number };
   /** Secured points per marked weight, or null when nothing is marked. */
   averageSoFar: number | null;
   /** Secured points plus full marks on everything remaining. */
@@ -393,6 +401,13 @@ export function computeModule(module: GradeModuleInput, options: GradeOptions = 
   const remainingWeight = sections.reduce((sum, s) => sum + s.remainingWeight, 0);
   const averageSoFar = markedWeight > EPSILON ? (securedPoints / markedWeight) * 100 : null;
   const highestPossible = securedPoints + remainingWeight;
+  const markedCount = base.filter((item) => item.percent !== null).length;
+  const assessments = {
+    total: base.length,
+    marked: markedCount,
+    missed: base.filter((item) => item.assessment.missed).length,
+    remaining: base.length - markedCount,
+  };
 
   // ── Target ──
   let targetResult: TargetResult | null = null;
@@ -439,6 +454,7 @@ export function computeModule(module: GradeModuleInput, options: GradeOptions = 
     securedPoints,
     markedWeight,
     remainingWeight,
+    assessments,
     averageSoFar,
     highestPossible,
     complete: valid && remainingWeight <= EPSILON,

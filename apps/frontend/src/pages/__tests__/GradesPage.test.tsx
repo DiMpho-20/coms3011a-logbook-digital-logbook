@@ -96,10 +96,15 @@ describe("GradesPage", () => {
     const card = await screen.findByRole("link", { name: "COMS3011A Software Design" });
     expect(within(card).getByText("45.0 / 100")).toBeInTheDocument();
     expect(within(card).getByText("75.0%")).toBeInTheDocument();
-    expect(within(card).getByText("Marked").nextElementSibling).toHaveTextContent("60.0%");
-    expect(within(card).getByText("Remaining").nextElementSibling).toHaveTextContent("40.0%");
+    // Average on marked work and secured are two separate figures.
+    expect(within(card).getByText("average on marked work")).toBeInTheDocument();
+    expect(within(card).getByText("secured toward the final mark")).toBeInTheDocument();
+    // By count, then by the weight the marks are worked out with.
+    expect(card).toHaveTextContent("3 of 4 assessments marked · 1 remaining");
+    expect(card).toHaveTextContent("60.0% of the module marked · 40.0% remaining");
     expect(within(card).getByText("On track")).toBeInTheDocument();
     expect(within(card).getByText("12.5%")).toBeInTheDocument(); // needed on the rest for the 50% target
+    expect(card).toHaveTextContent("You need 12.5% on the remaining 40.0% to reach 50%.");
     expect(within(card).getByText("Semester 2")).toBeInTheDocument();
   });
 
@@ -112,23 +117,46 @@ describe("GradesPage", () => {
     expect(bar.getAttribute("aria-valuetext")).toContain("target 50%");
   });
 
-  it("shows each module's next dated assessment", async () => {
+  it("puts the next dated assessment at the top, with its weight from the engine", async () => {
     renderPage();
-    const card = await screen.findByRole("link", { name: "COMS3011A Software Design" });
-    expect(within(card).getByText(/Test · Final Test/)).toBeInTheDocument();
-    expect(within(card).getByText("In 3 days")).toBeInTheDocument();
-    const other = screen.getByRole("link", { name: "PHYS1000 Physics" });
-    expect(within(other).getByText("No upcoming dates")).toBeInTheDocument();
+    const next = await screen.findByRole("region", { name: "Next assessment" });
+    expect(within(next).getByText("Final Test")).toBeInTheDocument();
+    expect(next).toHaveTextContent("COMS3011A");
+    expect(next).toHaveTextContent("In 3 days");
+    expect(next).toHaveTextContent("Worth 40% of the module");
+    // The countdown lives there, not repeated on every card.
+    const card = screen.getByRole("link", { name: "COMS3011A Software Design" });
+    expect(within(card).queryByText(/In 3 days/)).toBeNull();
   });
 
-  it("summarises the year from data it already has", async () => {
+  it("says plainly when nothing is coming up", async () => {
+    vi.mocked(api.fetchGradeModules).mockResolvedValue([yearModule, sem1]);
     renderPage();
-    await screen.findByText("COMS3011A");
-    const stat = (label: string) => screen.getByText(label, { selector: "p" }).parentElement!;
-    expect(stat("Modules")).toHaveTextContent("3");
-    expect(stat("Next assessment")).toHaveTextContent("Final Test");
-    expect(stat("Next assessment")).toHaveTextContent("COMS3011A · In 3 days");
-    expect(stat("Targets")).toHaveTextContent("1 on track");
+    const next = await screen.findByRole("region", { name: "Next assessment" });
+    expect(within(next).getByText("Nothing upcoming")).toBeInTheDocument();
+  });
+
+  it("summarises the year quietly beside it", async () => {
+    renderPage();
+    const next = await screen.findByRole("region", { name: "Next assessment" });
+    expect(within(next).getByText("Modules").nextElementSibling).toHaveTextContent("3");
+    expect(within(next).getByText("Targets").nextElementSibling).toHaveTextContent("1 on track");
+  });
+
+  it("shows no target as a quiet state rather than inventing one", async () => {
+    renderPage();
+    const card = await screen.findByRole("link", { name: "MATH2001 Year Maths" });
+    expect(within(card).getByText("No target")).toBeInTheDocument();
+    expect(card).toHaveTextContent("No target set.");
+  });
+
+  it("says a target is out of reach without showing an impossible mark", async () => {
+    vi.mocked(api.fetchGradeModules).mockResolvedValue([{ ...coms, targetMark: 95 }]);
+    renderPage();
+    const card = await screen.findByRole("link", { name: "COMS3011A Software Design" });
+    expect(within(card).getByText("Out of reach")).toBeInTheDocument();
+    expect(card).toHaveTextContent("Even full marks on what's left would give 85.0%, below your 95% target.");
+    expect(card).not.toHaveTextContent(/You need/);
   });
 
   it("never shows a bare 'current mark'", async () => {
@@ -208,11 +236,15 @@ describe("GradesPage", () => {
     expect(screen.queryByLabelText("Academic year")).toBeNull();
   });
 
-  it("lists upcoming dated assessments with a countdown", async () => {
+  it("lists what comes after the next assessment", async () => {
+    vi.mocked(api.fetchGradeModules).mockResolvedValue([
+      coms,
+      { ...sem1, assessments: [assessment({ name: "Lab 3", weight: 100, date: inDays(6), dateKind: "DUE" })] },
+    ]);
     renderPage();
-    const upcoming = await screen.findByRole("region", { name: /Upcoming/ });
-    expect(within(upcoming).getByText("In 3 days · Test")).toBeInTheDocument();
-    expect(within(upcoming).getByText("Final Test")).toBeInTheDocument();
+    const next = await screen.findByRole("region", { name: "Next assessment" });
+    expect(within(next).getByText("Final Test")).toBeInTheDocument();
+    expect(within(next).getByRole("link", { name: /PHYS1000 · Lab 3/ })).toHaveTextContent("In 6 days · Due");
   });
 
   it("asks a module with incomplete weights to be finished first", async () => {
@@ -221,6 +253,11 @@ describe("GradesPage", () => {
     ]);
     renderPage();
     expect(await screen.findByText("Finish setting up")).toBeInTheDocument();
+    // No figures worked out on weights that don't add up.
+    const card = screen.getByRole("link", { name: "COMS3011A Software Design" });
+    expect(within(card).getByText("Not enough information yet")).toBeInTheDocument();
+    expect(within(card).queryByRole("progressbar")).toBeNull();
+    expect(within(card).queryByText(/You need/)).toBeNull();
   });
 
   it("shows an empty state with a way to add a module", async () => {

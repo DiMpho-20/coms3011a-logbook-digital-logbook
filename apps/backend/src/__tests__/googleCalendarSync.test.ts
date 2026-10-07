@@ -73,11 +73,11 @@ function withEntries(entries: ReturnType<typeof entry>[]) {
 }
 
 describe("syncDueDates", () => {
-  it("only queries the caller's open, dated entries", async () => {
+  it("only queries the caller's open, dated, unarchived entries", async () => {
     const spy = withEntries([]);
     await syncDueDates("user-1", createGoogleCalendarClient());
     expect(spy.mock.calls[0][0]).toMatchObject({
-      where: { project: { userId: "user-1" }, status: "OPEN", dueDate: { not: null } },
+      where: { project: { userId: "user-1" }, status: "OPEN", dueDate: { not: null }, archivedAt: null },
     });
   });
 

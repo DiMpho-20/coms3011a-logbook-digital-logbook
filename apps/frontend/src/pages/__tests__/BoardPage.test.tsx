@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 vi.mock("../../api/client", () => ({ api: { get: vi.fn() } }));
@@ -116,6 +116,57 @@ describe("BoardPage columns and cards", () => {
     renderBoard();
     expect(await screen.findByTitle("Yes")).toBeInTheDocument();
     expect(screen.getByTitle("No")).toBeInTheDocument();
+  });
+
+  it("calls the no-value column 'Not grouped' and says what it holds", async () => {
+    mockProject(
+      [{ id: "sum", name: "Summary", type: "TEXT" }, { id: "tags", name: "Topics", type: "TAGS" }],
+      [entry("e1", { sum: "Tagged", tags: ["ml"] }), entry("e2", { sum: "Untagged", tags: [] })]
+    );
+    renderBoard();
+    const column = await screen.findByRole("listitem", { name: "Not grouped, 1 entry" });
+    expect(within(column).getByText("Entries with no Topics set.")).toBeInTheDocument();
+    expect(within(column).getByText("Untagged")).toBeInTheDocument();
+  });
+
+  it("keeps both status columns, saying when one is empty", async () => {
+    mockProject([{ id: "sum", name: "Summary", type: "TEXT" }], [entry("e1", { sum: "Still going" })]);
+    renderBoard();
+    const done = await screen.findByRole("listitem", { name: "Done, 0 entries" });
+    expect(within(done).getByText("No entries here yet.")).toBeInTheDocument();
+  });
+
+  it("opens the entry itself, and shows its due date as context", async () => {
+    mockProject(
+      [{ id: "sum", name: "Summary", type: "TEXT" }],
+      [entry("e1", { sum: "Contact form" }, { dueDate: "2026-10-12T00:00:00.000Z" })]
+    );
+    renderBoard();
+    const card = (await screen.findByText("Contact form")).closest("a")!;
+    expect(card).toHaveAttribute("href", "/projects/proj?entry=e1");
+    expect(card).toHaveTextContent(/Due (12 Oct|Oct 12)/);
+  });
+
+  it("offers to try again when the entries cannot be loaded", async () => {
+    let fail = true;
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/projects") return { data: [{ id: "proj", name: "Research", status: "ACTIVE" }] };
+      if (fail) throw new Error("Network Error");
+      if (url.endsWith("/entry-fields")) return { data: [{ id: "sum", name: "Summary", type: "TEXT" }] };
+      return { data: [entry("e1", { sum: "Back again" })] };
+    });
+    renderBoard();
+    await screen.findByText(/Couldn't load this project's entries/);
+    fail = false;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Back again")).toBeInTheDocument();
+  });
+
+  it("says the projects failed rather than that there are none", async () => {
+    vi.mocked(api.get).mockRejectedValue(new Error("Network Error"));
+    renderBoard();
+    expect(await screen.findByText("Your projects couldn't be loaded")).toBeInTheDocument();
+    expect(screen.queryByText("No projects yet.")).toBeNull();
   });
 
   it("says so when the entries cannot be loaded", async () => {

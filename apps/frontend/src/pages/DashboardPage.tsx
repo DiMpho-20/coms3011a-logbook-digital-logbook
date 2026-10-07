@@ -33,6 +33,7 @@ import Eyebrow from "../components/dashboard/Eyebrow";
 import NextUp from "../components/dashboard/NextUp";
 import OnYourRadar from "../components/dashboard/OnYourRadar";
 import ModulesAtAGlance from "../components/dashboard/ModulesAtAGlance";
+import GettingStarted from "../components/dashboard/GettingStarted";
 import { computeModule } from "../lib/grades";
 import { academicYears, defaultAcademicYear } from "../lib/gradeDisplay";
 import { buildNextUp, buildRadar } from "../lib/today";
@@ -293,6 +294,8 @@ export default function DashboardPage() {
   // themselves. Sections that need them show a placeholder rather than
   // holding the whole page on a spinner.
   const [entriesLoading, setEntriesLoading] = useState(true);
+  // Set when projects or entries couldn't be loaded, so an empty list is not taken for a new account.
+  const [dataLoadFailed, setDataLoadFailed] = useState(false);
   const [loadFailures, setLoadFailures] = useState(0);
   const [truncated, setTruncated] = useState(false);
   const [selectedPanels, setSelectedPanels] = useState<DashboardPanelId[]>(loadDashboardPanels);
@@ -375,6 +378,7 @@ export default function DashboardPage() {
         }
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
+        if (!cancelled) setDataLoadFailed(true);
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -851,6 +855,19 @@ export default function DashboardPage() {
 
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
 
+  // First use: decided once the entries have arrived, from data already on
+  // the page. No entries in any active project means there is nothing yet for
+  // the panels and most cards to show, so the page explains how to begin
+  // instead. Having a project is not the same as having started: that case
+  // gets the shorter "log your first entry" version.
+  const firstUse = !entriesLoading && !dataLoadFailed && allEntries.length === 0 && !truncated;
+  const activeProject = projects.find((p) => p.status === "ACTIVE");
+  const hasModules = modules.length > 0;
+  // While onboarding, a card shows only if it has something real in it.
+  const showNextUp = !firstUse || todayDataLoading || nextUp.length > 0;
+  const showRadar = !firstUse || todayDataLoading || radar.length > 0;
+  const showModules = !firstUse || todayLoading || modulesFailed || thisYearModules.length > 0;
+
   return (
     <div className="space-y-6 max-w-6xl">
       {/* ── 1–2. Greeting and the main actions ────────────────────────── */}
@@ -858,7 +875,7 @@ export default function DashboardPage() {
         title={`${getGreeting()}, ${displayName}.`}
         subtitle={
           <>
-            <span className="block text-slate-600">Here's what matters today.</span>
+            <span className="block text-slate-600">{firstUse ? "Here's how you get started." : "Here's what matters today."}</span>
             <span className="block text-xs text-slate-400">{todayLabel}</span>
           </>
         }
@@ -871,23 +888,39 @@ export default function DashboardPage() {
         }
       />
 
+      {/* ── First use: how to begin, in place of a page of empty cards ── */}
+      {firstUse && (
+        <GettingStarted
+          hasProjects={projects.length > 0}
+          hasModules={hasModules}
+          logEntryHref={activeProject ? `/projects/${activeProject.id}?new=1` : "/projects"}
+        />
+      )}
+
       {/* ── 3. Daily note ──────────────────────────────────────────────── */}
       <DailyNote />
 
       {/* ── 4. What's soon, and what needs a nudge ─────────────────────── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <NextUp items={nextUp} loading={todayDataLoading} remindersFailed={remindersFailed} />
-        <OnYourRadar items={radar} loading={todayDataLoading} />
-      </div>
+      {(showNextUp || showRadar) && (
+        <div className={`grid grid-cols-1 gap-6 ${showNextUp && showRadar ? "lg:grid-cols-2" : ""}`}>
+          {showNextUp && <NextUp items={nextUp} loading={todayDataLoading} remindersFailed={remindersFailed} />}
+          {showRadar && <OnYourRadar items={radar} loading={todayDataLoading} />}
+        </div>
+      )}
 
       {/* ── 5. Academic snapshot ───────────────────────────────────────── */}
-      <ModulesAtAGlance
-        modules={thisYearModules.slice(0, 6)}
-        summaries={moduleSummaries}
-        loading={todayLoading}
-        failed={modulesFailed}
-      />
+      {showModules && (
+        <ModulesAtAGlance
+          modules={thisYearModules.slice(0, 6)}
+          summaries={moduleSummaries}
+          loading={todayLoading}
+          failed={modulesFailed}
+        />
+      )}
 
+      {/* ── 6. Your panels — once there are entries for them to show ───── */}
+      {!firstUse && (
+        <>
       {/* ── 6. Your panels: the student's own arrangement ─────────────── */}
       <div className="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-6">
         <div>
@@ -956,6 +989,9 @@ export default function DashboardPage() {
           <p className="mt-1 text-sm text-slate-500">Choose statistics or information panels to start building your view.</p>
           <button onClick={openPanelPicker} className="mt-4 text-sm font-medium text-blue-600 hover:text-blue-700">Choose panels</button>
         </div>
+      )}
+
+        </>
       )}
 
       <Modal open={panelPickerOpen} onClose={() => setPanelPickerOpen(false)} title="Customize dashboard" wide>

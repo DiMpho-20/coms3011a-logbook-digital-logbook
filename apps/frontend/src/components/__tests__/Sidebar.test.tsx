@@ -37,7 +37,7 @@ afterEach(() => {
 });
 
 describe("Sidebar navigation", () => {
-  it("groups pages into Today, Work and Academics", () => {
+  it("groups every page into Today, Work, Academics and Personal", () => {
     renderSidebar();
     const nav = screen.getByRole("navigation", { name: "Main" });
     const links = within(nav).getAllByRole("link").map((link) => link.textContent);
@@ -45,18 +45,38 @@ describe("Sidebar navigation", () => {
       "Dashboard", "Reminders", "Calendar",
       "Projects", "Entries", "Open Work", "Board", "Statistics",
       "My Grades",
+      "Profile", "Settings",
     ]);
-    for (const heading of ["Today", "Work", "Academics"]) expect(within(nav).getByText(heading)).toBeInTheDocument();
+    for (const heading of ["Today", "Work", "Academics", "Personal"]) expect(within(nav).getByText(heading)).toBeInTheDocument();
   });
 
-  it("keeps Profile and Settings in the account menu rather than the main list", () => {
-    renderSidebar();
+  it("marks the current page, and only that one", () => {
+    render(<MemoryRouter initialEntries={["/settings"]}><Sidebar /></MemoryRouter>);
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(within(nav).queryByText("Profile")).toBeNull();
-    expect(within(nav).queryByText("Settings")).toBeNull();
-    act(() => screen.getAllByText("Student")[0].closest("button")!.click());
-    expect(screen.getByRole("button", { name: /Profile/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Settings/ })).toBeInTheDocument();
+    const current = within(nav).getAllByRole("link").filter((link) => link.getAttribute("aria-current") === "page");
+    expect(current.map((link) => link.textContent)).toEqual(["Settings"]);
+    expect(within(nav).getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+    expect(within(nav).getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/profile");
+  });
+
+  it("keeps a nested page's section marked", () => {
+    render(<MemoryRouter initialEntries={["/projects/p1"]}><Sidebar /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "Projects" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("shows who is signed in, with a way to log out", () => {
+    localStorage.setItem("logbook-name", "Dineo");
+    renderSidebar();
+    expect(screen.getByText("Dineo")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
+    localStorage.removeItem("logbook-name");
+  });
+
+  it("shows the due-reminder count from the server on Reminders", async () => {
+    vi.mocked(api.fetchDueReminderCount).mockResolvedValue(3);
+    renderSidebar();
+    expect(await screen.findByLabelText("3 reminders due")).toHaveTextContent("3");
   });
 });
 

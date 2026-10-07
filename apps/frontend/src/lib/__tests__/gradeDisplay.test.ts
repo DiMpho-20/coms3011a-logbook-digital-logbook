@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { GradeAssessment, GradeModule } from "@logbook/shared";
 import {
   academicYears,
+  assessmentProgress,
   awaitingMark,
   countdownLabel,
   daysUntil,
@@ -154,5 +155,18 @@ describe("upcoming assessments", () => {
     expect(awaitingMark(assessment({ date: "2026-11-10", dateKind: "TEST" }), today)).toBe(false);
     expect(awaitingMark(assessment({ date: "2026-11-09", dateKind: "TEST", markPercent: 50 }), today)).toBe(false);
     expect(awaitingMark(assessment({ date: "2026-11-09", dateKind: "TEST", missed: true }), today)).toBe(false);
+  });
+});
+
+describe("assessmentProgress", () => {
+  it("says how many are marked and how many remain", () => {
+    expect(assessmentProgress({ total: 5, marked: 3, missed: 0, remaining: 2 })).toBe("3 of 5 assessments marked · 2 remaining");
+  });
+  it("mentions missed ones, which count as marked", () => {
+    expect(assessmentProgress({ total: 3, marked: 2, missed: 1, remaining: 1 })).toBe("2 of 3 assessments marked (1 missed) · 1 remaining");
+  });
+  it("says so when everything is marked, or nothing exists yet", () => {
+    expect(assessmentProgress({ total: 1, marked: 1, missed: 0, remaining: 0 })).toBe("All 1 assessment marked");
+    expect(assessmentProgress({ total: 0, marked: 0, missed: 0, remaining: 0 })).toBe("No assessments yet");
   });
 });
