@@ -59,7 +59,7 @@ beforeEach(() => {
 });
 
 describe("RemindersPage — viewing reminders (AT2, AT3)", () => {
-  it("shows reminders whose time has come under Due now, and later ones under Upcoming", async () => {
+  it("shows reminders whose time has come under Needs attention, and later ones under Upcoming", async () => {
     mockLists([
       reminder({ id: "due", title: "Email supervisor" }),
       reminder({ id: "later", title: "Book lab slot", remindAt: new Date(Date.now() + HOUR).toISOString() }),
@@ -151,7 +151,7 @@ describe("RemindersPage — completing and dismissing (AT4)", () => {
     await waitFor(() => expect(api.updateReminder).toHaveBeenCalledWith("r1", { status: "COMPLETED" }));
     await waitFor(() => expect(screen.queryByText("Email supervisor")).not.toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("tab", { name: /completed/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /done & dismissed/i }));
     expect(screen.getByText("Email supervisor")).toBeInTheDocument();
     expect(screen.getByText("Completed")).toBeInTheDocument();
   });
@@ -171,12 +171,40 @@ describe("RemindersPage — completing and dismissing (AT4)", () => {
     vi.mocked(api.updateReminder).mockResolvedValue(reminder() as never);
     renderPage();
 
-    fireEvent.click(await screen.findByRole("tab", { name: /completed/i }));
+    fireEvent.click(await screen.findByRole("tab", { name: /done & dismissed/i }));
     fireEvent.click(await screen.findByRole("button", { name: /reopen/i }));
     await waitFor(() => expect(api.updateReminder).toHaveBeenCalledWith("r1", { status: "PENDING" }));
 
-    fireEvent.click(screen.getByRole("tab", { name: /due now/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /needs attention/i }));
     expect(await screen.findByText("Email supervisor")).toBeInTheDocument();
+  });
+
+  it("says why each reminder exists: set by hand, or which rule made it", async () => {
+    mockLists([reminder({ id: "m" }), reminder({ id: "g", source: "DUE_SOON", title: "Due soon: X" })]);
+    renderPage();
+    const [manual, generated] = await screen.findAllByTestId("reminder");
+    expect(manual).toHaveTextContent("set by you");
+    expect(generated).toHaveTextContent("from your “Upcoming due dates” rule");
+  });
+
+  it("snoozes a reminder by a day", async () => {
+    mockLists([reminder()]);
+    vi.mocked(api.updateReminder).mockResolvedValue(reminder({ remindAt: new Date(Date.now() + 24 * HOUR).toISOString() }) as never);
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: /snooze/i }));
+    await waitFor(() => expect(api.updateReminder).toHaveBeenCalledWith("r1", { remindAt: expect.any(String) }));
+    const until = Date.parse(vi.mocked(api.updateReminder).mock.calls[0][1].remindAt as string);
+    expect(Math.abs(until - (Date.now() + 24 * HOUR))).toBeLessThan(60_000);
+  });
+
+  it("moves between reminder views with the arrow keys", async () => {
+    mockLists([]);
+    renderPage();
+    const first = await screen.findByRole("tab", { name: /needs attention/i });
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: /upcoming/i })).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(first, { key: "ArrowLeft" });
+    expect(screen.getByRole("tab", { name: /needs attention/i })).toHaveAttribute("aria-selected", "true");
   });
 
   it("only offers delete for reminders set by hand", async () => {
