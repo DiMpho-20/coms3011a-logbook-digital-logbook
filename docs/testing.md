@@ -209,21 +209,22 @@ Backend prerequisites: a reachable test database and a regenerated Prisma
 client (`npx prisma generate` in `apps/backend` — see
 [Bugs Found By Testing](#bugs-found-by-testing)).
 
-> **Never point the backend suite at production data.** The suite creates and
-> deletes its own users, projects and entries. Give it a database of its own:
+> **Give the backend suite a database of its own locally.** The suite creates
+> and deletes its own users, projects and entries, so keep it away from your
+> development data:
 >
 > ```bash
 > # once: an empty database next to your development one, with the schema
 > createdb logbook_test            # or CREATE DATABASE logbook_test;
-> DATABASE_URL=postgresql://…/logbook_test npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
+> (cd apps/backend && DATABASE_URL=postgresql://…/logbook_test npx prisma migrate deploy)
 >
 > # each run: DATABASE_URL set for the command wins over apps/backend/.env
 > DATABASE_URL=postgresql://…/logbook_test npm run test --workspace=apps/backend
 > ```
 >
-> CI does the same with a throwaway PostgreSQL service container created for
-> each run (or a `TEST_DATABASE_URL` secret, for a runner that cannot start
-> service containers), so a pipeline never writes into the deployed database.
+> CI runs the suite against the long-lived PostgreSQL database given by the
+> `DATABASE_URL` repository secret — the same database the deployed API uses —
+> so a pipeline needs no database of its own.
 
 > **Email behaviour in tests:** with no SMTP credentials configured,
 > registration auto-verifies (dev mode) and password-reset emails fail

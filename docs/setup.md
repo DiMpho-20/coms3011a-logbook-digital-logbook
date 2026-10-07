@@ -232,9 +232,9 @@ If notifications never appear, check in order: the browser's site permission for
 branches:
 
 1. **CI** — install, build the shared package, typecheck the backend, lint the
-   frontend, run both test suites with coverage (the backend suite on a
-   throwaway PostgreSQL created for the run, never production), report
-   coverage on the commit, and build both apps.
+   frontend, run both test suites with coverage (the backend suite against
+   the long-lived `DATABASE_URL` database), report coverage on the commit,
+   and build both apps.
 2. **CD** — on `main` only, and only after CI has passed:
     - the API is redeployed through a Render deploy hook;
     - the frontend is built and published to Cloudflare Pages with Wrangler;
@@ -248,7 +248,9 @@ until they are added. Repository settings → Actions → Secrets:
 | `RENDER_DEPLOY_HOOK_URL` | Render → the API service → Settings → Deploy Hook |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → a token with *Cloudflare Pages: Edit* |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → the account ID in the sidebar |
-| `TEST_DATABASE_URL` *(optional)* | Only for a runner that cannot start service containers: an empty PostgreSQL database for tests |
+
+The backend suite reads the `DATABASE_URL` secret — the same long-lived
+database the deployed API uses.
 
 The Cloudflare Pages project name defaults to `coms3011a-logbook`; set the
 `CLOUDFLARE_PAGES_PROJECT` repository variable if it differs.
@@ -261,7 +263,7 @@ production schema up to date by itself; there is no separate migration step
 to forget. To apply migrations by hand instead:
 
 ```bash
-DATABASE_URL=<production connection string> npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
+cd apps/backend && DATABASE_URL=<production connection string> npx prisma migrate deploy
 ```
 
 ### Keeping the API awake

@@ -12,24 +12,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # The backend suite gets a database of its own, created for this run and
-    # thrown away after it, so tests never write into production data.
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: logbook
-          POSTGRES_PASSWORD: logbook
-          POSTGRES_DB: logbook_test
-        options: >-
-          --health-cmd "pg_isready -U logbook -d logbook_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
-    env:
-      # A TEST_DATABASE_URL secret wins, for a runner that cannot start
-      # service containers; otherwise the throwaway database above.
-      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL || 'postgresql://logbook:logbook@postgres:5432/logbook_test' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -65,19 +47,15 @@ jobs:
       # test:coverage rather than test: the v8 text reporter prints the
       # coverage table into this log, which is the visible evidence the
       # client asked for. The plain test scripts are unchanged for local use.
-      # The suite runs against the run's own database (never production), so
-      # its schema is built from the migrations first.
-      - name: Prepare test database
-        env:
-          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
-        run: npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
+      # The suite runs against the long-lived PostgreSQL database, so the
+      # connection string comes from the repository secret DATABASE_URL.
 
       # if: always() — coverage must reach the commit on every push, even one
       # whose earlier step failed; the report below needs both summaries.
       - name: Run backend tests with coverage
         if: always()
         env:
-          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run test:coverage --workspace=apps/backend
 
       # Same reasoning as the backend step: run regardless of earlier
