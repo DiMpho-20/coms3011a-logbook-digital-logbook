@@ -20,3 +20,9 @@ coverage/
 packages/shared/dist/
 packages/shared/src/*.js
 packages/shared/src/*.d.ts
+
+# Any other local env file (backups, machine overrides) never gets committed;
+# the tracked examples and the build-time production file are the exceptions.
+.env.*
+!.env.example
+!.env.production
