@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   AlarmClock, AlertTriangle, Bell, BellRing, CalendarClock, Check, CheckCircle2,
   GraduationCap, Hourglass, NotebookPen, Plus, RotateCcw, Settings2, Trash2, X,
@@ -8,6 +8,7 @@ import PageHeader from "../components/PageHeader";
 import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 import EmptyState from "../components/EmptyState";
+import Skeleton from "../components/Skeleton";
 import {
   createReminder,
   deleteReminder,
@@ -65,6 +66,23 @@ function browserTimeZone(): string {
   }
 }
 
+/** Upcoming reminders by how soon they come: later today, within a week, then later. */
+function groupByWhen(items: Reminder[]): { label: string; items: Reminder[] }[] {
+  const now = new Date();
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+  const endOfWeek = endOfToday + 6 * 86_400_000;
+  const groups = [
+    { label: "Later today", items: [] as Reminder[] },
+    { label: "This week", items: [] as Reminder[] },
+    { label: "Later", items: [] as Reminder[] },
+  ];
+  for (const r of items) {
+    const at = Date.parse(r.remindAt);
+    groups[at < endOfToday ? 0 : at < endOfWeek ? 1 : 2].items.push(r);
+  }
+  return groups.filter((g) => g.items.length > 0);
+}
+
 // ── Reminder card ─────────────────────────────────────────────────────────
 
 function ReminderCard({
@@ -81,16 +99,16 @@ function ReminderCard({
   const isPending = reminder.status === "PENDING";
 
   return (
-    <li className="rounded-lg border border-slate-200 bg-white px-4 py-3" data-testid="reminder">
+    <li className="rounded-xl border border-slate-200 bg-white px-4 py-3 transition duration-150 hover:border-slate-300" data-testid="reminder">
       <div className="flex flex-col sm:flex-row sm:items-start gap-3">
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${meta.style}`}>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${meta.style}`}>
               <Icon className="h-3 w-3" />
               {meta.label}
             </span>
             {reminder.status !== "PENDING" && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <span className="text-xs font-medium text-slate-500">
                 {reminder.status === "COMPLETED" ? "Completed" : "Dismissed"}
               </span>
             )}
@@ -99,7 +117,7 @@ function ReminderCard({
             {reminder.title}
           </p>
           {reminder.note && <p className="text-xs text-slate-600 whitespace-pre-wrap">{reminder.note}</p>}
-          <p className="text-[11px] text-slate-400">
+          <p className="text-xs text-slate-500">
             {isPending
               ? `${new Date(reminder.remindAt) <= new Date() ? "Since" : "At"} ${formatWhen(reminder.remindAt)}`
               : formatWhen(reminder.completedAt ?? reminder.dismissedAt ?? reminder.remindAt)}
@@ -264,7 +282,7 @@ function RuleToggle({ label, description, checked, onChange }: {
     <div className="flex items-start justify-between gap-3">
       <div>
         <p className="text-sm text-slate-800">{label}</p>
-        <p className="text-[11px] text-slate-400">{description}</p>
+        <p className="text-xs text-slate-500">{description}</p>
       </div>
       <button
         type="button"
@@ -402,7 +420,9 @@ export default function RemindersPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("due");
-  const [showForm, setShowForm] = useState(false);
+  // The dashboard's "New reminder" arrives with ?new=1 and opens the form straight away.
+  const [searchParams] = useSearchParams();
+  const [showForm, setShowForm] = useState(() => searchParams.get("new") === "1");
 
   const load = useCallback(async () => {
     setError(null);
@@ -479,7 +499,7 @@ export default function RemindersPage() {
       {confirmDialog}
       <PageHeader
         title="Reminders"
-        subtitle="Set your own reminders, or let your rules remind you about due dates and unlogged work."
+        subtitle="What you need to remember: your own reminders, and the ones your rules make for due dates, tests and unlogged work."
         action={
           <button
             onClick={() => setShowForm((v) => !v)}
@@ -523,7 +543,15 @@ export default function RemindersPage() {
           {actionError && <p className="text-xs text-red-600">{actionError}</p>}
 
           {loading ? (
-            <LoadingState message="Loading reminders..." />
+            <div className="space-y-2" aria-busy="true">
+              <span className="sr-only" role="status">Loading reminders...</span>
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="rounded-xl border border-slate-200 bg-white px-4 py-3 space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+              ))}
+            </div>
           ) : error ? (
             <ErrorState message={error} onRetry={load} />
           ) : current.items.length === 0 ? (
@@ -531,6 +559,20 @@ export default function RemindersPage() {
               icon={tab === "history" ? CheckCircle2 : tab === "due" ? BellRing : CalendarClock}
               {...emptyCopy[tab]}
             />
+          ) : tab === "upcoming" ? (
+            // Grouped by how soon, so the nearest things are read first.
+            <div className="space-y-5">
+              {groupByWhen(current.items).map((group) => (
+                <div key={group.label}>
+                  <h3 className="mb-2 text-xs font-semibold text-slate-500">{group.label}</h3>
+                  <ul className="space-y-2">
+                    {group.items.map((r) => (
+                      <ReminderCard key={r.id} reminder={r} onUpdate={handleUpdate} onDelete={handleDelete} />
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           ) : (
             <ul className="space-y-2">
               {current.items.map((r) => (
@@ -540,7 +582,7 @@ export default function RemindersPage() {
           )}
         </section>
 
-        <aside className="bg-white rounded-lg border border-slate-200">
+        <aside className="bg-white rounded-xl border border-slate-200">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
             <Settings2 className="h-4 w-4 text-slate-400" />
             <h2 className="text-sm font-semibold text-slate-900">Reminder rules</h2>

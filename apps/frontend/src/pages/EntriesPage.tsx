@@ -24,7 +24,6 @@ import {
 } from "../lib/savedFilters";
 import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
-import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
 import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
@@ -338,13 +337,31 @@ export default function EntriesPage() {
     return `${fieldName} ${opLabel} "${f.value}"`;
   };
 
-  if (loading) return <LoadingState message="Loading entries..." />;
+  if (loading) {
+    return (
+      <div className="space-y-6 max-w-5xl" aria-busy="true">
+        <span className="sr-only" role="status">Loading entries...</span>
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-3 w-40" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-5xl">
       <PageHeader
         title="Entries"
-        subtitle="Everything you've recorded across your projects."
+        subtitle="What you did and when, day by day, across your projects."
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -593,7 +610,7 @@ export default function EntriesPage() {
 
           {savedFilters.length > 0 && (
             <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <span className="text-xs font-medium text-slate-500">
                 Saved
               </span>
               {savedFilters.map((f) => {
@@ -628,7 +645,7 @@ export default function EntriesPage() {
             </div>
           )}
 
-          <div className="bg-white rounded-lg border border-slate-200">
+          <div className="bg-white rounded-xl border border-slate-200">
             <div className="p-6">
               {entriesLoading ? (
                 <div className="py-4 space-y-4" aria-busy="true">
@@ -649,8 +666,8 @@ export default function EntriesPage() {
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 mb-3">
                         <AlertTriangle className="h-5 w-5 text-emerald-500" />
                       </div>
-                      <p className="text-sm font-medium text-slate-700">All caught up!</p>
-                      <p className="text-xs text-slate-400 mt-1">No overdue entries.</p>
+                      <p className="text-sm font-medium text-slate-700">All caught up.</p>
+                      <p className="text-sm text-slate-500 mt-1">No overdue entries.</p>
                     </>
                   ) : (
                     <>
@@ -725,7 +742,7 @@ export default function EntriesPage() {
                               <div
                                 className={`absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 -translate-x-[5px] ${
                                   isOverdue
-                                    ? "bg-red-500 border-red-200"
+                                    ? "bg-amber-500 border-amber-200"
                                     : "bg-blue-500 border-blue-200"
                                 }`}
                               />
@@ -809,8 +826,8 @@ export default function EntriesPage() {
                                 <TagList tags={entry.tags} className="mt-1" />
 
                                 {isOverdue && (
-                                  <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-red-100 text-red-700 border border-red-200">
-                                    <AlertTriangle className="h-3 w-3" />
+                                  <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                    <AlertTriangle className="h-3 w-3" aria-hidden="true" />
                                     Overdue
                                   </span>
                                 )}

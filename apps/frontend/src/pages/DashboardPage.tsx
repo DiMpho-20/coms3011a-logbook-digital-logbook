@@ -9,6 +9,9 @@ import {
   GripVertical,
   Sigma,
   Flame,
+  PenLine,
+  GraduationCap,
+  BellPlus,
 } from "lucide-react";
 
 import {
@@ -17,15 +20,27 @@ import {
   fetchAllEntries,
   fetchProjectStatistic,
   fetchProjectStatistics,
+  fetchGradeModules,
+  fetchReminders,
   type CustomStatistic,
+  type GradeModule,
+  type Reminder,
   type Project,
   type Entry,
   type EntryField,
 } from "../api";
 import { fieldValueText, formatDuration, getGreeting, localDateKey, entryDateKey } from "../lib/utils";
 import PageHeader from "../components/PageHeader";
+import DailyNote from "../components/dashboard/DailyNote";
+import NextUp from "../components/dashboard/NextUp";
+import OnYourRadar from "../components/dashboard/OnYourRadar";
+import ModulesAtAGlance from "../components/dashboard/ModulesAtAGlance";
+import { computeModule } from "../lib/grades";
+import { academicYears, defaultAcademicYear } from "../lib/gradeDisplay";
+import { buildNextUp, buildRadar } from "../lib/today";
+import { lastProjectId } from "../lib/quickCapture";
+import { button } from "../lib/ui";
 import DeadlineReminders from "../components/DeadlineReminders";
-import LoadingState from "../components/LoadingState";
 import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
 import Modal from "../components/Modal";
@@ -41,6 +56,7 @@ import {
 } from "../lib/dashboardInsights";
 import {
   DASHBOARD_PANELS,
+  DEFAULT_DASHBOARD_PANELS,
   isBuiltInPanel,
   loadDashboardPanels,
   parseStatisticPanel,
@@ -296,6 +312,24 @@ export default function DashboardPage() {
   const [displayName] = useState(
     () => (typeof window !== "undefined" ? localStorage.getItem("logbook-name") : null) || "Student"
   );
+  // "Today": the student's modules and their own reminders. Two requests,
+  // made alongside the entries; the module list is cached for offline use.
+  const [modules, setModules] = useState<GradeModule[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [todayLoading, setTodayLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([fetchGradeModules(), fetchReminders("pending")]).then(([moduleResult, reminderResult]) => {
+      if (cancelled) return;
+      if (moduleResult.status === "fulfilled") setModules(moduleResult.value);
+      if (reminderResult.status === "fulfilled") setReminders(reminderResult.value);
+      setTodayLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -451,7 +485,61 @@ export default function DashboardPage() {
   const progress = useMemo(() => weeklyProgress(allEntries), [allEntries]);
   const tagRanks = useMemo(() => tagRanking(allEntries), [allEntries]);
 
-  if (loading) return <LoadingState message="Loading dashboard..." />;
+  // This academic year's modules, each through the grade engine once.
+  const thisYearModules = useMemo(() => {
+    const year = defaultAcademicYear(academicYears(modules), new Date().getFullYear());
+    return modules.filter((m) => year === "ALL" || m.academicYear === year);
+  }, [modules]);
+  const moduleSummaries = useMemo(
+    () => new Map(thisYearModules.map((m) => [m.id, computeModule(m, { target: m.targetMark })])),
+    [thisYearModules]
+  );
+  const todayKey = localDateKey(new Date());
+  const nextUp = useMemo(
+    () =>
+      buildNextUp({
+        modules,
+        entries: allEntries,
+        reminders,
+        projectNames: Object.fromEntries(projects.map((p) => [p.id, p.name])),
+        describeEntry: (entry) => entrySummary(entry, fieldsByProject[entry.projectId] || []),
+        today: todayKey,
+      }),
+    [modules, allEntries, reminders, projects, fieldsByProject, todayKey]
+  );
+  const radar = useMemo(
+    () =>
+      buildRadar({
+        modules: thisYearModules,
+        summaries: moduleSummaries,
+        entries: allEntries,
+        dueReminders: reminders.filter((r) => Date.parse(r.remindAt) <= Date.now()).length,
+        today: todayKey,
+      }),
+    [thisYearModules, moduleSummaries, allEntries, reminders, todayKey]
+  );
+  const todayDataLoading = entriesLoading || todayLoading;
+
+  if (loading) {
+    // The shape of the page, not a spinner: greeting, then Next up and the radar.
+    return (
+      <div className="space-y-6 max-w-6xl" aria-busy="true" aria-label="Loading dashboard">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-64" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <Skeleton className="h-12 w-full" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div className="lg:col-span-3 rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-5 w-full" />)}
+          </div>
+          <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+            {[0, 1].map((i) => <Skeleton key={i} className="h-5 w-full" />)}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const persist = (panels: DashboardPanelId[]) => {
     persistDashboardPanels(panels).then((saved) => setLayoutSaveFailed(!saved));
@@ -513,7 +601,7 @@ export default function DashboardPage() {
     });
   };
   const restoreDefaultLayout = () => {
-    const defaults = [...DASHBOARD_PANELS];
+    const defaults = [...DEFAULT_DASHBOARD_PANELS];
     setDraftPanels(defaults);
     setSelectedPanels(defaults);
     resetDashboardPanels();
@@ -723,8 +811,12 @@ export default function DashboardPage() {
     }
   };
 
-  const usesDefaultLayout = selectedPanels.length === DASHBOARD_PANELS.length
-    && selectedPanels.every((panel, index) => panel === DASHBOARD_PANELS[index]);
+  const isExactly = (panels: readonly DashboardPanelId[]) =>
+    selectedPanels.length === panels.length && selectedPanels.every((panel, index) => panel === panels[index]);
+  // Both the starting dashboard and the full original set have a hand-laid
+  // arrangement; anything a student changes falls back to the even grid.
+  const usesDefaultLayout = isExactly(DEFAULT_DASHBOARD_PANELS);
+  const usesFullLayout = isExactly(DASHBOARD_PANELS);
   const customPanelWidth = (index: number) => {
     // Every custom panel gets half a desktop row. If a panel is left without a
     // neighbour after removals, let it use the whole row rather than retaining
@@ -735,33 +827,62 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      {/* ── 1. Greeting ─────────────────────────────────────────────────── */}
+      {/* ── Today: what do I need to know? ────────────────────────────── */}
       <PageHeader
-        title={`${getGreeting()}, ${displayName} \u{1F44B}`}
-        subtitle="Here's what you've been working on."
+        title={`${getGreeting()}, ${displayName}`}
+        subtitle={new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
         action={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setArrangingPanels((current) => !current)}
-              className={`flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium transition ${arrangingPanels ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-300 hover:bg-slate-50 text-slate-700"}`}
-            >
-              <GripVertical className="h-4 w-4" /> {arrangingPanels ? "Done arranging" : "Arrange panels"}
-            </button>
-            <button
-              onClick={openPanelPicker}
-              className="flex items-center gap-2 border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition"
-            >
-              <LayoutDashboard className="h-4 w-4" /> Customize dashboard
-            </button>
-            <button
-              onClick={() => navigate("/projects")}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-            >
-              <Plus className="h-4 w-4" /> New Project
-            </button>
-          </div>
+          <button onClick={() => navigate("/projects")} className={button("secondary")}>
+            <Plus className="h-4 w-4" aria-hidden="true" /> New Project
+          </button>
         }
       />
+
+      <DailyNote />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <div className="lg:col-span-3"><NextUp items={nextUp} loading={todayDataLoading} /></div>
+        <div className="lg:col-span-2"><OnYourRadar items={radar} loading={todayDataLoading} /></div>
+      </div>
+
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Quick actions">
+        <button
+          onClick={() => {
+            const id = lastProjectId() ?? projects.find((p) => p.status === "ACTIVE")?.id;
+            navigate(id ? `/projects/${id}?new=1` : "/projects");
+          }}
+          className={button("primary")}
+        >
+          <PenLine className="h-4 w-4" aria-hidden="true" /> New entry
+        </button>
+        <button onClick={() => navigate("/grades")} className={button("secondary")}>
+          <GraduationCap className="h-4 w-4" aria-hidden="true" /> Add assessment
+        </button>
+        <button onClick={() => navigate("/reminders?new=1")} className={button("secondary")}>
+          <BellPlus className="h-4 w-4" aria-hidden="true" /> New reminder
+        </button>
+      </div>
+
+      {!todayLoading && <ModulesAtAGlance modules={thisYearModules.slice(0, 6)} summaries={moduleSummaries} />}
+
+      {/* ── Your panels: the student's own arrangement ─────────────────── */}
+      <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-[15px] font-semibold text-slate-900">Your panels</h2>
+          <p className="text-xs text-slate-500">Choose and arrange the panels you want to keep an eye on.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setArrangingPanels((current) => !current)}
+            className={arrangingPanels ? `${button("secondary", "sm")} border-blue-600 bg-blue-50 text-blue-700` : button("secondary", "sm")}
+          >
+            <GripVertical className="h-4 w-4" aria-hidden="true" /> {arrangingPanels ? "Done arranging" : "Arrange panels"}
+          </button>
+          <button onClick={openPanelPicker} className={button("secondary", "sm")}>
+            <LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Customize dashboard
+          </button>
+        </div>
+      </div>
 
       {/* ── 2. Key Statistics ───────────────────────────────────────────── */}
 
@@ -794,6 +915,15 @@ export default function DashboardPage() {
       )}
 
       {usesDefaultLayout && !arrangingPanels ? (
+        <>
+          {renderPanel("entry-streak")}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3">{renderPanel("activity")}</div>
+            <div className="lg:col-span-2">{renderPanel("current-projects")}</div>
+          </div>
+          {renderPanel("recent-entries")}
+        </>
+      ) : usesFullLayout && !arrangingPanels ? (
         <>
           {renderPanel("entry-streak")}
           {renderPanel("deadline-reminders")}

@@ -251,3 +251,32 @@ describe("CalendarPage — what each day shows", () => {
     expect(await screen.findByText(/Couldn't load this project's entries/)).toBeInTheDocument();
   });
 });
+
+describe("CalendarPage — phones and accessibility", () => {
+  it("labels the month buttons for screen readers", async () => {
+    renderPage();
+    await screen.findByText(monthLabel());
+    expect(screen.getByRole("button", { name: "Previous month" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next month" })).toBeInTheDocument();
+  });
+
+  it("shows an agenda instead of the grid on a phone-width screen", async () => {
+    const original = window.matchMedia;
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as never;
+    try {
+      vi.mocked(api.get).mockImplementation(serve([entry(), entry({ id: "e2", dueDate: `${MONTH}-15T00:00:00.000Z`, status: "OPEN" })]));
+      renderPage();
+      const agenda = await screen.findByRole("list", { name: `${monthLabel()} agenda` });
+      await waitFor(() => expect(agenda).toHaveTextContent("2 entries logged"));
+      expect(agenda.textContent).toMatch(/(Due|Overdue):/);
+      // No seven-column week headings on a phone.
+      expect(screen.queryByText("Wed")).toBeNull();
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+});

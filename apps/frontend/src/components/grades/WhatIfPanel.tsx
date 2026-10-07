@@ -2,6 +2,9 @@ import { useState } from "react";
 import { FlaskConical, RotateCcw } from "lucide-react";
 import type { GradeModule } from "@logbook/shared";
 import { computeModule, formatPercent, formatWeight, type ModuleSummary } from "../../lib/grades";
+import { chipToggle } from "../../lib/ui";
+import Card from "../Card";
+import GradeBar from "./GradeBar";
 
 const QUICK_MARKS = [40, 50, 60, 70, 80];
 
@@ -45,15 +48,18 @@ export default function WhatIfPanel({ module, summary }: WhatIfPanelProps) {
   };
 
   return (
-    <section className="bg-white rounded-lg border border-dashed border-blue-200" aria-labelledby="what-if-heading">
-      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-        <FlaskConical className="h-4 w-4 text-slate-400" />
-        <h2 id="what-if-heading" className="text-sm font-semibold text-slate-900">What if?</h2>
-        <span className="ml-auto px-2 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-[11px] font-medium text-blue-700">
+    <Card
+      title="What if?"
+      description="Try marks for what's left. Your real marks don't change."
+      icon={FlaskConical}
+      className="border-dashed border-blue-200"
+      action={
+        <span className="inline-flex items-center rounded-full border border-dashed border-blue-300 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
           Hypothetical — not saved
         </span>
-      </div>
-      <div className="p-4 space-y-4">
+      }
+      bodyClassName="p-5 space-y-4"
+    >
         {disabledReason ? (
           <p className="text-sm text-slate-500">{disabledReason}</p>
         ) : (
@@ -69,9 +75,7 @@ export default function WhatIfPanel({ module, summary }: WhatIfPanelProps) {
                   role="radio"
                   aria-checked={mode === value}
                   onClick={() => setMode(value)}
-                  className={`px-2.5 py-1 text-xs rounded-full border transition ${
-                    mode === value ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
+                  className={chipToggle(mode === value)}
                 >
                   {label}
                 </button>
@@ -127,23 +131,27 @@ export default function WhatIfPanel({ module, summary }: WhatIfPanelProps) {
               </ul>
             )}
 
-            <div className="flex items-end justify-between gap-3 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2">
-              <div>
-                <p className="text-[11px] text-blue-700">Projected final mark</p>
-                <p className="text-xl font-bold text-blue-900">{projected === null ? "—" : formatPercent(projected)}</p>
+            <div className="space-y-3 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-4 py-3">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs text-blue-700">Projected final mark</p>
+                  <p className="text-2xl font-semibold tracking-tight tabular-nums text-blue-900">{projected === null ? "—" : formatPercent(projected)}</p>
+                </div>
+                <button type="button" onClick={reset} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-blue-700 hover:bg-blue-100 transition">
+                  <RotateCcw className="h-3 w-3" aria-hidden="true" /> Reset
+                </button>
               </div>
-              <button type="button" onClick={reset} className="flex items-center gap-1 text-xs text-blue-700 hover:underline">
-                <RotateCcw className="h-3 w-3" /> Reset
-              </button>
+              {/* The dashed section is the what-if part; the solid part is what's really secured. */}
+              <GradeBar summary={summary} target={module.targetMark} projected={projected} />
             </div>
 
             {quickTable && (
               <table className="w-full text-sm">
-                <caption className="text-left text-[11px] text-slate-500 pb-1">
+                <caption className="text-left text-xs text-slate-500 pb-1">
                   {pending[0].name}: what each mark would give you
                 </caption>
                 <thead>
-                  <tr className="text-[11px] text-slate-500">
+                  <tr className="text-xs text-slate-500">
                     <th className="text-left font-medium py-1">{pending[0].name} mark</th>
                     <th className="text-right font-medium py-1">Projected final mark</th>
                   </tr>
@@ -151,8 +159,8 @@ export default function WhatIfPanel({ module, summary }: WhatIfPanelProps) {
                 <tbody>
                   {quickTable.map(({ mark, final }) => (
                     <tr key={mark} className="border-t border-slate-100">
-                      <td className="py-1 text-slate-700">{mark}%</td>
-                      <td className="py-1 text-right font-medium text-slate-800">{final === null ? "—" : formatPercent(final)}</td>
+                      <td className="py-1 tabular-nums text-slate-700">{mark}%</td>
+                      <td className="py-1 text-right tabular-nums font-medium text-slate-800">{final === null ? "—" : formatPercent(final)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -160,7 +168,6 @@ export default function WhatIfPanel({ module, summary }: WhatIfPanelProps) {
             )}
           </>
         )}
-      </div>
-    </section>
+    </Card>
   );
 }

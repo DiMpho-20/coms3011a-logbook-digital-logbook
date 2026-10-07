@@ -1,64 +1,92 @@
 import { Link } from "react-router-dom";
-import { AlertTriangle, ChevronRight } from "lucide-react";
+import { AlertTriangle, CalendarClock, ChevronRight } from "lucide-react";
 import type { GradeModule } from "@logbook/shared";
-import { computeModule, formatPercent, formatSecured, formatWeight } from "../../lib/grades";
-import { moduleTypeLabel } from "../../lib/gradeDisplay";
-import { Badge, TargetStatusBadge } from "./GradeBadges";
+import { formatPercent, formatRequired, formatSecured, formatWeight, type ModuleSummary } from "../../lib/grades";
+import { DATE_KIND_LABEL, countdownLabel, formatDay, moduleTypeLabel, nextAssessment } from "../../lib/gradeDisplay";
+import StatusChip from "../StatusChip";
+import GradeBar from "./GradeBar";
+import { TargetStatusBadge } from "./GradeBadges";
 
-/** One module on the overview, with its figures from the grade engine. */
-export default function ModuleCard({ module }: { module: GradeModule }) {
-  const summary = computeModule(module, { target: module.targetMark });
-  const marked = Math.min(100, Math.max(0, summary.markedWeight));
+/**
+ * One module on the overview. The summary is the grade engine's own result,
+ * worked out once by the page; this card only arranges it.
+ */
+export default function ModuleCard({ module, summary }: { module: GradeModule; summary: ModuleSummary }) {
+  const next = nextAssessment(module);
+  const target = summary.target;
 
   return (
     <Link
       to={`/grades/${module.id}`}
-      className="block bg-white rounded-lg border border-slate-200 p-4 hover:border-blue-200 transition"
       aria-label={`${module.code} ${module.name}`}
+      className="group flex flex-col gap-4 bg-white rounded-xl border border-slate-200 p-5 transition duration-150 hover:border-slate-300 hover:shadow-sm"
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-slate-900">{module.code}</p>
-          <p className="text-xs text-slate-500 truncate">{module.name}</p>
+          <p className="text-sm font-semibold tracking-wide text-slate-900">{module.code}</p>
+          <p className="text-sm text-slate-500 truncate">{module.name}</p>
         </div>
-        <Badge tone="slate">{moduleTypeLabel(module)}</Badge>
+        <StatusChip>{moduleTypeLabel(module)}</StatusChip>
       </div>
 
-      <dl className="grid grid-cols-2 gap-3 mt-4">
+      <div className="flex items-end justify-between gap-3">
         <div>
-          <dt className="text-[11px] text-slate-500">Secured</dt>
-          <dd className="text-lg font-bold text-slate-900">{formatSecured(summary.securedPoints)}</dd>
+          <p className="text-3xl font-semibold tracking-tight tabular-nums text-slate-900">
+            {summary.averageSoFar === null ? "—" : formatPercent(summary.averageSoFar)}
+          </p>
+          <p className="text-xs text-slate-500">Average on marked work</p>
+        </div>
+        {!summary.setup.valid ? (
+          <StatusChip tone="caution" icon={AlertTriangle} title={summary.setup.issues.join(" ")}>
+            Finish setting up
+          </StatusChip>
+        ) : (
+          target && target.status !== "NO_TARGET" && <TargetStatusBadge status={target.status} />
+        )}
+      </div>
+
+      <GradeBar summary={summary} target={module.targetMark} />
+
+      <dl className="grid grid-cols-3 gap-2 text-xs">
+        <div>
+          <dt className="text-slate-500">Secured</dt>
+          <dd className="font-semibold tabular-nums text-slate-800">{formatSecured(summary.securedPoints)}</dd>
         </div>
         <div>
-          <dt className="text-[11px] text-slate-500">Average on marked work</dt>
-          <dd className="text-lg font-bold text-slate-900">
-            {summary.averageSoFar === null ? "—" : formatPercent(summary.averageSoFar)}
-          </dd>
+          <dt className="text-slate-500">Marked</dt>
+          <dd className="font-semibold tabular-nums text-slate-800">{formatPercent(summary.markedWeight)}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">Remaining</dt>
+          <dd className="font-semibold tabular-nums text-slate-800">{formatPercent(summary.remainingWeight)}</dd>
         </div>
       </dl>
 
-      <div className="mt-3">
-        <div className="flex justify-between text-[11px] text-slate-500 mb-1">
-          <span>Marked {formatPercent(summary.markedWeight)}</span>
-          <span>Remaining {formatPercent(summary.remainingWeight)}</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden" aria-hidden="true">
-          <div className="h-full bg-blue-600 rounded-full" style={{ width: `${marked}%` }} />
-        </div>
-      </div>
+      {target && target.value !== null && (
+        <p className="text-sm text-slate-700">
+          {target.required !== null ? (
+            <>Need <strong className="tabular-nums">{formatRequired(target.required)}</strong> on remaining work for {formatWeight(target.value)}</>
+          ) : target.status === "SECURED" ? (
+            <>Your {formatWeight(target.value)} target is secured</>
+          ) : (
+            <>Highest possible now: <span className="tabular-nums">{formatPercent(summary.highestPossible)}</span></>
+          )}
+        </p>
+      )}
 
-      <div className="mt-3 flex items-center justify-between gap-2">
-        {!summary.setup.valid ? (
-          <Badge tone="amber" title={summary.setup.issues.join(" ")}>
-            <AlertTriangle className="h-3 w-3" /> Finish setting up
-          </Badge>
-        ) : summary.target ? (
-          <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
-            {module.targetMark !== null && <span>Target {formatWeight(module.targetMark)}</span>}
-            <TargetStatusBadge status={summary.target.status} />
+      <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
+        {next ? (
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">
+              {DATE_KIND_LABEL[next.assessment.dateKind ?? "DUE"]} · {next.assessment.name} · {formatDay(next.assessment.date!)}
+            </span>
+            <span className="shrink-0 font-medium text-slate-700">{countdownLabel(next.days)}</span>
           </span>
-        ) : null}
-        <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
+        ) : (
+          <span>No upcoming dates</span>
+        )}
+        <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5" aria-hidden="true" />
       </div>
     </Link>
   );

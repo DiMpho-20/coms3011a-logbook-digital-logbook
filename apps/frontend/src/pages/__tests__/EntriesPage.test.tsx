@@ -265,7 +265,7 @@ describe("EntriesPage — the timeline", () => {
     fireEvent.change(tabSelect, { target: { value: "overdue" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-    expect(await screen.findByText("All caught up!")).toBeInTheDocument();
+    expect(await screen.findByText("All caught up.")).toBeInTheDocument();
   });
 
   it("filters down to a single project", async () => {

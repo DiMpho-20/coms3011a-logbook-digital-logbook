@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CheckCircle2, Clock, Loader2 } from "lucide-react";
+import { CheckCircle2, Clock, Kanban } from "lucide-react";
 import { api } from "../api/client";
 import PageHeader from "../components/PageHeader";
+import EmptyState from "../components/EmptyState";
+import Skeleton from "../components/Skeleton";
 import { columnLabel, entryDateKey, fieldValueText, formatDuration } from "../lib/utils";
 
 type Entry = {
@@ -114,8 +116,27 @@ export default function BoardPage() {
     return Array.from(map.entries()).sort(([a], [b]) => order(a) - order(b) || a.localeCompare(b));
   }, [entries, groupBy, fields]);
 
-  if (loadingProjects) return <p className="text-sm text-slate-500">Loading projects…</p>;
-  if (projects.length === 0) return <p className="text-sm text-slate-500">No projects yet.</p>;
+  if (loadingProjects) {
+    return (
+      <div className="space-y-6" aria-busy="true">
+        <span className="sr-only" role="status">Loading projects…</span>
+        <Skeleton className="h-7 w-28" />
+        <div className="flex gap-4">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-48 w-64" />)}
+        </div>
+      </div>
+    );
+  }
+  if (projects.length === 0) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Board" subtitle="A project's entries in columns, grouped by status or by any of its fields." />
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <EmptyState icon={Kanban} title="No projects yet." description="Create a project and log some entries to see them laid out in columns." />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-full">
@@ -123,7 +144,7 @@ export default function BoardPage() {
 
       <div className="flex flex-wrap gap-3">
         <div>
-          <label htmlFor="board-project" className="block text-[11px] font-medium text-slate-500 mb-1">Project</label>
+          <label htmlFor="board-project" className="block text-xs font-medium text-slate-500 mb-1">Project</label>
           <select
             id="board-project"
             value={selectedProjectId}
@@ -136,7 +157,7 @@ export default function BoardPage() {
           </select>
         </div>
         <div>
-          <label htmlFor="board-group" className="block text-[11px] font-medium text-slate-500 mb-1">Group by</label>
+          <label htmlFor="board-group" className="block text-xs font-medium text-slate-500 mb-1">Group by</label>
           <select
             id="board-group"
             value={groupBy}
@@ -152,20 +173,27 @@ export default function BoardPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+        <div className="flex gap-4" aria-busy="true" aria-label="Loading entries">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-48 w-64" />)}
         </div>
       ) : loadError ? (
-        <p className="text-sm text-red-600">Couldn't load this project's entries. Check your connection and try again.</p>
+        <p role="alert" className="text-sm text-red-600">Couldn't load this project's entries. Check your connection and try again.</p>
       ) : columns.length === 0 ? (
-        <p className="text-sm text-slate-500">This project has no entries yet.</p>
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <EmptyState compact icon={Kanban} title="This project has no entries yet." description="Entries you log in this project will appear here, grouped into columns." />
+        </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2">
+        // On phones each column takes most of the width and snaps into place as you swipe.
+        <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory sm:snap-none">
           {columns.map(([key, items]) => (
-            <div key={key} className="w-[260px] flex-shrink-0 rounded-lg border border-slate-200 bg-slate-50">
-              <div className="px-3 py-2 border-b border-slate-200 flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-slate-800 truncate" title={key}>{key}</span>
-                <span className="text-[10px] text-slate-500">{items.length}</span>
+            <section
+              key={key}
+              aria-label={`${key}, ${items.length} ${items.length === 1 ? "entry" : "entries"}`}
+              className="w-[85vw] sm:w-[280px] flex-shrink-0 snap-start rounded-xl border border-slate-200 bg-slate-50"
+            >
+              <div className="px-3 py-2.5 border-b border-slate-200 flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-slate-800 truncate" title={key}>{key}</span>
+                <span className="rounded-full bg-white border border-slate-200 px-2 text-xs tabular-nums text-slate-600">{items.length}</span>
               </div>
               <div className="p-2 space-y-2 max-h-[70vh] overflow-y-auto">
                 {items.map((e) => {
@@ -174,12 +202,12 @@ export default function BoardPage() {
                     <Link
                       key={e.id}
                       to={`/projects/${e.projectId}`}
-                      className="block rounded-md border border-slate-200 bg-white px-3 py-2 hover:border-cyan-300 hover:bg-cyan-50/40 transition"
+                      className="block rounded-lg border border-slate-200 bg-white px-3 py-2.5 transition duration-150 hover:border-slate-300 hover:shadow-sm"
                     >
-                      <p className={`text-xs font-medium line-clamp-2 ${description ? "text-slate-800" : "text-slate-400 italic"}`}>
+                      <p className={`text-sm font-medium line-clamp-2 ${description ? "text-slate-800" : "text-slate-500 italic"}`}>
                         {description || "No description"}
                       </p>
-                      <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
+                      <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
                         <span>{entryDateKey(e)}</span>
                         {e.durationMinutes > 0 && (
                           <span className="inline-flex items-center gap-0.5">
@@ -196,7 +224,7 @@ export default function BoardPage() {
                   );
                 })}
               </div>
-            </div>
+            </section>
           ))}
         </div>
       )}

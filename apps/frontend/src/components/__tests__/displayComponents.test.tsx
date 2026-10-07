@@ -259,6 +259,20 @@ describe("ProjectCard", () => {
     expect(screen.getByText("3 days ago")).toBeInTheDocument();
   });
 
+  it("notes an active project that has gone quiet, but not a recent or archived one", () => {
+    const quiet = { projectId: "p1", totalMinutes: 5, totalHours: 0.1, entryCount: 1, lastEntryAt: daysAgo(20) } as TimeSummary;
+    const { unmount } = renderCard({ summary: quiet });
+    expect(screen.getByText("Quiet for a while")).toBeInTheDocument();
+    unmount();
+    renderCard({ summary: quiet, project: project({ status: "ARCHIVED" }) });
+    expect(screen.queryByText("Quiet for a while")).toBeNull();
+  });
+
+  it("can be opened from the keyboard through its name", () => {
+    renderCard();
+    expect(screen.getByRole("link", { name: "Campus Marketplace" })).toHaveAttribute("href", "/projects/p1");
+  });
+
   it("calls back on edit and archive without navigating", () => {
     const onEdit = vi.fn();
     const onToggleArchive = vi.fn();

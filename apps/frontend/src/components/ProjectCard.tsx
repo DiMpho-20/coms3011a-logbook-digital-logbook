@@ -1,7 +1,8 @@
-import { useNavigate } from "react-router-dom";
-import { Archive, ArchiveRestore, CloudOff, Edit2, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Archive, ArchiveRestore, CircleDot, CloudOff, Edit2, Moon, Trash2 } from "lucide-react";
 import { formatDuration } from "../lib/utils";
 import TagList from "./TagList";
+import StatusChip from "./StatusChip";
 import type { Project, TimeSummary } from "../api";
 
 interface ProjectCardProps {
@@ -13,17 +14,23 @@ interface ProjectCardProps {
   onDelete?: (project: Project) => void;
 }
 
-function relativeDay(dateStr: string): string {
+/** An active project with no entry for this long reads as quiet: worth a look, not a warning. */
+const QUIET_AFTER_DAYS = 14;
+
+function daysSince(dateStr: string): number {
   const date = new Date(dateStr);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffDays = Math.floor((today.getTime() - target.getTime()) / 86400000);
+  return Math.floor((today.getTime() - target.getTime()) / 86400000);
+}
 
+function relativeDay(dateStr: string): string {
+  const diffDays = daysSince(dateStr);
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
   if (diffDays < 7) return `${diffDays} days ago`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 export default function ProjectCard({
@@ -35,129 +42,118 @@ export default function ProjectCard({
 }: ProjectCardProps) {
   const navigate = useNavigate();
   const isArchived = project.status === "ARCHIVED";
-  const isActive = project.status === "ACTIVE";
+  const quiet =
+    !isArchived && summary?.lastEntryAt != null && daysSince(summary.lastEntryAt) >= QUIET_AFTER_DAYS;
+
+  const iconButton = "relative z-10 p-2 rounded-lg transition";
 
   return (
     <div
-      className={`bg-white rounded-xl border border-slate-200 p-5 hover:border-slate-300 hover:shadow-sm transition group cursor-pointer ${
-        isArchived ? "opacity-60" : ""
+      className={`relative flex flex-col bg-white rounded-xl border border-slate-200 p-5 transition duration-150 hover:border-slate-300 hover:shadow-sm has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-blue-500 group cursor-pointer ${
+        isArchived ? "opacity-70" : ""
       }`}
       onClick={() => navigate(`/projects/${project.id}`)}
     >
-      {/* Project name */}
-      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-2">
-        {project.name}
-      </h3>
-
-      {/* Description */}
-      {project.description ? (
-        <p className="text-sm text-slate-500 mb-4 line-clamp-2 min-h-[2.5rem]">
-          {project.description}
-        </p>
-      ) : (
-        <div className="mb-4 min-h-[2.5rem]" />
-      )}
-
-      {/* Status badge */}
-      <div className="mb-3 flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              isActive ? "bg-emerald-500" : "bg-slate-400"
-            }`}
-          />
-          {isActive ? "Active" : "Archived"}
-        </span>
-        {project.id.startsWith("offline-") && (
-          <span
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"
-            title="Created offline. It will be saved to your account when you reconnect."
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="min-w-0 text-[15px] font-semibold text-slate-900">
+          {/* The name is the card's link, stretched over it, so keyboards can open it too. */}
+          <Link
+            to={`/projects/${project.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none"
           >
-            <CloudOff className="h-3 w-3" /> Not synced yet
-          </span>
-        )}
+            {project.name}
+          </Link>
+        </h3>
+        <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+          {isArchived ? (
+            <StatusChip icon={Archive}>Archived</StatusChip>
+          ) : (
+            <StatusChip tone="success" icon={CircleDot}>Active</StatusChip>
+          )}
+          {project.id.startsWith("offline-") && (
+            <span title="Created offline. It will be saved to your account when you reconnect.">
+              <StatusChip tone="caution" icon={CloudOff}>Not synced yet</StatusChip>
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Tags */}
-      {project.tags && project.tags.length > 0 && (
-        <TagList tags={project.tags} className="mb-4" />
+      {project.description && (
+        <p className="mt-1.5 text-sm text-slate-500 line-clamp-2">{project.description}</p>
       )}
 
-      {/* Divider */}
-      <div className="border-t border-slate-100 my-3" />
+      {project.tags && project.tags.length > 0 && <TagList tags={project.tags} className="mt-3" />}
 
-      {/* Stats */}
-      <div className="space-y-1">
-        <p className="text-sm font-semibold text-slate-800">
-          {summary
-            ? `${summary.entryCount} ${summary.entryCount === 1 ? "entry" : "entries"}`
-            : "\u2014"}
-        </p>
-        <p className="text-sm font-semibold text-slate-800">
-          {summary ? formatDuration(summary.totalMinutes) : "\u2014"}
-        </p>
-      </div>
+      <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-slate-100 pt-3">
+        <div>
+          <dt className="text-xs text-slate-500">Entries</dt>
+          <dd className="text-sm font-semibold tabular-nums text-slate-800">
+            {summary ? `${summary.entryCount} ${summary.entryCount === 1 ? "entry" : "entries"}` : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-slate-500">Time logged</dt>
+          <dd className="text-sm font-semibold tabular-nums text-slate-800">
+            {summary ? formatDuration(summary.totalMinutes) : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-slate-500">Last activity</dt>
+          <dd className="text-sm font-medium text-slate-700">
+            {!summary ? "—" : summary.lastEntryAt ? relativeDay(summary.lastEntryAt) : "No entries yet"}
+          </dd>
+        </div>
+      </dl>
 
-      {/* Divider */}
-      <div className="border-t border-slate-100 my-3" />
-
-      {/* Last activity */}
-      <div>
-        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">
-          Last activity
-        </p>
-        <p className="text-sm font-medium text-slate-700 mt-0.5">
-          {!summary
-            ? "\u2014"
-            : summary.lastEntryAt
-              ? relativeDay(summary.lastEntryAt)
-              : "No entries yet"}
-        </p>
-      </div>
-
-      {/* Hover actions (only visible on hover) */}
-      <div className="flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit(project);
-          }}
-          className="p-1.5 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-          title="Edit project"
-        >
-          <Edit2 className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleArchive(project);
-          }}
-          className={`p-1.5 rounded-md transition ${
-            isArchived
-              ? "text-emerald-600 hover:bg-emerald-50"
-              : "text-slate-400 hover:bg-slate-100 hover:text-amber-600"
-          }`}
-          title={isArchived ? "Unarchive" : "Archive"}
-        >
-          {isArchived ? (
-            <ArchiveRestore className="h-3.5 w-3.5" />
-          ) : (
-            <Archive className="h-3.5 w-3.5" />
-          )}
-        </button>
-        {onDelete && (
+      <div className="mt-3 flex items-center justify-between gap-2">
+        {quiet ? (
+          <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+            <Moon className="h-3.5 w-3.5" aria-hidden="true" /> Quiet for a while
+          </span>
+        ) : (
+          <span />
+        )}
+        {/* Always there on touch screens; on larger screens they appear on hover or keyboard focus. */}
+        <div className="flex items-center gap-0.5 transition sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onDelete(project);
+              onEdit(project);
             }}
-            className="p-1.5 rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
-            title="Delete project permanently"
-            aria-label="Delete project"
+            className={`${iconButton} text-slate-500 hover:bg-slate-100 hover:text-slate-700`}
+            title="Edit project"
+            aria-label={`Edit ${project.name}`}
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Edit2 className="h-4 w-4" />
           </button>
-        )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleArchive(project);
+            }}
+            className={`${iconButton} ${
+              isArchived ? "text-emerald-600 hover:bg-emerald-50" : "text-slate-500 hover:bg-slate-100 hover:text-amber-600"
+            }`}
+            title={isArchived ? "Unarchive" : "Archive"}
+            aria-label={isArchived ? `Unarchive ${project.name}` : `Archive ${project.name}`}
+          >
+            {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+          </button>
+          {onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(project);
+              }}
+              className={`${iconButton} text-slate-500 hover:bg-red-50 hover:text-red-600`}
+              title="Delete project permanently"
+              aria-label="Delete project"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

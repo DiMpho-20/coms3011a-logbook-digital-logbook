@@ -17,9 +17,10 @@ import {
   type TimeSummary,
 } from "../api";
 import PageHeader from "../components/PageHeader";
+import Skeleton from "../components/Skeleton";
+import { button } from "../lib/ui";
 import ProjectCard from "../components/ProjectCard";
 import Modal from "../components/Modal";
-import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
@@ -297,20 +298,36 @@ export default function ProjectsPage() {
     }
   };
 
-  if (loading) return <LoadingState message="Loading projects..." />;
+  if (loading) {
+    return (
+      <div className="space-y-6 max-w-6xl" aria-busy="true">
+        <span className="sr-only" role="status">Loading projects...</span>
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (loadError) return <ErrorState message={loadError} onRetry={loadProjects} />;
 
   return (
     <div className="space-y-6 max-w-6xl">
       <PageHeader
         title="Projects"
-        subtitle="Manage your projects and track the work you've done."
+        subtitle="What's active, what's quiet, and the work you've logged in each."
         action={
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-          >
-            <Plus className="h-4 w-4" /> New Project
+          <button onClick={openCreateModal} className={button("primary")}>
+            <Plus className="h-4 w-4" aria-hidden="true" /> New Project
           </button>
         }
       />
@@ -346,6 +363,8 @@ export default function ProjectsPage() {
                   : "text-slate-400 hover:text-slate-600"
               }`}
               title="Grid view"
+              aria-label="Grid view"
+              aria-pressed={viewMode === "grid"}
             >
               <LayoutGrid className="h-4 w-4" />
             </button>
@@ -357,6 +376,8 @@ export default function ProjectsPage() {
                   : "text-slate-400 hover:text-slate-600"
               }`}
               title="List view"
+              aria-label="List view"
+              aria-pressed={viewMode === "list"}
             >
               <List className="h-4 w-4" />
             </button>
@@ -378,11 +399,8 @@ export default function ProjectsPage() {
           }
           action={
             hasNoProjects ? (
-              <button
-                onClick={openCreateModal}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-              >
-                <Plus className="h-4 w-4" /> New Project
+              <button onClick={openCreateModal} className={button("primary")}>
+                <Plus className="h-4 w-4" aria-hidden="true" /> New Project
               </button>
             ) : undefined
           }

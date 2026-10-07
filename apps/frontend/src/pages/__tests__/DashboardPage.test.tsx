@@ -27,10 +27,17 @@ vi.mock("../../api", () => ({
   // US18: saved statistics offered as panels.
   fetchProjectStatistics: vi.fn().mockResolvedValue([]),
   fetchProjectStatistic: vi.fn(),
+  // The "today" section: modules from My Grades and the student's reminders.
+  fetchGradeModules: vi.fn().mockResolvedValue([]),
+  fetchReminders: vi.fn().mockResolvedValue([]),
 }));
 
 import DashboardPage from "../../pages/DashboardPage";
 import { localDateKey } from "../../lib/utils";
+import { DASHBOARD_PANELS, DEFAULT_DASHBOARD_PANELS } from "../../lib/dashboardPreferences";
+
+/** A student who has added every panel, for tests about arranging and the panels themselves. */
+const showEveryPanel = () => localStorage.setItem("logbook-dashboard-panels", JSON.stringify(DASHBOARD_PANELS));
 
 function renderDashboard() {
   localStorage.setItem("logbook-name", "Test Student");
@@ -93,6 +100,7 @@ describe("DashboardPage", () => {
   });
 
   it("saves a rearranged dashboard layout and restores its panel order", async () => {
+    showEveryPanel();
     const user = userEvent.setup();
     const firstRender = renderDashboard();
 
@@ -110,7 +118,16 @@ describe("DashboardPage", () => {
     expect(activity.compareDocumentPosition(deadlines) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("starts a new dashboard with a few panels, leaving deadlines and charts to Today and Statistics", async () => {
+    renderDashboard();
+    expect(await screen.findByText("Activity")).toBeInTheDocument();
+    expect(screen.queryByText("Deadlines")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tag ranking")).not.toBeInTheDocument();
+    expect(screen.queryByText("Compare weeks")).not.toBeInTheDocument();
+  });
+
   it("restores the original dashboard layout immediately", async () => {
+    showEveryPanel();
     const user = userEvent.setup();
     renderDashboard();
 
@@ -121,14 +138,9 @@ describe("DashboardPage", () => {
     await user.click(screen.getByRole("button", { name: /restore defaults/i }));
 
     expect(screen.queryByRole("dialog", { name: /customize dashboard/i })).not.toBeInTheDocument();
-    expect(JSON.parse(localStorage.getItem("logbook-dashboard-panels") || "[]")).toEqual([
-      "entry-streak", "deadline-reminders",
-      "activity", "current-projects", "entry-progress", "monthly-entries", "week-comparison",
-      "tags", "tag-ranking", "recent-entries",
-    ]);
-    const activity = screen.getByText("Activity");
-    const deadlines = screen.getByText("Deadlines");
-    expect(deadlines.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem("logbook-dashboard-panels") || "[]")).toEqual(DEFAULT_DASHBOARD_PANELS);
+    expect(screen.getByText("Activity")).toBeInTheDocument();
+    expect(screen.queryByText("Deadlines")).not.toBeInTheDocument();
   });
 
   it("expands an unpaired custom panel instead of retaining an empty grid slot", async () => {
@@ -140,6 +152,7 @@ describe("DashboardPage", () => {
   });
 
   it("lets a student drag a panel to a new position and saves the layout", async () => {
+    showEveryPanel();
     const user = userEvent.setup();
     renderDashboard();
 
@@ -165,6 +178,7 @@ describe("DashboardPage", () => {
   // ── Insight panels: streak, monthly counts, progress, tags, weeks ─────
 
   it("shows the streak, progress, monthly, tag-ranking and week-comparison panels", async () => {
+    showEveryPanel();
     const { fetchAllEntries } = await import("../../api");
     const day = (offset: number) => {
       const d = new Date();
@@ -364,5 +378,79 @@ describe("DashboardPage", () => {
 
     expect(screen.queryByText("This statistic was deleted")).not.toBeInTheDocument();
     await waitFor(() => expect(vi.mocked(api.saveDashboardLayout).mock.calls.at(-1)![0]).toEqual(["tags"]));
+  });
+});
+
+// ── Today: what do I need to know? ─────────────────────────────────────
+
+describe("DashboardPage — today", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.removeItem("logbook-note-dismissed");
+  });
+
+  it("lists what's next from My Grades and the student's reminders in one place", async () => {
+    const api = await import("../../api");
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const inThree = new Date();
+    inThree.setDate(inThree.getDate() + 3);
+    vi.mocked(api.fetchGradeModules).mockResolvedValueOnce([
+      {
+        id: "m1", code: "MATH2015", name: "Discrete Maths", academicYear: new Date().getFullYear(),
+        type: "SEMESTER", semester: 2, semester1Weight: null, targetMark: null, createdAt: "", updatedAt: "",
+        assessments: [{
+          id: "a1", moduleId: "m1", name: "Tutorial test 2", section: null, weight: 100,
+          markObtained: null, markMax: null, markPercent: null, missed: false,
+          date: localDateKey(tomorrow), dateKind: "TEST", remind: true, position: 0, createdAt: "", updatedAt: "",
+        }],
+      },
+    ] as never);
+    vi.mocked(api.fetchReminders).mockResolvedValueOnce([
+      { id: "r1", title: "Book study room", note: null, source: "MANUAL", status: "PENDING",
+        remindAt: `${localDateKey(inThree)}T09:00:00`, completedAt: null, dismissedAt: null, createdAt: "", entry: null, assessment: null },
+    ] as never);
+    renderDashboard();
+
+    const nextUp = await screen.findByRole("region", { name: "Next up" });
+    await within(nextUp).findByText("Tutorial test 2");
+    const items = within(nextUp).getAllByRole("link");
+    expect(items[0]).toHaveTextContent("Tutorial test 2");
+    expect(items[0]).toHaveTextContent("MATH2015");
+    expect(items[0]).toHaveTextContent("Tomorrow");
+    expect(items[0]).toHaveAttribute("href", "/grades/m1");
+    expect(items[1]).toHaveTextContent("Book study room");
+    expect(items[1]).toHaveTextContent("In 3 days");
+
+    const modules = screen.getByRole("region", { name: "Modules at a glance" });
+    expect(within(modules).getByRole("link", { name: /MATH2015/ })).toHaveAttribute("href", "/grades/m1");
+  });
+
+  it("says plainly when nothing needs attention", async () => {
+    renderDashboard();
+    const radar = await screen.findByRole("region", { name: "On your radar" });
+    expect(await within(radar).findByText("Nothing needs your attention right now.")).toBeInTheDocument();
+  });
+
+  it("shows a daily note that can be put away until tomorrow", async () => {
+    const user = userEvent.setup();
+    const first = renderDashboard();
+    const note = await screen.findByRole("complementary", { name: "Today's note" });
+    expect(note.textContent?.trim().length).toBeGreaterThan(0);
+    await user.click(within(note).getByRole("button", { name: "Hide today's note" }));
+    expect(screen.queryByRole("complementary", { name: "Today's note" })).toBeNull();
+
+    first.unmount();
+    renderDashboard();
+    await screen.findByText(/Test Student/);
+    expect(screen.queryByRole("complementary", { name: "Today's note" })).toBeNull();
+  });
+
+  it("offers a few quick actions, with New entry first", async () => {
+    renderDashboard();
+    const actions = await screen.findByRole("group", { name: "Quick actions" });
+    expect(within(actions).getAllByRole("button").map((b) => b.textContent?.trim())).toEqual([
+      "New entry", "Add assessment", "New reminder",
+    ]);
   });
 });

@@ -5,6 +5,7 @@ import {
   NotebookPen, Clock, FolderKanban, Flame, Trash2, Loader2, AlertCircle, ArrowRight,
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import Skeleton from "../components/Skeleton";
 import { api } from "../api/client";
 import { getTagColor } from "../lib/tagColors";
 import {
@@ -418,9 +419,13 @@ export default function ProfilePage() {
     return (
       <div className="space-y-6">
         <PageHeader title="Profile" subtitle="Your details and your logbook activity." />
-        <div className="flex items-center gap-2 text-sm text-slate-500 py-12 justify-center">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading your profile…
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center gap-5" aria-busy="true">
+          <span className="sr-only" role="status">Loading your profile…</span>
+          <Skeleton className="h-20 w-20 rounded-2xl" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
         </div>
       </div>
     );

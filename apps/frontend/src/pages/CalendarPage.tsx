@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import PageHeader from "../components/PageHeader";
+import EmptyState from "../components/EmptyState";
+import Skeleton from "../components/Skeleton";
+import { useNarrowScreen } from "../lib/useNarrowScreen";
 import { api } from "../api/client";
 import Modal from "../components/Modal";
 import GoogleCalendarSync from "../components/GoogleCalendarSync";
@@ -66,6 +70,8 @@ export default function CalendarPage() {
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [cursor, setCursor] = useState(new Date());
+  // Phones get an agenda list: a seven-column grid leaves each day too narrow to read.
+  const narrow = useNarrowScreen();
   const [openDay, setOpenDay] = useState<string | null>(null);
 
   const selectedProjectId = params.get("project") ?? "";
@@ -130,22 +136,28 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div className="flex items-center gap-2">
-        <CalendarDays className="h-5 w-5 text-cyan-600" />
-        <h1 className="text-xl font-semibold text-slate-900">Calendar</h1>
-      </div>
-
-      <GoogleCalendarSync />
+      <PageHeader title="Calendar" subtitle="What's coming, and what you logged, for one project at a time." />
 
       {loadingProjects ? (
-        <p className="text-sm text-slate-500">Loading projects…</p>
+        <div className="space-y-4" aria-busy="true">
+          <span className="sr-only" role="status">Loading projects…</span>
+          <Skeleton className="h-9 w-64" />
+          <div className="rounded-xl border border-slate-200 bg-white p-5"><Skeleton className="h-64 w-full" /></div>
+        </div>
       ) : projects.length === 0 ? (
-        <p className="text-sm text-slate-500">No projects yet.</p>
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <EmptyState
+            icon={CalendarDays}
+            title="No projects yet."
+            description="Create a project and give its entries due dates to see them on the calendar."
+          />
+        </div>
       ) : (
         <>
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">Project</label>
+            <label htmlFor="calendar-project" className="block text-xs font-medium text-slate-500 mb-1">Project</label>
             <select
+              id="calendar-project"
               value={selectedProjectId}
               onChange={(e) => setParams({ project: e.target.value })}
               className="w-full max-w-sm border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800"
@@ -157,14 +169,15 @@ export default function CalendarPage() {
           </div>
 
           {loadError && (
-            <p className="text-sm text-red-600">Couldn't load this project's entries. Check your connection and try again.</p>
+            <p role="alert" className="text-sm text-red-600">Couldn't load this project's entries. Check your connection and try again.</p>
           )}
 
-          <div className="rounded-lg border border-slate-200 bg-white">
+          <div className="rounded-xl border border-slate-200 bg-white">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
               <button
                 onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-                className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600"
+                className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition"
+                aria-label="Previous month"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -173,20 +186,65 @@ export default function CalendarPage() {
                 {loadingEntries && <Loader2 className="h-3.5 w-3.5 text-slate-400 animate-spin" />}
                 <button
                   onClick={() => setCursor(new Date())}
-                  className="text-[11px] text-cyan-700 hover:underline font-medium"
+                  className="text-xs text-blue-700 hover:underline font-medium"
                 >
                   Today
                 </button>
               </div>
               <button
                 onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-                className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600"
+                className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition"
+                aria-label="Next month"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-7 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            {narrow ? (
+              <ul className="divide-y divide-slate-100" aria-label={`${monthLabel} agenda`}>
+                {grid
+                  .filter((day) => day.getMonth() === cursor.getMonth())
+                  .map((day) => ymd(day))
+                  .filter((key) => (entriesByDate[key]?.length ?? 0) + (dueByDate[key]?.length ?? 0) > 0)
+                  .map((key) => {
+                    const day = dayFromKey(key);
+                    const due = dueByDate[key] ?? [];
+                    const logged = entriesByDate[key] ?? [];
+                    return (
+                      <li key={key}>
+                        <button
+                          type="button"
+                          onClick={() => setOpenDay(key)}
+                          className="flex w-full gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+                        >
+                          <span className="w-10 shrink-0 text-center">
+                            <span className="block text-xs text-slate-500">
+                              {day.toLocaleDateString(undefined, { weekday: "short" })}
+                            </span>
+                            <span className={`block text-lg font-semibold tabular-nums ${key === todayKey ? "text-blue-600" : "text-slate-800"}`}>
+                              {day.getDate()}
+                            </span>
+                          </span>
+                          <span className="min-w-0 flex-1 space-y-1">
+                            {due.map((e) => (
+                              <span key={e.id} className={`block truncate text-sm ${key < todayKey ? "text-amber-800" : "text-blue-700"}`}>
+                                {key < todayKey ? "Overdue" : "Due"}: {describe(e) || formatDuration(e.durationMinutes)}
+                              </span>
+                            ))}
+                            {logged.length > 0 && (
+                              <span className="block text-sm text-slate-600">
+                                {logged.length} {logged.length === 1 ? "entry" : "entries"} logged
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+              </ul>
+            ) : (
+              <>
+            <div className="grid grid-cols-7 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
                 <div key={d} className="px-3 py-2 text-center border-b border-slate-100">{d}</div>
               ))}
@@ -215,11 +273,11 @@ export default function CalendarPage() {
                       <button
                         onClick={() => hasEntries && setOpenDay(key)}
                         disabled={!hasEntries}
-                        className={`text-[11px] font-medium ${
+                        className={`text-xs font-medium tabular-nums ${
                           hasEntries ? "cursor-pointer hover:underline" : "cursor-default"
                         } ${
                           isToday
-                            ? "bg-cyan-600 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                            ? "bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center"
                             : inMonth
                             ? "text-slate-700"
                             : "text-slate-400"
@@ -228,7 +286,7 @@ export default function CalendarPage() {
                         {day.getDate()}
                       </button>
                       {dayEntries.length > 0 && (
-                        <span className="text-[9px] font-semibold text-slate-400">
+                        <span className="text-[11px] font-medium tabular-nums text-slate-500" title="Entries on this day">
                           {dayEntries.length}
                         </span>
                       )}
@@ -238,18 +296,18 @@ export default function CalendarPage() {
                         <button
                           key={`due-${e.id}`}
                           onClick={() => setOpenDay(key)}
-                          className={`block w-full text-left truncate text-[10px] rounded px-1 py-0.5 transition ${
-                            key < todayKey ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                          className={`block w-full text-left truncate text-xs leading-snug rounded px-1.5 py-0.5 transition ${
+                            key < todayKey ? "bg-amber-50 text-amber-800 hover:bg-amber-100" : "bg-blue-50 text-blue-700 hover:bg-blue-100"
                           }`}
                         >
-                          Due: {describe(e) || formatDuration(e.durationMinutes)}
+                          {key < todayKey ? "Overdue" : "Due"}: {describe(e) || formatDuration(e.durationMinutes)}
                         </button>
                       ))}
                       {entriesShown.map((e) => (
                         <button
                           key={e.id}
                           onClick={() => setOpenDay(key)}
-                          className="block w-full text-left truncate text-[10px] rounded px-1 py-0.5 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 transition"
+                          className="block w-full text-left truncate text-xs leading-snug rounded px-1.5 py-0.5 bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
                         >
                           {describe(e) || `${e.durationMinutes}m`}
                         </button>
@@ -257,7 +315,7 @@ export default function CalendarPage() {
                       {hidden > 0 && (
                         <button
                           onClick={() => setOpenDay(key)}
-                          className="block w-full text-left text-[9px] text-cyan-700 hover:underline px-1"
+                          className="block w-full text-left text-xs font-medium text-blue-700 hover:underline px-1.5"
                         >
                           +{hidden} more
                         </button>
@@ -267,9 +325,13 @@ export default function CalendarPage() {
                 );
               })}
             </div>
+              </>
+            )}
           </div>
         </>
       )}
+
+      <GoogleCalendarSync />
 
       <Modal
         open={!!openDay}
@@ -325,7 +387,7 @@ function DayItem({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
         </span>
         <Link
           to={`/projects/${entry.projectId}`}
-          className="text-xs text-cyan-700 hover:underline font-medium"
+          className="text-xs text-blue-700 hover:underline font-medium"
           onClick={onOpen}
         >
           Open project

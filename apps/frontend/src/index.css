@@ -144,6 +144,32 @@ body {
   color: #64748b;
 }
 
+/* ── Motion vocabulary ─────────────────────────────────────────
+   Small, quick, and only where something changed. All of it is CSS, so
+   it costs no JavaScript, and the reduced-motion rule above stills it. */
+
+/* A progress bar fills in once, when it first appears. */
+.bar-grow {
+  transform-origin: left center;
+  animation: bar-grow 450ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Something just finished (an item marked done): it fades and steps aside. */
+.leave-done {
+  opacity: 0;
+  transform: translateX(8px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+/* The hatching on the part of a grade bar that can no longer be earned. */
+.bar-lost {
+  background-image: repeating-linear-gradient(135deg, rgb(148 163 184 / 0.35) 0 3px, transparent 3px 6px);
+}
+
 /* ── Dark theme: coloured surfaces ───────────────────────────
    The overrides above cover the slate palette. Every tinted
    surface — error panels, deadline cards, stat tiles, tag chips —

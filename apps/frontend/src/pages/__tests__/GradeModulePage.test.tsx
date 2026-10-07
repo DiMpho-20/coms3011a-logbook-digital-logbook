@@ -66,7 +66,8 @@ const renderPage = () =>
     </MemoryRouter>
   );
 
-const row = (name: string) => screen.getByText(name, { selector: "p" }).closest("tr")!;
+/** An assessment row; the list is a grid of rows with table semantics, so phones can stack it. */
+const row = (name: string) => screen.getByText(name, { selector: "p" }).closest('[role="row"]') as HTMLElement;
 /** The page has loaded once the module's heading is up. */
 const loaded = () => screen.findByRole("heading", { level: 1, name: /COMS3011A/ });
 /** A summary tile, found by its label (the explainer repeats some figures). */
@@ -111,8 +112,11 @@ describe("module summary", () => {
     );
     renderPage();
     await loaded();
-    expect(within(row("Quiz")).getByText("Missed", { selector: "td" })).toBeInTheDocument();
-    expect(within(row("Quiz")).getByText("Missed", { selector: "span" })).toBeInTheDocument();
+    // Once as the mark ("Missed") and once as the status chip.
+    const missed = within(row("Quiz")).getAllByText("Missed");
+    expect(missed).toHaveLength(2);
+    // The chip says it with an icon too, not by colour alone.
+    expect(missed.some((el) => el.querySelector("svg"))).toBe(true);
     expect(within(row("Zero")).getByText("0 / 20 = 0.0%")).toBeInTheDocument();
     expect(within(row("Zero")).getByText("Marked")).toBeInTheDocument();
   });
@@ -156,7 +160,7 @@ describe("what do I need?", () => {
   it("gives the required mark with its assumption and the highest possible mark", async () => {
     renderPage();
     const panel = await screen.findByRole("region", { name: "What do I need?" });
-    expect(within(panel).getByText("Within reach")).toBeInTheDocument();
+    expect(within(panel).getByText("On track")).toBeInTheDocument();
     expect(within(panel).getByText("12.5%")).toBeInTheDocument();
     expect(panel).toHaveTextContent("You need 12.5% on the remaining 40% to finish with 50%.");
     expect(within(panel).getByText(/same mark on every remaining assessment/)).toBeInTheDocument();
@@ -166,13 +170,14 @@ describe("what do I need?", () => {
   it("says when a target is already secured or out of reach", async () => {
     vi.mocked(api.fetchGradeModule).mockResolvedValue(coms({ targetMark: 40 }));
     const { unmount } = renderPage();
-    expect(await screen.findByText("Secured", { selector: "span" })).toBeInTheDocument();
+    const securedPanel = await screen.findByRole("region", { name: "What do I need?" });
+    expect(within(securedPanel).getByText("Secured")).toBeInTheDocument();
     unmount();
 
     vi.mocked(api.fetchGradeModule).mockResolvedValue(coms({ targetMark: 90 }));
     renderPage();
     const panel = await screen.findByRole("region", { name: "What do I need?" });
-    expect(within(panel).getByText("Not reachable")).toBeInTheDocument();
+    expect(within(panel).getByText("Out of reach")).toBeInTheDocument();
     expect(panel).toHaveTextContent("90% is no longer reachable");
   });
 

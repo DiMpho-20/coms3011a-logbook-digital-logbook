@@ -10,6 +10,8 @@ import {
 } from "../../lib/grades";
 import { TARGET_PRESETS, TARGET_STATUS_META } from "../../lib/gradeDisplay";
 import { TargetStatusBadge } from "./GradeBadges";
+import Card from "../Card";
+import { chipToggle } from "../../lib/ui";
 
 interface TargetPanelProps {
   summary: ModuleSummary;
@@ -49,12 +51,7 @@ export default function TargetPanel({ summary, target, onChange }: TargetPanelPr
   const result = summary.target;
 
   return (
-    <section className="bg-white rounded-lg border border-slate-200" aria-labelledby="target-heading">
-      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-        <Target className="h-4 w-4 text-slate-400" />
-        <h2 id="target-heading" className="text-sm font-semibold text-slate-900">What do I need?</h2>
-      </div>
-      <div className="p-4 space-y-4">
+    <Card title="What do I need?" description="Pick a target to see the mark you need on the rest." icon={Target} bodyClassName="p-5 space-y-4">
         <div className="flex flex-wrap items-center gap-1.5">
           {TARGET_PRESETS.map((preset) => (
             <button
@@ -63,9 +60,7 @@ export default function TargetPanel({ summary, target, onChange }: TargetPanelPr
               disabled={saving}
               aria-pressed={target === preset.value}
               onClick={() => choose(preset.value)}
-              className={`px-2.5 py-1 text-xs rounded-full border transition ${
-                target === preset.value ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
+              className={chipToggle(target === preset.value)}
             >
               {preset.label}
             </button>
@@ -74,7 +69,7 @@ export default function TargetPanel({ summary, target, onChange }: TargetPanelPr
             <input
               type="number"
               aria-label="Custom target"
-              className="w-20 border border-slate-200 rounded-full px-2.5 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+              className="h-8 w-24 border border-slate-200 rounded-full px-3 text-xs bg-white outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Custom"
               min={0}
               max={100}
@@ -126,7 +121,7 @@ export default function TargetPanel({ summary, target, onChange }: TargetPanelPr
                   You need <strong className="text-base">{formatRequired(result.required!)}</strong> on the remaining{" "}
                   {formatWeight(summary.remainingWeight)} to finish with {formatWeight(result.value!)}.
                 </p>
-                <p className="text-[11px] text-slate-500">{REQUIRED_MARK_ASSUMPTION}</p>
+                <p className="text-xs text-slate-500">{REQUIRED_MARK_ASSUMPTION}</p>
               </>
             )}
 
@@ -137,7 +132,6 @@ export default function TargetPanel({ summary, target, onChange }: TargetPanelPr
             )}
           </div>
         )}
-      </div>
-    </section>
+    </Card>
   );
 }

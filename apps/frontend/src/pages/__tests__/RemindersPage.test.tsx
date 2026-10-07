@@ -74,6 +74,19 @@ describe("RemindersPage — viewing reminders (AT2, AT3)", () => {
     expect(screen.queryByText("Email supervisor")).not.toBeInTheDocument();
   });
 
+  it("groups upcoming reminders by how soon they come", async () => {
+    mockLists([
+      reminder({ id: "soon", title: "Hand in form", remindAt: new Date(Date.now() + 2 * 24 * HOUR).toISOString() }),
+      reminder({ id: "far", title: "Renew library card", remindAt: new Date(Date.now() + 20 * 24 * HOUR).toISOString() }),
+    ]);
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: /upcoming/i }));
+    const thisWeek = screen.getByRole("heading", { name: "This week" });
+    const later = screen.getByRole("heading", { name: "Later" });
+    expect(thisWeek.nextElementSibling).toHaveTextContent("Hand in form");
+    expect(later.nextElementSibling).toHaveTextContent("Renew library card");
+  });
+
   it("labels generated reminders by the rule that produced them and links their entry", async () => {
     mockLists([
       reminder({
@@ -183,6 +196,12 @@ describe("RemindersPage — completing and dismissing (AT4)", () => {
 });
 
 describe("RemindersPage — creating a reminder", () => {
+  it("opens the new-reminder form when arriving from the dashboard's quick action", async () => {
+    mockLists([]);
+    render(<MemoryRouter initialEntries={["/reminders?new=1"]}><RemindersPage /></MemoryRouter>);
+    expect(await screen.findByText("New reminder", { selector: "h2" })).toBeInTheDocument();
+  });
+
   it("saves a new reminder with its time", async () => {
     mockLists([]);
     const later = new Date(Date.now() + 2 * HOUR).toISOString();

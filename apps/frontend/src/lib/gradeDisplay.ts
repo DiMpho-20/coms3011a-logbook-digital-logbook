@@ -1,6 +1,8 @@
 import type { AssessmentDateKind, GradeAssessment, GradeModule } from "@logbook/shared";
 import { assessmentStatus, formatWeight, type TargetStatus } from "./grades";
 import { todayISO } from "./utils";
+import type { Tone } from "./ui";
+import { CheckCircle2, CircleSlash, Hourglass, Mountain, Target, TrendingUp, type LucideIcon } from "lucide-react";
 
 /**
  * My Grades (FEAT-009): the presentation around the grade engine — labels,
@@ -8,23 +10,20 @@ import { todayISO } from "./utils";
  * mark, weight and status figure comes from lib/grades.ts.
  */
 
-export type Tone = "emerald" | "blue" | "amber" | "red" | "slate";
+export type { Tone } from "./ui";
 
-export const TONE_CLASSES: Record<Tone, string> = {
-  emerald: "bg-emerald-50 border-emerald-200 text-emerald-700",
-  blue: "bg-blue-50 border-blue-200 text-blue-700",
-  amber: "bg-amber-50 border-amber-200 text-amber-700",
-  red: "bg-red-50 border-red-200 text-red-700",
-  slate: "bg-slate-100 border-slate-200 text-slate-600",
-};
-
-export const TARGET_STATUS_META: Record<TargetStatus, { label: string; tone: Tone; description: string }> = {
-  SECURED: { label: "Secured", tone: "emerald", description: "You'll reach this target even with 0 on everything left." },
-  WITHIN_REACH: { label: "Within reach", tone: "blue", description: "It needs no more than your average on marked work so far." },
-  STRETCH: { label: "Stretch", tone: "amber", description: "It needs more than your average on marked work so far." },
-  NOT_REACHABLE: { label: "Not reachable", tone: "red", description: "Full marks on everything left would still fall short." },
-  NO_TARGET: { label: "No target", tone: "slate", description: "Choose a target to see what you need." },
-  NOT_ENOUGH_DATA: { label: "Not enough data", tone: "slate", description: "Nothing has been marked yet, so there is no average to compare with." },
+/**
+ * How each target status is shown. The wording is deliberately calm: it says
+ * what the numbers mean without judging the student, and nothing is red.
+ * The statuses themselves come from the grade engine unchanged.
+ */
+export const TARGET_STATUS_META: Record<TargetStatus, { label: string; tone: Tone; icon: LucideIcon; description: string }> = {
+  SECURED: { label: "Secured", tone: "success", icon: CheckCircle2, description: "You'll reach this target even with 0 on everything left." },
+  WITHIN_REACH: { label: "On track", tone: "info", icon: TrendingUp, description: "It needs no more than your average on marked work so far." },
+  STRETCH: { label: "Reachable", tone: "caution", icon: Mountain, description: "It needs more than your average so far, but it's still possible." },
+  NOT_REACHABLE: { label: "Out of reach", tone: "neutral", icon: CircleSlash, description: "Even full marks on what's left wouldn't get there. A different target may help." },
+  NO_TARGET: { label: "No target", tone: "neutral", icon: Target, description: "Choose a target to see what you need." },
+  NOT_ENOUGH_DATA: { label: "Not enough data yet", tone: "neutral", icon: Hourglass, description: "Nothing has been marked yet, so there's no average to compare with." },
 };
 
 /** Target presets. "Pass" is only a preset: modules can have other pass rules. */
@@ -88,6 +87,11 @@ export function formatDay(day: string): string {
   });
 }
 
+/** "Wed, 7 Oct": for lists where the year is obvious. */
+export function formatShortDay(day: string): string {
+  return new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+
 export function countdownLabel(days: number): string {
   if (days === 0) return "Today";
   if (days === 1) return "Tomorrow";
@@ -119,6 +123,17 @@ export function upcomingAssessments(modules: GradeModule[], today: string = toda
     )
     .filter((item) => item.days >= 0 && item.days <= horizon)
     .sort((a, b) => a.days - b.days || a.module.code.localeCompare(b.module.code));
+}
+
+/** A module's next unmarked, dated assessment from today on, or null. */
+export function nextAssessment(module: GradeModule, today: string = todayISO()): { assessment: GradeAssessment; days: number } | null {
+  let best: { assessment: GradeAssessment; days: number } | null = null;
+  for (const assessment of module.assessments) {
+    if (!assessment.date || assessmentStatus(assessment) !== "PENDING") continue;
+    const days = daysUntil(assessment.date, today);
+    if (days >= 0 && (!best || days < best.days)) best = { assessment, days };
+  }
+  return best;
 }
 
 /** The message an API error carries, or a fallback. */

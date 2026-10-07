@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { BarChart3, TrendingUp, Loader2, Clock, Sigma, Bookmark, Pencil, Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import {
@@ -11,6 +11,9 @@ import {
 } from "../api";
 import { formatDuration } from "../lib/utils";
 import PageHeader from "../components/PageHeader";
+import EmptyState from "../components/EmptyState";
+import Skeleton from "../components/Skeleton";
+import { button } from "../lib/ui";
 import Modal from "../components/Modal";
 import BarChart from "../components/BarChart";
 import TrendChart from "../components/TrendChart";
@@ -321,24 +324,47 @@ export default function StatsPage() {
   const dateFieldName = fields.find((f) => f.id === dateFieldId)?.name ?? "date";
 
   if (loadingProjects) {
-    return <p className="text-sm text-slate-500">Loading projects…</p>;
+    return (
+      <div className="space-y-6 max-w-3xl" aria-busy="true">
+        <span className="sr-only" role="status">Loading projects…</span>
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-36" />
+          <Skeleton className="h-4 w-80" />
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-5 w-full" />)}
+        </div>
+      </div>
+    );
   }
 
   if (projects.length === 0) {
-    return <p className="text-sm text-slate-500">No projects yet. Create one to see stats.</p>;
+    return (
+      <div className="space-y-6 max-w-3xl">
+        <PageHeader title="Statistics" subtitle="How you're working: your time and what your own fields add up to." />
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <EmptyState
+            icon={BarChart3}
+            title="Nothing to measure yet"
+            description="No projects yet. Create one to see stats."
+            action={<Link to="/projects" className={button("primary")}>Go to Projects</Link>}
+          />
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6 max-w-3xl">
       <PageHeader
         title="Statistics"
-        subtitle="Time per project, and whatever your own fields can total, group, or plot."
+        subtitle="How you're working: time per project, and whatever your own fields can total, group or plot."
       />
 
       {/* Time per project — the headline, no setup required */}
-      <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-cyan-600" />
+          <Clock className="h-4 w-4 text-slate-400" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-slate-900">Time per project</h2>
         </div>
         {projectTimes === null ? (
@@ -356,7 +382,7 @@ export default function StatsPage() {
       </section>
 
       <div>
-        <label className="block text-[11px] font-medium text-slate-500 mb-1">Project</label>
+        <label className="block text-xs font-medium text-slate-500 mb-1">Project</label>
         <select
           value={selectedProjectId}
           onChange={(e) => setParams({ project: e.target.value })}
@@ -369,9 +395,9 @@ export default function StatsPage() {
       </div>
 
       {/* Total / Group */}
-      <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-cyan-600" />
+          <BarChart3 className="h-4 w-4 text-slate-400" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-slate-900">Total &amp; Group</h2>
         </div>
 
@@ -385,7 +411,7 @@ export default function StatsPage() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-medium text-slate-500 mb-1">Field</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Field</label>
                 <select
                   value={metricFieldId}
                   onChange={(e) => setMetricFieldId(e.target.value)}
@@ -397,7 +423,7 @@ export default function StatsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-slate-500 mb-1">Operation</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Operation</label>
                 <select
                   value={operation}
                   onChange={(e) => setOperation(e.target.value as Operation)}
@@ -412,7 +438,7 @@ export default function StatsPage() {
                 )}
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-slate-500 mb-1">Group by (optional)</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Group by (optional)</label>
                 <select
                   value={groupByFieldId}
                   onChange={(e) => setGroupByFieldId(e.target.value)}
@@ -454,10 +480,10 @@ export default function StatsPage() {
       </section>
 
       {/* Over Time */}
-      <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-cyan-600" /> Over Time
+            <TrendingUp className="h-4 w-4 text-slate-400" aria-hidden="true" /> Over Time
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             {plottingByEntryDate
@@ -476,7 +502,7 @@ export default function StatsPage() {
           <>
             <div className="flex flex-wrap gap-3 items-end">
               <div>
-                <label className="block text-[11px] font-medium text-slate-500 mb-1">Date field</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Date field</label>
                 <select
                   value={dateFieldId}
                   onChange={(e) => setDateFieldId(e.target.value)}
@@ -491,7 +517,7 @@ export default function StatsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-slate-500 mb-1">Plot</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Plot</label>
                 <select
                   value={timelinePlot}
                   onChange={(e) => setTimelinePlot(e.target.value)}
@@ -539,10 +565,10 @@ export default function StatsPage() {
       </section>
 
       {/* Custom Expression (US16) — one number across the whole project */}
-      <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-            <Sigma className="h-4 w-4 text-cyan-600" /> Custom Expression
+            <Sigma className="h-4 w-4 text-slate-400" aria-hidden="true" /> Custom Expression
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             Your own calculation over every entry in this project — for example
@@ -557,7 +583,7 @@ export default function StatsPage() {
           <>
             <form onSubmit={runExpression} className="flex flex-wrap gap-2 items-end">
               <div className="flex-1 min-w-[240px]">
-                <label htmlFor="custom-expression" className="block text-[11px] font-medium text-slate-500 mb-1">
+                <label htmlFor="custom-expression" className="block text-xs font-medium text-slate-500 mb-1">
                   Expression
                 </label>
                 <input
@@ -647,10 +673,10 @@ export default function StatsPage() {
       </section>
 
       {/* My Custom Statistics (US17) — saved definitions, valued right now */}
-      <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-            <Bookmark className="h-4 w-4 text-cyan-600" /> My Custom Statistics
+            <Bookmark className="h-4 w-4 text-slate-400" aria-hidden="true" /> My Custom Statistics
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             Your own saved calculations. Each one is worked out again from the current entries,
@@ -722,7 +748,7 @@ export default function StatsPage() {
       >
         <form onSubmit={submitDraft} className="space-y-3">
           <div>
-            <label htmlFor="statistic-name" className="block text-[11px] font-medium text-slate-500 mb-1">
+            <label htmlFor="statistic-name" className="block text-xs font-medium text-slate-500 mb-1">
               Name
             </label>
             <input
@@ -734,7 +760,7 @@ export default function StatsPage() {
             />
           </div>
           <div>
-            <label htmlFor="statistic-expression" className="block text-[11px] font-medium text-slate-500 mb-1">
+            <label htmlFor="statistic-expression" className="block text-xs font-medium text-slate-500 mb-1">
               Expression
             </label>
             <input
