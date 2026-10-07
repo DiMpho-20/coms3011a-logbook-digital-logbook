@@ -3,15 +3,12 @@ import { useNavigate } from "react-router-dom";
 import {
   Plus,
   FolderOpen,
-  LayoutDashboard,
   ChevronDown,
   ChevronUp,
   GripVertical,
   Sigma,
   Flame,
-  PenLine,
-  GraduationCap,
-  BellPlus,
+  ArrowRight,
 } from "lucide-react";
 
 import {
@@ -32,13 +29,13 @@ import {
 import { fieldValueText, formatDuration, getGreeting, localDateKey, entryDateKey } from "../lib/utils";
 import PageHeader from "../components/PageHeader";
 import DailyNote from "../components/dashboard/DailyNote";
+import Eyebrow from "../components/dashboard/Eyebrow";
 import NextUp from "../components/dashboard/NextUp";
 import OnYourRadar from "../components/dashboard/OnYourRadar";
 import ModulesAtAGlance from "../components/dashboard/ModulesAtAGlance";
 import { computeModule } from "../lib/grades";
 import { academicYears, defaultAcademicYear } from "../lib/gradeDisplay";
 import { buildNextUp, buildRadar } from "../lib/today";
-import { lastProjectId } from "../lib/quickCapture";
 import { button } from "../lib/ui";
 import DeadlineReminders from "../components/DeadlineReminders";
 import Skeleton from "../components/Skeleton";
@@ -317,13 +314,17 @@ export default function DashboardPage() {
   const [modules, setModules] = useState<GradeModule[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [todayLoading, setTodayLoading] = useState(true);
+  const [modulesFailed, setModulesFailed] = useState(false);
+  const [remindersFailed, setRemindersFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     Promise.allSettled([fetchGradeModules(), fetchReminders("pending")]).then(([moduleResult, reminderResult]) => {
       if (cancelled) return;
       if (moduleResult.status === "fulfilled") setModules(moduleResult.value);
+      else setModulesFailed(true);
       if (reminderResult.status === "fulfilled") setReminders(reminderResult.value);
+      else setRemindersFailed(true);
       setTodayLoading(false);
     });
     return () => {
@@ -521,21 +522,20 @@ export default function DashboardPage() {
   const todayDataLoading = entriesLoading || todayLoading;
 
   if (loading) {
-    // The shape of the page, not a spinner: greeting, then Next up and the radar.
+    // The shape of the page, not a spinner: greeting, note, then Next up and the radar.
     return (
       <div className="space-y-6 max-w-6xl" aria-busy="true" aria-label="Loading dashboard">
         <div className="space-y-2">
           <Skeleton className="h-7 w-64" />
-          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-4 w-48" />
         </div>
-        <Skeleton className="h-12 w-full" />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          <div className="lg:col-span-3 rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-5 w-full" />)}
-          </div>
-          <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-            {[0, 1].map((i) => <Skeleton key={i} className="h-5 w-full" />)}
-          </div>
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {[3, 2].map((rows, i) => (
+            <div key={i} className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+              {Array.from({ length: rows }, (_, j) => <Skeleton key={j} className="h-5 w-full" />)}
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -811,86 +811,106 @@ export default function DashboardPage() {
     }
   };
 
-  const isExactly = (panels: readonly DashboardPanelId[]) =>
-    selectedPanels.length === panels.length && selectedPanels.every((panel, index) => panel === panels[index]);
-  // Both the starting dashboard and the full original set have a hand-laid
-  // arrangement; anything a student changes falls back to the even grid.
-  const usesDefaultLayout = isExactly(DEFAULT_DASHBOARD_PANELS);
-  const usesFullLayout = isExactly(DASHBOARD_PANELS);
-  const customPanelWidth = (index: number) => {
-    // Every custom panel gets half a desktop row. If a panel is left without a
-    // neighbour after removals, let it use the whole row rather than retaining
-    // an empty grid slot from a removed panel.
-    const isUnpairedLastPanel = selectedPanels.length % 2 === 1 && index === selectedPanels.length - 1;
-    return selectedPanels.length === 1 || isUnpairedLastPanel ? "lg:col-span-6" : "lg:col-span-3";
-  };
+  // Small figure panels sit in a row of tiles; charts and lists share a
+  // two-column grid. Each keeps the student's order within its group.
+  const isTile = (panel: DashboardPanelId) => panel === "entry-streak" || parseStatisticPanel(panel) !== null;
+  const tilePanels = selectedPanels.filter(isTile);
+  const widePanels = selectedPanels.filter((panel) => !isTile(panel));
+
+  const renderPanelSlot = (panel: DashboardPanelId, className: string) => (
+    <section
+      key={panel}
+      draggable={arrangingPanels}
+      onDragStart={(event) => {
+        event.dataTransfer.setData("text/plain", panel);
+        event.dataTransfer.effectAllowed = "move";
+        setDraggedPanel(panel);
+      }}
+      onDragOver={(event) => {
+        if (!arrangingPanels || draggedPanel === panel) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        setDragOverPanel(panel);
+      }}
+      onDrop={(event) => arrangingPanels && handlePanelDrop(panel, event)}
+      onDragEnd={() => {
+        setDraggedPanel(null);
+        setDragOverPanel(null);
+      }}
+      className={`relative flex min-w-0 flex-col [&>*:last-child]:flex-1 ${className} ${arrangingPanels ? "cursor-grab active:cursor-grabbing" : ""} ${dragOverPanel === panel ? "rounded-lg ring-2 ring-blue-500 ring-offset-2" : ""}`}
+      aria-label={panelDetail(panel).title}
+    >
+      {arrangingPanels && (
+        <span className="absolute right-2 top-2 z-10 rounded bg-white/90 p-1 text-slate-400 shadow-sm" aria-hidden="true">
+          <GripVertical className="h-4 w-4" />
+        </span>
+      )}
+      {renderPanel(panel)}
+    </section>
+  );
+
+  const todayLabel = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <div className="space-y-6 max-w-6xl">
-      {/* ── Today: what do I need to know? ────────────────────────────── */}
+      {/* ── 1–2. Greeting and the main actions ────────────────────────── */}
       <PageHeader
-        title={`${getGreeting()}, ${displayName}`}
-        subtitle={new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
+        title={`${getGreeting()}, ${displayName}.`}
+        subtitle={
+          <>
+            <span className="block text-slate-600">Here's what matters today.</span>
+            <span className="block text-xs text-slate-400">{todayLabel}</span>
+          </>
+        }
         action={
-          <button onClick={() => navigate("/projects")} className={button("secondary")}>
-            <Plus className="h-4 w-4" aria-hidden="true" /> New Project
-          </button>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Quick actions">
+            <button onClick={() => navigate("/projects")} className={button("secondary")}>
+              <Plus className="h-4 w-4" aria-hidden="true" /> New project
+            </button>
+          </div>
         }
       />
 
+      {/* ── 3. Daily note ──────────────────────────────────────────────── */}
       <DailyNote />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-3"><NextUp items={nextUp} loading={todayDataLoading} /></div>
-        <div className="lg:col-span-2"><OnYourRadar items={radar} loading={todayDataLoading} /></div>
+      {/* ── 4. What's soon, and what needs a nudge ─────────────────────── */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <NextUp items={nextUp} loading={todayDataLoading} remindersFailed={remindersFailed} />
+        <OnYourRadar items={radar} loading={todayDataLoading} />
       </div>
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Quick actions">
-        <button
-          onClick={() => {
-            const id = lastProjectId() ?? projects.find((p) => p.status === "ACTIVE")?.id;
-            navigate(id ? `/projects/${id}?new=1` : "/projects");
-          }}
-          className={button("primary")}
-        >
-          <PenLine className="h-4 w-4" aria-hidden="true" /> New entry
-        </button>
-        <button onClick={() => navigate("/grades")} className={button("secondary")}>
-          <GraduationCap className="h-4 w-4" aria-hidden="true" /> Add assessment
-        </button>
-        <button onClick={() => navigate("/reminders?new=1")} className={button("secondary")}>
-          <BellPlus className="h-4 w-4" aria-hidden="true" /> New reminder
-        </button>
-      </div>
+      {/* ── 5. Academic snapshot ───────────────────────────────────────── */}
+      <ModulesAtAGlance
+        modules={thisYearModules.slice(0, 6)}
+        summaries={moduleSummaries}
+        loading={todayLoading}
+        failed={modulesFailed}
+      />
 
-      {!todayLoading && <ModulesAtAGlance modules={thisYearModules.slice(0, 6)} summaries={moduleSummaries} />}
-
-      {/* ── Your panels: the student's own arrangement ─────────────────── */}
-      <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+      {/* ── 6. Your panels: the student's own arrangement ─────────────── */}
+      <div className="flex flex-wrap items-end justify-between gap-3 border-t border-slate-200 pt-6">
         <div>
-          <h2 className="text-[15px] font-semibold text-slate-900">Your panels</h2>
-          <p className="text-xs text-slate-500">Choose and arrange the panels you want to keep an eye on.</p>
+          <h2><Eyebrow>Your panels</Eyebrow></h2>
+          <p className="mt-0.5 text-xs text-slate-500">The panels you chose to keep an eye on.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1">
           <button
             onClick={() => setArrangingPanels((current) => !current)}
-            className={arrangingPanels ? `${button("secondary", "sm")} border-blue-600 bg-blue-50 text-blue-700` : button("secondary", "sm")}
+            aria-pressed={arrangingPanels}
+            className={arrangingPanels ? `${button("ghost", "sm")} bg-blue-50 text-blue-700` : button("ghost", "sm")}
           >
             <GripVertical className="h-4 w-4" aria-hidden="true" /> {arrangingPanels ? "Done arranging" : "Arrange panels"}
           </button>
-          <button onClick={openPanelPicker} className={button("secondary", "sm")}>
-            <LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Customize dashboard
+          <button onClick={openPanelPicker} aria-label="Customize dashboard" className={`${button("ghost", "sm")} text-blue-600 hover:text-blue-700`}>
+            Customize <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
       </div>
 
-      {/* ── 2. Key Statistics ───────────────────────────────────────────── */}
-
-      {/* ── Deadline Reminders ─────────────────────────────────────────── */}
-
       {truncated && (
         <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          Showing your most recent 500 entries. The totals above cover those, not your whole logbook.
+          Showing your most recent 500 entries. The panels below cover those, not your whole logbook.
         </p>
       )}
 
@@ -914,67 +934,19 @@ export default function DashboardPage() {
         </p>
       )}
 
-      {usesDefaultLayout && !arrangingPanels ? (
-        <>
-          {renderPanel("entry-streak")}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-3">{renderPanel("activity")}</div>
-            <div className="lg:col-span-2">{renderPanel("current-projects")}</div>
-          </div>
-          {renderPanel("recent-entries")}
-        </>
-      ) : usesFullLayout && !arrangingPanels ? (
-        <>
-          {renderPanel("entry-streak")}
-          {renderPanel("deadline-reminders")}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-3">{renderPanel("activity")}</div>
-            <div className="lg:col-span-2">{renderPanel("current-projects")}</div>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-3">{renderPanel("entry-progress")}</div>
-            <div className="lg:col-span-2">{renderPanel("monthly-entries")}</div>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-3">{renderPanel("week-comparison")}</div>
-            <div className="lg:col-span-2">{renderPanel("tag-ranking")}</div>
-          </div>
-          {renderPanel("tags")}
-          {renderPanel("recent-entries")}
-        </>
-      ) : selectedPanels.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
-          {selectedPanels.map((panel, index) => (
-            <section
-              key={panel}
-              draggable={arrangingPanels}
-              onDragStart={(event) => {
-                event.dataTransfer.setData("text/plain", panel);
-                event.dataTransfer.effectAllowed = "move";
-                setDraggedPanel(panel);
-              }}
-              onDragOver={(event) => {
-                if (!arrangingPanels || draggedPanel === panel) return;
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                setDragOverPanel(panel);
-              }}
-              onDrop={(event) => arrangingPanels && handlePanelDrop(panel, event)}
-              onDragEnd={() => {
-                setDraggedPanel(null);
-                setDragOverPanel(null);
-              }}
-              className={`${customPanelWidth(index)} ${arrangingPanels ? "relative cursor-grab active:cursor-grabbing" : ""} ${dragOverPanel === panel ? "rounded-lg ring-2 ring-blue-500 ring-offset-2" : ""}`}
-              aria-label={panelDetail(panel).title}
-            >
-              {arrangingPanels && (
-                <span className="absolute right-2 top-2 z-10 rounded bg-white/90 p-1 text-slate-400 shadow-sm" aria-hidden="true">
-                  <GripVertical className="h-4 w-4" />
-                </span>
-              )}
-              {renderPanel(panel)}
-            </section>
-          ))}
+      {tilePanels.length > 0 && (
+        // Flex rather than a fixed grid, so a tile left on its own row widens instead of leaving a gap.
+        <div className="flex flex-wrap gap-4">
+          {tilePanels.map((panel) => renderPanelSlot(panel, "flex-1 basis-[160px]"))}
+        </div>
+      )}
+
+      {widePanels.length > 0 && (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {widePanels.map((panel, index) =>
+            // An odd one out at the end takes the whole row rather than leaving half of it empty.
+            renderPanelSlot(panel, widePanels.length % 2 === 1 && index === widePanels.length - 1 ? "lg:col-span-2" : "")
+          )}
         </div>
       )}
 

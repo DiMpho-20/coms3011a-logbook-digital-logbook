@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Feather, X } from "lucide-react";
+import { Sparkle, X } from "lucide-react";
 import { dailyEncouragement } from "../../lib/encouragement";
 import { localDateKey } from "../../lib/utils";
 
@@ -33,15 +33,19 @@ export default function DailyNote() {
   return (
     <aside
       aria-label="Today's note"
-      className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
+      className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 sm:px-5"
     >
-      <Feather className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
-      <p className="flex-1 font-serif italic text-[15px] leading-relaxed text-slate-700">{dailyEncouragement()}</p>
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
+          <Sparkle className="h-3 w-3" aria-hidden="true" /> Today's note
+        </p>
+        <p className="mt-1 font-serif italic text-[15px] leading-relaxed text-slate-700">{dailyEncouragement()}</p>
+      </div>
       <button
         type="button"
         onClick={dismiss}
         aria-label="Hide today's note"
-        className="-m-1 rounded-lg p-1.5 text-slate-500 hover:bg-amber-100 hover:text-slate-700 transition"
+        className="-mr-1.5 -mt-0.5 rounded-lg p-2 text-slate-500 transition-colors duration-150 hover:bg-amber-100 hover:text-slate-700"
       >
         <X className="h-4 w-4" />
       </button>

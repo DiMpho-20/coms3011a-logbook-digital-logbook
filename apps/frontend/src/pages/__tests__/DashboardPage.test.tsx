@@ -148,7 +148,8 @@ describe("DashboardPage", () => {
     renderDashboard();
 
     const recentEntriesPanel = await screen.findByRole("region", { name: "Recent entries" });
-    expect(recentEntriesPanel).toHaveClass("lg:col-span-6");
+    expect(recentEntriesPanel).toHaveClass("lg:col-span-2");
+    expect(screen.getByRole("region", { name: "Activity" })).not.toHaveClass("lg:col-span-2");
   });
 
   it("lets a student drag a panel to a new position and saves the layout", async () => {
@@ -446,11 +447,14 @@ describe("DashboardPage — today", () => {
     expect(screen.queryByRole("complementary", { name: "Today's note" })).toBeNull();
   });
 
-  it("offers a few quick actions, with New entry first", async () => {
+  it("offers New project in the header and keeps New reminder next to what's coming up", async () => {
     renderDashboard();
     const actions = await screen.findByRole("group", { name: "Quick actions" });
     expect(within(actions).getAllByRole("button").map((b) => b.textContent?.trim())).toEqual([
-      "New entry", "Add assessment", "New reminder",
+      "New project",
     ]);
+    const nextUp = screen.getByRole("region", { name: "Next up" });
+    expect(within(nextUp).getByRole("link", { name: /new reminder/i })).toHaveAttribute("href", "/reminders?new=1");
+    expect(within(nextUp).getByRole("link", { name: /view all upcoming/i })).toHaveAttribute("href", "/calendar");
   });
 });
