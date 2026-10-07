@@ -27,12 +27,14 @@ logic like saved-filter persistence).
 
 ## What We Test
 
-960 tests in total: 543 backend across 30 files, 417 frontend across 27
-files. Per-file detail for the backend lives in
+1,606 tests in total: 786 backend across 43 files, 820 frontend across 55
+files. Line coverage is **85.0% backend** and **80.5% frontend** (October 2026;
+see [Coverage](#coverage)). The per-area counts below were taken when each
+area was last described and have grown since. Per-file detail for the backend lives in
 [`apps/backend/TESTING.md`](https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook/src/branch/main/apps/backend/TESTING.md); the summaries
 below cover the whole monorepo.
 
-### Backend — 543 tests across 30 files
+### Backend — 786 tests across 43 files
 
 - **Core API & infrastructure (63):** `api.test.ts` (27) — health, project
   CRUD, entry fields, entries, time summaries; plus `projectDelete` (6),
@@ -65,7 +67,7 @@ below cover the whole monorepo.
   subscriptions and the due-reminder delivery job, US28), `utils` (32 —
   computed fields, formulas, auth utils, format versions)
 
-### Frontend — 417 tests across 27 files
+### Frontend — 820 tests across 55 files
 
 #### API client, offline queue and import/export (72 tests)
 
@@ -203,9 +205,25 @@ npm run test:watch --workspace=apps/backend
 npm run test:watch --workspace=apps/frontend
 ```
 
-Backend prerequisites: a reachable `DATABASE_URL` in `apps/backend/.env` and a
-regenerated Prisma client (`npx prisma generate` in `apps/backend` — see
+Backend prerequisites: a reachable test database and a regenerated Prisma
+client (`npx prisma generate` in `apps/backend` — see
 [Bugs Found By Testing](#bugs-found-by-testing)).
+
+> **Never point the backend suite at production data.** The suite creates and
+> deletes its own users, projects and entries. Give it a database of its own:
+>
+> ```bash
+> # once: an empty database next to your development one, with the schema
+> createdb logbook_test            # or CREATE DATABASE logbook_test;
+> DATABASE_URL=postgresql://…/logbook_test npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
+>
+> # each run: DATABASE_URL set for the command wins over apps/backend/.env
+> DATABASE_URL=postgresql://…/logbook_test npm run test --workspace=apps/backend
+> ```
+>
+> CI does the same with a throwaway PostgreSQL service container created for
+> each run (or a `TEST_DATABASE_URL` secret, for a runner that cannot start
+> service containers), so a pipeline never writes into the deployed database.
 
 > **Email behaviour in tests:** with no SMTP credentials configured,
 > registration auto-verifies (dev mode) and password-reset emails fail
@@ -215,6 +233,16 @@ regenerated Prisma client (`npx prisma generate` in `apps/backend` — see
 ---
 
 ## Coverage
+
+| Workspace | Lines | Statements | Branches | Functions |
+|---|---|---|---|---|
+| Backend | 85.0% | 84.1% | 79.6% | 92.4% |
+| Frontend | 80.5% | 78.9% | 76.9% | 76.4% |
+
+*Measured 7 October 2026 with `npm run test:coverage` in each workspace. The
+largest remaining gaps are deliberate: the animated sign-in background (canvas
+drawing jsdom cannot render) and the parts of the project page exercised by the
+backend suite instead.*
 
 Coverage is measured with Vitest's V8 provider, configured in
 `apps/backend/vitest.config.ts` and in the `test.coverage` block of

@@ -25,7 +25,7 @@ This document explains everything about how the Digital Logbook backend is teste
 | **Vitest 4** | Test runner and assertion framework | Same engine that powers our frontend build tooling (Vite), so one dependency ecosystem covers the whole monorepo. Fast, ESM-native, and watch-mode works out of the box with TypeScript — no extra transpile config. |
 | **Supertest** | HTTP-level request helper | Lets tests call the Express app directly (`request(app).post(...)`) without starting a real server or opening a port. We test the real HTTP layer — routing, middleware, validation, status codes, JSON bodies — not just functions. |
 | **The real Express app** (`src/app.ts`) | System under test | The app module is exported separately from the server entry point (`src/index.ts`) precisely so tests can import it without binding port 3000. |
-| **Live PostgreSQL (Neon)** | Real database | Integration tests run against the actual database the app uses, exercising real Prisma queries, real constraints (unique, cascade deletes), and real SQL aggregation. Mocking Prisma would test our mocks, not our app. |
+| **Real PostgreSQL, separate from production** | Real database | Integration tests run against a real PostgreSQL database with the app's schema — a throwaway service container in CI, a `logbook_test` database locally — exercising real Prisma queries, real constraints (unique, cascade deletes), and real SQL aggregation. Mocking Prisma would test our mocks, not our app; using the production database would mix test data into real users' data, so the suite never runs against it. |
 | **otplib** | TOTP code generation in tests | The 2FA tests generate *genuinely valid* time-based codes with the same library the server uses to verify them, so the full TOTP round-trip is tested end-to-end. |
 
 **Testing pyramid position:** the API tests are **integration tests** — they sit above unit tests and below end-to-end UI tests. Each test makes a real HTTP request to the real app backed by the real database, and asserts on the HTTP response. The utils tests are **unit tests** that exercise pure functions in isolation.
@@ -34,7 +34,7 @@ This document explains everything about how the Digital Logbook backend is teste
 
 ## What We Test
 
-505 tests across 27 files. The original four Sprint 2 files are still here; the suite has grown around them feature by feature, and most newer files are named after the bug or user story they lock in.
+786 tests across 43 files (85% line coverage, October 2026). The original four Sprint 2 files are still here; the suite has grown around them feature by feature, and most newer files are named after the bug or user story they lock in.
 
 ### Core API & infrastructure
 

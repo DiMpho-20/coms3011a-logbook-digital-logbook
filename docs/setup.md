@@ -217,6 +217,94 @@ Reminders can notify a device even when the logbook is closed, using web push.
 
 If notifications never appear, check in order: the browser's site permission for notifications (`Notification.permission` in the console should be `"granted"`), the operating system's notification settings for the browser (including Do Not Disturb), and — on the deployed site — that the backend is awake, since Render's free tier sleeps when idle and pushes are only sent while it runs. On iPhone, push requires the app to be added to the home screen. Notification sound is controlled by the operating system, not the app.
 
+## Deployment
+
+| Part | Host | Address |
+|---|---|---|
+| Frontend | Cloudflare Pages | <https://coms3011a-logbook.pages.dev> |
+| API | Render (Docker, from the repository `Dockerfile`) | <https://digital-logbook-backend-latest.onrender.com/api> |
+| Database | Neon (PostgreSQL) | `DATABASE_URL` in the Render environment |
+| Documentation | Netlify (MkDocs) | <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> |
+
+### The pipeline (CI/CD)
+
+`.gitea/workflows/deploy.yaml` runs on every push to `main` and the team
+branches:
+
+1. **CI** — install, build the shared package, typecheck the backend, lint the
+   frontend, run both test suites with coverage (the backend suite on a
+   throwaway PostgreSQL created for the run, never production), report
+   coverage on the commit, and build both apps.
+2. **CD** — on `main` only, and only after CI has passed:
+    - the API is redeployed through a Render deploy hook;
+    - the frontend is built and published to Cloudflare Pages with Wrangler;
+    - the API's health check is called until it answers, so it is awake.
+
+Each deploy step runs only once its secret exists, so the pipeline stays green
+until they are added. Repository settings → Actions → Secrets:
+
+| Secret | Where to get it |
+|---|---|
+| `RENDER_DEPLOY_HOOK_URL` | Render → the API service → Settings → Deploy Hook |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → a token with *Cloudflare Pages: Edit* |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → the account ID in the sidebar |
+| `TEST_DATABASE_URL` *(optional)* | Only for a runner that cannot start service containers: an empty PostgreSQL database for tests |
+
+The Cloudflare Pages project name defaults to `coms3011a-logbook`; set the
+`CLOUDFLARE_PAGES_PROJECT` repository variable if it differs.
+
+### Database migrations on deploy
+
+The API container starts with `npm run start:deploy`, which runs
+`prisma migrate deploy` before serving. A deploy therefore brings the
+production schema up to date by itself; there is no separate migration step
+to forget. To apply migrations by hand instead:
+
+```bash
+DATABASE_URL=<production connection string> npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
+```
+
+### Keeping the API awake
+
+Render's free tier sleeps after a quiet spell, and the first request then waits
+up to a minute. `.gitea/workflows/keep-warm.yaml` calls `/api/health` every ten
+minutes, so neither users nor markers meet that wait. It can also be run by
+hand from the Actions tab.
+
+### Required API environment (Render)
+
+Set in the Render service's environment, as listed in `apps/backend/.env.example`:
+`DATABASE_URL`, `JWT_SECRET`, `TWO_FACTOR_ENCRYPTION_KEY`, `APP_URL`, an email
+provider (`RESEND_API_KEY` or Gmail), and for the integrations `GEMINI_API_KEY`
+(help assistant) and `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`GOOGLE_REDIRECT_URI`, `GOOGLE_TOKEN_ENCRYPTION_KEY` (Google Calendar sync).
+Push notifications need `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`.
+
+### A demo account
+
+For presentations and markers, `npm run seed:demo` builds an account with
+realistic data — three projects with their own entry formats, seven weeks of
+entries, open work (overdue, upcoming, undated), two modules with weighted
+assessments, a saved statistic and a reminder:
+
+```bash
+DEMO_API_URL=https://digital-logbook-backend-latest.onrender.com/api \
+DATABASE_URL=<the database that API uses> \
+npm run seed:demo --workspace=apps/backend
+```
+
+Everything is created through the API, so the app's own rules apply; the
+database is used once, to mark the demo account's email verified. It never
+changes an existing account — if the email is taken it stops — so set
+`DEMO_EMAIL` (and optionally `DEMO_PASSWORD`, `DEMO_NAME`) to make another.
+
+### Quality evidence
+
+Lighthouse (Chrome DevTools → Lighthouse, or `npx lighthouse <url> --view`)
+reports accessibility, performance and best-practice scores. Run it on the
+deployed Dashboard, Entries, My Grades and Settings pages, in both desktop and
+mobile modes, and keep the reports with the submission.
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |

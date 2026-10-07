@@ -1416,10 +1416,11 @@ a whole: send any part and the parts left out are cleared, so switching from
 
 Syncs open entries' due dates into the user's primary Google Calendar using the
 [Google Calendar API](https://developers.google.com/calendar/api) (OAuth 2.0,
-scope `calendar.events`). Each open entry with a due date becomes an all-day
-event. The logbook tags its events with private extended properties, so a sync
-can find them again: it creates new events, updates events whose date or title
-changed, and removes events for entries that were completed, undated, or deleted.
+scope `calendar.events`). Each open, unarchived entry with a due date becomes
+an all-day event — the same work Open Work lists. The logbook tags its events
+with private extended properties, so a sync can find them again: it creates new
+events, updates events whose date or title changed, and removes events for
+entries that were completed, undated, archived, or deleted.
 Events the user created themselves are never touched.
 
 Google access and refresh tokens are stored per user, encrypted with AES-256-GCM
@@ -1434,7 +1435,7 @@ token bound to the caller, which the callback requires.
 ```json
 { "url": "https://accounts.google.com/o/oauth2/v2/auth?...&state=..." }
 ```
-**Errors:** `500` (Google Calendar not configured on the server)
+**Errors:** `503` (Google Calendar is not configured on this server)
 
 ### `GET /api/google-calendar/callback`
 
@@ -1448,7 +1449,8 @@ browser is redirected to `APP_URL/calendar?calendar=connected`, `=denied`
 | `code` | Authorization code from Google |
 | `state` | Signed state issued by `/connect` |
 
-**Errors:** `400` (missing `code` or `state`), `401` (invalid or expired `state`)
+**Errors:** `400` (missing `code` or `state`), `401` (invalid or expired `state`),
+`503` (not configured on this server)
 
 ### `GET /api/google-calendar/status` 🔒
 
@@ -1459,7 +1461,7 @@ browser is redirected to `APP_URL/calendar?calendar=connected`, `=denied`
 
 ### `POST /api/google-calendar/sync` 🔒
 
-Mirrors the caller's open, dated entries into Google Calendar. Safe to repeat.
+Mirrors the caller's open, dated, unarchived entries into Google Calendar. Safe to repeat.
 
 **Response `200`:**
 ```json
@@ -1467,7 +1469,7 @@ Mirrors the caller's open, dated entries into Google Calendar. Safe to repeat.
 ```
 **Errors:** `400` (not connected), `409` (access was revoked in the Google
 account; the connection is removed and the user must reconnect), `502`
-(Google API failure)
+(Google API failure), `503` (not configured on this server)
 
 ### `DELETE /api/google-calendar/disconnect` 🔒
 
@@ -1478,6 +1480,34 @@ Events that were already synced remain in the user's calendar.
 ```json
 { "message": "Google Calendar connection removed." }
 ```
+
+---
+
+## Help assistant (`/api/assistant`) 🔒
+
+An in-app helper that answers "how do I…?" questions about Digital Logbook,
+backed by the [Gemini API](https://ai.google.dev/). It is given a written guide
+to the app and may suggest one page to open. Only the conversation and the
+page the user is on are sent to Gemini — no logbook data. Rate-limited per IP
+(`RATE_LIMIT_ASSISTANT_MAX` per `RATE_LIMIT_ASSISTANT_WINDOW_MINUTES`).
+
+### `POST /api/assistant/chat` 🔒
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `messages` | `{ role: "user" \| "model", text: string }[]` | Yes | The conversation so far, oldest first. Must start and end with a `user` message; each text is 1–1000 characters; only the last 20 are used |
+| `currentPath` | string | No | The page the user is on, e.g. `/entries`; up to 200 characters, passed on only if it looks like an app path |
+
+**Response `200`:**
+```json
+{ "reply": "Open Reminders and press New reminder.", "navigateTo": "/reminders" }
+```
+`navigateTo` is one of the app's pages (`/dashboard`, `/projects`, `/entries`,
+`/open-work`, `/stats`, `/calendar`, `/board`, `/reminders`, `/grades`,
+`/profile`, `/settings`) or `null`.
+
+**Errors:** `400` (invalid conversation), `429` (rate limited), `502` (no
+configured Gemini model could answer), `503` (no `GEMINI_API_KEY` on this server)
 
 ---
 
@@ -1512,6 +1542,7 @@ string.
 |---|---|---|
 | **Neon** | Hosted PostgreSQL database | `DATABASE_URL` in `.env` |
 | **Google Calendar API** | Syncs entry due dates to the user's calendar ([details](#google-calendar-apigoogle-calendar)) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, `APP_URL` |
+| **Gemini API** | The in-app help assistant ([details](#help-assistant-apiassistant)) | `GEMINI_API_KEY`, optional `GEMINI_MODEL` |
 | **Resend** | Transactional email (preferred) | `RESEND_API_KEY` in `.env` |
 | **Gmail SMTP** | Transactional email (fallback) | `GMAIL_USER` + `GMAIL_APP_PASSWORD` in `.env` |
 | **Web push** | Reminder notifications to subscribed devices ([details](#push-notifications-apipush)) | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, optional `VAPID_SUBJECT` |

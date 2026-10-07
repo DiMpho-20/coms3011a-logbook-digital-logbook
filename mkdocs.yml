@@ -1,6 +1,6 @@
 site_name: Digital Logbook Documentation
 site_description: Technical documentation and architecture for the Digital Logbook project.
-site_url: https://digital-logbook-docs.pages.dev
+site_url: https://no-boys-just-bugs-digital-logbook-doc.netlify.app/
 
 # Internal working notes that must not be published
 exclude_docs: |
