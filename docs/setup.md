@@ -233,7 +233,7 @@ branches:
 
 1. **CI** — install, build the shared package, typecheck the backend, lint the
    frontend, run both test suites with coverage (the backend suite against
-   the long-lived `DATABASE_URL` database), report coverage on the commit,
+   a PostgreSQL database created for that run), report coverage on the commit,
    and build both apps.
 2. **CD** — on `main` only, and only after CI has passed:
     - the API is redeployed through a Render deploy hook;
@@ -249,8 +249,9 @@ until they are added. Repository settings → Actions → Secrets:
 | `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → a token with *Cloudflare Pages: Edit* |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → the account ID in the sidebar |
 
-The backend suite reads the `DATABASE_URL` secret — the same long-lived
-database the deployed API uses.
+The backend suite gets a database of its own for each run. The
+`DATABASE_URL` secret is only its fallback, used (with a warning in the log)
+if the runner cannot start that database.
 
 The Cloudflare Pages project name defaults to `coms3011a-logbook`; set the
 `CLOUDFLARE_PAGES_PROJECT` repository variable if it differs.
