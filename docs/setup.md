@@ -268,10 +268,24 @@ cd apps/backend && DATABASE_URL=<production connection string> npx prisma migrat
 
 ### Keeping the API awake
 
-Render's free tier sleeps after a quiet spell, and the first request then waits
-up to a minute. `.gitea/workflows/keep-warm.yaml` calls `/api/health` every ten
-minutes, so neither users nor markers meet that wait. It can also be run by
-hand from the Actions tab.
+Render's free tier sleeps after about 15 quiet minutes, and the first request
+then waits up to a minute (one cold start was measured at 33 s). To avoid that,
+a free [cron-job.org](https://cron-job.org) job calls `/api/health` every ten
+minutes from 06:00 to 23:50 (Africa/Johannesburg). It runs on Wendy's
+cron-job.org account; ask there to change or pause it rather than adding a
+second pinger.
+
+- **Why not the whole day:** Render's free hours (about 750 a month) are shared
+  by every free service in the workspace. Staying awake around the clock would
+  use about 744; these hours use about 570, and a request at night still wakes
+  the API, just slowly. Check the Render dashboard's usage page if another free
+  service is added to the workspace.
+- **Why not a Gitea schedule:** `.gitea/workflows/keep-warm.yaml` used to do
+  this, but 144 runs a day flooded the Actions tab, so it is now manual only.
+  Run it by hand (Actions tab -> "Keep the API awake" -> Run workflow) before a
+  demo or marking session at night, when the pinger is off.
+- **What it looks like:** the pings appear in Render's logs as `GET /api/health`
+  every ten minutes. They read nothing and change nothing.
 
 ### Required API environment (Render)
 
