@@ -1,12 +1,14 @@
 # Render's free tier puts the API to sleep after a quiet spell, and the first
-# request then waits up to a minute while it wakes. Asking for /api/health
-# every ten minutes keeps it awake, so nobody (a user, or a marker) meets
-# that wait. It only reads the health check; it changes nothing.
+# request then waits up to a minute while it wakes. Run this workflow by hand
+# before a demo or a marking session (Actions tab -> "Keep the API awake" ->
+# Run workflow) and the API is warm for everyone after you. It only reads the
+# health check; it changes nothing.
+#
+# Manual only: the old "*/10 * * * *" schedule did keep the API awake, but it
+# also put 144 runs a day into the Actions tab, so the schedule was removed.
 name: Keep the API awake
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 jobs:
