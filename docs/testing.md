@@ -1,8 +1,9 @@
 # Testing
 
 This page documents how the Digital Logbook is tested: our test stack and
-why we chose it, what is covered by automated tests, the formal user
-feedback process, our testing policy, and proof of passing runs.
+why we chose it, what is covered by automated tests, what we deliberately
+leave untested, the formal user feedback process, our testing policy, and
+proof of passing runs.
 
 ---
 
@@ -28,7 +29,7 @@ logic like saved-filter persistence).
 ## What We Test
 
 1,606 tests in total: 786 backend across 43 files, 820 frontend across 55
-files. Line coverage is **85.0% backend** and **80.5% frontend** (October 2026;
+files. Line coverage is **85.1% backend** and **80.5% frontend** (October 2026;
 see [Coverage](#coverage)). The per-area counts below were taken when each
 area was last described and have grown since. Per-file detail for the backend lives in
 [`apps/backend/TESTING.md`](https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook/src/branch/main/apps/backend/TESTING.md); the summaries
@@ -241,10 +242,10 @@ client (`npx prisma generate` in `apps/backend` — see
 
 | Workspace | Lines | Statements | Branches | Functions |
 |---|---|---|---|---|
-| Backend | 85.0% | 84.1% | 79.6% | 92.4% |
+| Backend | 85.1% | 84.2% | 79.8% | 92.6% |
 | Frontend | 80.5% | 78.9% | 76.9% | 76.4% |
 
-*Measured 7 October 2026 with `npm run test:coverage` in each workspace. The
+*Measured 8 October 2026 with `npm run test:coverage` in each workspace. The
 largest remaining gaps are deliberate: the animated sign-in background (canvas
 drawing jsdom cannot render) and the parts of the project page exercised by the
 backend suite instead.*
@@ -316,12 +317,13 @@ the runner's injected token lacking permission to write statuses, in which case
 a repository secret holding a token with write access can be passed to the step
 instead.
 
-No coverage thresholds are enforced yet. The purpose at this stage is to publish
-the numbers and watch them move; a threshold set before anyone has seen a
-baseline is an arbitrary number that either passes trivially or blocks work for
-no reason. Once a few runs have established where the project actually sits, a
-floor at or slightly below the current figure is worth adding, so coverage can
-only go up.
+Coverage floors are enforced. After months of runs established the baseline,
+both configs grew a `thresholds` block: the backend fails below **80% of
+lines** — the figure the final rubric asks about — and the frontend below
+**78%**, deliberately a little under its current 80.5% because features land
+in that workspace faster than their tests, and a floor at exactly 80 would
+turn routine feature work red. Either way, a real regression fails the run
+instead of waiting for someone to re-read the report.
 
 ### The CI database link, and the ETIMEDOUT failures
 
@@ -384,6 +386,48 @@ those.
 
 ---
 
+## What We Don't Test (and Why)
+
+No suite proves everything; these are the gaps we know about, stated so a
+reader knows exactly where the assurance of 1,606 green tests stops.
+
+- **Full user journeys in a real browser.** There are no end-to-end tests
+  (Playwright/Cypress) driving the deployed app. Component tests render
+  real pages and click real buttons, and the backend suite exercises every
+  route they call, but nothing replays a whole journey — sign-in, then
+  project, entry, statistics — against a running system. We judged the
+  marginal assurance not worth a second test stack and its CI time.
+- **The service worker, offline mode and push delivery, on a real device.**
+  The offline queue logic is unit-tested (`offlineEntries`,
+  `offlineProjects`, `offlineCache`) and the push-subscription endpoints
+  are integration-tested, but service-worker registration, background sync
+  and notification delivery only truly happen in a browser jsdom does not
+  simulate. Those paths are verified by hand, not by CI.
+- **Live calls to third-party services.** Google Calendar, the Gemini AI
+  assistant and the email providers are mocked at the boundary. Real
+  credentials would make the tests slow, non-deterministic, quota-bound
+  and occasionally the sender of real email; the tests instead assert the
+  behaviour around the boundary — request shaping, token refresh, error
+  paths.
+- **Performance under load.** The API is rate-limited and queries are
+  indexed, but no load test measures throughput or behaviour at
+  concurrency. A query that degrades as data grows would not be caught.
+- **Known thin spots inside the suites themselves**, left visible in the
+  coverage table rather than excluded from it: the two minute-ticker
+  background jobs (`jobs/recurringEntries.ts`, `jobs/pushReminders.ts`,
+  both 0% — thin `setInterval` wrappers around utilities that are tested),
+  the recurring-entry utilities (41% of lines), the Google Calendar routes
+  (29%), the email transport (66%) and the server entry point
+  (`index.ts`, 0% — it only binds the port). On the frontend the largest
+  gap is the animated sign-in background, drawn on a canvas jsdom cannot
+  render.
+
+Each is a deliberate trade-off for a course project on a free-tier CI
+runner; they are recorded so the judgement can be revisited rather than
+rediscovered.
+
+---
+
 ## Testing Policy
 
 1. **Every API endpoint gets tests for the happy path *and* its error paths** (400 validation, 401 auth, 404 missing, 409 conflict). If an endpoint has no error-path test, it isn't done.
@@ -422,94 +466,136 @@ published on this site.
 
 ## Proof of Passing Runs
 
-**Run date: 2026-09-28 · 960 / 960 tests passing · 57 / 57 test files passing**
+**Run date: 2026-10-08 · 1,606 / 1,606 tests passing · 98 / 98 test files passing**
 
-### Backend (543 tests, 30 files)
+Both suites captured the same day from `npm run test:coverage` — the backend
+against a throwaway PostgreSQL 16 container, the same per-run database CI now
+provisions, with the coverage floors (backend 80, frontend 78) active in
+both configs.
 
-Captured from `npx vitest run --coverage` in `apps/backend` (run against
-the remote database with Vitest's default worker pool — per-file times are
-wall-clock and include queue time on their worker):
+### Backend (786 tests, 43 files)
 
 ```text
- ✓ src/__tests__/api.test.ts (27 tests) 52202ms
- ✓ src/__tests__/auth.test.ts (33 tests) 19647ms
- ✓ src/__tests__/authCrypto.test.ts (28 tests) 41ms
- ✓ src/__tests__/automationEngine.test.ts (51 tests) 364029ms
- ✓ src/__tests__/automationRules.test.ts (28 tests) 32ms
- ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 48645ms
- ✓ src/__tests__/customStatistics.test.ts (27 tests) 48404ms
- ✓ src/__tests__/dashboardLayout.test.ts (8 tests) 3458ms
- ✓ src/__tests__/entriesListing.test.ts (20 tests) 23826ms
- ✓ src/__tests__/entryFieldIntegrity.test.ts (11 tests) 64783ms
- ✓ src/__tests__/entryHistory.test.ts (18 tests) 181306ms
- ✓ src/__tests__/entryOwnership.test.ts (9 tests) 18324ms
- ✓ src/__tests__/entryValidation.test.ts (17 tests) 198700ms
- ✓ src/__tests__/expressionStats.test.ts (22 tests) 14636ms
- ✓ src/__tests__/expressions.test.ts (28 tests) 15ms
- ✓ src/__tests__/googleCalendar.test.ts (13 tests) 144ms
- ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 18ms
- ✓ src/__tests__/jwtSecret.test.ts (5 tests) 113ms
- ✓ src/__tests__/projectDelete.test.ts (6 tests) 36956ms
- ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 3847ms
- ✓ src/__tests__/push.test.ts (11 tests) 47473ms
- ✓ src/__tests__/rateLimit.test.ts (6 tests) 142ms
- ✓ src/__tests__/readRetry.test.ts (13 tests) 20ms
- ✓ src/__tests__/recurringEntries.test.ts (3 tests) 6ms
- ✓ src/__tests__/reminders.test.ts (42 tests) 246032ms
- ✓ src/__tests__/sprint2.test.ts (22 tests) 40367ms
- ✓ src/__tests__/stats.test.ts (10 tests) 148602ms
- ✓ src/__tests__/tags.test.ts (13 tests) 69569ms
- ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 19031ms
- ✓ src/__tests__/utils.test.ts (32 tests) 775ms
+ ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 7722ms
+ ✓ src/__tests__/reminders.test.ts (42 tests) 8067ms
+ ✓ src/__tests__/assessmentReminders.test.ts (22 tests) 9237ms
+ ✓ src/__tests__/auth.test.ts (33 tests) 9267ms
+ ✓ src/__tests__/entryHistory.test.ts (18 tests) 4030ms
+ ✓ src/__tests__/grades.test.ts (42 tests) 3802ms
+ ✓ src/__tests__/entryValidation.test.ts (17 tests) 3843ms
+ ✓ src/__tests__/automationEngine.test.ts (51 tests) 5895ms
+ ✓ src/__tests__/sprint2.test.ts (22 tests) 2344ms
+ ✓ src/__tests__/customStatistics.test.ts (27 tests) 2547ms
+ ✓ src/__tests__/tags.test.ts (13 tests) 2034ms
+ ✓ src/__tests__/stats.test.ts (13 tests) 3841ms
+ ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 2069ms
+ ✓ src/__tests__/projectDelete.test.ts (6 tests) 2181ms
+ ✓ src/__tests__/entryOwnership.test.ts (9 tests) 2145ms
+ ✓ src/__tests__/entryFieldIntegrity.test.ts (11 tests) 2462ms
+ ✓ src/__tests__/profile.test.ts (23 tests) 1613ms
+ ✓ src/__tests__/entriesListing.test.ts (20 tests) 1974ms
+ ✓ src/__tests__/expressionStats.test.ts (22 tests) 1958ms
+ ✓ src/__tests__/push.test.ts (11 tests) 2023ms
+ ✓ src/__tests__/timeSummaries.test.ts (3 tests) 1782ms
+ ✓ src/__tests__/importLogbook.test.ts (7 tests) 1744ms
+ ✓ src/__tests__/dashboardLayout.test.ts (8 tests) 1749ms
+ ✓ src/__tests__/api.test.ts (27 tests) 1877ms
+ ✓ src/__tests__/utils.test.ts (33 tests) 1408ms
+ ✓ src/__tests__/referenceIntegrity.test.ts (12 tests) 1839ms
+ ✓ src/__tests__/savedFilters.test.ts (6 tests) 1713ms
+ ✓ src/__tests__/openEntries.test.ts (5 tests) 1110ms
+ ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 1110ms
+ ✓ src/__tests__/rateLimit.test.ts (6 tests) 240ms
+ ✓ src/__tests__/jwtSecret.test.ts (5 tests) 146ms
+ ✓ src/__tests__/assistant.test.ts (14 tests) 389ms
+ ✓ src/__tests__/gradesValidation.test.ts (53 tests) 262ms
+ ✓ src/__tests__/googleCalendar.test.ts (13 tests) 210ms
+ ✓ src/__tests__/profileInput.test.ts (38 tests) 67ms
+ ✓ src/__tests__/authCrypto.test.ts (28 tests) 55ms
+ ✓ src/__tests__/expressions.test.ts (28 tests) 37ms
+ ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 38ms
+ ✓ src/__tests__/automationRules.test.ts (28 tests) 31ms
+ ✓ src/__tests__/readRetry.test.ts (13 tests) 19ms
+ ✓ src/__tests__/projectSchema.test.ts (2 tests) 20ms
+ ✓ src/__tests__/assessmentReminderRules.test.ts (12 tests) 12ms
+ ✓ src/__tests__/recurringEntries.test.ts (3 tests) 17ms
 
- Test Files  30 passed (30)
-      Tests  543 passed (543)
-   Duration  472.23s (transform 8.32s, setup 678ms, import 61.59s, tests 1805.11s, environment 5ms)
+ Test Files  43 passed (43)
+      Tests  786 passed (786)
+   Duration  44.06s (transform 7.17s, setup 822ms, import 55.21s, tests 94.93s, environment 11ms)
 ```
 
-### Frontend (417 tests, 27 files)
+### Frontend (820 tests, 55 files)
 
 ```text
- ✓ src/__tests__/api.test.ts (26 tests) 911ms
- ✓ src/api/__tests__/client.test.ts (10 tests) 158ms
- ✓ src/components/__tests__/AutomationRules.test.tsx (25 tests) 7742ms
- ✓ src/components/__tests__/DeleteProjectModal.test.tsx (16 tests) 12847ms
- ✓ src/components/__tests__/EntryForm.test.tsx (9 tests) 7166ms
- ✓ src/components/__tests__/EntryHistoryModal.test.tsx (19 tests) 8641ms
- ✓ src/components/__tests__/ProtectedRoute.test.tsx (3 tests) 98ms
- ✓ src/components/__tests__/displayComponents.test.tsx (18 tests) 2248ms
- ✓ src/components/__tests__/interactiveComponents.test.tsx (26 tests) 8203ms
- ✓ src/lib/__tests__/dashboardInsights.test.ts (13 tests) 50ms
- ✓ src/lib/__tests__/dashboardPreferences.test.ts (6 tests) 19ms
- ✓ src/lib/__tests__/formulas.test.ts (16 tests) 109ms
- ✓ src/lib/__tests__/offlineCache.test.ts (7 tests) 117ms
- ✓ src/lib/__tests__/offlineEntries.test.ts (18 tests) 53ms
- ✓ src/lib/__tests__/offlineProjects.test.ts (11 tests) 590ms
- ✓ src/lib/__tests__/reminderNotifications.test.ts (10 tests) 167ms
- ✓ src/lib/__tests__/savedFilters.test.ts (14 tests) 21ms
- ✓ src/lib/__tests__/utils.test.ts (11 tests) 59ms
- ✓ src/pages/__tests__/CalendarPage.test.tsx (14 tests) 18950ms
- ✓ src/pages/__tests__/DashboardPage.test.tsx (19 tests) 19185ms
- ✓ src/pages/__tests__/EntriesPage.test.tsx (19 tests) 7473ms
- ✓ src/pages/__tests__/LoginPage.test.tsx (5 tests) 5820ms
- ✓ src/pages/__tests__/OpenWorkPage.test.tsx (17 tests) 6467ms
- ✓ src/pages/__tests__/ProjectsPage.test.tsx (21 tests) 8542ms
- ✓ src/pages/__tests__/RegisterPage.test.tsx (7 tests) 7545ms
- ✓ src/pages/__tests__/RemindersPage.test.tsx (13 tests) 16898ms
- ✓ src/pages/__tests__/StatsPage.test.tsx (44 tests) 54601ms
+ ✓ src/pages/__tests__/GradesPage.test.tsx (24 tests) 9260ms
+ ✓ src/pages/__tests__/ProjectsPage.test.tsx (25 tests) 9887ms
+ ✓ src/pages/__tests__/EntriesPage.test.tsx (23 tests) 11632ms
+ ✓ src/pages/__tests__/GradeModulePage.test.tsx (21 tests) 15066ms
+ ✓ src/pages/__tests__/DashboardPage.test.tsx (30 tests) 20552ms
+ ✓ src/components/__tests__/EntryHistoryModal.test.tsx (20 tests) 11351ms
+ ✓ src/pages/__tests__/SettingsPage.test.tsx (18 tests) 9761ms
+ ✓ src/pages/__tests__/LoginFlow.test.tsx (9 tests) 10945ms
+ ✓ src/pages/__tests__/RemindersPage.test.tsx (20 tests) 8792ms
+ ✓ src/pages/__tests__/StatsPage.test.tsx (45 tests) 32295ms
+ ✓ src/pages/__tests__/CalendarPage.test.tsx (22 tests) 32365ms
+ ✓ src/components/__tests__/Sidebar.test.tsx (7 tests) 3199ms
+ ✓ src/pages/__tests__/ProfilePage.test.tsx (6 tests) 3641ms
+ ✓ src/pages/__tests__/OpenWorkPage.test.tsx (24 tests) 9319ms
+ ✓ src/components/__tests__/AutomationRules.test.tsx (25 tests) 6060ms
+ ✓ src/components/__tests__/HelpAssistant.test.tsx (6 tests) 3781ms
+ ✓ src/components/__tests__/EntryForm.test.tsx (18 tests) 5716ms
+ ✓ src/pages/__tests__/LoginPage.test.tsx (5 tests) 3913ms
+ ✓ src/components/__tests__/DeleteProjectModal.test.tsx (16 tests) 2686ms
+ ✓ src/pages/__tests__/RegisterPage.test.tsx (7 tests) 3750ms
+ ✓ src/components/__tests__/AppLayout.test.tsx (5 tests) 3263ms
+ ✓ src/components/__tests__/displayComponents.test.tsx (21 tests) 3878ms
+ ✓ src/components/__tests__/interactiveComponents.test.tsx (26 tests) 3386ms
+ ✓ src/pages/__tests__/AuthPages.test.tsx (11 tests) 3456ms
+ ✓ src/pages/__tests__/ProjectDetailPage.test.tsx (7 tests) 4540ms
+ ✓ src/components/__tests__/LandingPage.test.tsx (3 tests) 4464ms
+ ✓ src/pages/__tests__/BoardPage.test.tsx (15 tests) 3214ms
+ ✓ src/components/__tests__/LoginStage3D.test.tsx (5 tests) 2191ms
+ ✓ src/components/__tests__/GoogleCalendarSync.test.tsx (3 tests) 2499ms
+ ✓ src/components/__tests__/ReferencePicker.test.tsx (8 tests) 1822ms
+ ✓ src/pages/__tests__/PrivacyPage.test.tsx (1 test) 2294ms
+ ✓ src/lib/__tests__/grades.test.ts (93 tests) 1039ms
+ ✓ src/components/__tests__/TrendChart.test.tsx (4 tests) 542ms
+ ✓ src/components/__tests__/BarChart.test.tsx (4 tests) 1148ms
+ ✓ src/lib/__tests__/dashboardInsights.test.ts (13 tests) 196ms
+ ✓ src/components/__tests__/ProtectedRoute.test.tsx (3 tests) 244ms
+ ✓ src/lib/__tests__/gradeDisplay.test.ts (18 tests) 277ms
+ ✓ src/__tests__/api.test.ts (29 tests) 157ms
+ ✓ src/lib/__tests__/savedFilters.test.ts (15 tests) 87ms
+ ✓ src/lib/__tests__/offlineEntries.test.ts (18 tests) 149ms
+ ✓ src/lib/__tests__/offlineProjects.test.ts (11 tests) 116ms
+ ✓ src/lib/__tests__/quickCapture.test.ts (10 tests) 86ms
+ ✓ src/lib/__tests__/csvExport.test.ts (4 tests) 59ms
+ ✓ src/lib/__tests__/profileActivity.test.ts (32 tests) 145ms
+ ✓ src/api/__tests__/client.test.ts (10 tests) 179ms
+ ✓ src/lib/__tests__/utils.test.ts (11 tests) 67ms
+ ✓ src/lib/__tests__/offlineCache.test.ts (7 tests) 152ms
+ ✓ src/lib/__tests__/today.test.ts (8 tests) 107ms
+ ✓ src/lib/__tests__/reminderNotifications.test.ts (10 tests) 75ms
+ ✓ src/lib/__tests__/formulas.test.ts (16 tests) 87ms
+ ✓ src/lib/__tests__/entryDefaults.test.ts (6 tests) 77ms
+ ✓ src/__tests__/gradesApi.test.ts (6 tests) 111ms
+ ✓ src/lib/__tests__/appearance.test.ts (7 tests) 63ms
+ ✓ src/lib/__tests__/encouragement.test.ts (3 tests) 34ms
+ ✓ src/lib/__tests__/dashboardPreferences.test.ts (6 tests) 27ms
 
- Test Files  27 passed (27)
-      Tests  417 passed (417)
-   Duration  74.92s (transform 9.60s, setup 53.52s, import 29.18s, tests 195.29s, environment 166.84s)
+ Test Files  55 passed (55)
+      Tests  820 passed (820)
+   Duration  83.45s (transform 12.58s, setup 32.71s, import 38.95s, tests 254.20s, environment 185.32s)
 ```
 
 ### Coverage (V8 provider, from the same runs)
 
 | Suite | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| Backend | 84.38% | 79.73% | 90.88% | 85.12% |
-| Frontend | 58.94% | 55.07% | 59.27% | 59.54% |
-| **Combined (lines)** | | | | **68.89%** (4,085 of 5,930) |
+| Backend | 84.22% | 79.77% | 92.63% | 85.09% |
+| Frontend | 78.87% | 76.92% | 76.37% | 80.52% |
+| **Combined (lines)** | | | | **82.07%** (6,750 of 8,225) |
 
 ---
 
@@ -539,11 +625,14 @@ in action:
 
 ## Future Work
 
-- **Test isolation:** move to a per-run schema or transaction-rollback strategy so backend suites can't observe each other's data at all.
+- **Test isolation:** CI now gives every backend run a PostgreSQL database of its own (with the `DATABASE_URL` secret kept only as a fallback), but the suites within one run still share that database and clean up after themselves via user-cascade deletion. A per-suite schema or transaction-rollback strategy would make it impossible for suites to observe each other's data at all.
 
 ### Completed
 
 - **CI gate** — the Gitea Actions workflow runs both backend and frontend test suites on every push to `main`, `master`, `Alondwe` and `Dineo`. It needs a Gitea Actions runner to be online; while none is, runs wait in the queue and start once one returns.
+- **Per-run test database** — CI provisions a throwaway PostgreSQL for each backend run, so test data never lands in the production Neon database.
+- **Coverage floors** — the backend fails below 80% of lines and the frontend below 78%; a regression below the floor turns CI red rather than waiting for someone to re-read the report.
+- **Backend linting in CI** — ESLint runs on the backend alongside the frontend's oxlint; `no-explicit-any` is warn-only at the untyped Prisma/raw-SQL boundary, everything else is an error.
 - **Backend unit tests** — utils tests cover computedFields, auth, and entryFormat.
 - **Frontend component and UI tests** — page-level tests cover the dashboard, login/register, projects, entries timeline, open work, calendar, statistics and reminders pages, alongside the component and offline-layer suites.
 - **Rate-limiting tests** — `rateLimit.test.ts` locks in the BUG-003 fix.

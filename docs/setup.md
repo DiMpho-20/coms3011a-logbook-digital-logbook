@@ -142,7 +142,7 @@ When the backend starts you will see a `SECURITY WARNING` from `pg` about SSL mo
 | `npm run test` | `apps/frontend` | Run the Vitest + Testing Library suite (jsdom, no backend needed) |
 | `npm run test:watch` | `apps/frontend` | Run tests in watch mode |
 | `npm run test:coverage` | `apps/frontend` | Run tests with a coverage report |
-| `npm run lint` | `apps/frontend` | Run oxlint |
+| `npm run lint` | every workspace | Run each workspace's linter (oxlint for the frontend, ESLint for the backend) |
 
 ## Code Quality & Linting
 
@@ -152,13 +152,24 @@ The frontend uses [oxlint](https://oxc.rs) for fast linting:
 npm run lint --workspace=frontend
 ```
 
-The backend uses TypeScript's built-in type checker. Run it before committing:
+The backend uses [ESLint](https://eslint.org) with typescript-eslint:
+
+```bash
+npm run lint --workspace=backend
+```
+
+Every rule is an error except `@typescript-eslint/no-explicit-any`, which is
+a warning on purpose: the backend handles untyped Prisma rows and raw SQL at
+a handful of boundaries, and failing every build over those would train the
+team to ignore the linter. The type checker still runs alongside it:
 
 ```bash
 npm run typecheck --workspace=backend
 ```
 
-> **Note:** The backend does not have a separate `lint` script. The root-level `npm run lint` command uses `--if-present`, so it will skip the backend gracefully.
+Both linters run in CI on every push (see the pipeline below), so a rule
+violation fails the build rather than relying on someone remembering to run
+the command before pushing.
 
 ## Testing
 
@@ -232,9 +243,10 @@ If notifications never appear, check in order: the browser's site permission for
 branches:
 
 1. **CI** — install, build the shared package, typecheck the backend, lint the
-   frontend, run both test suites with coverage (the backend suite against
-   a PostgreSQL database created for that run), report coverage on the commit,
-   and build both apps.
+   backend and the frontend, run both test suites with coverage (the backend
+   suite against a PostgreSQL database created for that run, both suites
+   gated by coverage floors), report coverage on the commit, and build both
+   apps.
 2. **CD** — on `main` only, and only after CI has passed:
     - the API is redeployed through a Render deploy hook;
     - the frontend is built and published to Cloudflare Pages with Wrangler;

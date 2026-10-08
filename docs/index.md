@@ -33,7 +33,7 @@ Welcome to the technical documentation for the **COMS3011A Digital Logbook** pro
 | **Notifications** | Web push (`web-push`) with a service worker |
 | **Shared** | `@logbook/shared` — TypeScript interfaces and Zod schemas consumed by both frontend and backend |
 | **Testing** | Vitest + Supertest (backend), Vitest + Testing Library (frontend) — see [Testing](testing.md) |
-| **Linting** | oxlint (frontend) / TypeScript type checker (backend) |
+| **Linting** | oxlint (frontend) / ESLint + TypeScript type checker (backend) |
 | **Workspace** | Monorepo using npm workspaces |
 
 ## Sprint 1 Summary
