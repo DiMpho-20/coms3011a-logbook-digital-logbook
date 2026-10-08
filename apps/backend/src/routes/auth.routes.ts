@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { generateSecret, generateURI, verifySync, generateSync } from "otplib";
+import { generateSecret, generateURI, verifySync } from "otplib";
 import QRCode from "qrcode";
 import { 
   registerSchema, 

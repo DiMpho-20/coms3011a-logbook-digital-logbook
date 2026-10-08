@@ -14,7 +14,6 @@ const STRANGER = crypto.randomUUID();
 const ts = Date.now();
 
 let OWNER_AUTH: Record<string, string>;
-let STRANGER_AUTH: Record<string, string>;
 let projectId = "";
 let strangerProjectId = "";
 
@@ -40,7 +39,7 @@ const evaluate = (expression: unknown, auth = OWNER_AUTH, id = () => projectId) 
   request(app).post(`/api/projects/${id()}/stats/expression`).set(auth).send({ expression });
 
 beforeAll(async () => {
-  [OWNER_AUTH, STRANGER_AUTH] = await Promise.all([
+  [OWNER_AUTH] = await Promise.all([
     makeUser(OWNER, "owner"),
     makeUser(STRANGER, "stranger"),
   ]);

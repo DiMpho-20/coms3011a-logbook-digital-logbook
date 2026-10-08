@@ -94,7 +94,7 @@ export const getProjects = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     return res.status(200).json(projects.map(formatProject));
-  } catch (error: any) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch projects" });
   }
 };
@@ -121,7 +121,7 @@ export const getProject = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     return res.status(200).json(formatProject(project));
-  } catch (error: any) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch project" });
   }
 };
@@ -164,7 +164,7 @@ export const getProjectTimeSummary = async (req: AuthenticatedRequest, res: Resp
       entryCount,
       lastEntryAt,
     } satisfies TimeSummary);
-  } catch (error: any) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch time summary" });
   }
 };
@@ -208,7 +208,7 @@ export const getAllProjectTimeSummaries = async (req: AuthenticatedRequest, res:
         } satisfies TimeSummary;
       })
     );
-  } catch (error: any) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch time summaries" });
   }
 };

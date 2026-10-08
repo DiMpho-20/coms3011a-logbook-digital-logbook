@@ -51,8 +51,10 @@ jobs:
       - name: Typecheck backend
         run: npm run typecheck --workspace=apps/backend
 
-      - name: Lint frontend
-        run: npm run lint --workspace=apps/frontend
+      # Root lint forwards to every workspace with a lint script: ESLint for
+      # the backend, oxlint for the frontend.
+      - name: Lint backend and frontend
+        run: npm run lint
 
       # test:coverage rather than test: the v8 text reporter prints the
       # coverage table into this log, which is the visible evidence the
