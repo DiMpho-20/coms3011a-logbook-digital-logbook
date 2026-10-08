@@ -522,7 +522,7 @@ export default function EntriesPage() {
                   setFilterProjectId(e.target.value);
                   setFieldFilters([]);
                 }}
-                className={`${selectClass} min-w-0 flex-1 sm:flex-none sm:max-w-[200px]`}
+                className={`${selectClass} min-w-0 flex-1 sm:flex-none sm:max-w-[200px] max-sm:basis-full`}
               >
                 <option value="all">All projects</option>
                 {projects.map((p) => (
