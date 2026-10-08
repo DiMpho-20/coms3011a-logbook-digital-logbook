@@ -90,16 +90,28 @@ function isQueuedProject(id: string): boolean {
   return isOfflineId(id) && getPendingProject(id) !== null;
 }
 
+// Everything past name/description/status/fields and the entries' content is
+// optional, so backups written before it was exported still import.
 export interface LogbookBackupProject {
+  /** The project's id when exported; references to it are remapped by it. */
+  id?: string;
   name: string;
   description: string | null;
   status: ProjectStatus;
+  tags?: string[];
+  createdAt?: string;
+  updatedAt?: string;
   fields: Array<Pick<EntryField, "id" | "name" | "type" | "required" | "formula">>;
   entries: Array<Pick<Entry, "durationMinutes" | "entryDate" | "dueDate" | "values"> & {
-    // Optional so backups written before these were exported still import.
+    /** The entry's id when exported; links from other entries are remapped by it. */
+    id?: string;
     status?: Entry["status"];
+    completedAt?: string | null;
     tags?: string[];
     archived?: boolean;
+    archivedAt?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
   }>;
 }
 
@@ -572,13 +584,20 @@ export async function exportLogbook(): Promise<LogbookBackup> {
       // Archived entries are still part of the record, so they are backed up too.
       fetchEntries(project.id, { archived: "include" }),
     ]);
+    // Ids and timestamps are kept so a restore can point references at the
+    // recreated records and date them as they were (issue #86).
     return {
+      id: project.id,
       name: project.name,
       description: project.description,
       status: project.status,
+      tags: project.tags ?? [],
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
       fields: fields.map(({ id, name, type, required, formula }) => ({ id, name, type, required, formula })),
-      entries: entries.map(({ durationMinutes, entryDate, dueDate, values, status, tags, archivedAt }) => ({
-        durationMinutes, entryDate, dueDate, values, status, tags, archived: Boolean(archivedAt),
+      entries: entries.map(({ id, durationMinutes, entryDate, dueDate, values, status, completedAt, tags, archivedAt, createdAt, updatedAt }) => ({
+        id, durationMinutes, entryDate, dueDate, values, status, completedAt, tags,
+        archived: Boolean(archivedAt), archivedAt: archivedAt ?? null, createdAt, updatedAt,
       })),
     };
   }));
@@ -596,6 +615,10 @@ export async function exportLogbook(): Promise<LogbookBackup> {
 // rejected wholesale on import just for having used a newer field type.
 const BACKUP_FIELD_TYPES: EntryFieldType[] = ["TEXT", "NUMBER", "DATE", "BOOLEAN", "TAGS", "CHECKLIST", "LINK", "REFERENCE", "COMPUTED"];
 
+const isString = (value: unknown): value is string => typeof value === "string";
+const isStringList = (value: unknown) => Array.isArray(value) && value.every(isString);
+const isOptional = (value: unknown, check: (value: unknown) => boolean) => value === undefined || check(value);
+
 function isBackup(value: unknown): value is LogbookBackup {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<LogbookBackup>;
@@ -606,6 +629,10 @@ function isBackup(value: unknown): value is LogbookBackup {
       && typeof project.name === "string"
       && (project.description === null || typeof project.description === "string")
       && (project.status === "ACTIVE" || project.status === "ARCHIVED")
+      && isOptional(project.id, isString)
+      && isOptional(project.tags, isStringList)
+      && isOptional(project.createdAt, isString)
+      && isOptional(project.updatedAt, isString)
       && Array.isArray(project.fields)
       && project.fields.every((field) => field
         && typeof field.id === "string"
@@ -626,8 +653,13 @@ function isBackup(value: unknown): value is LogbookBackup {
         && typeof entry.values === "object"
         && !Array.isArray(entry.values)
         && (entry.status === undefined || entry.status === "OPEN" || entry.status === "DONE")
-        && (entry.tags === undefined || (Array.isArray(entry.tags) && entry.tags.every((t) => typeof t === "string")))
-        && (entry.archived === undefined || typeof entry.archived === "boolean")));
+        && isOptional(entry.id, isString)
+        && isOptional(entry.tags, isStringList)
+        && (entry.archived === undefined || typeof entry.archived === "boolean")
+        && (entry.completedAt === null || isOptional(entry.completedAt, isString))
+        && (entry.archivedAt === null || isOptional(entry.archivedAt, isString))
+        && isOptional(entry.createdAt, isString)
+        && isOptional(entry.updatedAt, isString)));
 }
 
 /**

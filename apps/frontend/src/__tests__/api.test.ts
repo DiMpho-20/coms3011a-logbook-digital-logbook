@@ -303,11 +303,15 @@ const backup = {
 describe("exportLogbook", () => {
   it("collects every project with its fields and entries", async () => {
     vi.mocked(api.get).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok([{ id: "p1", name: "Alpha", description: null, status: "ACTIVE" }]));
+      if (url === "/projects") return Promise.resolve(ok([{
+        id: "p1", name: "Alpha", description: null, status: "ACTIVE", tags: ["semester-2"],
+        createdAt: "2026-08-01T00:00:00.000Z", updatedAt: "2026-08-15T00:00:00.000Z",
+      }]));
       if (url.endsWith("/entry-fields")) return Promise.resolve(ok([{ id: "f1", name: "Summary", type: "TEXT", required: true, formula: null }]));
       return Promise.resolve(ok([{
         id: "e1", durationMinutes: 30, entryDate: null, dueDate: null, values: {},
-        status: "DONE", tags: ["exam"], archivedAt: "2026-09-02T00:00:00.000Z",
+        status: "DONE", completedAt: "2026-09-01T12:00:00.000Z", tags: ["exam"], archivedAt: "2026-09-02T00:00:00.000Z",
+        createdAt: "2026-08-20T00:00:00.000Z", updatedAt: "2026-09-02T00:00:00.000Z",
       }]));
     });
 
@@ -316,9 +320,16 @@ describe("exportLogbook", () => {
     expect(result.format).toBe("digital-logbook-backup");
     expect(result.version).toBe(1);
     expect(result.projects).toHaveLength(1);
+    // Ids, project tags and timestamps survive a round trip (issue #86).
+    expect(result.projects[0]).toMatchObject({
+      id: "p1", tags: ["semester-2"], createdAt: "2026-08-01T00:00:00.000Z", updatedAt: "2026-08-15T00:00:00.000Z",
+    });
     expect(result.projects[0].fields[0]).toEqual({ id: "f1", name: "Summary", type: "TEXT", required: true, formula: null });
     expect(result.projects[0].entries[0]).toEqual({
-      durationMinutes: 30, entryDate: null, dueDate: null, values: {}, status: "DONE", tags: ["exam"], archived: true,
+      id: "e1", durationMinutes: 30, entryDate: null, dueDate: null, values: {},
+      status: "DONE", completedAt: "2026-09-01T12:00:00.000Z", tags: ["exam"],
+      archived: true, archivedAt: "2026-09-02T00:00:00.000Z",
+      createdAt: "2026-08-20T00:00:00.000Z", updatedAt: "2026-09-02T00:00:00.000Z",
     });
   });
 
@@ -340,6 +351,13 @@ describe("importLogbook", () => {
     for (const bad of [null, "nope", {}, { format: "something-else" }, { ...backup, version: 2 }]) {
       await expect(importLogbook(bad)).rejects.toThrow(/not a valid/i);
     }
+  });
+
+  it("refuses a backup whose new keys have the wrong type", async () => {
+    const badTags = { ...backup, projects: [{ ...backup.projects[0], tags: "exam" }] };
+    const badDate = { ...backup, projects: [{ ...backup.projects[0], entries: [{ ...backup.projects[0].entries[0], createdAt: 5 }] }] };
+    await expect(importLogbook(badTags)).rejects.toThrow(/not a valid/i);
+    await expect(importLogbook(badDate)).rejects.toThrow(/not a valid/i);
   });
 
   it("refuses a backup whose entries are malformed", async () => {

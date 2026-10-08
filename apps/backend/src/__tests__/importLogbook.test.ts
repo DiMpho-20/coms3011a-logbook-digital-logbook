@@ -85,6 +85,59 @@ describe("POST /api/import", () => {
     expect(versions[0].reason).toBe("CREATED");
   });
 
+  it("keeps project tags, original timestamps and links by id (issue #86)", async () => {
+    const OLD_A = crypto.randomUUID();
+    const OLD_B = crypto.randomUUID();
+    const OLD_ENTRY = crypto.randomUUID();
+    const res = await request(app).post("/api/import").set(H).send(backup([
+      project(`Linked ${ts}`, {
+        id: OLD_A,
+        tags: ["semester-2"],
+        createdAt: "2025-02-01T08:00:00.000Z",
+        updatedAt: "2025-03-01T08:00:00.000Z",
+        fields: [{ id: "link", name: "Link", type: "REFERENCE", required: false, formula: null }],
+        entries: [{
+          durationMinutes: 10, entryDate: null, dueDate: null,
+          // Points at an entry restored after this one, and at a project
+          // whose label went stale when it was renamed.
+          values: { link: { id: OLD_ENTRY, label: "Lab 3", kind: "entry", projectId: OLD_B } },
+          createdAt: "2025-02-02T09:00:00.000Z", updatedAt: "2025-02-05T09:00:00.000Z",
+        }],
+      }),
+      project(`Target ${ts}`, {
+        id: OLD_B,
+        fields: [{ id: "back", name: "Back", type: "REFERENCE", required: false, formula: null }],
+        entries: [{
+          id: OLD_ENTRY, durationMinutes: 20, entryDate: null, dueDate: null,
+          values: { back: { id: OLD_A, label: "Old name", kind: "project" } },
+          status: "DONE", completedAt: "2025-02-03T10:00:00.000Z",
+          archivedAt: "2025-02-04T10:00:00.000Z",
+          createdAt: "2025-02-01T10:00:00.000Z", updatedAt: "2025-02-04T10:00:00.000Z",
+        }],
+      }),
+    ]));
+    expect(res.status).toBe(201);
+
+    const a = await prisma.project.findFirstOrThrow({ where: { userId: USER, name: `Linked ${ts}` } });
+    const b = await prisma.project.findFirstOrThrow({ where: { userId: USER, name: `Target ${ts}` } });
+    expect(a.createdAt.toISOString()).toBe("2025-02-01T08:00:00.000Z");
+    expect(a.updatedAt.toISOString()).toBe("2025-03-01T08:00:00.000Z");
+    expect((await request(app).get(`/api/projects/${a.id}`).set(H)).body.tags).toEqual(["semester-2"]);
+
+    const [target] = (await request(app).get(`/api/projects/${b.id}/entries`).query({ archived: "include" }).set(H)).body;
+    expect(target.createdAt).toBe("2025-02-01T10:00:00.000Z");
+    expect(target.updatedAt).toBe("2025-02-04T10:00:00.000Z");
+    expect(target.completedAt).toBe("2025-02-03T10:00:00.000Z");
+    expect(target.archivedAt).toBe("2025-02-04T10:00:00.000Z");
+    const [backField] = (await request(app).get(`/api/projects/${b.id}/entry-fields`).set(H)).body;
+    expect(target.values[backField.id]).toEqual({ id: a.id, label: "Old name", kind: "project" });
+
+    const [linking] = (await request(app).get(`/api/projects/${a.id}/entries`).set(H)).body;
+    const [linkField] = (await request(app).get(`/api/projects/${a.id}/entry-fields`).set(H)).body;
+    expect(linking.createdAt).toBe("2025-02-02T09:00:00.000Z");
+    expect(linking.values[linkField.id]).toEqual({ id: target.id, label: "Lab 3", kind: "entry", projectId: b.id });
+  });
+
   it("imports a project whose name is already taken under a new name", async () => {
     const name = `Clash ${ts}`;
     await request(app).post("/api/projects").set(H).send({ name });
