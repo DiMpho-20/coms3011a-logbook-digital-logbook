@@ -22,7 +22,7 @@ const renderAt = (path = "/dashboard") =>
     </MemoryRouter>
   );
 
-const openPanel = () => fireEvent.click(screen.getByRole("button", { name: "Ask for help" }));
+const openPanel = () => fireEvent.click(screen.getByRole("button", { name: "Need help?" }));
 const ask = (text: string) => {
   fireEvent.change(screen.getByLabelText("Your question"), { target: { value: text } });
   fireEvent.click(screen.getByRole("button", { name: "Send question" }));
