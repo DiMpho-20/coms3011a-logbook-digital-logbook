@@ -12,6 +12,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # A database for this run only: next to the runner, so the suite is fast
+    # and never writes into the shared one. Not named "postgres", which on a
+    # shared runner network can already belong to another server.
+    services:
+      logbook-test-db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: logbook
+          POSTGRES_PASSWORD: logbook
+          POSTGRES_DB: logbook_test
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -47,16 +57,38 @@ jobs:
       # test:coverage rather than test: the v8 text reporter prints the
       # coverage table into this log, which is the visible evidence the
       # client asked for. The plain test scripts are unchanged for local use.
-      # The suite runs against the long-lived PostgreSQL database, so the
-      # connection string comes from the repository secret DATABASE_URL.
+      #
+      # Which database: the run's own one above when it comes up, with the
+      # schema built from the migrations. Over the network, the shared
+      # database (secret DATABASE_URL) has made the suite take 12 minutes and
+      # fail on query timeouts, so it is now only the fallback, for a runner
+      # that cannot start the service, and is then given fewer workers.
+      # (Run from apps/backend: Prisma 7 reads the URL from prisma.config.ts.)
+      - name: Choose the test database
+        working-directory: apps/backend
+        env:
+          RUN_DB: postgresql://logbook:logbook@logbook-test-db:5432/logbook_test
+          SHARED_DB: ${{ secrets.DATABASE_URL }}
+        run: |
+          for attempt in $(seq 1 12); do
+            if DATABASE_URL="$RUN_DB" npx prisma migrate deploy; then
+              echo "Backend tests use this run's own database."
+              echo "DATABASE_URL=$RUN_DB" >> "$GITHUB_ENV"
+              echo "TEST_WORKERS=4" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::warning::This run's database never came up; backend tests fall back to the shared DATABASE_URL."
+          echo "DATABASE_URL=$SHARED_DB" >> "$GITHUB_ENV"
+          echo "TEST_WORKERS=2" >> "$GITHUB_ENV"
 
       # if: always() — coverage must reach the commit on every push, even one
       # whose earlier step failed; the report below needs both summaries.
+      # DATABASE_URL and TEST_WORKERS come from the step above.
       - name: Run backend tests with coverage
         if: always()
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npm run test:coverage --workspace=apps/backend
+        run: npm run test:coverage --workspace=apps/backend -- --maxWorkers="${TEST_WORKERS:-2}"
 
       # Same reasoning as the backend step: run regardless of earlier
       # failures so this summary exists for the combined figure.
