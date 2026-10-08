@@ -73,6 +73,33 @@ describe("LoginStage3D — the paging logbook", () => {
     expect(step()).toBe(2);
   });
 
+  it("shows the features and sign-in labels by default", () => {
+    render(<LoginStage3D><p>card</p></LoginStage3D>);
+    expect(screen.getByText("Projects your way")).toBeInTheDocument();
+    expect(screen.getByText("Sign in to begin →")).toBeInTheDocument();
+    expect(screen.getByText("Secure sign-in")).toBeInTheDocument();
+  });
+
+  it("pages through getting started on the sign-up page", () => {
+    render(<LoginStage3D variant="sign-up"><p>Sign up form</p></LoginStage3D>);
+    expect(screen.getByText("Sign up form")).toBeInTheDocument();
+    for (const title of ["Create your account", "Confirm your email", "Set up your first project", "Log your first entry"]) {
+      expect(screen.getByText(title)).toBeInTheDocument();
+    }
+    expect(screen.getByText("Your logbook starts here")).toBeInTheDocument();
+    expect(screen.getByText("Export your data anytime")).toBeInTheDocument();
+    expect(screen.queryByText("Secure sign-in")).toBeNull();
+
+    // Four steps, so it pages and closes on the same rhythm as sign-in.
+    advance(2000);
+    for (let n = 2; n <= 5; n++) {
+      advance(3800);
+      expect(step()).toBe(n);
+    }
+    advance(3800);
+    expect(scene()).toHaveClass("is-closing");
+  });
+
   it("stays closed for viewers who ask for less motion", () => {
     vi.mocked(prefersReducedMotion).mockReturnValue(true);
     render(<LoginStage3D><p>card</p></LoginStage3D>);
