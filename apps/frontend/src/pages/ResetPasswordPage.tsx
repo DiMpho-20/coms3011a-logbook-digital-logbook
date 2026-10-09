@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { resetPasswordSchema } from "@logbook/shared";
 import { api } from "../api/client";
 import { AuthLayout } from "../components/AuthLayout";
@@ -12,6 +13,7 @@ export const ResetPasswordPage: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasTokenInUrl, setHasTokenInUrl] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
@@ -59,7 +61,6 @@ export const ResetPasswordPage: React.FC = () => {
   return (
     <AuthLayout>
       <GlassCard>
-        {/* Header Section */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
           <div
             style={{
@@ -97,7 +98,6 @@ export const ResetPasswordPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Server Error Banner */}
         {serverError && (
           <div
             style={{
@@ -115,7 +115,6 @@ export const ResetPasswordPage: React.FC = () => {
           </div>
         )}
 
-        {/* Success Banner */}
         {successMsg && (
           <div
             style={{
@@ -175,13 +174,13 @@ export const ResetPasswordPage: React.FC = () => {
                 </div>
 
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "0.75rem 1rem 0.75rem 2.6rem",
+                    padding: "0.75rem 2.6rem 0.75rem 2.6rem",
                     boxSizing: "border-box",
                     borderRadius: "10px",
                     border: errors.newPassword
@@ -204,6 +203,29 @@ export const ResetPasswordPage: React.FC = () => {
                     e.target.style.boxShadow = "none";
                   }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    padding: "4px",
+                    cursor: "pointer",
+                    color: "rgba(255, 255, 255, 0.6)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#00c6ff")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255, 255, 255, 0.6)")}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
               {errors.newPassword && (
                 <small

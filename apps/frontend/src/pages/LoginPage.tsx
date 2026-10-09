@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { loginSchema } from "@logbook/shared";
 import { api } from "../api/client";
 import { AuthLayout } from "../components/AuthLayout";
@@ -10,12 +11,10 @@ export const LoginPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [showPassword, setShowPassword] = useState(false);
+
   // 2FA state
   const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
-  // Proof that the password step of this sign-in succeeded. The second step
-  // sends this instead of the email address, so a code on its own is no
-  // longer enough to get in (BUG-006).
   const [twoFactorToken, setTwoFactorToken] = useState("");
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState("");
@@ -52,22 +51,20 @@ export const LoginPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       const response = await api.post("/auth/login", formData);
-      
-      // Check if 2FA is required
+
       if (response.data.requiresTwoFactor) {
         setRequiresTwoFactor(true);
         setTwoFactorToken(response.data.twoFactorToken);
         return;
       }
 
-      // If a deletion is scheduled, don't log in yet — show the modal.
       if (response.data.scheduledDeletionAt) {
         setPendingToken(response.data.token);
         setPendingUser(response.data.user);
         setScheduledDeletionAt(response.data.scheduledDeletionAt);
         return;
       }
-      
+
       localStorage.setItem("token", response.data.token);
       if (response.data.user) {
         localStorage.setItem("logbook-name", response.data.user.fullName);
@@ -111,8 +108,6 @@ export const LoginPage: React.FC = () => {
         code: twoFactorCode,
       });
 
-      // A recovery code is spent by using it. Say so plainly rather than
-      // letting them find out when the last one silently fails.
       if (response.data.usedRecoveryCode) {
         const left = response.data.recoveryCodesRemaining ?? 0;
         localStorage.setItem(
@@ -129,7 +124,7 @@ export const LoginPage: React.FC = () => {
         setScheduledDeletionAt(response.data.scheduledDeletionAt);
         return;
       }
-      
+
       localStorage.setItem("token", response.data.token);
       if (response.data.user) {
         localStorage.setItem("logbook-name", response.data.user.fullName);
@@ -147,10 +142,8 @@ export const LoginPage: React.FC = () => {
     if (!pendingToken || !pendingUser) return;
     try {
       setIsSubmitting(true);
-      // Temporarily set the token so the api client attaches it.
       localStorage.setItem("token", pendingToken);
       await api.post("/auth/account/cancel-deletion");
-      // Now complete the login normally.
       localStorage.setItem("logbook-name", pendingUser.fullName);
       localStorage.setItem("logbook-email", pendingUser.email);
       window.location.href = "/dashboard";
@@ -173,7 +166,6 @@ export const LoginPage: React.FC = () => {
 
   return (
     <AuthLayout>
-      {/* Back to home */}
       <a
         href="/"
         style={{
@@ -199,7 +191,6 @@ export const LoginPage: React.FC = () => {
       </a>
       <LoginStage3D>
       <GlassCard>
-        {/* Header Section */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
           <div
             style={{
@@ -237,7 +228,6 @@ export const LoginPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Deletion scheduled banner */}
         {deletionScheduledBanner && (
           <div
             style={{
@@ -283,7 +273,6 @@ export const LoginPage: React.FC = () => {
           </div>
         )}
 
-        {/* Session Expired Banner */}
         {sessionExpired && (
           <div
             style={{
@@ -301,7 +290,6 @@ export const LoginPage: React.FC = () => {
           </div>
         )}
 
-        {/* Server Error Banner */}
         {serverError && (
           <div
             style={{
@@ -319,7 +307,6 @@ export const LoginPage: React.FC = () => {
           </div>
         )}
 
-        {/* 2FA Code Form (shown after password verification) */}
         {requiresTwoFactor ? (
           <form onSubmit={handleTwoFactorSubmit}>
             <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
@@ -514,7 +501,6 @@ export const LoginPage: React.FC = () => {
           </form>
         ) : (
           <form onSubmit={handleSubmit}>
-          {/* Email Field with Left Icon */}
           <div style={{ marginBottom: "1.25rem" }}>
             <label
               style={{
@@ -599,7 +585,6 @@ export const LoginPage: React.FC = () => {
             )}
           </div>
 
-          {/* Password Field with Left Icon */}
           <div style={{ marginBottom: "1.5rem" }}>
             <div
               style={{
@@ -661,13 +646,13 @@ export const LoginPage: React.FC = () => {
               </div>
 
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 style={{
                   width: "100%",
-                  padding: "0.75rem 1rem 0.75rem 2.6rem",
+                  padding: "0.75rem 2.6rem 0.75rem 2.6rem",
                   boxSizing: "border-box",
                   borderRadius: "10px",
                   border: errors.password
@@ -690,6 +675,29 @@ export const LoginPage: React.FC = () => {
                   e.target.style.boxShadow = "none";
                 }}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  padding: "4px",
+                  cursor: "pointer",
+                  color: "rgba(255, 255, 255, 0.6)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#00c6ff")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255, 255, 255, 0.6)")}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
             {errors.password && (
               <small
@@ -764,7 +772,6 @@ export const LoginPage: React.FC = () => {
       </GlassCard>
       </LoginStage3D>
 
-      {/* Scheduled deletion modal (shown when logging in during grace period) */}
       {scheduledDeletionAt && (
         <div
           style={{
