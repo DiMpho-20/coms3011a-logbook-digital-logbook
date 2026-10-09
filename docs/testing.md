@@ -16,7 +16,7 @@ proof of passing runs.
 | **React Testing Library** | Component testing (frontend) | Tests components the way users interact with them — finding elements by placeholder text, role, and label rather than by implementation details like CSS class or component state. |
 | **jsdom** | Browser environment for frontend tests | Provides a lightweight DOM inside Node.js so React components can render, fire events, and validate forms without a real browser. |
 | **The real Express app** (`src/app.ts`) | System under test (backend) | The app module is exported separately from the server entry point (`src/index.ts`) precisely so tests can import it without binding port 3000. |
-| **Live PostgreSQL (Neon)** | Real database (backend) | Integration tests run against the actual database the app uses, exercising real Prisma queries, real constraints (unique, cascade deletes), and real SQL aggregation. Mocking Prisma would test our mocks, not our app. |
+| **Real PostgreSQL** | Real database (backend) | Integration tests run against a real PostgreSQL database — never a mock — exercising real Prisma queries, real constraints (unique, cascade deletes), and real SQL aggregation. CI provisions a throwaway database for every run, so the tests behave like production without writing into production data; the shared `DATABASE_URL` is only the last-resort fallback. Mocking Prisma would test our mocks, not our app. |
 | **otplib** | TOTP code generation in tests | The 2FA tests generate *genuinely valid* time-based codes with the same library the server uses to verify them, so the full TOTP round-trip is tested end-to-end. |
 
 **Testing pyramid:** the backend has **integration tests** (API-level, real
@@ -188,7 +188,7 @@ it("verifyToken returns null for a tampered token", () => {
 - **Setup in `beforeAll`, cleanup via cascade** (backend). Fixed data is created once; `afterAll` deletes the test user and every foreign key is `ON DELETE CASCADE`.
 - **Sequential within a suite** where one test's output feeds the next (the 2FA lifecycle).
 - **API modules mocked at the boundary** (frontend). Frontend component tests mock `../api` so they test the UI layer in isolation from the backend.
-- **15s per-test timeout** for backend tests — the database is remote (Neon), so round-trips cost ~500ms each.
+- **60s per-test and hook timeout** for backend tests — raised from 15s after a loaded CI runner measured a single test at 14.7s and a setup hook at 17s: a slow queue must not fail a run, while a genuine hang still does.
 
 ---
 
@@ -329,11 +329,12 @@ instead of waiting for someone to re-read the report.
 
 ### The CI database link, and the ETIMEDOUT failures
 
-The backend suites run against the hosted Neon database over the public
-internet. CI has failed repeatedly with `ETIMEDOUT` — a transport error,
-raised before the statement ever reached Postgres — landing on an arbitrary
-query while everything around it read and wrote to the same database without
-trouble.
+The backend suites originally ran against the hosted Neon database over the
+public internet — now only the last-resort fallback (see the note under
+[How to Run Them](#how-to-run-them)). On that path CI failed repeatedly with
+`ETIMEDOUT` — a transport error, raised before the statement ever reached
+Postgres — landing on an arbitrary query while everything around it read and
+wrote to the same database without trouble.
 
 This section has now been wrong twice, so it records what was ruled out as
 carefully as what was tried.

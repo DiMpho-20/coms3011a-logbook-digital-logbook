@@ -119,7 +119,7 @@ Shared conventions across the files:
 - **Setup in `beforeAll`.** Fixed data (users, projects, fields, entries) is created once; assertions run against it.
 - **Cleanup via cascade.** `afterAll` deletes the test user; every foreign key is `ON DELETE CASCADE`, so projects, entries, values, and tokens disappear with it. Tests clean up after themselves.
 - **Sequential within a suite.** Where one test's output feeds the next (the 2FA lifecycle), the order is deliberate and documented.
-- **15s per-test timeout, 15s for data-heavy setup hooks** — the database is remote (Neon), so round-trips cost ~500ms each.
+- **60s per-test and setup-hook timeout** — raised from 15s after a loaded CI runner measured a single test at 14.7s and a setup hook at 17s: a slow queue must not fail a run, while a genuine hang still does.
 - **Utils tests use mocks** for Prisma (vi.fn()) and real implementations for crypto/JWT — fast and self-contained.
 
 ---
