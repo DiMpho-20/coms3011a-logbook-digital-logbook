@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { prefersReducedMotion } from '../lib/motion';
 
 export const AnimatedBackground: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -11,9 +12,14 @@ export const AnimatedBackground: React.FC = () => {
     if (!ctx) return;
 
     let animationFrameId: number;
+    let running = false;
     let width = window.innerWidth;
     let height = window.innerHeight;
-    let dpr = window.devicePixelRatio || 1;
+    // Past 2x the extra pixels are invisible but still cost every frame.
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Viewers who ask for less motion get a still frame; phones draw fewer shapes.
+    const reduceMotion = prefersReducedMotion();
+    const small = window.innerWidth < 640;
 
     let targetMouseX = 0;
     let targetMouseY = 0;
@@ -21,7 +27,7 @@ export const AnimatedBackground: React.FC = () => {
     let mouseY = 0;
 
     const resizeCanvas = () => {
-      dpr = window.devicePixelRatio || 1;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
       width = window.innerWidth;
       height = window.innerHeight;
 
@@ -34,7 +40,12 @@ export const AnimatedBackground: React.FC = () => {
     };
 
     resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+    const handleResize = () => {
+      resizeCanvas();
+      // A still background has no next frame to repaint it at the new size.
+      if (reduceMotion) drawFrame();
+    };
+    window.addEventListener('resize', handleResize);
 
     const handleMouseMove = (event: MouseEvent) => {
       targetMouseX = event.clientX / width - 0.5;
@@ -93,7 +104,7 @@ export const AnimatedBackground: React.FC = () => {
     };
 
     // Particles Setup
-    const PARTICLE_COUNT = 75;
+    const PARTICLE_COUNT = small ? 35 : 75;
     const particles = Array.from({ length: PARTICLE_COUNT }, () => ({
       x: random(0, width),
       y: random(0, height),
@@ -134,7 +145,7 @@ export const AnimatedBackground: React.FC = () => {
     };
 
     // Light Streaks Setup
-    const STREAK_COUNT = 32;
+    const STREAK_COUNT = small ? 16 : 32;
     const createStreak = (initial = false) => ({
       x: random(-100, width + 100),
       y: initial ? random(-height, height) : random(-200, -50),
@@ -185,7 +196,7 @@ export const AnimatedBackground: React.FC = () => {
 
     // Icons Setup
     const ICON_TYPES = ['notebook', 'document', 'calendar', 'clock', 'pencil', 'book'];
-    const ICON_COUNT = 17;
+    const ICON_COUNT = small ? 8 : 17;
 
     const createIcon = (initial = false) => ({
       type: ICON_TYPES[randomInt(0, ICON_TYPES.length - 1)],
@@ -440,8 +451,8 @@ export const AnimatedBackground: React.FC = () => {
       });
     };
 
-    // Main Animation Loop
-    const animate = () => {
+    // One frame of the scene.
+    const drawFrame = () => {
       mouseX += (targetMouseX - mouseX) * 0.02;
       mouseY += (targetMouseY - mouseY) * 0.02;
 
@@ -456,16 +467,34 @@ export const AnimatedBackground: React.FC = () => {
       icons.forEach(drawIcon);
 
       ctx.restore();
-
-      animationFrameId = requestAnimationFrame(animate);
     };
 
-    animate();
+    // Main Animation Loop: only while the page is visible and motion is welcome.
+    const animate = () => {
+      drawFrame();
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    const start = () => {
+      if (running || reduceMotion || document.hidden) return;
+      running = true;
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    const stop = () => {
+      running = false;
+      cancelAnimationFrame(animationFrameId);
+    };
+    // A hidden tab has nothing to look at, so stop drawing until it's back.
+    const handleVisibility = () => (document.hidden ? stop() : start());
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    drawFrame();
+    start();
 
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
-      cancelAnimationFrame(animationFrameId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      stop();
     };
   }, []);
 

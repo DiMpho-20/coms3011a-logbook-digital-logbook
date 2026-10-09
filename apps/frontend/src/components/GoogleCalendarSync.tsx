@@ -36,11 +36,16 @@ export default function GoogleCalendarSync() {
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState<"connect" | "sync" | "disconnect" | null>(null);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+  // The status check itself failed (say, offline): that says nothing about the server's setup.
+  const [statusFailed, setStatusFailed] = useState(false);
 
-  const loadStatus = () =>
-    api.get<Status>("/google-calendar/status").then((res) => setStatus(res.data)).catch(() => {
+  const loadStatus = () => {
+    setStatusFailed(false);
+    return api.get<Status>("/google-calendar/status").then((res) => setStatus(res.data)).catch(() => {
+      setStatusFailed(true);
       setStatus({ configured: false, connected: false, connectedAt: null });
     });
+  };
 
   useEffect(() => {
     loadStatus();
@@ -115,12 +120,16 @@ export default function GoogleCalendarSync() {
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             Adds each open entry's due date to your Google Calendar as an all-day event. Syncing again updates
-            changed dates and removes entries you've completed or deleted.
+            changed dates and removes entries you've completed, archived or deleted.
           </p>
         </div>
 
         {status === null ? (
           <Loader2 className="h-4 w-4 animate-spin text-slate-400 shrink-0" />
+        ) : statusFailed ? (
+          <button onClick={() => void loadStatus()} className={`${btn} border-slate-200 text-slate-700 hover:bg-slate-50`}>
+            <RefreshCw className="h-3.5 w-3.5" /> Try again
+          </button>
         ) : status.connected ? (
           <div className="flex gap-2 shrink-0">
             {status.configured && (
@@ -154,8 +163,12 @@ export default function GoogleCalendarSync() {
         )}
       </div>
 
-      {status && !status.configured && (
-        <p className="text-[11px] text-slate-400">
+      {statusFailed ? (
+        <p role="alert" className="text-xs text-slate-600">
+          Couldn't check your Google Calendar connection just now. Check your connection and try again.
+        </p>
+      ) : status && !status.configured && (
+        <p className="text-xs text-slate-500">
           Google Calendar sync is not set up on the server yet, so syncing is unavailable.
         </p>
       )}

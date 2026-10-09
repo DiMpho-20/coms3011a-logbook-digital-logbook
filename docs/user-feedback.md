@@ -250,7 +250,7 @@ and the round it was validated in.
 | R1 | Tester 2 found calendar/board views hard to locate | Filed as Gitea issue **FEAT-003**; consider adding nav hints or a guided tour for secondary views | *(FEAT-003 filed; still open as of 2026-09-28)* | — |
 | R1 | All 6 testers praised the UI and ease of use | No action needed — validates current design direction | — | — |
 | R2 | Three testers named login/registration as the slowest moment; one rated speed "Slow, noticeable waiting" | Planned hosting migration (agreed with the client — see [Client Interactions](client-interactions.md)) removes the cold-start delay | *(planned)* | — |
-| R2 | Tester 1 suggested a year-to-date / grade-tracking view | Filed as Gitea issue **FEAT-009**; to be triaged for a future sprint | *(issue filed, triage pending)* | — |
+| R2 | Tester 1 suggested a year-to-date / grade-tracking view | Filed as Gitea issue **FEAT-009**, then built as the **My Grades** feature — modules, secured marks, target grades and a what-if calculator ([My Grades](extra-features/my-grades.md)) | `0dea059` feat(grades): add modules and assessments API; `7e26597` feat(grades): add My Grades pages | — |
 | R2 | One single save failure and one "once or twice" misbehaviour, with no reproduction detail | Logged for monitoring — to be re-checked in Round 3 | — | — |
 
 ---
@@ -271,9 +271,10 @@ FEAT-003) remain in the integration table until they ship.
 **Planned actions:**
 
 1. Migrate hosting off the free tier to remove the cold-start delay (already agreed with the client).
-2. Triage the Round 2 suggestion (year-to-date / grade tracking — FEAT-009) in the next sprint planning.
-3. Ship and reference the FEAT-002 / FEAT-003 fixes in the integration table.
-4. Run Round 3, including a client review session, and fill in the "Validated in" column.
+2. Ship and reference the FEAT-002 / FEAT-003 fixes in the integration table.
+3. Run Round 3, including a client review session, and fill in the "Validated in" column.
+
+*(Done since Round 2: the grade-tracking suggestion was built as **My Grades** — see the integration table above.)*
 
 *Related: [Testing](testing.md) documents the automated test suite that
 runs alongside this process.*

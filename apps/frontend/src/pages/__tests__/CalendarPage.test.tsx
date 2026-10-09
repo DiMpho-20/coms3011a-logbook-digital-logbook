@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 vi.mock("../../api/client", () => ({ api: { get: vi.fn() } }));
@@ -71,12 +71,44 @@ describe("CalendarPage — getting started", () => {
     expect(await screen.findByText("No projects yet.")).toBeInTheDocument();
   });
 
-  it("keeps going when the projects request fails", async () => {
-    vi.mocked(api.get).mockRejectedValue(new Error("offline"));
+  it("says the projects failed, not that there are none, and tries again", async () => {
+    vi.mocked(api.get).mockRejectedValueOnce(new Error("offline"));
     renderPage();
 
     // The spinner has to stop even when nothing arrives.
-    expect(await screen.findByText("No projects yet.")).toBeInTheDocument();
+    expect(await screen.findByText("Your projects couldn't be loaded")).toBeInTheDocument();
+    expect(screen.queryByText("No projects yet.")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText(monthLabel())).toBeInTheDocument();
+  });
+
+  it("offers to try the entries again when they fail to load", async () => {
+    let fail = true;
+    vi.mocked(api.get).mockImplementation(((url: string) =>
+      url === "/projects"
+        ? Promise.resolve({ data: PROJECTS })
+        : fail ? Promise.reject(new Error("offline")) : Promise.resolve({ data: [entry()] })) as never);
+    renderPage();
+
+    await screen.findByText(/Couldn't load this project's entries/);
+    fail = false;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("button", { name: "45m" })).toBeInTheDocument();
+  });
+
+  it("starts the week on Monday unless Settings says Sunday", async () => {
+    const { unmount } = renderPage();
+    await screen.findByText(monthLabel());
+    const headings = () => screen.getAllByText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/).map((el) => el.textContent);
+    expect(headings()[0]).toBe("Mon");
+    unmount();
+
+    localStorage.setItem("logbook-prefs", JSON.stringify({ weekStartsOn: "sunday" }));
+    renderPage();
+    await screen.findByText(monthLabel());
+    expect(headings()[0]).toBe("Sun");
+    localStorage.removeItem("logbook-prefs");
   });
 
   it("picks the first project and asks for its entries", async () => {
@@ -159,11 +191,13 @@ describe("CalendarPage — entries on a day", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "10m" }));
 
-    expect(await screen.findByText("10 min")).toBeInTheDocument();
-    expect(screen.getByText("20 min")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Open project" })[0]).toHaveAttribute(
+    // Durations read as everywhere else, and each opens the entry itself.
+    const day = await screen.findByRole("dialog");
+    expect(within(day).getByText("10m")).toBeInTheDocument();
+    expect(within(day).getByText("20m")).toBeInTheDocument();
+    expect(within(day).getAllByRole("link", { name: "Open entry" })[0]).toHaveAttribute(
       "href",
-      "/projects/p1"
+      "/projects/p1?entry=a"
     );
   });
 
@@ -175,7 +209,7 @@ describe("CalendarPage — entries on a day", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "+1 more" }));
 
-    expect(await screen.findByText("5 min")).toBeInTheDocument();
+    expect(within(await screen.findByRole("dialog")).getByText("5m")).toBeInTheDocument();
   });
 
   it("leaves a day with nothing on it unopenable", async () => {
@@ -209,5 +243,74 @@ describe("CalendarPage — switching project", () => {
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "p2" } });
 
     await waitFor(() => expect(api.get).toHaveBeenCalledWith("/projects/p2/entries"));
+  });
+});
+
+describe("CalendarPage — what each day shows", () => {
+  const SUMMARY = { id: "sum", type: "TEXT" };
+  const described = (text: string, over: Record<string, unknown> = {}) =>
+    entry({ values: { sum: text }, format: { version: 1, fields: [SUMMARY] }, ...over });
+
+  it("names entries by their description", async () => {
+    vi.mocked(api.get).mockImplementation(serve([described("Wrote the intro")]));
+    renderPage();
+    expect(await screen.findByRole("button", { name: "Wrote the intro" })).toBeInTheDocument();
+  });
+
+  it("titles the opened day with the day that was clicked", async () => {
+    vi.mocked(api.get).mockImplementation(serve([described("Wrote the intro")]));
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Wrote the intro" }));
+    // Built from the day key in local time: west of UTC this used to read the 14th.
+    const expected = new Date(`${DAY_KEY}T00:00:00`).toLocaleDateString(undefined, {
+      weekday: "long", day: "numeric", month: "long", year: "numeric",
+    });
+    expect(await screen.findByText(expected)).toBeInTheDocument();
+  });
+
+  it("puts open work on the day it is due, but not finished work", async () => {
+    vi.mocked(api.get).mockImplementation(serve([
+      described("Hand in report", { id: "d1", entryDate: `${MONTH}-02T00:00:00.000Z`, dueDate: `${DAY_KEY}T00:00:00.000Z`, status: "OPEN" }),
+      described("Already done", { id: "d2", entryDate: `${MONTH}-02T00:00:00.000Z`, dueDate: `${DAY_KEY}T00:00:00.000Z`, status: "DONE" }),
+    ]));
+    renderPage();
+    expect(await screen.findByRole("button", { name: "Due: Hand in report" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Due: Already done" })).toBeNull();
+  });
+
+  it("says so when the entries cannot be loaded", async () => {
+    vi.mocked(api.get).mockImplementation(((url: string) =>
+      url === "/projects" ? Promise.resolve({ data: PROJECTS }) : Promise.reject(new Error("Network Error"))) as never);
+    renderPage();
+    expect(await screen.findByText(/Couldn't load this project's entries/)).toBeInTheDocument();
+  });
+});
+
+describe("CalendarPage — phones and accessibility", () => {
+  it("labels the month buttons for screen readers", async () => {
+    renderPage();
+    await screen.findByText(monthLabel());
+    expect(screen.getByRole("button", { name: "Previous month" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next month" })).toBeInTheDocument();
+  });
+
+  it("shows an agenda instead of the grid on a phone-width screen", async () => {
+    const original = window.matchMedia;
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as never;
+    try {
+      vi.mocked(api.get).mockImplementation(serve([entry(), entry({ id: "e2", dueDate: `${MONTH}-15T00:00:00.000Z`, status: "OPEN" })]));
+      renderPage();
+      const agenda = await screen.findByRole("list", { name: `${monthLabel()} agenda` });
+      await waitFor(() => expect(agenda).toHaveTextContent("2 entries logged"));
+      expect(agenda.textContent).toMatch(/(Due|Overdue):/);
+      // No seven-column week headings on a phone.
+      expect(screen.queryByText("Wed")).toBeNull();
+    } finally {
+      window.matchMedia = original;
+    }
   });
 });

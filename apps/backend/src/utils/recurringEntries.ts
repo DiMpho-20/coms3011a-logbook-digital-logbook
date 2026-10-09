@@ -29,8 +29,12 @@ export function dueDateOffsetDays(entryDate: Date, dueDate?: Date): number | nul
 
 /**
  * Materialise all occurrences that are due. This is deliberately idempotent:
- * the rule's nextOccurrence is advanced in the same transaction as its entry,
- * which prevents duplicate entries when a timer and a page request overlap.
+ * each occurrence is claimed by advancing the rule's nextOccurrence in the
+ * same transaction as its entry, so overlapping workers never duplicate one.
+ *
+ * Each occurrence is its own transaction. A rule several weeks behind used to
+ * be caught up in one transaction that ran past Prisma's timeout, rolled back,
+ * and so never caught up — failing every read of the project's entries.
  */
 export async function materializeDueRecurringEntries(userId?: string, now = new Date()) {
   const rules = await prisma.recurrenceRule.findMany({
@@ -43,51 +47,69 @@ export async function materializeDueRecurringEntries(userId?: string, now = new 
   });
 
   for (const { id } of rules) {
-    await prisma.$transaction(async (tx) => {
-      // Re-read inside the transaction. A different request may have already
-      // generated the due row after the outer query was made.
-      const rule = await tx.recurrenceRule.findUnique({
-        where: { id },
-        include: { project: { select: { userId: true, status: true } } },
-      });
-      if (!rule || !rule.enabled || rule.project.status !== "ACTIVE") return;
-
-      let occurrence = rule.nextOccurrence;
-      while (occurrence <= now && (!rule.until || occurrence <= rule.until)) {
-        const values = rule.values as Record<string, unknown>;
-        const tagIds = await resolveTagIds(tx, rule.project.userId, rule.tags);
-        const created = formatEntry(await tx.logbookEntry.create({
-          data: {
-            projectId: rule.projectId,
-            recurrenceRuleId: rule.id,
-            formatVersionId: rule.formatVersionId,
-            durationMinutes: rule.durationMinutes,
-            entryDate: occurrence,
-            dueDate: rule.dueDateOffsetDays === null ? undefined : new Date(occurrence.getTime() + rule.dueDateOffsetDays * DAY_MS),
-            values: {
-              create: Object.entries(values)
-                .filter(([, value]) => !isEmptyValue(value))
-                .map(([fieldId, value]) => ({
-                  fieldId,
-                  value: typeof value === "object" ? JSON.stringify(value) : String(value),
-                })),
-            },
-            tags: { create: tagIds.map((tagId) => ({ tagId })) },
-          },
-          include: ENTRY_INCLUDE,
-        }));
-        await recordVersion(tx, created.id, toSnapshot(created), "CREATED", { createdAt: occurrence });
-        occurrence = nextRecurrenceDate(occurrence, rule.pattern);
-      }
-
-      await tx.recurrenceRule.update({
-        where: { id: rule.id },
-        data: {
-          nextOccurrence: occurrence,
-          // A finite pattern becomes disabled after its final occurrence.
-          enabled: !rule.until || occurrence <= rule.until,
-        },
-      });
-    });
+    while (await materializeNextOccurrence(id, now)) {
+      // Keep going until the rule is no longer due.
+    }
   }
+}
+
+/** Create the rule's next due occurrence, if any; true when one was created. */
+async function materializeNextOccurrence(id: string, now: Date): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    // Re-read inside the transaction. A different request may have already
+    // generated the due row after the outer query was made.
+    const rule = await tx.recurrenceRule.findUnique({
+      where: { id },
+      include: { project: { select: { userId: true, status: true } } },
+    });
+    if (!rule || !rule.enabled || rule.project.status !== "ACTIVE") return false;
+
+    const occurrence = rule.nextOccurrence;
+    if (occurrence > now) return false;
+    if (rule.until && occurrence > rule.until) {
+      await tx.recurrenceRule.update({ where: { id: rule.id }, data: { enabled: false } });
+      return false;
+    }
+
+    // Claim this occurrence before creating it. Moving nextOccurrence on only
+    // where it still holds the value read above makes Postgres serialise
+    // concurrent workers (the timer, page requests, another instance): the
+    // loser's update matches no row and it creates nothing. Without the claim,
+    // each worker created the same occurrence.
+    const next = nextRecurrenceDate(occurrence, rule.pattern);
+    const claimed = await tx.recurrenceRule.updateMany({
+      where: { id: rule.id, enabled: true, nextOccurrence: occurrence },
+      data: {
+        nextOccurrence: next,
+        // A finite pattern becomes disabled after its final occurrence.
+        enabled: !rule.until || next <= rule.until,
+      },
+    });
+    if (claimed.count === 0) return false;
+
+    const values = rule.values as Record<string, unknown>;
+    const tagIds = await resolveTagIds(tx, rule.project.userId, rule.tags);
+    const created = formatEntry(await tx.logbookEntry.create({
+      data: {
+        projectId: rule.projectId,
+        recurrenceRuleId: rule.id,
+        formatVersionId: rule.formatVersionId,
+        durationMinutes: rule.durationMinutes,
+        entryDate: occurrence,
+        dueDate: rule.dueDateOffsetDays === null ? undefined : new Date(occurrence.getTime() + rule.dueDateOffsetDays * DAY_MS),
+        values: {
+          create: Object.entries(values)
+            .filter(([, value]) => !isEmptyValue(value))
+            .map(([fieldId, value]) => ({
+              fieldId,
+              value: typeof value === "object" ? JSON.stringify(value) : String(value),
+            })),
+        },
+        tags: { create: tagIds.map((tagId) => ({ tagId })) },
+      },
+      include: ENTRY_INCLUDE,
+    }));
+    await recordVersion(tx, created.id, toSnapshot(created), "CREATED", { createdAt: occurrence });
+    return true;
+  }, { timeout: 20_000 });
 }

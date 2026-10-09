@@ -20,7 +20,8 @@ const PAGE_NAMES: Record<string, string> = {
   "/projects": "Projects",
   "/entries": "Entries",
   "/open-work": "Open Work",
-  "/stats": "Stats",
+  "/stats": "Statistics",
+  "/grades": "My Grades",
   "/calendar": "Calendar",
   "/board": "Board",
   "/reminders": "Reminders",
@@ -199,13 +200,21 @@ export default function HelpAssistant() {
 
       <button
         onClick={() => setOpen((v) => !v)}
-        className="fixed z-50 bottom-4 right-4 h-12 w-12 flex items-center justify-center rounded-full text-white shadow-lg hover:scale-105 transition"
-        style={{ background: "linear-gradient(135deg, #0072ff, #7000ff)" }}
-        aria-label={open ? "Close help assistant" : "Ask for help"}
+        // The accent colour from Settings, like the app's other primary buttons.
+        // Closed, it says what it is for, since an icon alone does not; open,
+        // it shrinks back to a round close button beside the panel.
+        className={`fixed z-50 bottom-4 right-4 h-12 flex items-center justify-center gap-2 rounded-full bg-blue-600 text-white shadow-md transition-colors duration-150 hover:bg-blue-700 ${open ? "w-12" : "px-4"}`}
+        aria-label={open ? "Close help assistant" : undefined}
         aria-expanded={open}
-        title="Ask for help"
       >
-        {open ? <X className="h-5 w-5" /> : <MessageCircleQuestion className="h-5 w-5" />}
+        {open ? (
+          <X className="h-5 w-5" />
+        ) : (
+          <>
+            <MessageCircleQuestion className="h-5 w-5" aria-hidden="true" />
+            <span className="text-sm font-medium">Need help?</span>
+          </>
+        )}
       </button>
     </>
   );

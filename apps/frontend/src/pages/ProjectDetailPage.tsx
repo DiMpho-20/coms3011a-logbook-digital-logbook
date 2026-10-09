@@ -41,14 +41,16 @@ import {
   type ChecklistItem,
 } from "../api";
 import { formatDuration, todayISO, defaultValuesForFields, isEmptyValue, entryDateKey } from "../lib/utils";
-import { forgetProject, isSaveShortcut, rememberProject } from "../lib/quickCapture";
+import { entryDefaults, forgetProject, isSaveShortcut, rememberEntryDefaults, rememberProject } from "../lib/quickCapture";
 import StatCard from "../components/StatCard";
 import EntryCard from "../components/EntryCard";
 import Modal from "../components/Modal";
 import Stopwatch from "../components/Stopwatch";
 import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
+import { useToast } from "../components/ToastContext";
 import TagList from "../components/TagList";
+import ReferencePicker from "../components/ReferencePicker";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
 import ChecklistInput from "../components/ChecklistInput";
 import EntryHistoryModal from "../components/EntryHistoryModal";
@@ -88,6 +90,7 @@ function dateHeading(dateStr: string): string {
 }
 
 export default function ProjectDetailPage() {
+  const toast = useToast();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -135,6 +138,8 @@ export default function ProjectDetailPage() {
   // What each computed field will come to, updated as the form is filled in.
   const computedPreview = useMemo(() => previewComputedValues(fields, entryValues), [fields, entryValues]);
   const [entryTags, setEntryTags] = useState<string[]>([]);
+  // Whether the open new-entry form started from the last entry's values.
+  const [entryPrefilled, setEntryPrefilled] = useState(false);
   const entryTagInputRef = useRef<TagInputHandle>(null);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
@@ -145,12 +150,6 @@ export default function ProjectDetailPage() {
     fetchTags().then((t) => setTagSuggestions(t.map((tag) => tag.name))).catch(() => {});
     fetchProjects().then(setAllProjects).catch(() => {});
   }, []);
-
-  // Candidates for a REFERENCE field: every other project, for linking one to another.
-  const otherProjects = useMemo(
-    () => allProjects.filter((p) => p.id !== id),
-    [allProjects, id]
-  );
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -200,6 +199,22 @@ export default function ProjectDetailPage() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, project, id]);
 
+  // Arriving from a link to a specific entry: open it once its row is in the
+  // list, then drop the flag so a reload or Back does not reopen it. An entry
+  // outside the current view (say, archived while this shows active) leaves
+  // the flag alone rather than yanking the reader into another view.
+  useEffect(() => {
+    const entryId = searchParams.get("entry");
+    if (!entryId || !project || project.id !== id) return;
+    const target = entries.find((e) => e.id === entryId);
+    if (!target) return;
+    setEditingEntry(target);
+    setEntryModalOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("entry");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, project, id, entries]);
+
   // Put the cursor in the first field, so capture needs no mouse.
   useEffect(() => {
     if (!entryModalOpen) return;
@@ -220,16 +235,20 @@ export default function ProjectDetailPage() {
       setEntryTags(editingEntry.tags ?? []);
       setEntryRecurring(false);
     } else {
-      setEntryValues(defaultValuesForFields(fields));
+      // Start from what is predictable: the last entry's time, tags and
+      // repeated values, so quick capture is mostly the description.
+      const carried = id ? entryDefaults(id, fields) : null;
+      setEntryValues({ ...defaultValuesForFields(fields), ...((carried?.values ?? {}) as Record<string, EntryFieldValue>) });
       setEntryDate(todayISO());
-      setEntryDuration("");
+      setEntryDuration(carried?.duration ?? "");
       setEntryDueDate("");
-      setEntryTags([]);
+      setEntryTags(carried?.tags ?? []);
+      setEntryPrefilled(Boolean(carried && (carried.duration || carried.tags.length || Object.keys(carried.values).length)));
       setEntryRecurring(false);
       setRecurrencePattern("WEEKLY");
     }
     setEntryError(null);
-  }, [entryModalOpen, editingEntry, fields]);
+  }, [entryModalOpen, editingEntry, fields, id]);
 
   const sortedEntries = useMemo(
     () => [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -291,7 +310,7 @@ export default function ProjectDetailPage() {
       setEntries((prev) => prev.filter((e) => e.id !== entry.id));
       if (id) fetchProjectTimeSummary(id).then(setSummary).catch(() => {});
     } catch {
-      alert("Couldn't delete that entry. Try again.");
+      toast.error("Couldn't delete that entry. Try again.");
     }
   };
 
@@ -428,6 +447,7 @@ export default function ProjectDetailPage() {
         if (entryRecurring) entryData.recurrence = { pattern: recurrencePattern };
 
         const newEntry = await createEntry(id, entryData);
+        rememberEntryDefaults(id, fields, { durationMinutes: minutes, values: entryValues, tags: finalTags });
         // A new entry is active, so it has no place in the archive view.
         if (entryView !== "archived") setEntries((prev) => [newEntry, ...prev]);
       }
@@ -716,6 +736,9 @@ export default function ProjectDetailPage() {
             if (!entrySubmitting) void handleEntrySubmit();
           }}
         >
+          {!editingEntry && entryPrefilled && (
+            <p className="text-xs text-slate-500">Filled in from your last entry in this project. Change anything that's different.</p>
+          )}
           {entryError && (
             <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {entryError}
@@ -786,19 +809,14 @@ export default function ProjectDetailPage() {
                     <input type="url" placeholder="https://…" value={(entryValues[field.id] as string) || ""} onChange={(e) => handleFieldChange(field.id, e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                   )}
                   {field.type === "REFERENCE" && (
-                    <select
-                      value={(entryValues[field.id] as { id?: string } | null)?.id || ""}
-                      onChange={(e) => {
-                        const target = otherProjects.find((p) => p.id === e.target.value);
-                        handleFieldChange(field.id, target ? { id: target.id, label: target.name, kind: "project" } : null);
-                      }}
+                    <ReferencePicker
+                      projects={allProjects}
+                      currentProjectId={id}
+                      excludeEntryId={editingEntry?.id}
+                      value={entryValues[field.id] ?? null}
+                      onChange={(v) => handleFieldChange(field.id, v)}
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white"
-                    >
-                      <option value="">— No project —</option>
-                      {otherProjects.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
+                    />
                   )}
                   {field.type === "COMPUTED" && (
                     <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">

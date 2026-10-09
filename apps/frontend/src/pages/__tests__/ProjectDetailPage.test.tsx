@@ -7,6 +7,9 @@ vi.mock("../../api", () => ({
   fetchProjects: vi.fn().mockResolvedValue([]),
   fetchProjectTimeSummary: vi.fn().mockResolvedValue({ totalMinutes: 0, entryCount: 0, lastEntryAt: null }),
   fetchEntries: vi.fn().mockResolvedValue([]),
+  // The reference picker pulls a pool of recent entries when a REFERENCE
+  // field renders; nothing here needs one, but the import must resolve.
+  fetchAllEntries: vi.fn().mockResolvedValue({ entries: [], truncated: false, fieldsByProject: {}, projectsNeedingFields: [] }),
   fetchEntryFields: vi.fn(),
   fetchEntryFormatVersions: vi.fn().mockResolvedValue([]),
   fetchTags: vi.fn().mockResolvedValue([]),
@@ -28,6 +31,7 @@ vi.mock("../../api", () => ({
 }));
 
 import * as api from "../../api";
+import { ToastProvider } from "../../components/Toast";
 import ProjectDetailPage from "../ProjectDetailPage";
 
 const FIELD = { id: "f1", projectId: "p1", name: "Summary", type: "TEXT", required: false };
@@ -45,7 +49,9 @@ const renderAt = (path: string) =>
           path="/projects/:id"
           element={
             <>
-              <ProjectDetailPage />
+              <ToastProvider>
+                <ProjectDetailPage />
+              </ToastProvider>
               <Where />
             </>
           }
@@ -88,6 +94,22 @@ describe("ProjectDetailPage — quick capture (issue #92)", () => {
     renderAt("/projects/p1");
     await screen.findByText("Thesis");
     expect(screen.queryByRole("dialog", { name: "New Entry" })).not.toBeInTheDocument();
+  });
+
+  it("opens the linked entry when arriving from an entry-to-entry reference", async () => {
+    vi.mocked(api.fetchEntries).mockResolvedValue([
+      {
+        id: "e9", projectId: "p1", durationMinutes: 30, values: { f1: "Drafted chapter two" },
+        tags: [], status: "OPEN", entryDate: "2026-09-29T00:00:00.000Z", dueDate: null,
+        createdAt: "2026-09-29T00:00:00.000Z", updatedAt: "2026-09-29T00:00:00.000Z",
+      } as never,
+    ] as never);
+
+    renderAt("/projects/p1?entry=e9");
+
+    await screen.findByRole("dialog", { name: "Edit Entry" });
+    // The flag is dropped, so a reload does not open the entry again.
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("/projects/p1"));
   });
 
   it("saves the entry with Ctrl+Enter", async () => {

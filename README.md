@@ -13,7 +13,7 @@ A web-based digital logbook application designed to help university students kee
 | **Documentation** | <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> |
 | **Gitea Repository** | <https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook> |
 
-The API runs on Render's free tier, which sleeps when idle. The first request after a quiet spell can take up to a minute while it wakes.
+The API runs on Render's free tier, which sleeps when idle. A cron-job.org pinger keeps it awake from 06:00 to midnight (see [Keeping the API awake](docs/setup.md#keeping-the-api-awake)); outside those hours the first request can take up to a minute while it wakes.
 
 ## Overview
 
@@ -65,6 +65,11 @@ The main goals of the Digital Logbook are to:
 * **Automatic reminders** — for upcoming and overdue work, stalled entries and daily logging, delivered as push notifications
 * **Entry history** — every change is kept; view an entry as it was on any date and restore an earlier version
 * **Archiving and performance** — archive old entries; indexed queries and paginated lists for long records
+
+### My Grades
+
+* **Grade tracking** — add semester or full-year modules (with your own Semester 1 / Semester 2 split), their assessments, weights and marks; see what you've secured, your average on marked work, the mark you need for a target, and try what-if marks without saving them
+* **Assessment dates** — due and test dates with an upcoming list and countdowns
 
 ### User Experience
 

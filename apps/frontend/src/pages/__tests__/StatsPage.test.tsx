@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 vi.mock("../../api", () => ({
   fetchProjects: vi.fn(),
   fetchEntryFields: vi.fn(),
-  fetchProjectTimeSummary: vi.fn(),
+  fetchAllProjectTimeSummaries: vi.fn(),
 }));
 
 vi.mock("../../api/client", () => ({
@@ -93,9 +93,9 @@ const withFields = async (fields: unknown[] = [HOURS, DUE, CATEGORY]) => {
 const sectionFor = (name: RegExp) =>
   screen.getByRole("heading", { name }).closest("section") as HTMLElement;
 
-const TIME = /Time per project/;
-const GROUP = /Total & Group/;
-const TIMELINE = /Over Time/;
+const TIME = /Time logged/;
+const GROUP = /Breakdown/;
+const TIMELINE = /Over time/;
 
 /** The select in `scope` that offers `value` — none of them have a label. */
 const selectOffering = (scope: HTMLElement, value: string) =>
@@ -106,7 +106,7 @@ const selectOffering = (scope: HTMLElement, value: string) =>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
-  vi.mocked(api.fetchProjectTimeSummary).mockResolvedValue(summary(0) as never);
+  vi.mocked(api.fetchAllProjectTimeSummaries).mockResolvedValue([summary(0)] as never);
   vi.mocked(api.fetchEntryFields).mockResolvedValue([] as never);
   vi.mocked(client.post).mockImplementation(postRouter());
   // Every render asks for the saved statistics (US17); most tests have none.
@@ -132,14 +132,16 @@ describe("StatsPage — loading and empty states", () => {
     ).toBeInTheDocument();
   });
 
-  it("clears the spinner when the projects request fails", async () => {
-    vi.mocked(api.fetchProjects).mockRejectedValue(new Error("offline"));
+  it("clears the spinner and says so when the projects request fails", async () => {
+    vi.mocked(api.fetchProjects).mockRejectedValueOnce(new Error("offline"));
     renderStats();
 
-    // The catch path must stop loading, or the page hangs on the spinner.
-    expect(
-      await screen.findByText("No projects yet. Create one to see stats.")
-    ).toBeInTheDocument();
+    // The catch path must stop loading, and must not pretend there are no projects.
+    expect(await screen.findByText("Your projects couldn't be loaded")).toBeInTheDocument();
+    expect(screen.queryByText("No projects yet. Create one to see stats.")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("heading", { name: "Time logged" })).toBeInTheDocument();
   });
 
   it("selects the first project without being asked", async () => {
@@ -179,9 +181,10 @@ describe("StatsPage — time per project", () => {
       project({ id: "p2", name: "Digital Logbook" }),
       project({ id: "p3", name: "Retired thing", status: "ARCHIVED" }),
     ] as never);
-    vi.mocked(api.fetchProjectTimeSummary).mockImplementation(
-      ((id: string) => Promise.resolve(summary(id === "p1" ? 150 : 45))) as never
-    );
+    vi.mocked(api.fetchAllProjectTimeSummaries).mockResolvedValue([
+      summary(150),
+      { ...summary(45), projectId: "p2" },
+    ] as never);
     await renderAndWait();
 
     const time = sectionFor(TIME);
@@ -193,32 +196,27 @@ describe("StatsPage — time per project", () => {
         bar.getAttribute("aria-label")
       )
     ).toEqual(["Campus Marketplace: 2h 30m", "Digital Logbook: 45m"]);
-    // An archived project is not even asked about.
-    expect(api.fetchProjectTimeSummary).not.toHaveBeenCalledWith("p3");
+    // One batch request covers the whole logbook; the archived project comes
+    // back in it but is not drawn.
+    expect(api.fetchAllProjectTimeSummaries).toHaveBeenCalledTimes(1);
   });
 
-  it("counts a project whose summary fails as zero", async () => {
+  it("says the times couldn't be loaded rather than drawing every project at zero", async () => {
     vi.mocked(api.fetchProjects).mockResolvedValue([
       project(),
       project({ id: "p2", name: "Digital Logbook" }),
     ] as never);
-    vi.mocked(api.fetchProjectTimeSummary).mockImplementation(
-      ((id: string) =>
-        id === "p1" ? Promise.reject(new Error("boom")) : Promise.resolve(summary(45))) as never
-    );
+    vi.mocked(api.fetchAllProjectTimeSummaries).mockRejectedValue(new Error("boom"));
     await renderAndWait();
 
-    const time = sectionFor(TIME);
-    await within(time).findByRole("img", { name: "Digital Logbook: 45m" });
-    // One failed request does not sink the whole chart — it just reads zero,
-    // and zero-length bars are left out.
     expect(
-      within(time).queryByRole("img", { name: /Campus Marketplace/ })
-    ).not.toBeInTheDocument();
+      await within(sectionFor(TIME)).findByText(/couldn't be loaded just now/)
+    ).toBeInTheDocument();
+    expect(within(sectionFor(TIME)).queryByRole("img")).toBeNull();
   });
 
-  it("shows a spinner until the per-project times arrive", async () => {
-    vi.mocked(api.fetchProjectTimeSummary).mockReturnValue(new Promise(() => {}) as never);
+  it("shows a spinner until the batch of per-project times arrives", async () => {
+    vi.mocked(api.fetchAllProjectTimeSummaries).mockReturnValue(new Promise(() => {}) as never);
     await renderAndWait();
 
     expect(within(sectionFor(TIME)).getByText("Loading…")).toBeInTheDocument();
@@ -244,7 +242,7 @@ describe("StatsPage — total and group", () => {
       })
     );
     expect(await screen.findByText("320")).toBeInTheDocument();
-    expect(screen.getByText("sum of Hours")).toBeInTheDocument();
+    expect(screen.getByText("Total of Hours")).toBeInTheDocument();
   });
 
   it("shows a fractional result to one decimal place", async () => {
@@ -298,7 +296,7 @@ describe("StatsPage — total and group", () => {
         operation: "avg",
       })
     );
-    expect(await screen.findByText("avg of Hours")).toBeInTheDocument();
+    expect(await screen.findByText("Average of Hours")).toBeInTheDocument();
   });
 
   it("shows a spinner in each panel while a request is in flight", async () => {
@@ -424,14 +422,21 @@ describe("StatsPage — over time", () => {
     ).toBeInTheDocument();
   });
 
-  it("says when the project has no date fields", async () => {
+  it("plots by the entry's own date when the project has no date fields", async () => {
     await withFields([HOURS]);
 
-    expect(
-      await screen.findByText(
-        "This project has no Date fields, so there's nothing to place on a timeline yet."
+    const section = sectionFor(TIMELINE);
+    // No DATE field anywhere — the reserved entry-date option is offered,
+    // preselected, and used by the timeline request.
+    await waitFor(() =>
+      expect(selectOffering(section, "ENTRY_DATE")).toHaveValue("ENTRY_DATE")
+    );
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(
+        "/projects/p1/stats/timeline",
+        expect.objectContaining({ dateFieldId: "ENTRY_DATE" })
       )
-    ).toBeInTheDocument();
+    );
   });
 });
 
@@ -451,7 +456,7 @@ describe("StatsPage — switching project", () => {
 });
 
 describe("StatsPage — custom expressions", () => {
-  const EXPRESSION = /Custom Expression/;
+  const EXPRESSION = /Try a calculation/;
   const typeExpression = (value: string) =>
     fireEvent.change(screen.getByLabelText("Expression"), { target: { value } });
   const calculate = () => fireEvent.click(screen.getByRole("button", { name: "Calculate" }));
@@ -544,7 +549,7 @@ describe("StatsPage — custom expressions", () => {
 });
 
 describe("StatsPage — saved statistics", () => {
-  const SAVED = /My Custom Statistics/;
+  const SAVED = /Your saved statistics/;
   const statistic = (over: Record<string, unknown> = {}) => ({
     id: "s1",
     projectId: "p1",
@@ -568,7 +573,7 @@ describe("StatsPage — saved statistics", () => {
     // The panel draws its form without fields before the fields request
     // lands; wait for a field chip so the queries below cannot catch it
     // mid-swap, the same way withExpressionPanel does.
-    await within(sectionFor(/Custom Expression/)).findByRole("button", { name: "Hours" });
+    await within(sectionFor(/Try a calculation/)).findByRole("button", { name: "Hours" });
     fireEvent.change(screen.getByLabelText("Expression"), {
       target: { value: "SUM({Hours}) / COUNT()" },
     });
@@ -576,10 +581,26 @@ describe("StatsPage — saved statistics", () => {
     return screen.findByRole("button", { name: "Save as statistic" });
   };
 
-  it("says nothing is saved yet for a project with none", async () => {
+  it("says nothing is saved yet for a project with none, and offers to make one", async () => {
     await withFields();
 
-    expect(await within(sectionFor(SAVED)).findByText(/Nothing saved yet/)).toBeInTheDocument();
+    const panel = sectionFor(SAVED);
+    expect(await within(panel).findByText("No saved statistics yet")).toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole("button", { name: /new statistic/i }));
+    expect(screen.getByLabelText("Name")).toHaveValue("");
+    expect(within(dialog()).getByLabelText("Expression")).toHaveValue("");
+  });
+
+  it("creates a statistic straight from New statistic", async () => {
+    await withFields();
+    fireEvent.click(await within(sectionFor(SAVED)).findByRole("button", { name: /new statistic/i }));
+    typeIn(screen.getByLabelText("Name"), "Entries");
+    typeIn(within(dialog()).getByLabelText("Expression"), "COUNT()");
+    press("Save");
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith("/projects/p1/custom-statistics", { name: "Entries", expression: "COUNT()" })
+    );
   });
 
   it("lists a saved statistic with its value and the expression behind it", async () => {

@@ -2,7 +2,10 @@ import { z } from "zod";
 
 const entryValuesSchema = z.record(
   z.string(),
-  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(z.string()), z.array(z.object({ label: z.string(), checked: z.boolean() })), z.object({ id: z.string(), label: z.string().optional(), kind: z.enum(["project", "entry"]).optional() })])
+  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(z.string()), z.array(z.object({ label: z.string(), checked: z.boolean() })), // A REFERENCE value keeps an optional projectId for entry links (issue on
+// entry-to-entry linking): the entry id is what ownership is checked against,
+// the project id is routing metadata so the UI can send the reader somewhere.
+z.object({ id: z.string(), label: z.string().optional(), kind: z.enum(["project", "entry"]).optional(), projectId: z.string().optional() })])
 );
 
 const isoDateSchema = z

@@ -12,6 +12,7 @@ import {
   updateProject,
   toggleProjectStatus,
   fetchProjectTimeSummary,
+  fetchAllProjectTimeSummaries,
   createEntryField,
   fetchEntryFields,
   updateEntryField,
@@ -28,6 +29,7 @@ import {
   importLogbook,
 } from "../api";
 import { queueEntry, getPendingEntries } from "../lib/offlineEntries";
+import { queueProject } from "../lib/offlineProjects";
 
 if (!globalThis.crypto?.randomUUID) {
   let n = 0;
@@ -75,6 +77,22 @@ describe("project and field requests", () => {
 
     vi.mocked(api.get).mockResolvedValue(ok({ projectId: "p1", totalMinutes: 90 }));
     expect(await fetchProjectTimeSummary("p1")).toMatchObject({ totalMinutes: 90 });
+  });
+
+  it("reads every time summary in one request, appending queued projects", async () => {
+    vi.mocked(api.get).mockResolvedValue(
+      ok([{ projectId: "p1", totalMinutes: 90, totalHours: 1.5, entryCount: 2, lastEntryAt: null }])
+    );
+    // A project that exists only on this device is not in the server's list;
+    // its summary is computed from the entries queued alongside it.
+    const queued = queueProject({ name: "Field work" });
+    queueEntry(queued.id, { durationMinutes: 15, values: {} });
+
+    expect(await fetchAllProjectTimeSummaries()).toEqual([
+      { projectId: "p1", totalMinutes: 90, totalHours: 1.5, entryCount: 2, lastEntryAt: null },
+      expect.objectContaining({ projectId: queued.id, totalMinutes: 15, entryCount: 1 }),
+    ]);
+    expect(api.get).toHaveBeenCalledWith("/projects/time-summaries");
   });
 
   it("manages entry fields and format versions", async () => {
@@ -285,9 +303,16 @@ const backup = {
 describe("exportLogbook", () => {
   it("collects every project with its fields and entries", async () => {
     vi.mocked(api.get).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok([{ id: "p1", name: "Alpha", description: null, status: "ACTIVE" }]));
+      if (url === "/projects") return Promise.resolve(ok([{
+        id: "p1", name: "Alpha", description: null, status: "ACTIVE", tags: ["semester-2"],
+        createdAt: "2026-08-01T00:00:00.000Z", updatedAt: "2026-08-15T00:00:00.000Z",
+      }]));
       if (url.endsWith("/entry-fields")) return Promise.resolve(ok([{ id: "f1", name: "Summary", type: "TEXT", required: true, formula: null }]));
-      return Promise.resolve(ok([{ id: "e1", durationMinutes: 30, entryDate: null, dueDate: null, values: {} }]));
+      return Promise.resolve(ok([{
+        id: "e1", durationMinutes: 30, entryDate: null, dueDate: null, values: {},
+        status: "DONE", completedAt: "2026-09-01T12:00:00.000Z", tags: ["exam"], archivedAt: "2026-09-02T00:00:00.000Z",
+        createdAt: "2026-08-20T00:00:00.000Z", updatedAt: "2026-09-02T00:00:00.000Z",
+      }]));
     });
 
     const result = await exportLogbook();
@@ -295,8 +320,29 @@ describe("exportLogbook", () => {
     expect(result.format).toBe("digital-logbook-backup");
     expect(result.version).toBe(1);
     expect(result.projects).toHaveLength(1);
+    // Ids, project tags and timestamps survive a round trip (issue #86).
+    expect(result.projects[0]).toMatchObject({
+      id: "p1", tags: ["semester-2"], createdAt: "2026-08-01T00:00:00.000Z", updatedAt: "2026-08-15T00:00:00.000Z",
+    });
     expect(result.projects[0].fields[0]).toEqual({ id: "f1", name: "Summary", type: "TEXT", required: true, formula: null });
-    expect(result.projects[0].entries[0]).toEqual({ durationMinutes: 30, entryDate: null, dueDate: null, values: {} });
+    expect(result.projects[0].entries[0]).toEqual({
+      id: "e1", durationMinutes: 30, entryDate: null, dueDate: null, values: {},
+      status: "DONE", completedAt: "2026-09-01T12:00:00.000Z", tags: ["exam"],
+      archived: true, archivedAt: "2026-09-02T00:00:00.000Z",
+      createdAt: "2026-08-20T00:00:00.000Z", updatedAt: "2026-09-02T00:00:00.000Z",
+    });
+  });
+
+  it("includes archived entries", async () => {
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === "/projects") return Promise.resolve(ok([{ id: "p1", name: "Alpha", description: null, status: "ACTIVE" }]));
+      if (url.endsWith("/entry-fields")) return Promise.resolve(ok([]));
+      return Promise.resolve(ok([]));
+    });
+
+    await exportLogbook();
+
+    expect(api.get).toHaveBeenCalledWith("/projects/p1/entries", { params: { archived: "include" } });
   });
 });
 
@@ -305,6 +351,13 @@ describe("importLogbook", () => {
     for (const bad of [null, "nope", {}, { format: "something-else" }, { ...backup, version: 2 }]) {
       await expect(importLogbook(bad)).rejects.toThrow(/not a valid/i);
     }
+  });
+
+  it("refuses a backup whose new keys have the wrong type", async () => {
+    const badTags = { ...backup, projects: [{ ...backup.projects[0], tags: "exam" }] };
+    const badDate = { ...backup, projects: [{ ...backup.projects[0], entries: [{ ...backup.projects[0].entries[0], createdAt: 5 }] }] };
+    await expect(importLogbook(badTags)).rejects.toThrow(/not a valid/i);
+    await expect(importLogbook(badDate)).rejects.toThrow(/not a valid/i);
   });
 
   it("refuses a backup whose entries are malformed", async () => {
@@ -317,22 +370,25 @@ describe("importLogbook", () => {
     await expect(importLogbook(backup)).rejects.toThrow(/internet/i);
   });
 
-  it("recreates each project and remaps its field ids onto the new entries", async () => {
-    vi.mocked(api.post).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-f1" }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
+  it("sends the whole backup in one request and reports what the server imported (issue #87)", async () => {
+    vi.mocked(api.post).mockResolvedValue(ok({ projects: 1, entries: 1 }));
 
-    const result = await importLogbook(backup);
+    await expect(importLogbook(backup)).resolves.toEqual({ projects: 1, entries: 1 });
 
-    expect(result).toEqual({ projects: 1, entries: 1 });
-    // The entry must be written against the newly created field's id, not the
-    // one from the backup file.
-    expect(api.post).toHaveBeenCalledWith(
-      "/projects/new-p1/entries",
-      expect.objectContaining({ values: { "new-f1": "did a thing" } })
-    );
+    expect(api.post).toHaveBeenCalledTimes(1);
+    expect(api.post).toHaveBeenCalledWith("/import", backup);
+  });
+
+  it("passes on the server's explanation when the import is refused", async () => {
+    vi.mocked(api.post).mockRejectedValue({ response: { data: { error: "An entry in \"Imported\" is invalid. Nothing was imported." } } });
+
+    await expect(importLogbook(backup)).rejects.toThrow(/Nothing was imported/);
+  });
+
+  it("says nothing was imported when the request fails without an explanation", async () => {
+    vi.mocked(api.post).mockRejectedValue(networkError);
+
+    await expect(importLogbook(backup)).rejects.toThrow(/Nothing was imported, so it is safe to try again/);
   });
 
   it("accepts a backup that uses a newer field type", async () => {
@@ -344,95 +400,8 @@ describe("importLogbook", () => {
         entries: [],
       }],
     };
-    vi.mocked(api.post).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-f1" }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
+    vi.mocked(api.post).mockResolvedValue(ok({ projects: 1, entries: 0 }));
 
     await expect(importLogbook(withTags)).resolves.toEqual({ projects: 1, entries: 0 });
-  });
-
-  it("points a reference at the recreated project, even one later in the file (issue #90)", async () => {
-    const withReference = {
-      ...backup,
-      projects: [
-        {
-          ...backup.projects[0],
-          name: "Thesis",
-          fields: [{ id: "old-ref", name: "Related to", type: "REFERENCE", required: false, formula: null }],
-          entries: [{
-            durationMinutes: 10, entryDate: null, dueDate: null,
-            values: { "old-ref": { id: "old-reading-id", label: "Reading", kind: "project" } },
-          }],
-        },
-        { ...backup.projects[0], name: "Reading", fields: [], entries: [] },
-      ],
-    };
-    vi.mocked(api.post).mockImplementation((url: string, body?: unknown) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: `new-${(body as { name: string }).name}` }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-ref" }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
-
-    await importLogbook(withReference);
-
-    expect(api.post).toHaveBeenCalledWith(
-      "/projects/new-Thesis/entries",
-      expect.objectContaining({ values: { "new-ref": { id: "new-Reading", label: "Reading", kind: "project" } } })
-    );
-  });
-
-  it("leaves out a reference to anything the backup does not contain", async () => {
-    const dangling = {
-      ...backup,
-      projects: [{
-        ...backup.projects[0],
-        fields: [{ id: "old-ref", name: "Related to", type: "REFERENCE", required: false, formula: null }],
-        entries: [
-          { durationMinutes: 10, entryDate: null, dueDate: null, values: { "old-ref": { id: "x", label: "Deleted project", kind: "project" } } },
-          { durationMinutes: 10, entryDate: null, dueDate: null, values: { "old-ref": { id: "y", kind: "entry" } } },
-        ],
-      }],
-    };
-    vi.mocked(api.post).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: "new-ref" }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
-
-    await expect(importLogbook(dangling)).resolves.toEqual({ projects: 1, entries: 2 });
-    const entryBodies = vi.mocked(api.post).mock.calls
-      .filter(([url]) => url === "/projects/new-p1/entries")
-      .map(([, body]) => body as { values: Record<string, unknown> });
-    expect(entryBodies).toHaveLength(2);
-    for (const body of entryBodies) expect(body.values).toEqual({});
-  });
-
-  it("remaps a COMPUTED field's formula onto the ids its fields are recreated with", async () => {
-    const withComputed = {
-      ...backup,
-      projects: [{
-        ...backup.projects[0],
-        fields: [
-          { id: "old-hours", name: "Hours", type: "NUMBER", required: false, formula: null },
-          { id: "old-cost", name: "Cost", type: "COMPUTED", required: false, formula: "{old-hours} * 10" },
-        ],
-        entries: [],
-      }],
-    };
-    let fieldCalls = 0;
-    vi.mocked(api.post).mockImplementation((url: string) => {
-      if (url === "/projects") return Promise.resolve(ok({ id: "new-p1" }));
-      if (url.endsWith("/entry-fields")) return Promise.resolve(ok({ id: `new-f${++fieldCalls}` }));
-      return Promise.resolve(ok({ id: "new-e1" }));
-    });
-
-    await importLogbook(withComputed);
-
-    expect(api.post).toHaveBeenCalledWith(
-      "/projects/new-p1/entry-fields",
-      expect.objectContaining({ type: "COMPUTED", formula: "{new-f1} * 10" })
-    );
   });
 });

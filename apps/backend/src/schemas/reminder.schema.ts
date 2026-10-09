@@ -36,4 +36,5 @@ export const updateReminderSettingsSchema = z.object({
   dailyLogEnabled: z.boolean().optional(),
   dailyLogTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "dailyLogTime must be HH:MM").optional(),
   timeZone: z.string().refine(isValidTimeZone, { message: "Unknown time zone" }).optional(),
+  assessmentEnabled: z.boolean().optional(),
 });

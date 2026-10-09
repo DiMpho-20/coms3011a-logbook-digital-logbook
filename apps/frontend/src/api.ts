@@ -3,7 +3,6 @@
   ProjectWithFields,
   EntryField,
   EntryFieldValue,
-  EntryReference,
   Entry,
   TimeSummary,
   ProjectStatus,
@@ -28,10 +27,15 @@
   CreateReminderInput,
   UpdateReminderInput,
   CustomStatistic,
+  GradeModule,
+  GradeAssessment,
+  CreateGradeModuleInput,
+  UpdateGradeModuleInput,
+  CreateAssessmentInput,
+  UpdateAssessmentInput,
 } from "@logbook/shared";
 import { api } from "./api/client";
 import { getPendingEntries, isOfflineRequest, queueEntry, removePendingEntriesForProject } from "./lib/offlineEntries";
-import { orderForSaving } from "./lib/formulas";
 import { cachedRequest } from "./lib/offlineCache";
 import {
   getPendingFields,
@@ -69,6 +73,12 @@ export type {
   ReminderSettings,
   ReminderStatusFilter,
   CustomStatistic,
+  GradeModule,
+  GradeAssessment,
+  CreateGradeModuleInput,
+  UpdateGradeModuleInput,
+  CreateAssessmentInput,
+  UpdateAssessmentInput,
 };
 
 /**
@@ -80,12 +90,29 @@ function isQueuedProject(id: string): boolean {
   return isOfflineId(id) && getPendingProject(id) !== null;
 }
 
+// Everything past name/description/status/fields and the entries' content is
+// optional, so backups written before it was exported still import.
 export interface LogbookBackupProject {
+  /** The project's id when exported; references to it are remapped by it. */
+  id?: string;
   name: string;
   description: string | null;
   status: ProjectStatus;
+  tags?: string[];
+  createdAt?: string;
+  updatedAt?: string;
   fields: Array<Pick<EntryField, "id" | "name" | "type" | "required" | "formula">>;
-  entries: Array<Pick<Entry, "durationMinutes" | "entryDate" | "dueDate" | "values">>;
+  entries: Array<Pick<Entry, "durationMinutes" | "entryDate" | "dueDate" | "values"> & {
+    /** The entry's id when exported; links from other entries are remapped by it. */
+    id?: string;
+    status?: Entry["status"];
+    completedAt?: string | null;
+    tags?: string[];
+    archived?: boolean;
+    archivedAt?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
 }
 
 export interface LogbookBackup {
@@ -171,6 +198,34 @@ export async function fetchProjectTimeSummary(id: string): Promise<TimeSummary> 
   }
   const projectId = resolveSyncedId(id);
   return cachedRequest(`summary:${projectId}`, async () => (await api.get(`/projects/${projectId}/time-summary`)).data);
+}
+
+/**
+ * Every project's time summary in one request — the batch form of
+ * fetchProjectTimeSummary for pages that show the whole list. Projects that
+ * exist only on this device are not in the server's answer, so their
+ * summaries are worked out from the entries queued alongside them, exactly
+ * as the per-project endpoint is fed for a queued project.
+ */
+export async function fetchAllProjectTimeSummaries(): Promise<TimeSummary[]> {
+  const rows = await cachedRequest<TimeSummary[]>("summaries:all", async () =>
+    (await api.get("/projects/time-summaries")).data
+  );
+  const seen = new Set(rows.map((r) => r.projectId));
+  const extras: TimeSummary[] = [];
+  for (const id of new Set(getPendingEntries().map((e) => e.projectId))) {
+    if (seen.has(id) || !isQueuedProject(id)) continue;
+    const entries = getPendingEntries(id);
+    const totalMinutes = entries.reduce((sum, e) => sum + e.durationMinutes, 0);
+    extras.push({
+      projectId: id,
+      totalMinutes,
+      totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+      entryCount: entries.length,
+      lastEntryAt: entries.map((e) => e.createdAt).sort().pop() ?? null,
+    });
+  }
+  return [...rows, ...extras];
 }
 
 // ── Entry Fields ─────────────────────────────────────────────────────────
@@ -526,15 +581,23 @@ export async function exportLogbook(): Promise<LogbookBackup> {
   const backupProjects = await Promise.all(projects.map(async (project) => {
     const [fields, entries] = await Promise.all([
       fetchEntryFields(project.id),
-      fetchEntries(project.id),
+      // Archived entries are still part of the record, so they are backed up too.
+      fetchEntries(project.id, { archived: "include" }),
     ]);
+    // Ids and timestamps are kept so a restore can point references at the
+    // recreated records and date them as they were (issue #86).
     return {
+      id: project.id,
       name: project.name,
       description: project.description,
       status: project.status,
+      tags: project.tags ?? [],
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
       fields: fields.map(({ id, name, type, required, formula }) => ({ id, name, type, required, formula })),
-      entries: entries.map(({ durationMinutes, entryDate, dueDate, values }) => ({
-        durationMinutes, entryDate, dueDate, values,
+      entries: entries.map(({ id, durationMinutes, entryDate, dueDate, values, status, completedAt, tags, archivedAt, createdAt, updatedAt }) => ({
+        id, durationMinutes, entryDate, dueDate, values, status, completedAt, tags,
+        archived: Boolean(archivedAt), archivedAt: archivedAt ?? null, createdAt, updatedAt,
       })),
     };
   }));
@@ -552,6 +615,10 @@ export async function exportLogbook(): Promise<LogbookBackup> {
 // rejected wholesale on import just for having used a newer field type.
 const BACKUP_FIELD_TYPES: EntryFieldType[] = ["TEXT", "NUMBER", "DATE", "BOOLEAN", "TAGS", "CHECKLIST", "LINK", "REFERENCE", "COMPUTED"];
 
+const isString = (value: unknown): value is string => typeof value === "string";
+const isStringList = (value: unknown) => Array.isArray(value) && value.every(isString);
+const isOptional = (value: unknown, check: (value: unknown) => boolean) => value === undefined || check(value);
+
 function isBackup(value: unknown): value is LogbookBackup {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<LogbookBackup>;
@@ -562,6 +629,10 @@ function isBackup(value: unknown): value is LogbookBackup {
       && typeof project.name === "string"
       && (project.description === null || typeof project.description === "string")
       && (project.status === "ACTIVE" || project.status === "ARCHIVED")
+      && isOptional(project.id, isString)
+      && isOptional(project.tags, isStringList)
+      && isOptional(project.createdAt, isString)
+      && isOptional(project.updatedAt, isString)
       && Array.isArray(project.fields)
       && project.fields.every((field) => field
         && typeof field.id === "string"
@@ -580,24 +651,22 @@ function isBackup(value: unknown): value is LogbookBackup {
         && (entry.dueDate === null || typeof entry.dueDate === "string")
         && Boolean(entry.values)
         && typeof entry.values === "object"
-        && !Array.isArray(entry.values)));
+        && !Array.isArray(entry.values)
+        && (entry.status === undefined || entry.status === "OPEN" || entry.status === "DONE")
+        && isOptional(entry.id, isString)
+        && isOptional(entry.tags, isStringList)
+        && (entry.archived === undefined || typeof entry.archived === "boolean")
+        && (entry.completedAt === null || isOptional(entry.completedAt, isString))
+        && (entry.archivedAt === null || isOptional(entry.archivedAt, isString))
+        && isOptional(entry.createdAt, isString)
+        && isOptional(entry.updatedAt, isString)));
 }
 
 /**
- * Point an imported reference at the project recreated from the backup.
- * A backup stores no project ids, but a project reference carries the
- * project's name, which is unique per student. Anything that cannot be
- * matched (an entry reference, or a project not in the backup) was already
- * a broken link, so it is left out rather than failing the whole import.
+ * Restore a backup. The server does it in one transaction (issue #87):
+ * either everything in the file is imported or nothing is, so a failure
+ * part-way can be retried without leaving duplicates behind.
  */
-function remapReference(value: unknown, projectIdByName: Map<string, string>): EntryReference | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const ref = value as Partial<EntryReference>;
-  if ((ref.kind ?? "project") !== "project" || typeof ref.label !== "string") return null;
-  const id = projectIdByName.get(ref.label);
-  return id ? { id, label: ref.label, kind: "project" } : null;
-}
-
 export async function importLogbook(value: unknown): Promise<{ projects: number; entries: number }> {
   if (!isBackup(value)) {
     throw new Error("This is not a valid Digital Logbook backup file.");
@@ -605,74 +674,12 @@ export async function importLogbook(value: unknown): Promise<{ projects: number;
   if (!navigator.onLine) {
     throw new Error("Connect to the internet before importing a backup.");
   }
-
-  let importedProjects = 0;
-  let importedEntries = 0;
-
-  // Every project and its fields first, then the entries, so an entry can
-  // refer to a project that comes later in the file.
-  const created: { project: (typeof value.projects)[number]; id: string; fieldIds: Map<string, string> }[] = [];
-  const projectIdByName = new Map<string, string>();
-  for (const project of value.projects) {
-    const createdProject = await createProject({
-      name: project.name,
-      description: project.description ?? undefined,
-      status: project.status,
-    });
-    importedProjects++;
-    projectIdByName.set(project.name, createdProject.id);
-    const fieldIds = new Map<string, string>();
-    for (const field of orderForSaving(project.fields)) {
-      // A COMPUTED field's formula embeds the ids of the fields it reads
-      // (e.g. "{old-id} * 2"), which no longer exist once the fields it
-      // depends on are recreated under new ids. orderForSaving puts every
-      // field a formula reads ahead of it — a computed field may read one
-      // defined after it — so fieldIds already holds the mapping by this point.
-      const formula = field.type === "COMPUTED" && field.formula
-        ? field.formula.replace(/\{([^}]+)\}/g, (match, oldId) => {
-            const newId = fieldIds.get(oldId.trim());
-            return newId ? `{${newId}}` : match;
-          })
-        : undefined;
-      const createdField = await createEntryField(createdProject.id, {
-        name: field.name,
-        type: field.type,
-        required: field.required,
-        formula,
-      });
-      fieldIds.set(field.id, createdField.id);
-    }
-    created.push({ project, id: createdProject.id, fieldIds });
+  try {
+    return (await api.post("/import", value)).data;
+  } catch (error) {
+    const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
+    throw new Error(message || "The backup could not be imported. Nothing was imported, so it is safe to try again.");
   }
-
-  for (const { project, id: projectId, fieldIds } of created) {
-    const referenceFields = new Set(project.fields.filter((f) => f.type === "REFERENCE").map((f) => f.id));
-    for (const entry of project.entries) {
-      if (!Number.isInteger(entry.durationMinutes) || entry.durationMinutes < 0 || !entry.values) {
-        throw new Error(`Backup contains an invalid entry in "${project.name}".`);
-      }
-      const values: Record<string, EntryFieldValue> = {};
-      for (const [oldFieldId, entryValue] of Object.entries(entry.values)) {
-        const newFieldId = fieldIds.get(oldFieldId);
-        if (!newFieldId) continue;
-        if (referenceFields.has(oldFieldId)) {
-          // A reference holds the old id of what it points at (issue #90).
-          const remapped = remapReference(entryValue, projectIdByName);
-          if (remapped) values[newFieldId] = remapped;
-          continue;
-        }
-        values[newFieldId] = entryValue;
-      }
-      await createEntry(projectId, {
-        durationMinutes: entry.durationMinutes,
-        values,
-        ...(entry.entryDate && { entryDate: entry.entryDate }),
-        ...(entry.dueDate && { dueDate: entry.dueDate }),
-      });
-      importedEntries++;
-    }
-  }
-  return { projects: importedProjects, entries: importedEntries };
 }
 
 // ── Automation rules (US26) ──────────────────────────────────────────────
@@ -735,6 +742,47 @@ export async function updateAutomationRule(
 
 export async function deleteAutomationRule(projectId: string, id: string): Promise<void> {
   await api.delete(`/projects/${projectId}/automation-rules/${id}`);
+}
+
+// ── My Grades (FEAT-009) ─────────────────────────────────────────────────
+// The API returns exactly what the student entered; lib/grades.ts works out
+// every figure from it. Reads are cached for offline viewing; changes need a
+// connection.
+
+/** The student's modules, newest year first; pass a year to see only that one. */
+export async function fetchGradeModules(year?: number): Promise<GradeModule[]> {
+  return cachedRequest(`grade-modules:${year ?? "all"}`, async () =>
+    (await api.get("/grades/modules", { params: year === undefined ? {} : { year } })).data
+  );
+}
+
+export async function fetchGradeModule(id: string): Promise<GradeModule> {
+  return cachedRequest(`grade-module:${id}`, async () => (await api.get(`/grades/modules/${id}`)).data);
+}
+
+export async function createGradeModule(data: CreateGradeModuleInput): Promise<GradeModule> {
+  return (await api.post("/grades/modules", data)).data;
+}
+
+export async function updateGradeModule(id: string, data: UpdateGradeModuleInput): Promise<GradeModule> {
+  return (await api.patch(`/grades/modules/${id}`, data)).data;
+}
+
+export async function deleteGradeModule(id: string): Promise<void> {
+  await api.delete(`/grades/modules/${id}`);
+}
+
+export async function createAssessment(moduleId: string, data: CreateAssessmentInput): Promise<GradeAssessment> {
+  return (await api.post(`/grades/modules/${moduleId}/assessments`, data)).data;
+}
+
+/** Sending any part of the mark (or of the date) replaces all of it; see UpdateAssessmentInput. */
+export async function updateAssessment(id: string, data: UpdateAssessmentInput): Promise<GradeAssessment> {
+  return (await api.patch(`/grades/assessments/${id}`, data)).data;
+}
+
+export async function deleteAssessment(id: string): Promise<void> {
+  await api.delete(`/grades/assessments/${id}`);
 }
 
 // ── Help assistant ─────────────────────────────────────────────────────────

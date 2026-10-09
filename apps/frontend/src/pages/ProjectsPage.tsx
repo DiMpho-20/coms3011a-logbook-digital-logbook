@@ -4,7 +4,7 @@ import { Plus, Search, X, LayoutGrid, List } from "lucide-react";
 import {
   fetchProjects,
   fetchEntryFields,
-  fetchProjectTimeSummary,
+  fetchAllProjectTimeSummaries,
   createProject,
   updateProject,
   toggleProjectStatus,
@@ -17,9 +17,10 @@ import {
   type TimeSummary,
 } from "../api";
 import PageHeader from "../components/PageHeader";
+import Skeleton from "../components/Skeleton";
+import { button } from "../lib/ui";
 import ProjectCard from "../components/ProjectCard";
 import Modal from "../components/Modal";
-import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
 import TagInput, { type TagInputHandle } from "../components/TagInput";
@@ -104,28 +105,21 @@ export default function ProjectsPage() {
       if (run !== loadRunRef.current) return;
       setProjects(data);
 
-      // Render the list now. Time summaries are one request per project,
-      // so awaiting all of them here held the whole page on a spinner
-      // until the slowest one returned.
+      // Render the list now. The summaries arrive in one batch request,
+      // which used to be one request per project — enough to hold the
+      // whole page on a spinner until the slowest one returned.
       setLoading(false);
 
-      void Promise.all(
-        data.map(async (p) => {
-          try {
-            const sum = await fetchProjectTimeSummary(p.id);
-            return { id: p.id, summary: sum };
-          } catch {
-            return { id: p.id, summary: null };
-          }
+      fetchAllProjectTimeSummaries()
+        .then((rows) => {
+          if (run !== loadRunRef.current) return;
+          const sMap: Record<string, TimeSummary> = {};
+          rows.forEach((s) => {
+            sMap[s.projectId] = s;
+          });
+          setSummaries(sMap);
         })
-      ).then((summaryResults) => {
-        if (run !== loadRunRef.current) return;
-        const sMap: Record<string, TimeSummary> = {};
-        summaryResults.forEach((r) => {
-          if (r.summary) sMap[r.id] = r.summary;
-        });
-        setSummaries(sMap);
-      });
+        .catch(() => {});
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load projects.";
       if (run === loadRunRef.current) setLoadError(msg);
@@ -304,70 +298,94 @@ export default function ProjectsPage() {
     }
   };
 
-  if (loading) return <LoadingState message="Loading projects..." />;
-  if (loadError) return <ErrorState message={loadError} onRetry={loadProjects} />;
+  if (loading) {
+    return (
+      <div className="space-y-6 max-w-6xl" aria-busy="true">
+        <span className="sr-only" role="status">Loading projects...</span>
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  const header = (
+    <PageHeader
+      title="Projects"
+      subtitle="See what you're working on and which projects have gone quiet."
+      action={
+        <button onClick={openCreateModal} className={button("primary")}>
+          <Plus className="h-4 w-4" aria-hidden="true" /> New project
+        </button>
+      }
+    />
+  );
+
+  if (loadError) {
+    return (
+      <div className="space-y-6 max-w-6xl">
+        {header}
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <ErrorState message={loadError} onRetry={loadProjects} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <PageHeader
-        title="Projects"
-        subtitle="Manage your projects and track the work you've done."
-        action={
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-          >
-            <Plus className="h-4 w-4" /> New Project
-          </button>
-        }
-      />
+      {header}
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+      {/* Toolbar: search, which projects, and how to lay them out */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-0 basis-full sm:basis-auto sm:flex-1 sm:max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
           <input
-            type="text"
+            type="search"
             placeholder="Search projects..."
+            aria-label="Search projects"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as FilterTab)}
-            className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="ALL">All</option>
-            <option value="ACTIVE">Active</option>
-            <option value="ARCHIVED">Archived</option>
-          </select>
-          <div className="flex border border-slate-200 rounded-lg overflow-hidden">
+        <select
+          value={filter}
+          aria-label="Show projects"
+          onChange={(e) => setFilter(e.target.value as FilterTab)}
+          className="h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500 sm:flex-none sm:ml-auto"
+        >
+          <option value="ACTIVE">Active</option>
+          <option value="ARCHIVED">Archived</option>
+          <option value="ALL">All</option>
+        </select>
+        <div className="flex h-10 overflow-hidden rounded-lg border border-slate-200 bg-white" role="group" aria-label="Layout">
+          {([
+            { mode: "grid" as const, icon: LayoutGrid, label: "Grid view" },
+            { mode: "list" as const, icon: List, label: "List view" },
+          ]).map(({ mode, icon: Icon, label }) => (
             <button
-              onClick={() => setViewMode("grid")}
-              className={`p-2 transition ${
-                viewMode === "grid"
-                  ? "bg-slate-100 text-slate-900"
-                  : "text-slate-400 hover:text-slate-600"
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`inline-flex w-10 items-center justify-center transition-colors duration-150 ${
+                viewMode === mode ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
               }`}
-              title="Grid view"
+              title={label}
+              aria-label={label}
+              aria-pressed={viewMode === mode}
             >
-              <LayoutGrid className="h-4 w-4" />
+              <Icon className="h-4 w-4" aria-hidden="true" />
             </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 transition ${
-                viewMode === "list"
-                  ? "bg-slate-100 text-slate-900"
-                  : "text-slate-400 hover:text-slate-600"
-              }`}
-              title="List view"
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
@@ -375,6 +393,7 @@ export default function ProjectsPage() {
 
       {/* Project grid */}
       {filteredProjects.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-white">
         <EmptyState
           icon={FolderKanban}
           title={hasNoProjects ? "No projects yet" : "No matching projects"}
@@ -385,17 +404,18 @@ export default function ProjectsPage() {
           }
           action={
             hasNoProjects ? (
-              <button
-                onClick={openCreateModal}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-              >
-                <Plus className="h-4 w-4" /> New Project
+              <button onClick={openCreateModal} className={button("primary")}>
+                <Plus className="h-4 w-4" aria-hidden="true" /> New project
               </button>
             ) : undefined
           }
         />
+        </div>
       ) : (
-        <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "space-y-3"}>
+        <ul
+          aria-label="Projects"
+          className={viewMode === "grid" ? "grid grid-cols-1 gap-4 md:grid-cols-2" : "space-y-2"}
+        >
           {filteredProjects.map((project) => (
             <ProjectCard
               key={project.id}
@@ -404,9 +424,10 @@ export default function ProjectsPage() {
               onEdit={openEditModal}
               onToggleArchive={handleToggleArchive}
               onDelete={setDeletingProject}
+              layout={viewMode}
             />
           ))}
-        </div>
+        </ul>
       )}
 
       <DeleteProjectModal

@@ -1,5 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Search, Flame, ListChecks, Clock, CalendarDays, FolderKanban, AlertTriangle, ArrowUpDown, BookmarkPlus, X, Filter } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Search, FolderKanban, BookmarkPlus, X, Filter, Plus, NotebookPen, ArrowRight, Archive,
+  CalendarClock, CheckCircle2, ChevronDown, SearchX, CircleAlert,
+} from "lucide-react";
 
 import {
   fetchProjects,
@@ -17,17 +21,20 @@ import {
 } from "../lib/utils";
 import {
   loadSavedFilters,
+  syncSavedFilters,
   saveFilter,
   deleteFilter,
   type SavedFilter,
 } from "../lib/savedFilters";
 import PageHeader from "../components/PageHeader";
-import StatCard from "../components/StatCard";
-import LoadingState from "../components/LoadingState";
+import Stat from "../components/Stat";
+import StatusChip from "../components/StatusChip";
 import EmptyState from "../components/EmptyState";
 import Skeleton from "../components/Skeleton";
 import TagList from "../components/TagList";
 import TagFilterBar from "../components/TagFilterBar";
+import { lastProjectId } from "../lib/quickCapture";
+import { button, inputClass } from "../lib/ui";
 
 const PAGE_SIZE = 20;
 
@@ -71,16 +78,37 @@ function fieldValueLabel(field: EntryField, value: unknown): string {
   return String(value);
 }
 
+/** The line that names an entry: its first text field, else its first filled-in value. */
+function entryTitle(entry: Entry, fields: EntryField[]): { title: string; fieldId: string | null } {
+  const descField = fields.find((f) => f.type === "TEXT");
+  const description = descField ? (entry.values?.[descField.id] as string) || "" : "";
+  if (description) return { title: description, fieldId: descField!.id };
+  return { title: "Untitled entry", fieldId: null };
+}
+
+function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+const selectClass =
+  "h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
+
 export default function EntriesPage() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [fieldsByProject, setFieldsByProject] = useState<Record<string, EntryField[]>>({});
+  // The newest format each project's listed entries were written in, as sent with the entries.
+  const [listingFields, setListingFields] = useState<Record<string, EntryField[]>>({});
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [entriesLoading, setEntriesLoading] = useState(true);
   const [loadFailures, setLoadFailures] = useState(0);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [entriesFailed, setEntriesFailed] = useState(false);
+  const [projectsFailed, setProjectsFailed] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [stats, setStats] = useState({ total: 0, weekCount: 0, weekMinutes: 0, overdueCount: 0, streak: 0 });
 
   // Draft filter state — the user edits these freely.
@@ -117,7 +145,6 @@ export default function EntriesPage() {
   const [filterName, setFilterName] = useState("");
 
   const loadRunRef = useRef(0);
-  const hasLoadedOnceRef = useRef(false);
 
   // Fields of the selected project (for the field filter popover).
   const selectedProjectFields = useMemo<EntryField[]>(() => {
@@ -145,63 +172,66 @@ export default function EntriesPage() {
     return query;
   }, []);
 
-  // ── Load projects + fields (only on mount) ─────────────────────────────
-  useEffect(() => {
-    (async () => {
-      try {
-        const all = await fetchProjects();
-        const active = all.filter((p) => p.status === "ACTIVE");
-        setProjects(active);
+  // ── Load projects + fields (on mount, and again on "Try again") ───────
+  const loadProjects = useCallback(async () => {
+    setProjectsFailed(false);
+    try {
+      const all = await fetchProjects();
+      const active = all.filter((p) => p.status === "ACTIVE");
+      setProjects(active);
+      setProjectsLoaded(true);
+      setLoading(false);
 
-        const fieldResults = await Promise.all(
-          active.map(async (p) => ({ id: p.id, fields: await fetchEntryFields(p.id).catch(() => []) }))
-        );
-        const map: Record<string, EntryField[]> = {};
-        fieldResults.forEach((r) => { map[r.id] = r.fields; });
-        setFieldsByProject(map);
-
-        // Release the page even when the user has no projects at all, so the
-        // empty state shows instead of a spinner that never stops.
-        setProjectsLoaded(true);
-        if (active.length === 0) {
-          setLoading(false);
-          setEntriesLoading(false);
-        }
-      } catch (err) {
-        console.error("Failed to load projects:", err);
-        setProjectsLoaded(true);
-        setLoading(false);
-        setEntriesLoading(false);
-      }
-    })();
+      let failures = 0;
+      const fieldResults = await Promise.all(
+        active.map(async (p) => ({
+          id: p.id,
+          fields: await fetchEntryFields(p.id).catch(() => {
+            failures += 1;
+            return [] as EntryField[];
+          }),
+        }))
+      );
+      const map: Record<string, EntryField[]> = {};
+      fieldResults.forEach((r) => { map[r.id] = r.fields; });
+      setFieldsByProject(map);
+      setLoadFailures(failures);
+    } catch (err) {
+      console.error("Failed to load projects:", err);
+      setProjectsFailed(true);
+      setProjectsLoaded(true);
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   // ── Load entries when the applied snapshot changes ─────────────────────
   const loadAll = useCallback(async (snapshot: typeof applied) => {
     const run = ++loadRunRef.current;
-    if (!hasLoadedOnceRef.current) setLoading(true);
     setEntriesLoading(true);
+    setEntriesFailed(false);
     try {
       const listing = await fetchAllEntries(buildQuery(0, snapshot), {
         pendingProjectIds: projects.map((p) => p.id),
       });
       if (run !== loadRunRef.current) return;
       setAllEntries(listing.entries);
+      setListingFields(listing.fieldsByProject);
       setHasMore(listing.truncated);
       if (listing.stats) setStats(listing.stats);
     } catch (err) {
       console.error("Failed to load entries:", err);
+      if (run === loadRunRef.current) setEntriesFailed(true);
     } finally {
-      if (run === loadRunRef.current) {
-        setLoading(false);
-        setEntriesLoading(false);
-        hasLoadedOnceRef.current = true;
-      }
+      if (run === loadRunRef.current) setEntriesLoading(false);
     }
   }, [buildQuery, projects]);
 
-  // Fetch entries once projects are loaded. Reruns when the user applies
-  // new filters or when project list identity changes.
+  // Re-fetch whenever the applied snapshot changes, and once the projects
+  // have loaded (even when there are none, so the spinner clears).
   useEffect(() => {
     if (!projectsLoaded) return;
     loadAll(applied);
@@ -209,7 +239,10 @@ export default function EntriesPage() {
   }, [applied, projectsLoaded]);
 
   useEffect(() => {
+    // The cached copy at once, then the account's list (which also uploads
+    // any filter saved only on this device).
     setSavedFilters(loadSavedFilters());
+    syncSavedFilters().then(setSavedFilters).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -237,6 +270,7 @@ export default function EntriesPage() {
         pendingProjectIds: projects.map((p) => p.id),
       });
       setAllEntries((prev) => [...prev, ...listing.entries]);
+      setListingFields((prev) => ({ ...listing.fieldsByProject, ...prev }));
       setHasMore(listing.truncated);
     } catch (err) {
       console.error("Failed to load more entries:", err);
@@ -251,6 +285,46 @@ export default function EntriesPage() {
     filterTab !== "all" ||
     tagFilters.length > 0 ||
     fieldFilters.length > 0;
+
+  // Filters that live behind the "Filters" button, counted for its badge.
+  const advancedCount =
+    (filterTab !== "all" ? 1 : 0) + (archivedFilter !== "exclude" ? 1 : 0) + tagFilters.length + fieldFilters.length;
+  const appliedFiltersActive =
+    applied.search.trim() !== "" ||
+    applied.projectId !== "all" ||
+    applied.tab !== "all" ||
+    applied.tags.length > 0 ||
+    applied.archived !== "exclude" ||
+    applied.fieldFilters.length > 0;
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterProjectId("all");
+    setFilterTab("all");
+    setTagFilters([]);
+    setFieldFilters([]);
+    setArchivedFilter("exclude");
+    setActiveFilterId(null);
+    setApplied((prev) => ({
+      ...prev,
+      search: "",
+      projectId: "all",
+      tab: "all",
+      tags: [],
+      archived: "exclude",
+      fieldFilters: [],
+    }));
+  };
+
+  // The existing quick-capture route: the new-entry form on a project page.
+  const logEntry = () => {
+    const remembered = lastProjectId();
+    const id =
+      (filterProjectId !== "all" ? filterProjectId : null) ??
+      (remembered && projects.some((p) => p.id === remembered) ? remembered : null) ??
+      projects[0]?.id;
+    navigate(id ? `/projects/${id}?new=1` : "/projects");
+  };
 
   const applySavedFilter = (f: SavedFilter) => {
     setSearchQuery(f.searchQuery);
@@ -276,26 +350,34 @@ export default function EntriesPage() {
 
   const markManualChange = () => setActiveFilterId(null);
 
-  const handleSaveFilter = () => {
+  const handleSaveFilter = async () => {
     if (!filterName.trim()) return;
-    setSavedFilters(
-      saveFilter(filterName, {
-        searchQuery,
-        filterProjectId,
-        filterTab,
-        sortOrder,
-        selectedTags: tagFilters,
-        archivedFilter,
-        fieldFilters,
-      })
-    );
-    setFilterName("");
-    setShowSaveInput(false);
+    try {
+      setSavedFilters(
+        await saveFilter(filterName, {
+          searchQuery,
+          filterProjectId,
+          filterTab,
+          sortOrder,
+          selectedTags: tagFilters,
+          archivedFilter,
+          fieldFilters,
+        })
+      );
+      setFilterName("");
+      setShowSaveInput(false);
+    } catch (err) {
+      console.error("Failed to save filter:", err);
+    }
   };
 
-  const handleDeleteFilter = (id: string) => {
-    setSavedFilters(deleteFilter(id));
-    if (activeFilterId === id) setActiveFilterId(null);
+  const handleDeleteFilter = async (id: string) => {
+    try {
+      setSavedFilters(await deleteFilter(id));
+      if (activeFilterId === id) setActiveFilterId(null);
+    } catch (err) {
+      console.error("Failed to delete filter:", err);
+    }
   };
 
   const projectName = useCallback(
@@ -327,21 +409,63 @@ export default function EntriesPage() {
     return `${fieldName} ${opLabel} "${f.value}"`;
   };
 
-  if (loading) return <LoadingState message="Loading entries..." />;
+  const header = (
+    <PageHeader
+      title="Entries"
+      subtitle="What you did and when, day by day."
+      action={
+        <button onClick={logEntry} className={button("primary")} disabled={loading}>
+          <Plus className="h-4 w-4" aria-hidden="true" /> Log an entry
+        </button>
+      }
+    />
+  );
+
+  if (loading) {
+    // The page's shape while the projects load: header, stats, filters, a day of entries.
+    return (
+      <div className="space-y-6 max-w-5xl" aria-busy="true">
+        <span className="sr-only" role="status">Loading entries...</span>
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[76px] w-full rounded-xl" />)}
+        </div>
+        <Skeleton className="h-14 w-full rounded-xl" />
+        <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-3 w-40" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const stat = (label: string, value: string | number, hint: string) => (
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+      <Stat
+        label={<span className="uppercase tracking-wider text-[11px]">{label}</span>}
+        value={entriesLoading ? <Skeleton className="h-6 w-16 align-middle" /> : value}
+        hint={hint}
+      />
+    </div>
+  );
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <PageHeader
-        title="Entries"
-        subtitle="Everything you've recorded across your projects."
-      />
+      {header}
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard icon={ListChecks} label="This Week" value={stats.weekCount} color="blue" loading={entriesLoading} />
-        <StatCard icon={Clock} label="Time This Week" value={formatDuration(stats.weekMinutes)} color="emerald" loading={entriesLoading} />
-        <StatCard icon={Flame} label="Day Streak" value={stats.streak} color="orange" loading={entriesLoading} />
-        <StatCard icon={CalendarDays} label="Total Entries" value={stats.total} color="slate" loading={entriesLoading} />
-        <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdueCount} color="red" loading={entriesLoading} />
+      {/* Four figures from the server's own counts; two by two until there's room for a row. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {stat("This week", stats.weekCount, stats.weekCount === 1 ? "entry" : "entries")}
+        {stat("Time this week", formatDuration(stats.weekMinutes), "logged")}
+        {stat("Streak", `${stats.streak} ${stats.streak === 1 ? "day" : "days"}`, "in a row")}
+        {stat("All time", stats.total, stats.total === 1 ? "entry logged" : "entries logged")}
       </div>
 
       {loadFailures > 0 && (
@@ -350,202 +474,286 @@ export default function EntriesPage() {
         </p>
       )}
 
-      {projects.length === 0 ? (
-        <EmptyState
-          icon={FolderKanban}
-          title="No projects yet"
-          description="Create a project first, then entries will show up here."
-        />
+      {projectsFailed ? (
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <EmptyState
+            compact
+            icon={CircleAlert}
+            title="Your projects couldn't be loaded"
+            description="Entries are listed by project, so they can't be shown yet. Check your connection and try again."
+            action={<button onClick={loadProjects} className={button("secondary", "sm")}>Try again</button>}
+          />
+        </div>
+      ) : projects.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <EmptyState
+            compact
+            icon={FolderKanban}
+            title="No active projects"
+            description="Create a project first, then entries will show up here."
+            action={<Link to="/projects" className={button("secondary", "sm")}>Go to Projects</Link>}
+          />
+        </div>
       ) : (
         <>
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search entries..."
-                value={searchQuery}
+          {/* ── One filter bar: search, project, order; the rest behind Filters ── */}
+          <div className="rounded-xl border border-slate-200 bg-white">
+            <div className="flex flex-wrap items-center gap-2 p-2">
+              <div className="relative basis-full sm:basis-auto sm:flex-1 sm:min-w-[220px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                <input
+                  type="search"
+                  placeholder="Search entries..."
+                  aria-label="Search entries"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    markManualChange();
+                    setSearchQuery(e.target.value);
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") applySearch(); }}
+                  className={`${inputClass} h-10 pl-9`}
+                />
+              </div>
+              <select
+                value={filterProjectId}
+                aria-label="Project"
                 onChange={(e) => {
                   markManualChange();
-                  setSearchQuery(e.target.value);
+                  setFilterProjectId(e.target.value);
+                  setFieldFilters([]);
                 }}
-                onKeyDown={(e) => { if (e.key === "Enter") applySearch(); }}
-                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <select
-              value={filterProjectId}
-              onChange={(e) => {
-                markManualChange();
-                setFilterProjectId(e.target.value);
-                setFieldFilters([]);
-              }}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Projects</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={filterTab}
-              onChange={(e) => {
-                markManualChange();
-                setFilterTab(e.target.value as "all" | "week" | "overdue");
-              }}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Entries</option>
-              <option value="week">This Week</option>
-              <option value="overdue">Overdue</option>
-            </select>
-            <select
-              value={archivedFilter}
-              onChange={(e) => setArchivedFilter(e.target.value as ArchivedFilter)}
-              aria-label="Archived entries"
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="exclude">Active entries</option>
-              <option value="include">Include archived</option>
-              <option value="only">Archived only</option>
-            </select>
-            <button
-              onClick={() => {
-                markManualChange();
-                setSortOrder((s) => (s === "newest" ? "oldest" : "newest"));
-              }}
-              className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white hover:bg-slate-50 transition"
-              title={sortOrder === "newest" ? "Newest first" : "Oldest first"}
-            >
-              <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
-              {sortOrder === "newest" ? "Newest" : "Oldest"}
-            </button>
-
-            {/* Field filter button */}
-            <div className="relative">
-              <button
-                onClick={() => setShowFilterPopover((v) => !v)}
-                disabled={filterProjectId === "all"}
-                title={filterProjectId === "all" ? "Pick a project first" : "Filter by a custom field"}
-                className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className={`${selectClass} min-w-0 flex-1 sm:flex-none sm:max-w-[200px] max-sm:basis-full`}
               >
-                <Filter className="h-3.5 w-3.5" />
-                Field filter
+                <option value="all">All projects</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <select
+                value={sortOrder}
+                aria-label="Sort order"
+                onChange={(e) => {
+                  markManualChange();
+                  setSortOrder(e.target.value as "newest" | "oldest");
+                }}
+                className={`${selectClass} flex-1 sm:flex-none`}
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowFilters((v) => !v)}
+                aria-expanded={showFilters}
+                aria-controls="entry-filters"
+                className={`${button("secondary")} flex-1 sm:flex-none ${showFilters ? "bg-slate-50" : ""}`}
+              >
+                <Filter className="h-4 w-4" aria-hidden="true" />
+                Filters
+                {advancedCount > 0 && (
+                  <span className="rounded-full bg-blue-50 px-1.5 text-xs font-semibold tabular-nums text-blue-700">
+                    {advancedCount}<span className="sr-only"> active</span>
+                  </span>
+                )}
+                <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-150 ${showFilters ? "rotate-180" : ""}`} aria-hidden="true" />
               </button>
-              {showFilterPopover && (
-                <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-slate-200 rounded-lg shadow-lg p-4 w-80 space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Field</label>
+              {/* Applies every draft filter at once, as it always has. */}
+              <button onClick={applySearch} className={`${button("secondary")} flex-1 sm:flex-none`}>
+                <Search className="h-4 w-4" aria-hidden="true" />
+                Search
+              </button>
+            </div>
+
+            {showFilters && (
+              <div id="entry-filters" className="space-y-4 border-t border-slate-100 p-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-slate-600">Show</span>
                     <select
-                      value={newFilterFieldId}
+                      value={filterTab}
                       onChange={(e) => {
-                        setNewFilterFieldId(e.target.value);
-                        setNewFilterOp("");
-                        setNewFilterValue("");
+                        markManualChange();
+                        setFilterTab(e.target.value as "all" | "week" | "overdue");
                       }}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                      className={`${selectClass} w-full`}
                     >
-                      <option value="">Choose a field…</option>
-                      {selectedProjectFields.map((f) => (
-                        <option key={f.id} value={f.id}>{f.name} ({f.type})</option>
-                      ))}
+                      <option value="all">All entries</option>
+                      <option value="week">This week</option>
+                      <option value="overdue">Overdue</option>
                     </select>
-                  </div>
-                  {currentField && (
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Operator</label>
-                      <select
-                        value={newFilterOp}
-                        onChange={(e) => setNewFilterOp(e.target.value)}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                      >
-                        <option value="">Choose…</option>
-                        {availableOps.map((op) => (
-                          <option key={op.value} value={op.value}>{op.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {currentField !== undefined && newFilterOp && newFilterOp !== "is_true" && newFilterOp !== "is_false" && (
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Value</label>
-                      <input
-                        type={currentField.type === "NUMBER" ? "number" : currentField.type === "DATE" ? "date" : "text"}
-                        value={newFilterValue}
-                        onChange={(e) => setNewFilterValue(e.target.value)}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                      />
-                    </div>
-                  )}
-                  <div className="flex justify-end gap-2 pt-1">
-                    <button onClick={() => setShowFilterPopover(false)} className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 rounded-lg">
-                      Cancel
-                    </button>
-                    <button
-                      onClick={addFieldFilter}
-                      disabled={!newFilterFieldId || !newFilterOp}
-                      className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-40"
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-slate-600">Archive</span>
+                    <select
+                      value={archivedFilter}
+                      onChange={(e) => {
+                        markManualChange();
+                        setArchivedFilter(e.target.value as ArchivedFilter);
+                      }}
+                      aria-label="Archived entries"
+                      className={`${selectClass} w-full`}
                     >
-                      Add filter
+                      <option value="exclude">Active entries</option>
+                      <option value="include">Include archived</option>
+                      <option value="only">Archived only</option>
+                    </select>
+                  </label>
+
+                  {/* Field filter: a project's own fields, so it needs a project chosen. */}
+                  <div className="relative">
+                    <span className="mb-1 block text-xs font-medium text-slate-600">Fields</span>
+                    <button
+                      onClick={() => setShowFilterPopover((v) => !v)}
+                      disabled={filterProjectId === "all"}
+                      aria-expanded={showFilterPopover}
+                      className={`${button("secondary")} w-full justify-start`}
+                    >
+                      <Plus className="h-4 w-4" aria-hidden="true" />
+                      Field filter
                     </button>
+                    {filterProjectId === "all" && (
+                      <p className="mt-1 text-xs text-slate-500">Choose a project to filter by its fields.</p>
+                    )}
+                    {showFilterPopover && (
+                      <div className="absolute top-full left-0 z-20 mt-1 w-full min-w-[16rem] space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-lg sm:w-80">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Field</label>
+                          <select
+                            value={newFilterFieldId}
+                            onChange={(e) => {
+                              setNewFilterFieldId(e.target.value);
+                              setNewFilterOp("");
+                              setNewFilterValue("");
+                            }}
+                            className={inputClass}
+                          >
+                            <option value="">Choose a field…</option>
+                            {selectedProjectFields.map((f) => (
+                              <option key={f.id} value={f.id}>{f.name} ({f.type})</option>
+                            ))}
+                          </select>
+                        </div>
+                        {currentField && (
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Operator</label>
+                            <select value={newFilterOp} onChange={(e) => setNewFilterOp(e.target.value)} className={inputClass}>
+                              <option value="">Choose…</option>
+                              {availableOps.map((op) => (
+                                <option key={op.value} value={op.value}>{op.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                        {currentField !== undefined && newFilterOp && newFilterOp !== "is_true" && newFilterOp !== "is_false" && (
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Value</label>
+                            <input
+                              type={currentField.type === "NUMBER" ? "number" : currentField.type === "DATE" ? "date" : "text"}
+                              value={newFilterValue}
+                              onChange={(e) => setNewFilterValue(e.target.value)}
+                              className={inputClass}
+                            />
+                          </div>
+                        )}
+                        <div className="flex justify-end gap-2 pt-1">
+                          <button onClick={() => setShowFilterPopover(false)} className={button("ghost", "sm")}>
+                            Cancel
+                          </button>
+                          <button
+                            onClick={addFieldFilter}
+                            disabled={!newFilterFieldId || !newFilterOp}
+                            className={button("primary", "sm")}
+                          >
+                            Add filter
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* Search button — applies every draft filter at once. */}
-            <button
-              onClick={applySearch}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-            >
-              <Search className="h-3.5 w-3.5" />
-              Search
-            </button>
-
-            {filtersActive && (
-              <button
-                onClick={() => setShowSaveInput((v) => !v)}
-                className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 transition"
-                title="Save the current filter combination"
-              >
-                <BookmarkPlus className="h-3.5 w-3.5" />
-                Save
-              </button>
+                <TagFilterBar
+                  tags={availableTags}
+                  selected={tagFilters}
+                  onChange={(tags) => {
+                    markManualChange();
+                    setTagFilters(tags);
+                  }}
+                />
+              </div>
             )}
           </div>
 
-          {/* Active field filter chips */}
+          {/* Active field filters stay visible with the panel closed, so nothing is filtered out of sight. */}
           {fieldFilters.length > 0 && (
             <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Filters</span>
+              <span className="text-xs font-medium text-slate-500">Field filters</span>
               {fieldFilters.map((f, i) => (
                 <span
                   key={i}
-                  className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-800 border border-blue-200"
+                  className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-800 border border-blue-200"
                 >
                   {describeFieldFilter(f)}
                   <button
                     onClick={() => removeFieldFilter(i)}
-                    className="p-0.5 rounded-full hover:bg-blue-200 transition"
+                    className="rounded-full p-1 hover:bg-blue-100 transition-colors duration-150"
+                    aria-label={`Remove filter: ${describeFieldFilter(f)}`}
                     title="Remove this filter"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3 w-3" aria-hidden="true" />
                   </button>
                 </span>
               ))}
             </div>
           )}
 
-          <TagFilterBar
-            tags={availableTags}
-            selected={tagFilters}
-            onChange={(tags) => {
-              markManualChange();
-              setTagFilters(tags);
-            }}
-          />
+          {(filtersActive || savedFilters.length > 0) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {savedFilters.length > 0 && <span className="text-xs font-medium text-slate-500">Saved</span>}
+              {savedFilters.map((f) => {
+                const isActive = activeFilterId === f.id;
+                return (
+                  <span
+                    key={f.id}
+                    className={`inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 rounded-full text-xs font-medium border transition-colors duration-150 ${
+                      isActive
+                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                    }`}
+                    title={`Apply "${f.name}"`}
+                  >
+                    <button onClick={() => applySavedFilter(f)} aria-pressed={isActive}>
+                      {f.name}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteFilter(f.id)}
+                      className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors duration-150"
+                      aria-label={`Delete saved filter ${f.name}`}
+                      title={`Delete "${f.name}"`}
+                    >
+                      <X className="h-3 w-3" aria-hidden="true" />
+                    </button>
+                  </span>
+                );
+              })}
+              {filtersActive && (
+                <span className="ml-auto flex items-center gap-1">
+                  <button
+                    onClick={() => setShowSaveInput((v) => !v)}
+                    className={button("ghost", "sm")}
+                    title="Save the current filter combination"
+                  >
+                    <BookmarkPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                    Save
+                  </button>
+                  <button onClick={clearFilters} className={button("ghost", "sm")}>
+                    <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    Clear filters
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
 
           {showSaveInput && filtersActive && (
             <div className="flex flex-wrap gap-2 items-center">
@@ -553,19 +761,16 @@ export default function EntriesPage() {
                 type="text"
                 autoFocus
                 placeholder="Name this filter (e.g. Lab work, overdue)"
+                aria-label="Filter name"
                 value={filterName}
                 onChange={(e) => setFilterName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleSaveFilter();
                   if (e.key === "Escape") setShowSaveInput(false);
                 }}
-                className="flex-1 min-w-[200px] max-w-sm border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`${inputClass} flex-1 min-w-[200px] max-w-sm`}
               />
-              <button
-                onClick={handleSaveFilter}
-                disabled={!filterName.trim()}
-                className="px-3 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >
+              <button onClick={handleSaveFilter} disabled={!filterName.trim()} className={button("primary", "sm")}>
                 Save filter
               </button>
               <button
@@ -573,184 +778,134 @@ export default function EntriesPage() {
                   setShowSaveInput(false);
                   setFilterName("");
                 }}
-                className="px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-slate-100 transition"
+                className={button("ghost", "sm")}
               >
                 Cancel
               </button>
             </div>
           )}
 
-          {savedFilters.length > 0 && (
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Saved
-              </span>
-              {savedFilters.map((f) => {
-                const isActive = activeFilterId === f.id;
-                return (
-                  <span
-                    key={f.id}
-                    className={`group inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium border transition cursor-pointer ${
-                      isActive
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-700"
-                    }`}
-                    title={`Apply "${f.name}"`}
-                  >
-                    <button onClick={() => applySavedFilter(f)}>
-                      {f.name}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteFilter(f.id)}
-                      className={`p-0.5 rounded-full transition ${
-                        isActive
-                          ? "hover:bg-blue-500"
-                          : "hover:bg-slate-100 text-slate-400 hover:text-red-500"
-                      }`}
-                      title={`Delete "${f.name}"`}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="bg-white rounded-lg border border-slate-200">
-            <div className="p-6">
-              {entriesLoading ? (
-                <div className="py-4 space-y-4" aria-busy="true">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="space-y-2">
-                      <Skeleton className="h-3 w-40" />
-                      <div className="rounded-lg border border-slate-200 p-3 space-y-2">
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-3 w-1/3" />
+          {/* ── The logbook itself ─────────────────────────────────────────── */}
+          <section aria-labelledby="entry-list-heading" className="rounded-xl border border-slate-200 bg-white">
+            <h2 id="entry-list-heading" className="sr-only">Your entries</h2>
+            {entriesLoading ? (
+              <div className="p-5 space-y-6" aria-busy="true">
+                {[0, 1].map((i) => (
+                  <div key={i} className="space-y-3">
+                    <Skeleton className="h-3 w-40" />
+                    {[0, 1].map((j) => (
+                      <div key={j} className="flex gap-4">
+                        <Skeleton className="h-4 w-14" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/3" />
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : allEntries.length === 0 ? (
-                <div className="text-center py-12">
-                  {filterTab === "overdue" ? (
-                    <>
-                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 mb-3">
-                        <AlertTriangle className="h-5 w-5 text-emerald-500" />
-                      </div>
-                      <p className="text-sm font-medium text-slate-700">All caught up!</p>
-                      <p className="text-xs text-slate-400 mt-1">No overdue entries.</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-slate-400">No entries match.</p>
-                      {filtersActive && (
-                        <button
-                          onClick={() => {
-                            setSearchQuery("");
-                            setFilterProjectId("all");
-                            setFilterTab("all");
-                            setTagFilters([]);
-                            setFieldFilters([]);
-                            setActiveFilterId(null);
-                          }}
-                          className="text-xs text-blue-600 font-medium hover:underline mt-2"
-                        >
-                          Clear filters
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : entriesFailed ? (
+              <EmptyState
+                compact
+                icon={CircleAlert}
+                title="Your entries couldn't be loaded"
+                description="This is usually the connection. Your entries are safe; try again in a moment."
+                action={<button onClick={() => loadAll(applied)} className={button("secondary", "sm")}>Try again</button>}
+              />
+            ) : allEntries.length === 0 ? (
+              !appliedFiltersActive ? (
+                <EmptyState
+                  compact
+                  icon={NotebookPen}
+                  title="No entries yet"
+                  description="Your work sessions will appear here once you start logging them."
+                  action={
+                    <button onClick={logEntry} className={button("primary")}>
+                      <Plus className="h-4 w-4" aria-hidden="true" /> Log an entry
+                    </button>
+                  }
+                />
+              ) : applied.tab === "overdue" ? (
+                <EmptyState
+                  compact
+                  icon={CheckCircle2}
+                  title="All caught up."
+                  description="No overdue entries."
+                  action={<button onClick={clearFilters} className={button("secondary", "sm")}>Clear filters</button>}
+                />
               ) : (
-                <div className="space-y-8">
-                  {groupEntriesByDate(allEntries).map(([dateKey, entries]) => (
-                    <div key={dateKey}>
-                      <div className="border-b border-slate-100 pb-2 mb-4">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                          {formatDateHeading(dateKey)}
-                        </p>
-                      </div>
-
-                      <div className="relative ml-3">
-                        <div className="absolute left-0 top-2 bottom-2 w-px bg-slate-200" />
-
+                <EmptyState
+                  compact
+                  icon={SearchX}
+                  title="No entries match these filters."
+                  description="Try a different search, or clear the filters to see everything."
+                  action={<button onClick={clearFilters} className={button("secondary", "sm")}>Clear filters</button>}
+                />
+              )
+            ) : (
+              <div>
+                {groupEntriesByDate(allEntries, applied.sort).map(([dateKey, entries]) => {
+                  const dayMinutes = entries.reduce((sum, e) => sum + (e.durationMinutes || 0), 0);
+                  const headingId = `day-${dateKey}`;
+                  return (
+                    <section key={dateKey} aria-labelledby={headingId} className="border-b border-slate-100 last:border-b-0 first:[&>h3]:rounded-t-xl">
+                      <h3
+                        id={headingId}
+                        className="border-b border-slate-100 bg-slate-50/60 px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500"
+                      >
+                        {`${formatDateHeading(dateKey)} · ${formatDuration(dayMinutes)}`}
+                      </h3>
+                      <ul className="divide-y divide-slate-100">
                         {entries.map((entry) => {
-                          const time = new Date(entry.createdAt);
-                          const timeStr = time.toLocaleTimeString(undefined, {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          });
                           const fields = entry.format?.fields?.length
                             ? entry.format.fields
-                            : fieldsByProject[entry.projectId] || [];
+                            : listingFields[entry.projectId] || fieldsByProject[entry.projectId] || [];
+                          const { title, fieldId } = entryTitle(entry, fields);
+                          const otherFields = fields.filter(
+                            (f) => f.id !== fieldId && !isEmptyFieldValue(entry.values?.[f.id])
+                          );
+                          const isQueued = entry.id.startsWith("offline-");
+                          // Only entries with a due date carry a status worth showing: they're open work.
                           const isOverdue =
                             entry.status === "OPEN" &&
                             entry.dueDate &&
                             new Date(entry.dueDate) < new Date(new Date().toDateString());
-
-                          const descField = fields.find((f) => f.type === "TEXT");
-                          const description = descField
-                            ? (entry.values?.[descField.id] as string) || ""
-                            : "";
-
-                          const fieldValues = fields
-                            .filter((f) => {
-                              if (description && f.id === descField?.id) return false;
-                              const v = entry.values?.[f.id];
-                              return !isEmptyFieldValue(v);
-                            });
+                          const time = new Date(entry.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+                          const viewHref = isQueued
+                            ? `/projects/${entry.projectId}`
+                            : `/projects/${entry.projectId}?entry=${entry.id}`;
 
                           return (
-                            <div key={entry.id} className="relative pl-8 pb-6 last:pb-0">
-                              <div
-                                className={`absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 -translate-x-[5px] ${
-                                  isOverdue
-                                    ? "bg-red-500 border-red-200"
-                                    : "bg-blue-500 border-blue-200"
-                                }`}
-                              />
+                            <li key={entry.id} className="px-5 py-4 sm:grid sm:grid-cols-[5.5rem_1fr_auto] sm:gap-4">
+                              <p className="mb-1 text-sm font-semibold tabular-nums text-slate-900 sm:mb-0 sm:pt-px">
+                                <span className="sr-only">Duration </span>
+                                <span>{formatDuration(entry.durationMinutes)}</span>
+                              </p>
 
-                              <div>
-                                <div className="flex items-center gap-3 mb-1">
-                                  <span className="text-xs font-medium text-slate-400">
-                                    {timeStr}
-                                  </span>
-                                  <span className="text-xs font-medium text-slate-500">
-                                    {formatDuration(entry.durationMinutes)}
-                                  </span>
-                                  {entry.archivedAt && (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                      Archived
-                                    </span>
-                                  )}
-                                </div>
-
-                                {description && (
-                                  <p className="text-sm font-medium text-slate-800 mb-1">
-                                    {description}
-                                  </p>
-                                )}
-
-                                <p className="text-xs text-slate-500 mb-1.5">
-                                  {projectName(entry.projectId)}
+                              <div className="min-w-0">
+                                <p className="text-[15px] font-semibold leading-snug text-slate-900 break-words">{title}</p>
+                                <p className="mt-0.5 text-xs text-slate-500">
+                                  <span>{projectName(entry.projectId)}</span>
+                                  <span aria-hidden="true"> · </span>
+                                  <span className="tabular-nums">{time}</span>
                                 </p>
 
-                                {fieldValues.length > 0 && (
-                                  <div className="mt-1.5 space-y-1">
-                                    {fieldValues.map((field) => {
+                                {otherFields.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                                    {otherFields.map((field) => {
                                       const value = entry.values?.[field.id];
-
                                       if (field.type === "CHECKLIST" && Array.isArray(value)) {
                                         return (
-                                          <div key={field.id} className="text-xs text-slate-600">
+                                          <div key={field.id} className="basis-full">
                                             <span className="text-slate-400">{field.name}</span>
                                             <ul className="mt-0.5 space-y-0.5">
                                               {(value as { label: string; checked: boolean }[]).map((item, index) => (
                                                 <li key={`${item.label}-${index}`} className="flex items-center gap-1.5">
-                                                  <span className={item.checked ? "text-emerald-600" : "text-slate-400"}>
+                                                  <span aria-hidden="true" className={item.checked ? "text-emerald-600" : "text-slate-400"}>
                                                     {item.checked ? "✓" : "○"}
                                                   </span>
+                                                  <span className="sr-only">{item.checked ? "Done: " : "Not done: "}</span>
                                                   <span className={item.checked ? "line-through text-slate-400" : "text-slate-700"}>
                                                     {item.label}
                                                   </span>
@@ -760,7 +915,6 @@ export default function EntriesPage() {
                                           </div>
                                         );
                                       }
-
                                       if (field.type === "LINK") {
                                         return (
                                           <a
@@ -768,69 +922,96 @@ export default function EntriesPage() {
                                             href={String(value)}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="inline-flex max-w-full px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-blue-700 border border-slate-200 hover:underline break-all"
+                                            className="max-w-full break-all text-blue-600 hover:underline"
                                           >
                                             {String(value)}
                                           </a>
                                         );
                                       }
-
                                       return (
-                                        <span
-                                          key={field.id}
-                                          className="inline-flex max-w-full px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 break-words"
-                                        >
-                                          {fieldValueLabel(field, value)}
+                                        <span key={field.id} className="max-w-full break-words">
+                                          {field.type !== "BOOLEAN" && <span className="text-slate-400">{field.name} </span>}
+                                          <span>{fieldValueLabel(field, value)}</span>
                                         </span>
                                       );
                                     })}
                                   </div>
                                 )}
 
-                                <TagList tags={entry.tags} className="mt-1" />
+                                <TagList tags={entry.tags} className="mt-2" />
 
-                                {isOverdue && (
-                                  <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-red-100 text-red-700 border border-red-200">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    Overdue
-                                  </span>
+                                {(entry.archivedAt || entry.dueDate) && (
+                                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                                    {entry.archivedAt && <StatusChip icon={Archive}>Archived</StatusChip>}
+                                    {entry.dueDate && (
+                                      <span className="inline-flex flex-wrap items-center gap-x-1.5 text-slate-600">
+                                        <CalendarClock className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                                        <span>Due {shortDate(entry.dueDate)}</span>
+                                        {entry.status === "DONE" ? (
+                                          <span className="inline-flex items-center gap-1 text-emerald-700">
+                                            <span aria-hidden="true">·</span>
+                                            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Completed
+                                          </span>
+                                        ) : (
+                                          <>
+                                            {isOverdue && (
+                                              <span className="font-medium text-amber-700">
+                                                <span aria-hidden="true">· </span>Overdue
+                                              </span>
+                                            )}
+                                            <span aria-hidden="true">·</span>
+                                            <Link to="/open-work" className="font-medium text-blue-600 hover:text-blue-700">
+                                              Open work<span aria-hidden="true"> →</span>
+                                            </Link>
+                                          </>
+                                        )}
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
-                            </div>
+
+                              <div className="mt-3 sm:mt-0 sm:pt-px">
+                                <Link
+                                  to={viewHref}
+                                  className="group inline-flex min-h-[2rem] items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                                  aria-label={`View entry: ${title}`}
+                                >
+                                  View entry
+                                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+                                </Link>
+                              </div>
+                            </li>
                           );
                         })}
-                      </div>
-                    </div>
-                  ))}
+                      </ul>
+                    </section>
+                  );
+                })}
 
-                  {hasMore && (
-                    <div className="flex justify-center pt-2">
-                      <button
-                        onClick={loadMore}
-                        disabled={loadingMore}
-                        className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition disabled:opacity-50"
-                      >
-                        {loadingMore ? "Loading…" : "Load more"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+                {hasMore && (
+                  <div className="flex justify-center border-t border-slate-100 p-4">
+                    <button onClick={loadMore} disabled={loadingMore} className={button("secondary", "sm")}>
+                      {loadingMore ? "Loading…" : "Load more"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
         </>
       )}
     </div>
   );
 }
 
-// Group a flat list of entries by their visible date, newest first.
-function groupEntriesByDate(entries: Entry[]): [string, Entry[]][] {
+// Group a flat list of entries by their visible date, days in the chosen order.
+function groupEntriesByDate(entries: Entry[], sort: "newest" | "oldest" = "newest"): [string, Entry[]][] {
   const groups: Record<string, Entry[]> = {};
   entries.forEach((e) => {
     const key = (e.entryDate || e.createdAt).slice(0, 10);
     if (!groups[key]) groups[key] = [];
     groups[key].push(e);
   });
-  return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+  return Object.entries(groups).sort((a, b) => (sort === "oldest" ? a[0].localeCompare(b[0]) : b[0].localeCompare(a[0])));
 }

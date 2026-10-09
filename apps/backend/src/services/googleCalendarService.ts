@@ -74,15 +74,18 @@ async function listLogbookEvents(calendar: calendar_v3.Calendar): Promise<calend
 }
 
 /**
- * Mirror the user's open, dated entries into their primary Google Calendar.
- * Idempotent: re-running updates existing events instead of duplicating
- * them, and removes events whose entry was completed, undated or deleted.
+ * Mirror the user's open, dated, unarchived entries into their primary Google
+ * Calendar. Idempotent: re-running updates existing events instead of
+ * duplicating them, and removes events whose entry was completed, undated,
+ * archived or deleted.
  */
 export async function syncDueDates(userId: string, auth: OAuth2Client): Promise<SyncResult> {
   const calendar = googleCalendar({ version: "v3", auth });
 
   const entries = (await prisma.logbookEntry.findMany({
-    where: { project: { userId }, status: "OPEN", dueDate: { not: null } },
+    // The same work Open Work lists: open, dated, and not archived. Archiving
+    // an entry takes its deadline off the calendar on the next sync.
+    where: { project: { userId }, status: "OPEN", dueDate: { not: null }, archivedAt: null },
     select: {
       id: true,
       projectId: true,
@@ -121,7 +124,7 @@ export async function syncDueDates(userId: string, auth: OAuth2Client): Promise<
     }
   }
 
-  // Anything left belongs to an entry that is done, undated or deleted.
+  // Anything left belongs to an entry that is done, undated, archived or deleted.
   const stale = [...[...existing.values()].map((e) => e.id!), ...orphans];
   for (const eventId of stale) {
     await calendar.events.delete({ calendarId: "primary", eventId }).catch((err) => {

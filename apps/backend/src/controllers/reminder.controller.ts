@@ -18,6 +18,7 @@ import {
 
 const REMINDER_INCLUDE = {
   entry: { include: ENTRY_LABEL_INCLUDE },
+  assessment: { include: { module: { select: { id: true, code: true } } } },
 } as const;
 
 type ReminderWithEntry = Prisma.ReminderGetPayload<{ include: typeof REMINDER_INCLUDE }>;
@@ -41,6 +42,16 @@ function formatReminder(r: ReminderWithEntry) {
           label: entryLabel(r.entry),
           dueDate: r.entry.dueDate?.toISOString() ?? null,
           status: r.entry.status,
+        }
+      : null,
+    assessment: r.assessment
+      ? {
+          id: r.assessment.id,
+          moduleId: r.assessment.module.id,
+          moduleCode: r.assessment.module.code,
+          name: r.assessment.name,
+          date: r.assessment.date?.toISOString().slice(0, 10) ?? null,
+          dateKind: r.assessment.dateKind,
         }
       : null,
   };

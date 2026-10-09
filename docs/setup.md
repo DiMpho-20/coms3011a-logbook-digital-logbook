@@ -142,7 +142,7 @@ When the backend starts you will see a `SECURITY WARNING` from `pg` about SSL mo
 | `npm run test` | `apps/frontend` | Run the Vitest + Testing Library suite (jsdom, no backend needed) |
 | `npm run test:watch` | `apps/frontend` | Run tests in watch mode |
 | `npm run test:coverage` | `apps/frontend` | Run tests with a coverage report |
-| `npm run lint` | `apps/frontend` | Run oxlint |
+| `npm run lint` | every workspace | Run each workspace's linter (oxlint for the frontend, ESLint for the backend) |
 
 ## Code Quality & Linting
 
@@ -152,13 +152,24 @@ The frontend uses [oxlint](https://oxc.rs) for fast linting:
 npm run lint --workspace=frontend
 ```
 
-The backend uses TypeScript's built-in type checker. Run it before committing:
+The backend uses [ESLint](https://eslint.org) with typescript-eslint:
+
+```bash
+npm run lint --workspace=backend
+```
+
+Every rule is an error except `@typescript-eslint/no-explicit-any`, which is
+a warning on purpose: the backend handles untyped Prisma rows and raw SQL at
+a handful of boundaries, and failing every build over those would train the
+team to ignore the linter. The type checker still runs alongside it:
 
 ```bash
 npm run typecheck --workspace=backend
 ```
 
-> **Note:** The backend does not have a separate `lint` script. The root-level `npm run lint` command uses `--if-present`, so it will skip the backend gracefully.
+Both linters run in CI on every push (see the pipeline below), so a rule
+violation fails the build rather than relying on someone remembering to run
+the command before pushing.
 
 ## Testing
 
@@ -216,6 +227,112 @@ Reminders can notify a device even when the logbook is closed, using web push.
 **Push only works in a production build.** The service worker that receives pushes is registered only when `import.meta.env.PROD` is true, so under `npm run dev` the app falls back to in-app notifications: they appear only while a logbook tab is open, and the tab checks for due reminders every five minutes. Test real push against the deployed site, with the logbook tab closed but the browser still running.
 
 If notifications never appear, check in order: the browser's site permission for notifications (`Notification.permission` in the console should be `"granted"`), the operating system's notification settings for the browser (including Do Not Disturb), and — on the deployed site — that the backend is awake, since Render's free tier sleeps when idle and pushes are only sent while it runs. On iPhone, push requires the app to be added to the home screen. Notification sound is controlled by the operating system, not the app.
+
+## Deployment
+
+| Part | Host | Address |
+|---|---|---|
+| Frontend | Cloudflare Pages | <https://coms3011a-logbook.pages.dev> |
+| API | Render (Docker, from the repository `Dockerfile`) | <https://digital-logbook-backend-latest.onrender.com/api> |
+| Database | Neon (PostgreSQL) | `DATABASE_URL` in the Render environment |
+| Documentation | Netlify (MkDocs) | <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> |
+
+### The pipeline (CI/CD)
+
+`.gitea/workflows/deploy.yaml` runs on every push to `main` and the team
+branches:
+
+1. **CI** — install, build the shared package, typecheck the backend, lint the
+   backend and the frontend, run both test suites with coverage (the backend
+   suite against a PostgreSQL database created for that run, both suites
+   gated by coverage floors), report coverage on the commit, and build both
+   apps.
+2. **CD** — on `main` only, and only after CI has passed:
+    - the API is redeployed through a Render deploy hook;
+    - the frontend is built and published to Cloudflare Pages with Wrangler;
+    - the API's health check is called until it answers, so it is awake.
+
+Each deploy step runs only once its secret exists, so the pipeline stays green
+until they are added. Repository settings → Actions → Secrets:
+
+| Secret | Where to get it |
+|---|---|
+| `RENDER_DEPLOY_HOOK_URL` | Render → the API service → Settings → Deploy Hook |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → a token with *Cloudflare Pages: Edit* |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → the account ID in the sidebar |
+
+The backend suite gets a database of its own for each run. The
+`DATABASE_URL` secret is only its last-resort fallback, used (with a warning in the log)
+if the runner cannot start that database.
+
+The Cloudflare Pages project name defaults to `coms3011a-logbook`; set the
+`CLOUDFLARE_PAGES_PROJECT` repository variable if it differs.
+
+### Database migrations on deploy
+
+The API container starts with `npm run start:deploy`, which runs
+`prisma migrate deploy` before serving. A deploy therefore brings the
+production schema up to date by itself; there is no separate migration step
+to forget. To apply migrations by hand instead:
+
+```bash
+cd apps/backend && DATABASE_URL=<production connection string> npx prisma migrate deploy
+```
+
+### Keeping the API awake
+
+Render's free tier sleeps after about 15 quiet minutes, and the first request
+then waits up to a minute (one cold start was measured at 33 s). To avoid that,
+a free [cron-job.org](https://cron-job.org) job calls `/api/health` every ten
+minutes from 06:00 to 23:50 (Africa/Johannesburg). It runs on Wendy's
+cron-job.org account; ask there to change or pause it rather than adding a
+second pinger.
+
+- **Why not the whole day:** Render's free hours (about 750 a month) are shared
+  by every free service in the workspace. Staying awake around the clock would
+  use about 744; these hours use about 570, and a request at night still wakes
+  the API, just slowly. Check the Render dashboard's usage page if another free
+  service is added to the workspace.
+- **Why not a Gitea schedule:** `.gitea/workflows/keep-warm.yaml` used to do
+  this, but 144 runs a day flooded the Actions tab, so it is now manual only.
+  Run it by hand (Actions tab -> "Keep the API awake" -> Run workflow) before a
+  demo or marking session at night, when the pinger is off.
+- **What it looks like:** the pings appear in Render's logs as `GET /api/health`
+  every ten minutes. They read nothing and change nothing.
+
+### Required API environment (Render)
+
+Set in the Render service's environment, as listed in `apps/backend/.env.example`:
+`DATABASE_URL`, `JWT_SECRET`, `TWO_FACTOR_ENCRYPTION_KEY`, `APP_URL`, an email
+provider (`RESEND_API_KEY` or Gmail), and for the integrations `GEMINI_API_KEY`
+(help assistant) and `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`GOOGLE_REDIRECT_URI`, `GOOGLE_TOKEN_ENCRYPTION_KEY` (Google Calendar sync).
+Push notifications need `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`.
+
+### A demo account
+
+For presentations and markers, `npm run seed:demo` builds an account with
+realistic data — three projects with their own entry formats, seven weeks of
+entries, open work (overdue, upcoming, undated), two modules with weighted
+assessments, a saved statistic and a reminder:
+
+```bash
+DEMO_API_URL=https://digital-logbook-backend-latest.onrender.com/api \
+DATABASE_URL=<the database that API uses> \
+npm run seed:demo --workspace=apps/backend
+```
+
+Everything is created through the API, so the app's own rules apply; the
+database is used once, to mark the demo account's email verified. It never
+changes an existing account — if the email is taken it stops — so set
+`DEMO_EMAIL` (and optionally `DEMO_PASSWORD`, `DEMO_NAME`) to make another.
+
+### Quality evidence
+
+Lighthouse (Chrome DevTools → Lighthouse, or `npx lighthouse <url> --view`)
+reports accessibility, performance and best-practice scores. Run it on the
+deployed Dashboard, Entries, My Grades and Settings pages, in both desktop and
+mobile modes, and keep the reports with the submission.
 
 ## Troubleshooting
 

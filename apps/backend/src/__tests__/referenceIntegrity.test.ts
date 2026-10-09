@@ -70,6 +70,24 @@ describe("saving a reference (issue #90)", () => {
     expect(res.status).toBe(201);
   });
 
+  it("keeps the project id that routes a reader to a linked entry", async () => {
+    const res = await save({
+      id: relatedEntryId,
+      label: "Reading",
+      kind: "entry",
+      projectId: relatedProjectId,
+    });
+    expect(res.status).toBe(201);
+    // The id is what ownership is checked against; the project id is routing
+    // metadata the entry card needs, so it must survive the save.
+    expect(res.body.values[refFieldId]).toEqual({
+      id: relatedEntryId,
+      label: "Reading",
+      kind: "entry",
+      projectId: relatedProjectId,
+    });
+  });
+
   it("refuses a project that does not exist", async () => {
     const res = await save({ id: crypto.randomUUID(), kind: "project" });
     expect(res.status).toBe(400);

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { CloudOff, KeyRound, Menu, X } from "lucide-react";
 import Sidebar from "./Sidebar";
 import HelpAssistant from "./HelpAssistant";
+import EntryForm from "./EntryForm";
+import Modal from "./Modal";
 import { pendingEntryCount, SYNC_EVENT } from "../lib/offlineEntries";
 import { pendingProjectCount, pendingProjectErrors } from "../lib/offlineProjects";
 import { isQuickCaptureKey, lastProjectId } from "../lib/quickCapture";
-import { fetchProjects } from "../api";
+import { fetchProjects, type Project } from "../api";
 
 function describePending(projects: number, entries: number): string {
   const parts = [];
@@ -17,28 +19,29 @@ function describePending(projects: number, entries: number): string {
 
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const navigate = useNavigate();
+  // The quick-entry dialog: null while its project list is loading, [] when
+  // the account has none, otherwise the projects the form can capture into.
+  const [quickEntryOpen, setQuickEntryOpen] = useState(false);
+  const [quickEntryProjects, setQuickEntryProjects] = useState<Project[] | null>(null);
 
-  // N anywhere opens a new entry on the project the student last worked in,
-  // or their first active project (issue #92). The project page opens the
-  // form when it sees ?new=1.
+  // N anywhere opens the quick-entry form right here, preselected to the
+  // project the student last worked in (issue #92). The project page keeps
+  // its full form for editing, tags and recurrence; this one is for capture.
   useEffect(() => {
     const onKey = async (e: KeyboardEvent) => {
       if (!isQuickCaptureKey(e)) return;
       e.preventDefault();
-      let projectId = lastProjectId();
-      if (!projectId) {
-        try {
-          projectId = (await fetchProjects()).find((p) => p.status === "ACTIVE")?.id ?? null;
-        } catch {
-          projectId = null;
-        }
+      setQuickEntryOpen(true);
+      setQuickEntryProjects(null);
+      try {
+        setQuickEntryProjects(await fetchProjects());
+      } catch {
+        setQuickEntryProjects([]);
       }
-      navigate(projectId ? `/projects/${projectId}?new=1` : "/projects");
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [navigate]);
+  }, []);
   // Left behind by a sign-in that spent a 2FA recovery code. Read on mount and
   // cleared in an effect rather than in the initializer, so StrictMode's double
   // invocation in development cannot swallow it.
@@ -93,8 +96,16 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
+      {/* Keyboard users land here first: jump straight past the navigation. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-blue-600 focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:shadow-lg"
+      >
+        Skip to content
+      </a>
       {/* Desktop sidebar */}
-      <div className="hidden lg:flex">
+      {/* An inset panel: a little page shows around it, so it reads as part of the desk. */}
+      <div className="hidden lg:flex p-3 pr-0">
         <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
       </div>
 
@@ -157,12 +168,36 @@ export default function AppLayout() {
         )}
 
         {/* Page content */}
-        <div className="flex-1 overflow-y-auto p-6 lg:p-8">
+        {/* On a phone, room below the last item so it can scroll clear of the
+            "Need help?" button pinned to the bottom-right corner. */}
+        <div id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto p-6 lg:p-8 max-sm:pb-24 outline-none">
           <Outlet />
         </div>
       </main>
 
       <HelpAssistant />
+
+      {/* Quick capture: N from anywhere, every field type, no navigation. */}
+      <Modal open={quickEntryOpen} onClose={() => setQuickEntryOpen(false)} title="Quick entry">
+        {quickEntryProjects === null ? (
+          <p className="text-sm text-slate-500">Loading…</p>
+        ) : quickEntryProjects.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            No projects yet — create one on the Projects page, then press N to log work.
+          </p>
+        ) : (
+          <EntryForm
+            projects={quickEntryProjects}
+            defaultProjectId={
+              lastProjectId()
+              // Nothing remembered: the first active project, as before.
+              ?? quickEntryProjects.find((p) => p.status === "ACTIVE")?.id
+            }
+            submitLabel="Log entry"
+            onSave={() => setQuickEntryOpen(false)}
+          />
+        )}
+      </Modal>
     </div>
   );
 }

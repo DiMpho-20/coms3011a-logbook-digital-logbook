@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 vi.mock("../../api", () => ({
   fetchProjects: vi.fn(),
   fetchEntryFields: vi.fn().mockResolvedValue([]),
-  fetchProjectTimeSummary: vi.fn().mockResolvedValue({
-    projectId: "p1", totalMinutes: 140, totalHours: 2.3, entryCount: 3, lastEntryAt: null,
-  }),
+  fetchAllProjectTimeSummaries: vi.fn().mockResolvedValue([
+    { projectId: "p1", totalMinutes: 140, totalHours: 2.3, entryCount: 3, lastEntryAt: null },
+  ]),
   createProject: vi.fn().mockResolvedValue({ id: "new-p" }),
   updateProject: vi.fn().mockResolvedValue({ id: "p1" }),
   toggleProjectStatus: vi.fn().mockResolvedValue({ id: "p1", status: "ARCHIVED" }),
@@ -38,15 +38,21 @@ const renderPage = () => render(<MemoryRouter><ProjectsPage /></MemoryRouter>);
  * header, once as the empty state's call to action. Either opens the same
  * modal, so these tests take the header's.
  */
+/** Secondary actions live behind each card's "More" menu. */
+const fromMenu = async (projectName: string, item: string) => {
+  fireEvent.click(await screen.findByRole("button", { name: `More actions for ${projectName}` }));
+  fireEvent.click(screen.getByRole("menuitem", { name: item }));
+};
+
 const openNewProjectModal = async () =>
   fireEvent.click((await screen.findAllByRole("button", { name: /new project/i }))[0]);
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.fetchTags).mockResolvedValue([{ id: "t1", name: "coursework" }] as never);
-  vi.mocked(api.fetchProjectTimeSummary).mockResolvedValue({
-    projectId: "p1", totalMinutes: 140, totalHours: 2.3, entryCount: 3, lastEntryAt: null,
-  } as never);
+  vi.mocked(api.fetchAllProjectTimeSummaries).mockResolvedValue([
+    { projectId: "p1", totalMinutes: 140, totalHours: 2.3, entryCount: 3, lastEntryAt: null },
+  ] as never);
   vi.mocked(api.fetchEntryFields).mockResolvedValue([] as never);
 });
 
@@ -213,7 +219,7 @@ describe("ProjectsPage — creating and editing", () => {
     renderPage();
 
     await screen.findByText("Campus Marketplace");
-    fireEvent.click(screen.getByTitle("Edit project"));
+    await fromMenu("Campus Marketplace", "Edit project");
 
     expect(await screen.findByText("Edit Campus Marketplace")).toBeInTheDocument();
     expect(api.fetchEntryFields).toHaveBeenCalledWith("p1");
@@ -296,7 +302,7 @@ describe("ProjectsPage — creating and editing", () => {
     renderPage();
 
     await screen.findByText("Campus Marketplace");
-    fireEvent.click(screen.getByTitle("Edit project"));
+    await fromMenu("Campus Marketplace", "Edit project");
 
     expect(await screen.findByDisplayValue("{Hours} * 2")).toBeInTheDocument();
   });
@@ -307,7 +313,7 @@ describe("ProjectsPage — creating and editing", () => {
     renderPage();
 
     await screen.findByText("Campus Marketplace");
-    fireEvent.click(screen.getByTitle("Edit project"));
+    await fromMenu("Campus Marketplace", "Edit project");
 
     expect(await screen.findByText(/entry fields could not be loaded/)).toBeInTheDocument();
   });
@@ -325,13 +331,67 @@ describe("ProjectsPage — creating and editing", () => {
   });
 });
 
+describe("ProjectsPage — cards", () => {
+  it("shows each project's entries, time and last activity", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
+    renderPage();
+
+    const card = (await screen.findByText("Campus Marketplace")).closest("li")!;
+    // Each figure is labelled in the markup (dt, then dd).
+    await waitFor(() => expect(within(card).getByText("3")).toBeInTheDocument());
+    expect(within(card).getByText("2h 20m")).toBeInTheDocument();
+    expect(card).toHaveTextContent("No activity yet");
+    expect(card).toHaveTextContent("Active");
+  });
+
+  it("marks an active project quiet after two weeks without an entry, in words", async () => {
+    const old = new Date(Date.now() - 24 * 86_400_000).toISOString();
+    vi.mocked(api.fetchAllProjectTimeSummaries).mockResolvedValue([
+      { projectId: "p1", totalMinutes: 60, totalHours: 1, entryCount: 2, lastEntryAt: old },
+    ] as never);
+    vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
+    renderPage();
+
+    const card = (await screen.findByText("Campus Marketplace")).closest("li")!;
+    expect(await within(card).findByText("Quiet")).toBeInTheDocument();
+    expect(card).toHaveTextContent("24 days ago");
+  });
+
+  it("opens and closes the More menu from the keyboard", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
+    renderPage();
+
+    const trigger = await screen.findByRole("button", { name: "More actions for Campus Marketplace" });
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((i) => i.textContent)).toEqual(["Edit project", "Archive", "Delete project"]);
+    await waitFor(() => expect(items[0]).toHaveFocus());
+    fireEvent.keyDown(items[0], { key: "ArrowDown" });
+    expect(items[1]).toHaveFocus();
+    fireEvent.keyDown(items[1], { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("keeps the same actions in list view", async () => {
+    vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
+    renderPage();
+
+    await screen.findByText("Campus Marketplace");
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    expect(screen.getByRole("button", { name: "List view" })).toHaveAttribute("aria-pressed", "true");
+    await fromMenu("Campus Marketplace", "Archive");
+    await waitFor(() => expect(api.toggleProjectStatus).toHaveBeenCalledWith("p1", "ARCHIVED"));
+  });
+});
+
 describe("ProjectsPage — archiving", () => {
   it("archives an active project and reloads", async () => {
     vi.mocked(api.fetchProjects).mockResolvedValue([project()] as never);
     renderPage();
 
     await screen.findByText("Campus Marketplace");
-    fireEvent.click(screen.getByTitle("Archive"));
+    await fromMenu("Campus Marketplace", "Archive");
 
     await waitFor(() => expect(api.toggleProjectStatus).toHaveBeenCalledWith("p1", "ARCHIVED"));
   });
@@ -341,7 +401,7 @@ describe("ProjectsPage — archiving", () => {
     renderPage();
 
     fireEvent.change(await screen.findByRole("combobox"), { target: { value: "ARCHIVED" } });
-    fireEvent.click(await screen.findByTitle("Unarchive"));
+    await fromMenu("Campus Marketplace", "Unarchive");
 
     await waitFor(() => expect(api.toggleProjectStatus).toHaveBeenCalledWith("p1", "ACTIVE"));
   });

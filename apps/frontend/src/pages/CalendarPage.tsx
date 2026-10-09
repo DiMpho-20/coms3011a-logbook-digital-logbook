@@ -1,28 +1,69 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Loader2 } from "lucide-react";
+import PageHeader from "../components/PageHeader";
+import EmptyState from "../components/EmptyState";
+import Skeleton from "../components/Skeleton";
+import { useNarrowScreen } from "../lib/useNarrowScreen";
 import { api } from "../api/client";
 import Modal from "../components/Modal";
 import GoogleCalendarSync from "../components/GoogleCalendarSync";
-import { entryDateKey } from "../lib/utils";
+import { entryDateKey, fieldValueText, formatDuration } from "../lib/utils";
+import { button } from "../lib/ui";
 
 type Entry = {
   id: string;
   projectId: string;
   entryDate: string | null;
+  dueDate?: string | null;
   createdAt: string;
   durationMinutes: number;
-  values: Record<string, any>;
+  status?: "OPEN" | "DONE";
+  values: Record<string, unknown>;
+  format?: { fields: { id: string; type: string }[] } | null;
 };
+
+type Project = { id: string; name: string; status?: string };
+
+/**
+ * What an entry is about: its first TEXT field, read with the format it was
+ * saved in (as on the Entries page). Older entries without one have none.
+ */
+function describe(e: Entry): string {
+  const field = e.format?.fields?.find((f) => f.type === "TEXT");
+  return field ? fieldValueText(e.values[field.id]) : "";
+}
+
+/** A day key as a local date, so "2026-10-15" is the 15th in every time zone. */
+function dayFromKey(key: string): Date {
+  return new Date(`${key}T00:00:00`);
+}
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-function buildGrid(monthStart: Date): Date[] {
+/**
+ * The "Week starts on" choice from Settings › Logbook. Settings shows Monday
+ * until the student picks otherwise, so the calendar does the same.
+ */
+function weekStartsOnMonday(): boolean {
+  try {
+    const prefs = JSON.parse(localStorage.getItem("logbook-prefs") ?? "{}") as { weekStartsOn?: string };
+    return prefs.weekStartsOn !== "sunday";
+  } catch {
+    return true;
+  }
+}
+
+const SUNDAY_FIRST = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONDAY_FIRST = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function buildGrid(monthStart: Date, mondayFirst: boolean): Date[] {
   const start = new Date(monthStart);
-  const day = start.getDay();
-  start.setDate(start.getDate() - day);
+  // How many days back to the first day of the week the month starts in.
+  const back = mondayFirst ? (start.getDay() + 6) % 7 : start.getDay();
+  start.setDate(start.getDate() - back);
   const cells: Date[] = [];
   for (let i = 0; i < 42; i++) {
     const d = new Date(start);
@@ -41,39 +82,63 @@ function ymd(d: Date) {
 
 export default function CalendarPage() {
   const [params, setParams] = useSearchParams();
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
+  const [projectsFailed, setProjectsFailed] = useState(false);
+  // Bumped by "Try again" to load the same project's entries once more.
+  const [reloadKey, setReloadKey] = useState(0);
+  const [mondayFirst] = useState(weekStartsOnMonday);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [cursor, setCursor] = useState(new Date());
+  // Phones get an agenda list: a seven-column grid leaves each day too narrow to read.
+  const narrow = useNarrowScreen();
   const [openDay, setOpenDay] = useState<string | null>(null);
 
   const selectedProjectId = params.get("project") ?? "";
 
-  useEffect(() => {
+  const loadProjects = () => {
+    setLoadingProjects(true);
+    setProjectsFailed(false);
     api.get("/projects").then((res) => {
-      setProjects(res.data);
-      if (!params.get("project") && res.data.length > 0) {
+      // Active projects first; an archived one is still there to look back on.
+      const all = res.data as Project[];
+      const sorted = [...all.filter((p) => p.status !== "ARCHIVED"), ...all.filter((p) => p.status === "ARCHIVED")];
+      setProjects(sorted);
+      if (!params.get("project") && sorted.length > 0) {
         setParams((prev) => {
-          prev.set("project", res.data[0].id);
+          prev.set("project", sorted[0].id);
           return prev;
         }, { replace: true });
       }
       setLoadingProjects(false);
-    }).catch(() => setLoadingProjects(false));
+    }).catch(() => {
+      // Say it failed, rather than that there are no projects.
+      setProjectsFailed(true);
+      setLoadingProjects(false);
+    });
+  };
+
+  useEffect(() => {
+    loadProjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!selectedProjectId) return;
     setLoadingEntries(true);
+    setLoadError(false);
     api.get(`/projects/${selectedProjectId}/entries`)
       .then((res) => setEntries(res.data))
-      .catch(() => setEntries([]))
+      .catch(() => {
+        setEntries([]);
+        setLoadError(true);
+      })
       .finally(() => setLoadingEntries(false));
-  }, [selectedProjectId]);
+  }, [selectedProjectId, reloadKey]);
 
-  const grid = useMemo(() => buildGrid(startOfMonth(cursor)), [cursor]);
+  const grid = useMemo(() => buildGrid(startOfMonth(cursor), mondayFirst), [cursor, mondayFirst]);
   const entriesByDate = useMemo(() => {
     const map: Record<string, Entry[]> = {};
     for (const e of entries) {
@@ -84,44 +149,84 @@ export default function CalendarPage() {
     return map;
   }, [entries]);
 
+  // Work still to do, on the day it is due (the same dates Google sync sends).
+  const dueByDate = useMemo(() => {
+    const map: Record<string, Entry[]> = {};
+    for (const e of entries) {
+      if (!e.dueDate || e.status === "DONE") continue;
+      const key = e.dueDate.slice(0, 10);
+      (map[key] ??= []).push(e);
+    }
+    return map;
+  }, [entries]);
+
   const todayKey = ymd(new Date());
 
   const monthLabel = cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
   const openDayEntries = openDay ? entriesByDate[openDay] ?? [] : [];
+  const openDayDue = openDay ? dueByDate[openDay] ?? [] : [];
+  // The phone agenda lists only this month's days that have something on them.
+  const agendaDays = grid
+    .filter((day) => day.getMonth() === cursor.getMonth())
+    .map((day) => ymd(day))
+    .filter((key) => (entriesByDate[key]?.length ?? 0) + (dueByDate[key]?.length ?? 0) > 0);
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div className="flex items-center gap-2">
-        <CalendarDays className="h-5 w-5 text-cyan-600" />
-        <h1 className="text-xl font-semibold text-slate-900">Calendar</h1>
-      </div>
-
-      <GoogleCalendarSync />
+      <PageHeader title="Calendar" subtitle="What's coming, and what you logged, for one project at a time." />
 
       {loadingProjects ? (
-        <p className="text-sm text-slate-500">Loading projects…</p>
+        <div className="space-y-4" aria-busy="true">
+          <span className="sr-only" role="status">Loading projects…</span>
+          <Skeleton className="h-9 w-64" />
+          <div className="rounded-xl border border-slate-200 bg-white p-5"><Skeleton className="h-64 w-full" /></div>
+        </div>
+      ) : projectsFailed ? (
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <EmptyState
+            icon={CircleAlert}
+            title="Your projects couldn't be loaded"
+            description="The calendar shows one project at a time, so there's nothing to show yet. Check your connection and try again."
+            action={<button onClick={loadProjects} className={button("secondary")}>Try again</button>}
+          />
+        </div>
       ) : projects.length === 0 ? (
-        <p className="text-sm text-slate-500">No projects yet.</p>
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <EmptyState
+            icon={CalendarDays}
+            title="No projects yet."
+            description="Create a project and give its entries due dates to see them on the calendar."
+          />
+        </div>
       ) : (
         <>
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">Project</label>
+            <label htmlFor="calendar-project" className="block text-xs font-medium text-slate-500 mb-1">Project</label>
             <select
+              id="calendar-project"
               value={selectedProjectId}
               onChange={(e) => setParams({ project: e.target.value })}
               className="w-full max-w-sm border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800"
             >
               {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>{p.status === "ARCHIVED" ? `${p.name} (archived)` : p.name}</option>
               ))}
             </select>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-white">
+          {loadError && (
+            <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              Couldn't load this project's entries. Check your connection and try again.
+              <button onClick={() => setReloadKey((k) => k + 1)} className={button("secondary", "sm")}>Try again</button>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-slate-200 bg-white">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
               <button
                 onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-                className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600"
+                className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition"
+                aria-label="Previous month"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -130,21 +235,68 @@ export default function CalendarPage() {
                 {loadingEntries && <Loader2 className="h-3.5 w-3.5 text-slate-400 animate-spin" />}
                 <button
                   onClick={() => setCursor(new Date())}
-                  className="text-[11px] text-cyan-700 hover:underline font-medium"
+                  className="text-xs text-blue-700 hover:underline font-medium"
                 >
                   Today
                 </button>
               </div>
               <button
                 onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-                className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600"
+                className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition"
+                aria-label="Next month"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-7 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+            {narrow ? (
+              agendaDays.length === 0 ? (
+                <p className="px-4 py-6 text-center text-sm text-slate-500">
+                  {loadingEntries ? "Loading…" : `Nothing due or logged in ${monthLabel}.`}
+                </p>
+              ) : (
+              <ul className="divide-y divide-slate-100" aria-label={`${monthLabel} agenda`}>
+                {agendaDays.map((key) => {
+                    const day = dayFromKey(key);
+                    const due = dueByDate[key] ?? [];
+                    const logged = entriesByDate[key] ?? [];
+                    return (
+                      <li key={key}>
+                        <button
+                          type="button"
+                          onClick={() => setOpenDay(key)}
+                          className="flex w-full gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+                        >
+                          <span className="w-10 shrink-0 text-center">
+                            <span className="block text-xs text-slate-500">
+                              {day.toLocaleDateString(undefined, { weekday: "short" })}
+                            </span>
+                            <span className={`block text-lg font-semibold tabular-nums ${key === todayKey ? "text-blue-600" : "text-slate-800"}`}>
+                              {day.getDate()}
+                            </span>
+                          </span>
+                          <span className="min-w-0 flex-1 space-y-1">
+                            {due.map((e) => (
+                              <span key={e.id} className={`block truncate text-sm ${key < todayKey ? "text-amber-800" : "text-blue-700"}`}>
+                                {key < todayKey ? "Overdue" : "Due"}: {describe(e) || formatDuration(e.durationMinutes)}
+                              </span>
+                            ))}
+                            {logged.length > 0 && (
+                              <span className="block text-sm text-slate-600">
+                                {logged.length} {logged.length === 1 ? "entry" : "entries"} logged
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+              </ul>
+              )
+            ) : (
+              <>
+            <div className="grid grid-cols-7 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {(mondayFirst ? MONDAY_FIRST : SUNDAY_FIRST).map((d) => (
                 <div key={d} className="px-3 py-2 text-center border-b border-slate-100">{d}</div>
               ))}
             </div>
@@ -155,7 +307,12 @@ export default function CalendarPage() {
                 const inMonth = day.getMonth() === cursor.getMonth();
                 const isToday = key === todayKey;
                 const dayEntries = entriesByDate[key] ?? [];
-                const hasEntries = dayEntries.length > 0;
+                const dayDue = dueByDate[key] ?? [];
+                const hasEntries = dayEntries.length + dayDue.length > 0;
+                // Two chips fit a cell; due work first, since it needs doing.
+                const dueShown = dayDue.slice(0, 2);
+                const entriesShown = dayEntries.slice(0, 2 - dueShown.length);
+                const hidden = dayDue.length + dayEntries.length - dueShown.length - entriesShown.length;
                 return (
                   <div
                     key={key}
@@ -167,11 +324,11 @@ export default function CalendarPage() {
                       <button
                         onClick={() => hasEntries && setOpenDay(key)}
                         disabled={!hasEntries}
-                        className={`text-[11px] font-medium ${
+                        className={`text-xs font-medium tabular-nums ${
                           hasEntries ? "cursor-pointer hover:underline" : "cursor-default"
                         } ${
                           isToday
-                            ? "bg-cyan-600 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                            ? "bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center"
                             : inMonth
                             ? "text-slate-700"
                             : "text-slate-400"
@@ -179,28 +336,39 @@ export default function CalendarPage() {
                       >
                         {day.getDate()}
                       </button>
-                      {hasEntries && (
-                        <span className="text-[9px] font-semibold text-slate-400">
+                      {dayEntries.length > 0 && (
+                        <span className="text-[11px] font-medium tabular-nums text-slate-500" title="Entries on this day">
                           {dayEntries.length}
                         </span>
                       )}
                     </div>
                     <div className="space-y-0.5">
-                      {dayEntries.slice(0, 2).map((e) => (
+                      {dueShown.map((e) => (
+                        <button
+                          key={`due-${e.id}`}
+                          onClick={() => setOpenDay(key)}
+                          className={`block w-full text-left truncate text-xs leading-snug rounded px-1.5 py-0.5 transition ${
+                            key < todayKey ? "bg-amber-50 text-amber-800 hover:bg-amber-100" : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                          }`}
+                        >
+                          {key < todayKey ? "Overdue" : "Due"}: {describe(e) || formatDuration(e.durationMinutes)}
+                        </button>
+                      ))}
+                      {entriesShown.map((e) => (
                         <button
                           key={e.id}
                           onClick={() => setOpenDay(key)}
-                          className="block w-full text-left truncate text-[10px] rounded px-1 py-0.5 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 transition"
+                          className="block w-full text-left truncate text-xs leading-snug rounded px-1.5 py-0.5 bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
                         >
-                          {e.durationMinutes}m
+                          {describe(e) || formatDuration(e.durationMinutes)}
                         </button>
                       ))}
-                      {dayEntries.length > 2 && (
+                      {hidden > 0 && (
                         <button
                           onClick={() => setOpenDay(key)}
-                          className="block w-full text-left text-[9px] text-cyan-700 hover:underline px-1"
+                          className="block w-full text-left text-xs font-medium text-blue-700 hover:underline px-1.5"
                         >
-                          +{dayEntries.length - 2} more
+                          +{hidden} more
                         </button>
                       )}
                     </div>
@@ -208,16 +376,20 @@ export default function CalendarPage() {
                 );
               })}
             </div>
+              </>
+            )}
           </div>
         </>
       )}
+
+      <GoogleCalendarSync />
 
       <Modal
         open={!!openDay}
         onClose={() => setOpenDay(null)}
         title={
           openDay
-            ? new Date(openDay).toLocaleDateString(undefined, {
+            ? dayFromKey(openDay).toLocaleDateString(undefined, {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
@@ -226,23 +398,53 @@ export default function CalendarPage() {
             : ""
         }
       >
-        <ul className="space-y-2">
-          {openDayEntries.map((e) => (
-            <li key={e.id} className="rounded-lg border border-slate-200 px-3 py-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500">{e.durationMinutes} min</span>
-                <Link
-                  to={`/projects/${e.projectId}`}
-                  className="text-xs text-cyan-700 hover:underline font-medium"
-                  onClick={() => setOpenDay(null)}
-                >
-                  Open project
-                </Link>
-              </div>
-            </li>
-          ))}
-        </ul>
+        {openDayDue.length > 0 && (
+          <div className="mb-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+              {openDay && openDay < todayKey ? "Overdue" : "Due"}
+            </p>
+            <ul className="space-y-2">
+              {openDayDue.map((e) => (
+                <DayItem key={`due-${e.id}`} entry={e} onOpen={() => setOpenDay(null)} />
+              ))}
+            </ul>
+          </div>
+        )}
+        {openDayEntries.length > 0 && (
+          <>
+            {openDayDue.length > 0 && (
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Logged</p>
+            )}
+            <ul className="space-y-2">
+              {openDayEntries.map((e) => (
+                <DayItem key={e.id} entry={e} onOpen={() => setOpenDay(null)} />
+              ))}
+            </ul>
+          </>
+        )}
       </Modal>
     </div>
+  );
+}
+
+function DayItem({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
+  const description = describe(entry);
+  return (
+    <li className="rounded-lg border border-slate-200 px-3 py-2">
+      {description && <p className="text-sm text-slate-800 mb-1">{description}</p>}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-slate-500">
+          {formatDuration(entry.durationMinutes)}{entry.status === "DONE" ? " · Done" : ""}
+        </span>
+        {/* Opens this entry itself on its project page, where it can be edited. */}
+        <Link
+          to={`/projects/${entry.projectId}?entry=${entry.id}`}
+          className="text-xs text-blue-700 hover:underline font-medium"
+          onClick={onOpen}
+        >
+          Open entry
+        </Link>
+      </div>
+    </li>
   );
 }

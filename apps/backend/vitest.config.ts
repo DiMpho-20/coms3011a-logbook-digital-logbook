@@ -41,6 +41,9 @@ export default defineConfig({
       // flattering one.
       include: ["src/**"],
       exclude: ["src/**/__tests__/**"],
+      // A floor at the 80% of lines the final rubric asks about: a drop below
+      // it fails the run, so coverage can only fall with a deliberate decision.
+      thresholds: { lines: 80 },
     },
   },
 });

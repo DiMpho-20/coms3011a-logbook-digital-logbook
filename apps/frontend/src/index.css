@@ -84,21 +84,61 @@ body {
   color: #475569;
 }
 
-/* ── Sidebar visual effects ─────────────────────────────────── */
+/* ── Sidebar ─────────────────────────────────────────────────
+   The sidebar is a dark panel whatever the page theme. Its accent is the
+   one chosen in Settings, in a lighter tone that reads on dark: each
+   data-accent sets --nav-accent, and the active item, its edge and its
+   badge all take their colour from it. */
+:root { --nav-accent: #60a5fa; }
+[data-accent="emerald"] { --nav-accent: #34d399; }
+[data-accent="violet"] { --nav-accent: #a78bfa; }
+[data-accent="amber"] { --nav-accent: #fbbf24; }
+[data-accent="rose"] { --nav-accent: #fb7185; }
 
-/* Active nav item background glow */
+.sidebar-root {
+  background-color: #0f172a;
+  color: #cbd5e1;
+}
+/* In the dark theme the page is near-black too, so the panel's edge carries it. */
+[data-theme="dark"] .sidebar-root {
+  background-color: #111a2e;
+}
+
+/* The nav scrolls only when it must; its scrollbar stays out of the way —
+   a 4px sliver a shade lighter than the panel, never the browser's thick
+   grey bar. The thumb barely reads against the dark background until the
+   pointer finds it. */
+.sidebar-root nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
+.sidebar-root nav::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-root nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-root nav::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+}
+.sidebar-root nav::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Active: a tinted wash, accent text, and an edge on the left — more than colour alone. */
 .sidebar-nav-active {
-  background: rgba(0, 174, 255, 0.08);
+  background-color: color-mix(in srgb, var(--nav-accent) 14%, transparent);
+  color: color-mix(in srgb, var(--nav-accent) 55%, #ffffff);
 }
-
 .sidebar-nav-active:hover {
-  background: rgba(0, 174, 255, 0.12);
+  background-color: color-mix(in srgb, var(--nav-accent) 18%, transparent);
 }
-
-/* Active indicator bar (cyan with glow) */
 .sidebar-active-bar {
-  background: linear-gradient(180deg, #00c6ff, #0072ff);
-  box-shadow: 0 0 8px rgba(0, 198, 255, 0.5), 0 0 16px rgba(0, 198, 255, 0.2);
+  background-color: var(--nav-accent);
+}
+.sidebar-accent-text {
+  color: color-mix(in srgb, var(--nav-accent) 55%, #ffffff);
 }
 
 /* ── Motion preference ───────────────────────────────────────
@@ -113,6 +153,61 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ── Keyboard focus ────────────────────────────────────────────
+   A visible ring whenever focus arrives from the keyboard, on every
+   link and button-like control. Mouse clicks don't show it
+   (:focus-visible), and :where() keeps it at zero specificity so a
+   component's own focus style still wins. Inputs keep their own
+   focus:ring styles. */
+:root { --focus-ring: #2563eb; }
+[data-theme="dark"] { --focus-ring: #60a5fa; }
+[data-accent="emerald"] { --focus-ring: #059669; }
+[data-accent="violet"] { --focus-ring: #7c3aed; }
+[data-accent="amber"] { --focus-ring: #d97706; }
+[data-accent="rose"] { --focus-ring: #e11d48; }
+:where(a, button, summary, [role="button"], [role="tab"], [role="switch"], [role="radio"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+/* The sidebar is dark whatever the theme: a light ring, distinct from the accent active state. */
+.sidebar-root :focus-visible { outline-color: #e2e8f0; outline-offset: 1px; }
+
+/* ── Readable helper text ──────────────────────────────────────
+   slate-400 (#94a3b8) is about 2.6:1 on white, below the 4.5:1 that
+   small text needs, and the app uses it for hints and secondary
+   lines. On the light pages and dialogs it is drawn as slate-500
+   (#64748b, 4.8:1) instead. The sidebar and the sign-in screens are
+   dark, so they keep the lighter shade, and dark mode has its own. */
+:root:not([data-theme="dark"]) :is(main, [role="dialog"]) .text-slate-400 {
+  color: #64748b;
+}
+
+/* ── Motion vocabulary ─────────────────────────────────────────
+   Small, quick, and only where something changed. All of it is CSS, so
+   it costs no JavaScript, and the reduced-motion rule above stills it. */
+
+/* A progress bar fills in once, when it first appears. */
+.bar-grow {
+  transform-origin: left center;
+  animation: bar-grow 450ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Something just finished (an item marked done): it fades and steps aside. */
+.leave-done {
+  opacity: 0;
+  transform: translateX(8px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+/* The hatching on the part of a grade bar that can no longer be earned. */
+.bar-lost {
+  background-image: repeating-linear-gradient(135deg, rgb(148 163 184 / 0.35) 0 3px, transparent 3px 6px);
 }
 
 /* ── Dark theme: coloured surfaces ───────────────────────────

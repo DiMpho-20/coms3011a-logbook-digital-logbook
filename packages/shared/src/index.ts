@@ -57,6 +57,8 @@ export interface EntryReference {
   id: string;
   label?: string;
   kind?: "project" | "entry";
+  /** For kind "entry": the project the linked entry lives in, so the UI can route to it. */
+  projectId?: string;
 }
 
 export type EntryFieldValue = string | number | boolean | string[] | ChecklistItem[] | EntryReference | null;
@@ -218,7 +220,7 @@ export interface ApiError {
 
 export type ReminderStatus = "PENDING" | "COMPLETED" | "DISMISSED";
 /** MANUAL reminders are set by the student; the rest come from their rules. */
-export type ReminderSource = "MANUAL" | "DUE_SOON" | "OVERDUE" | "STALE" | "DAILY_LOG";
+export type ReminderSource = "MANUAL" | "DUE_SOON" | "OVERDUE" | "STALE" | "DAILY_LOG" | "ASSESSMENT";
 export type ReminderStatusFilter = "pending" | "completed" | "dismissed" | "done" | "all";
 
 export interface Reminder {
@@ -239,6 +241,16 @@ export interface Reminder {
     label: string;
     dueDate: string | null;
     status: "OPEN" | "DONE";
+  } | null;
+  /** The My Grades assessment an ASSESSMENT reminder is about. */
+  assessment: {
+    id: string;
+    moduleId: string;
+    moduleCode: string;
+    name: string;
+    /** "YYYY-MM-DD" */
+    date: string | null;
+    dateKind: "DUE" | "TEST" | null;
   } | null;
 }
 
@@ -270,8 +282,14 @@ export interface ReminderSettings {
   dailyLogTime: string;
   /** IANA zone calendar days are counted in. */
   timeZone: string;
+  /** Remind 5 and 2 days before dated assessments in My Grades. */
+  assessmentEnabled: boolean;
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────
 
 export * from "./auth.js";
+
+// ─── Grades ──────────────────────────────────────────────────────────────
+
+export * from "./grades.js";

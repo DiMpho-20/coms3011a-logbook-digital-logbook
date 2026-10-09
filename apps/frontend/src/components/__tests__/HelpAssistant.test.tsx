@@ -22,7 +22,7 @@ const renderAt = (path = "/dashboard") =>
     </MemoryRouter>
   );
 
-const openPanel = () => fireEvent.click(screen.getByRole("button", { name: "Ask for help" }));
+const openPanel = () => fireEvent.click(screen.getByRole("button", { name: "Need help?" }));
 const ask = (text: string) => {
   fireEvent.change(screen.getByLabelText("Your question"), { target: { value: text } });
   fireEvent.click(screen.getByRole("button", { name: "Send question" }));
@@ -85,6 +85,17 @@ describe("HelpAssistant", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Take me to Reminders/ }));
 
     expect(screen.getByTestId("where").textContent).toBe("/reminders");
+  });
+
+  it("names My Grades on its button rather than showing the path", async () => {
+    vi.mocked(api.askAssistant).mockResolvedValue({ reply: "Your modules are in My Grades.", navigateTo: "/grades" });
+    renderAt();
+    openPanel();
+
+    ask("where are my marks?");
+    fireEvent.click(await screen.findByRole("button", { name: "Take me to My Grades" }));
+
+    expect(screen.getByTestId("where").textContent).toBe("/grades");
   });
 
   it("shows the server's error and keeps the question for a retry", async () => {

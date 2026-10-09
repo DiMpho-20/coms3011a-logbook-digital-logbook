@@ -4,6 +4,13 @@ import { formatDuration, isEmptyValue } from "../lib/utils";
 import TagList from "./TagList";
 import type { ChecklistItem, Entry, EntryField } from "../api";
 
+/** Where a reference click leads: the project itself, or the linked entry opened in its project. */
+function referenceHref(ref: { id: string; kind?: string; projectId?: string }): string {
+  return ref.kind === "entry" && ref.projectId
+    ? `/projects/${ref.projectId}?entry=${ref.id}`
+    : `/projects/${ref.id}`;
+}
+
 interface EntryCardProps {
   entry: Entry;
   projectName?: string;
@@ -227,7 +234,7 @@ export default function EntryCard({
                   </a>
                 ) : field.type === "REFERENCE" && value && typeof value === "object" ? (
                   <Link
-                    to={`/projects/${(value as { id: string; label?: string }).id}`}
+                    to={referenceHref(value as { id: string; kind?: string; projectId?: string })}
                     onClick={(e) => e.stopPropagation()}
                     className="font-medium text-blue-600 hover:underline"
                   >

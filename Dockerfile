@@ -21,4 +21,6 @@ RUN npm run build --workspace=packages/shared
 RUN npm run build --workspace=apps/backend
 
 EXPOSE 3000
-CMD ["npm", "run", "start", "--workspace=apps/backend"]
+# Apply any pending database migrations, then serve. A redeploy therefore
+# brings the production schema up to date by itself.
+CMD ["npm", "run", "start:deploy", "--workspace=apps/backend"]

@@ -22,6 +22,12 @@ async function ownedProject(projectId: string, userId: string) {
  *
  * Both constants are fixed literals, never built from user input.
  */
+/**
+ * The reserved dateFieldId that plots by each entry's own date instead of a
+ * DATE field's value. Not a UUID, so it can never collide with a real field.
+ */
+const ENTRY_DATE = "ENTRY_DATE";
+
 const NUMERIC_VALUES = `~ '^-?[0-9]+([.][0-9]+)?$'`;
 /**
  * count does not cast, so it needs no numeric test — but an empty row still
@@ -122,6 +128,12 @@ export const groupStats = async (req: AuthenticatedRequest, res: Response) => {
 // Body: { dateFieldId, bucket: "day" | "week" | "month", operation?: "count" | "sum", metricFieldId? }
 // Plots either how many entries fall in each bucket (default), or the total
 // of a NUMBER/COMPUTED field across the entries in each bucket.
+//
+// dateFieldId is normally a DATE field of the project, but the ENTRY_DATE
+// literal plots by each entry's own date (entryDate, falling back to
+// createdAt) instead: a project need not define a DATE field to have a
+// history, because every entry is dated whether or not its format carries
+// one. The literal is not a UUID, so it can never collide with a field id.
 export const timelineStats = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const projectId = String(req.params.projectId);
@@ -140,18 +152,24 @@ export const timelineStats = async (req: AuthenticatedRequest, res: Response) =>
       return res.status(400).json({ error: "operation must be count or sum" });
     }
 
-    const dateField = await prisma.entryField.findFirst({
-      where: { id: dateFieldId, projectId },
-    });
-    if (!dateField) {
-      return res.status(404).json({ error: "Date field not found" });
-    }
-    if (dateField.type !== "DATE") {
-      return res.status(400).json({ error: "dateFieldId must point to a DATE field" });
+    // Whose date each entry is plotted by. The metric join's placeholder
+    // depends on it: date-field mode spends $1 on the field id and $2 on the
+    // project id, entry-date mode needs only the project id.
+    const byEntryDate = dateFieldId === ENTRY_DATE;
+    const params: unknown[] = byEntryDate ? [projectId] : [dateFieldId, projectId];
+    if (!byEntryDate) {
+      const dateField = await prisma.entryField.findFirst({
+        where: { id: dateFieldId, projectId },
+      });
+      if (!dateField) {
+        return res.status(404).json({ error: "Date field not found" });
+      }
+      if (dateField.type !== "DATE") {
+        return res.status(400).json({ error: `dateFieldId must point to a DATE field or be "${ENTRY_DATE}"` });
+      }
     }
 
     let metricJoin = "";
-    const params: unknown[] = [dateFieldId, projectId];
     if (operation === "sum") {
       if (!metricFieldId) {
         return res.status(400).json({ error: "metricFieldId is required for sum" });
@@ -163,19 +181,24 @@ export const timelineStats = async (req: AuthenticatedRequest, res: Response) =>
       if (!["NUMBER", "COMPUTED"].includes(metricField.type)) {
         return res.status(400).json({ error: "sum requires a NUMBER or COMPUTED field" });
       }
-      metricJoin = `JOIN entry_values mv ON mv.entry_id = le.id AND mv.field_id = $3 AND mv.value ${NUMERIC_VALUES}`;
+      metricJoin = `JOIN entry_values mv ON mv.entry_id = le.id AND mv.field_id = $${byEntryDate ? 2 : 3} AND mv.value ${NUMERIC_VALUES}`;
       params.push(metricFieldId);
     }
 
     const truncUnit = bucket; // 'day' | 'week' | 'month' maps directly to date_trunc
     const metricExpr = operation === "sum" ? "SUM((mv.value)::numeric)" : "COUNT(*)";
+    const dateColumn = byEntryDate ? "COALESCE(le.entry_date, le.created_at)" : "ev.value::date";
+    const dateJoin = byEntryDate
+      ? ""
+      : `JOIN entry_values ev ON ev.entry_id = le.id AND ev.field_id = $1 AND ev.value ${DATE_VALUES}`;
+    const projectFilter = byEntryDate ? "$1" : "$2";
     const rows: any[] = await prisma.$queryRawUnsafe(`
-      SELECT date_trunc('${truncUnit}', ev.value::date)::date AS date, ${metricExpr} AS value
+      SELECT date_trunc('${truncUnit}', ${dateColumn})::date AS date, ${metricExpr} AS value
       FROM logbook_entries le
-      JOIN entry_values ev ON ev.entry_id = le.id AND ev.field_id = $1 AND ev.value ${DATE_VALUES}
+      ${dateJoin}
       ${metricJoin}
-      WHERE le.project_id = $2
-      GROUP BY date_trunc('${truncUnit}', ev.value::date)
+      WHERE le.project_id = ${projectFilter}
+      GROUP BY date_trunc('${truncUnit}', ${dateColumn})
       ORDER BY date ASC
     `, ...params);
 

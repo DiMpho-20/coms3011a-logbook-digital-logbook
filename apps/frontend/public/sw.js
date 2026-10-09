@@ -6,7 +6,9 @@
 const CACHE = "logbook-shell-v1";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(["/", "/index.html"])));
+  event.waitUntil(
+    caches.open(CACHE).then((cache) => cache.addAll(["/", "/index.html", "/manifest.webmanifest"]))
+  );
   self.skipWaiting();
 });
 
@@ -28,7 +30,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(message.title || "Reminder", {
       body: message.body || "",
-      icon: "/favicon.svg",
+      icon: "/icon-192.png",
       tag: message.tag,
       data: { url: message.url || "/reminders" },
     })

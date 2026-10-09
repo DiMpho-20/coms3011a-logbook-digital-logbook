@@ -32,6 +32,13 @@ flowchart LR
 
 The backend only accepts browser requests from `localhost` and `*.pages.dev` origins (CORS, `apps/backend/src/app.ts`).
 
+**Delivery.** A push to `main` runs CI (typecheck, lint, both test suites with
+coverage, builds) and, once it passes,
+deploys: a Render deploy hook rebuilds the API — whose container applies any
+pending migrations before serving — and Wrangler publishes the frontend to
+Cloudflare Pages. A scheduled workflow keeps the free-tier API awake. See
+[Deployment](setup.md#deployment).
+
 ## 2. Tech Stack
 
 | Layer | Technology | Version | Purpose | Why Chosen |
@@ -133,6 +140,7 @@ All routes are under `/api` and, apart from sign-up, sign-in, password reset and
 | Projects | `/projects`, `/projects/:id`, `/projects/:id/time-summary`, `/projects/:id/status` |
 | Entry fields & formats | `/projects/:projectId/entry-fields`, `/projects/:projectId/entry-format-versions`, `/entry-fields/:id` |
 | Entries | `/entries`, `/projects/:projectId/entries`, `/entries/:id`, `/entries/:id/status`, `/me/open-entries` |
+| Backup & restore | `/import` |
 | History & archive | `/entries/:id/versions`, `/entries/:id/versions/at`, `/entries/:id/versions/:version/restore`, `/entries/archive`, `/entries/:id/archive` |
 | Statistics | `/projects/:projectId/stats/{group,timeline,expression}`, `/projects/:projectId/custom-statistics` |
 | Automation | `/projects/:projectId/automation-rules`, `/recurrences/:id` |

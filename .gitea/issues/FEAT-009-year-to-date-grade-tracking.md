@@ -1,7 +1,7 @@
 # FEAT-009: Year-to-Date / Grade Tracking
 
 **Priority:** Low
-**Status:** Open (filed from Sprint 3 user feedback)
+**Status:** Fixed (commits `0dea059`, `7e26597` — shipped as the **My Grades** feature; see `docs/extra-features/my-grades.md`)
 **Component:** Frontend — Statistics page / Dashboard
 **Labels:** feature, user-feedback
 

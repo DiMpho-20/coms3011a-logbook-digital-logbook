@@ -1,12 +1,27 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("../../api/client", () => ({
+  api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
+}));
+
+import { api } from "../../api/client";
 import {
   loadSavedFilters,
   persistSavedFilters,
   saveFilter,
   deleteFilter,
+  syncSavedFilters,
   type SavedFilter,
 } from "../savedFilters";
+
+const UUID_A = "11111111-1111-4111-8111-111111111111";
+const UUID_B = "22222222-2222-4222-8222-222222222222";
+const offline = Object.assign(new Error("Network Error"), { code: "ERR_NETWORK" });
+
+beforeEach(() => {
+  localStorage.clear();
+  vi.clearAllMocks();
+});
 
 const STORAGE_KEY = "logbook-saved-filters";
 
@@ -54,33 +69,33 @@ describe("persistSavedFilters", () => {
   });
 });
 
-describe("saveFilter", () => {
-  it("adds a new filter and returns the updated list", () => {
-    const result = saveFilter("My filter", {
-      searchQuery: "todo",
-      filterProjectId: "",
-      filterTab: "week",
-      sortOrder: "oldest",
-    });
+const state = { searchQuery: "todo", filterProjectId: "", filterTab: "week" as const, sortOrder: "oldest" as const };
 
-    expect(result).toHaveLength(1);
-    expect(result[0].name).toBe("My filter");
-    expect(result[0].searchQuery).toBe("todo");
-    expect(result[0].id).toMatch(/^[\d]+-[a-z0-9]+$/);
-    expect(result[0].createdAt).toBeTruthy();
+describe("saveFilter", () => {
+  it("saves to the account and caches what the account returns", async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: seedFilter({ id: UUID_A, name: "My filter" }) });
+
+    const result = await saveFilter("  My filter ", state);
+
+    expect(api.post).toHaveBeenCalledWith("/saved-filters", { name: "My filter", filters: state });
+    expect(result.map((f) => f.id)).toEqual([UUID_A]);
+    expect(loadSavedFilters()[0].id).toBe(UUID_A);
   });
 
-  it("saves and reloads selected tags", () => {
-    const result = saveFilter("Tagged", {
-      searchQuery: "",
-      filterProjectId: "",
-      filterTab: "all",
-      sortOrder: "newest",
-      selectedTags: ["urgent", "reading"],
-    });
+  it("keeps the filter on this device when offline", async () => {
+    vi.mocked(api.post).mockRejectedValue(offline);
 
-    expect(result[0].selectedTags).toEqual(["urgent", "reading"]);
-    expect(loadSavedFilters()[0].selectedTags).toEqual(["urgent", "reading"]);
+    const result = await saveFilter("Offline", { ...state, selectedTags: ["urgent"] });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toMatch(/^\d+-[a-z0-9]+$/);
+    expect(loadSavedFilters()[0].selectedTags).toEqual(["urgent"]);
+  });
+
+  it("passes on a refusal from the server instead of hiding it", async () => {
+    vi.mocked(api.post).mockRejectedValue({ response: { status: 400 } });
+    await expect(saveFilter("Bad", state)).rejects.toBeTruthy();
+    expect(loadSavedFilters()).toEqual([]);
   });
 
   it("loads an older saved filter with no selectedTags field without error", () => {
@@ -88,66 +103,63 @@ describe("saveFilter", () => {
     const [loaded] = loadSavedFilters();
     expect(loaded.selectedTags).toBeUndefined();
   });
+});
 
-  it("trims the filter name", () => {
-    const result = saveFilter("  padded  ", {
-      searchQuery: "",
-      filterProjectId: "",
-      filterTab: "all",
-      sortOrder: "newest",
+describe("syncSavedFilters", () => {
+  it("uploads filters saved only on this device, then caches the account's list", async () => {
+    persistSavedFilters([seedFilter({ id: "1700000000-abc123", name: "Local", selectedTags: ["x"] })]);
+    vi.mocked(api.post).mockResolvedValue({ data: seedFilter({ id: UUID_A, name: "Local" }) });
+    vi.mocked(api.get).mockResolvedValue({ data: [seedFilter({ id: UUID_A, name: "Local" }), seedFilter({ id: UUID_B, name: "From laptop" })] });
+
+    const result = await syncSavedFilters();
+
+    expect(api.post).toHaveBeenCalledWith("/saved-filters", {
+      name: "Local",
+      filters: { searchQuery: "bug", filterProjectId: "proj-1", filterTab: "all", sortOrder: "newest", selectedTags: ["x"] },
     });
-    expect(result[0].name).toBe("padded");
+    expect(result.map((f) => f.name)).toEqual(["Local", "From laptop"]);
+    expect(loadSavedFilters().map((f) => f.id)).toEqual([UUID_A, UUID_B]);
   });
 
-  it("preserves existing filters when adding a new one", () => {
-    persistSavedFilters([seedFilter()]);
-    const result = saveFilter("New one", {
-      searchQuery: "x",
-      filterProjectId: "",
-      filterTab: "all",
-      sortOrder: "newest",
-    });
-    expect(result).toHaveLength(2);
-    expect(result.map((f) => f.name).sort()).toEqual(["New one", "Seed"]);
+  it("does not upload filters already on the account", async () => {
+    persistSavedFilters([seedFilter({ id: UUID_A })]);
+    vi.mocked(api.get).mockResolvedValue({ data: [seedFilter({ id: UUID_A })] });
+
+    await syncSavedFilters();
+
+    expect(api.post).not.toHaveBeenCalled();
   });
 
-  it("persists the filter to localStorage", () => {
-    saveFilter("Persisted", {
-      searchQuery: "",
-      filterProjectId: "",
-      filterTab: "all",
-      sortOrder: "newest",
-    });
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    expect(parsed).toHaveLength(1);
-    expect(parsed[0].name).toBe("Persisted");
+  it("leaves the cache alone when the account cannot be reached", async () => {
+    persistSavedFilters([seedFilter({ id: UUID_A })]);
+    vi.mocked(api.get).mockRejectedValue(offline);
+
+    await expect(syncSavedFilters()).rejects.toBeTruthy();
+    expect(loadSavedFilters().map((f) => f.id)).toEqual([UUID_A]);
   });
 });
 
 describe("deleteFilter", () => {
-  it("removes the filter with the matching id and returns the remainder", () => {
-    persistSavedFilters([
-      seedFilter({ id: "a", name: "A" }),
-      seedFilter({ id: "b", name: "B" }),
-    ]);
+  it("deletes from the account and the cache", async () => {
+    persistSavedFilters([seedFilter({ id: UUID_A, name: "A" }), seedFilter({ id: UUID_B, name: "B" })]);
+    vi.mocked(api.delete).mockResolvedValue({});
 
-    const result = deleteFilter("a");
+    const result = await deleteFilter(UUID_A);
 
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("b");
+    expect(api.delete).toHaveBeenCalledWith(`/saved-filters/${UUID_A}`);
+    expect(result.map((f) => f.id)).toEqual([UUID_B]);
+    expect(loadSavedFilters().map((f) => f.id)).toEqual([UUID_B]);
   });
 
-  it("leaves other filters intact when the id does not match anything", () => {
-    persistSavedFilters([seedFilter({ id: "x" })]);
-    const result = deleteFilter("no-such-id");
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("x");
+  it("removes a filter that only exists on this device without asking the server", async () => {
+    persistSavedFilters([seedFilter({ id: "local-1" })]);
+    expect(await deleteFilter("local-1")).toEqual([]);
+    expect(api.delete).not.toHaveBeenCalled();
   });
 
-  it("persists the deletion to localStorage", () => {
-    persistSavedFilters([seedFilter({ id: "a" }), seedFilter({ id: "b" })]);
-    deleteFilter("a");
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    expect(parsed.map((f: SavedFilter) => f.id)).toEqual(["b"]);
+  it("treats a filter already gone from the account as deleted", async () => {
+    persistSavedFilters([seedFilter({ id: UUID_A })]);
+    vi.mocked(api.delete).mockRejectedValue({ response: { status: 404 } });
+    expect(await deleteFilter(UUID_A)).toEqual([]);
   });
 });

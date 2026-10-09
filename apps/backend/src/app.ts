@@ -12,8 +12,11 @@ import automationRuleRoutes from "./routes/automationRule.routes.js";
 import reminderRoutes from "./routes/reminder.routes.js";
 import pushRoutes from "./routes/push.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
+import savedFilterRoutes from "./routes/savedFilter.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
 import assistantRoutes from "./routes/assistant.routes.js";
+import gradesRoutes from "./routes/grades.routes.js";
+import importRoutes from "./routes/import.routes.js";
 import { authLimiter, nonNegativeIntFromEnv } from "./middleware/rateLimit.middleware.js";
 
 const app = express();
@@ -38,6 +41,10 @@ app.use(
 );
 // Express's default 100 KB would turn away avatars well under the 512 KB cap
 // in profileInput.ts with a bare 413, before that check could explain itself.
+// A whole-logbook backup is one request (issue #87) and outgrows 1 MB long
+// before it is unreasonable. Registered first, so the general parser below
+// finds the body already read and leaves it alone.
+app.use("/api/import", express.json({ limit: "10mb" }));
 app.use(express.json({ limit: "1mb" }));
 
 // ── API routes ────────────────────────────────────────────────────────
@@ -53,8 +60,13 @@ app.use("/api", tagRoutes);
 app.use("/api", reminderRoutes);
 app.use("/api", pushRoutes);
 app.use("/api", dashboardRoutes);
+app.use("/api", savedFilterRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", assistantRoutes);
+app.use("/api", importRoutes);
+// Its own mount path, because the grades router applies requireAuth to every
+// request it sees (see grades.routes.ts).
+app.use("/api/grades", gradesRoutes);
 
 // ── Utility routes ────────────────────────────────────────────────────
 app.get("/", (_req, res) => {

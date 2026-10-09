@@ -95,7 +95,10 @@ export async function pushDueReminders(now = new Date()): Promise<void> {
       await generateReminders(userId, now);
       const due = await prisma.reminder.findMany({
         where: { userId, status: "PENDING", remindAt: { lte: now }, pushedAt: null },
-        include: { entry: { include: ENTRY_LABEL_INCLUDE } },
+        include: {
+          entry: { include: ENTRY_LABEL_INCLUDE },
+          assessment: { select: { name: true, module: { select: { code: true } } } },
+        },
         orderBy: { remindAt: "asc" },
       });
       if (due.length === 0) continue;
@@ -116,7 +119,11 @@ export async function pushDueReminders(now = new Date()): Promise<void> {
             }]
           : due.map((r) => ({
               title: r.title,
-              body: [r.entry ? `${r.entry.project.name}: ${entryLabel(r.entry)}` : null, r.note]
+              body: [
+                r.entry ? `${r.entry.project.name}: ${entryLabel(r.entry)}` : null,
+                r.assessment ? `${r.assessment.module.code}: ${r.assessment.name}` : null,
+                r.note,
+              ]
                 .filter(Boolean)
                 .join("\n"),
               url: "/reminders",
