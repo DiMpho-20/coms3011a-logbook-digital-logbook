@@ -73,6 +73,7 @@ function fieldValueLabel(field: EntryField, value: unknown): string {
 
 export default function EntriesPage() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [fieldsByProject, setFieldsByProject] = useState<Record<string, EntryField[]>>({});
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,11 +119,6 @@ export default function EntriesPage() {
   const loadRunRef = useRef(0);
   const hasLoadedOnceRef = useRef(false);
 
-  useEffect(() => {
-  console.log("EntriesPage mounted");
-  return () => console.log("EntriesPage unmounted");
-}, []);
-
   // Fields of the selected project (for the field filter popover).
   const selectedProjectFields = useMemo<EntryField[]>(() => {
     if (filterProjectId === "all") return [];
@@ -163,8 +159,19 @@ export default function EntriesPage() {
         const map: Record<string, EntryField[]> = {};
         fieldResults.forEach((r) => { map[r.id] = r.fields; });
         setFieldsByProject(map);
+
+        // Release the page even when the user has no projects at all, so the
+        // empty state shows instead of a spinner that never stops.
+        setProjectsLoaded(true);
+        if (active.length === 0) {
+          setLoading(false);
+          setEntriesLoading(false);
+        }
       } catch (err) {
         console.error("Failed to load projects:", err);
+        setProjectsLoaded(true);
+        setLoading(false);
+        setEntriesLoading(false);
       }
     })();
   }, []);
@@ -193,13 +200,13 @@ export default function EntriesPage() {
     }
   }, [buildQuery, projects]);
 
-  // Re-fetch whenever the applied snapshot changes, and after projects
-  // are loaded for the first time.
+  // Fetch entries once projects are loaded. Reruns when the user applies
+  // new filters or when project list identity changes.
   useEffect(() => {
-    if (projects.length === 0 && !hasLoadedOnceRef.current) return;
+    if (!projectsLoaded) return;
     loadAll(applied);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applied, projects.length]);
+  }, [applied, projectsLoaded]);
 
   useEffect(() => {
     setSavedFilters(loadSavedFilters());
@@ -346,7 +353,7 @@ export default function EntriesPage() {
       {projects.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
-          title="No active projects"
+          title="No projects yet"
           description="Create a project first, then entries will show up here."
         />
       ) : (
