@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { registerSchema } from "@logbook/shared";
 import { api } from "../api/client";
 import { AuthLayout } from "../components/AuthLayout";
@@ -11,6 +12,7 @@ export const RegisterPage: React.FC = () => {
   const [serverError, setServerError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +20,6 @@ export const RegisterPage: React.FC = () => {
     setServerError("");
     setSuccessMsg("");
 
-    // Client-side validation using shared Zod schema
     const validation = registerSchema.safeParse(formData);
     if (!validation.success) {
       const fieldErrors: Record<string, string> = {};
@@ -32,14 +33,12 @@ export const RegisterPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       const response = await api.post("/auth/register", formData);
-      
-      // Save user info for profile pre-fill
+
       if (response.data.user) {
         localStorage.setItem("logbook-name", response.data.user.fullName);
         localStorage.setItem("logbook-email", response.data.user.email);
       }
 
-      // Clear inputs and display email verification instruction banner
       setFormData({ fullName: "", email: "", password: "" });
       setSuccessMsg(
         response.data.message ||
@@ -60,7 +59,6 @@ export const RegisterPage: React.FC = () => {
 
   return (
     <AuthLayout>
-      {/* Back to home */}
       <a
         href="/"
         style={{
@@ -86,7 +84,6 @@ export const RegisterPage: React.FC = () => {
       </a>
       <LoginStage3D variant="sign-up">
       <GlassCard>
-        {/* Header Section */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
           <div
             style={{
@@ -102,7 +99,6 @@ export const RegisterPage: React.FC = () => {
               boxShadow: "0 0 20px rgba(0, 198, 255, 0.25)",
             }}
           >
-            {/* User Plus Icon */}
             <svg
               width="26"
               height="26"
@@ -127,7 +123,6 @@ export const RegisterPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Server Error Banner */}
         {serverError && (
           <div
             style={{
@@ -145,7 +140,6 @@ export const RegisterPage: React.FC = () => {
           </div>
         )}
 
-        {/* Verification Success Banner */}
         {successMsg && (
           <div
             style={{
@@ -165,7 +159,6 @@ export const RegisterPage: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Full Name Field */}
           <div style={{ marginBottom: "1.25rem" }}>
             <label
               style={{
@@ -250,7 +243,6 @@ export const RegisterPage: React.FC = () => {
             )}
           </div>
 
-          {/* Email Field */}
           <div style={{ marginBottom: "1.25rem" }}>
             <label
               style={{
@@ -335,7 +327,6 @@ export const RegisterPage: React.FC = () => {
             )}
           </div>
 
-          {/* Password Field */}
           <div style={{ marginBottom: "1.5rem" }}>
             <label
               style={{
@@ -376,13 +367,13 @@ export const RegisterPage: React.FC = () => {
               </div>
 
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 style={{
                   width: "100%",
-                  padding: "0.75rem 1rem 0.75rem 2.6rem",
+                  padding: "0.75rem 2.6rem 0.75rem 2.6rem",
                   boxSizing: "border-box",
                   borderRadius: "10px",
                   border: errors.password
@@ -405,6 +396,29 @@ export const RegisterPage: React.FC = () => {
                   e.target.style.boxShadow = "none";
                 }}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  padding: "4px",
+                  cursor: "pointer",
+                  color: "rgba(255, 255, 255, 0.6)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#00c6ff")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255, 255, 255, 0.6)")}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
             {errors.password && (
               <small
@@ -420,7 +434,6 @@ export const RegisterPage: React.FC = () => {
             )}
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={isSubmitting}
@@ -453,7 +466,6 @@ export const RegisterPage: React.FC = () => {
           </button>
         </form>
 
-        {/* Footer Link to Login */}
         <p
           style={{
             textAlign: "center",
