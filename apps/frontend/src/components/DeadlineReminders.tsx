@@ -29,6 +29,8 @@ export default function DeadlineReminders({ entries, projectNames }: DeadlineRem
 
     entries.forEach((entry) => {
       if (!entry.dueDate) return;
+      // A completed entry has no pending deadline, so it can't be overdue.
+      if (entry.status === "DONE") return;
       const due = new Date(entry.dueDate.slice(0, 10) + "T00:00:00");
       const diffMs = due.getTime() - todayStart.getTime();
       const daysUntil = Math.round(diffMs / 86400000);
