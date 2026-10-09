@@ -3,6 +3,7 @@ import { registerSchema } from "@logbook/shared";
 import { api } from "../api/client";
 import { AuthLayout } from "../components/AuthLayout";
 import { GlassCard } from "../components/GlassCard";
+import { LoginStage3D } from "../components/LoginStage3D";
 
 export const RegisterPage: React.FC = () => {
   const [formData, setFormData] = useState({ fullName: "", email: "", password: "" });
@@ -83,6 +84,7 @@ export const RegisterPage: React.FC = () => {
         </svg>
         Back to home
       </a>
+      <LoginStage3D variant="sign-up">
       <GlassCard>
         {/* Header Section */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
@@ -476,6 +478,7 @@ export const RegisterPage: React.FC = () => {
           </a>
         </p>
       </GlassCard>
+      </LoginStage3D>
     </AuthLayout>
   );
 };

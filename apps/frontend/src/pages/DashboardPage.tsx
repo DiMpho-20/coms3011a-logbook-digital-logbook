@@ -799,13 +799,14 @@ export default function DashboardPage() {
               <div className="divide-y divide-slate-100">
                 {recentEntries.map((entry) => (
                   <div key={entry.id} className="px-4 py-3 hover:bg-slate-50/50 transition">
-                    <div className="flex items-center gap-4">
+                    {/* On a phone the title gets its own line; one row left it a few letters wide. */}
+                    <div className="flex items-center gap-4 max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-1">
                       <span className="text-[11px] font-medium text-slate-400 w-16 shrink-0">{relativeDay(entry.entryDate || entry.createdAt)}</span>
-                      <span className="text-sm text-slate-800 flex-1 min-w-0 truncate">{entrySummary(entry, fieldsByProject[entry.projectId] || [])}</span>
+                      <span className="text-sm text-slate-800 flex-1 min-w-0 truncate max-sm:order-last max-sm:basis-full max-sm:flex-none">{entrySummary(entry, fieldsByProject[entry.projectId] || [])}</span>
                       <span className="text-xs font-medium text-slate-600 shrink-0 w-16 text-right">{formatDuration(entry.durationMinutes)}</span>
-                      <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 shrink-0">{projectNames[entry.projectId] || "Unknown"}</span>
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 shrink-0 max-sm:ml-auto max-sm:min-w-0 max-sm:max-w-[55%] max-sm:shrink max-sm:truncate">{projectNames[entry.projectId] || "Unknown"}</span>
                     </div>
-                    <TagList tags={entry.tags} className="mt-1.5 ml-[72px]" />
+                    <TagList tags={entry.tags} className="mt-1.5 ml-[72px] max-sm:ml-0" />
                   </div>
                 ))}
               </div>

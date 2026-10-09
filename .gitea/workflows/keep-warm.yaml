@@ -6,6 +6,9 @@
 #
 # Manual only: the old "*/10 * * * *" schedule did keep the API awake, but it
 # also put 144 runs a day into the Actions tab, so the schedule was removed.
+# The scheduled pings now come from a cron-job.org job (every 10 minutes,
+# 06:00-23:50 SAST); see "Keeping the API awake" in docs/setup.md before
+# adding a schedule back here, so the API is not pinged twice.
 name: Keep the API awake
 
 on:

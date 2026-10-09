@@ -731,9 +731,10 @@ The body is the backup file itself (up to 10 MB):
 |---|---|---|
 | `format` | string | Yes — `"digital-logbook-backup"` |
 | `version` | number | Yes — `1` |
-| `projects` | array | Yes — each with `name`, `description`, `status`, `fields` (`id`, `name`, `type`, `required`, `formula`) and `entries` (`durationMinutes`, `entryDate`, `dueDate`, `values` keyed by the backup's field ids, and optionally `status`, `tags`, `archived`) |
+| `projects` | array | Yes — each with `name`, `description`, `status`, `fields` (`id`, `name`, `type`, `required`, `formula`) and `entries` (`durationMinutes`, `entryDate`, `dueDate`, `values` keyed by the backup's field ids). Optional: the project's `id`, `tags`, `createdAt`, `updatedAt`; each entry's `id`, `status`, `completedAt`, `tags`, `archived`, `archivedAt`, `createdAt`, `updatedAt` |
 
-- Fields and entries get new ids. Entry values, computed-field formulas and project references are rewritten to point at them. A reference to anything outside the backup is dropped.
+- Projects, fields and entries get new ids. Entry values, computed-field formulas and references are rewritten to point at them: a project reference by the project's old `id` (or by its name, for a backup without ids), and an entry reference by the entry's old `id`, even when that entry comes later in the file. A reference to anything outside the backup is dropped.
+- Project tags, entry tags, completion and archive dates, and the original `createdAt`/`updatedAt` are restored as they were. A backup without them still imports: completed and archived entries are then dated at the import.
 - Computed results are recalculated rather than copied from the file.
 - If a project's name is already taken, it is imported as `Name (imported)`, `Name (imported 2)` and so on.
 - Required fields are not enforced, so entries logged before a field became required still restore.

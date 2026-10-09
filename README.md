@@ -13,7 +13,7 @@ A web-based digital logbook application designed to help university students kee
 | **Documentation** | <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> |
 | **Gitea Repository** | <https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook> |
 
-The API runs on Render's free tier, which sleeps when idle. The first request after a quiet spell can take up to a minute while it wakes.
+The API runs on Render's free tier, which sleeps when idle. A cron-job.org pinger keeps it awake from 06:00 to midnight (see [Keeping the API awake](docs/setup.md#keeping-the-api-awake)); outside those hours the first request can take up to a minute while it wakes.
 
 ## Overview
 

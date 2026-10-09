@@ -1,4 +1,5 @@
 import { Response } from "express";
+import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 import prisma from "../prisma.js";
@@ -51,20 +52,36 @@ function orderForCreation(fields: BackupField[]): BackupField[] {
   return ordered;
 }
 
+/** Where each project and entry in the backup was recreated, keyed by its old id. */
+type IdMap = {
+  projectByOldId: Map<string, string>;
+  /** For backups written before ids were exported: a project's name is unique per student. */
+  projectByName: Map<string, string>;
+  entryByOldId: Map<string, { id: string; projectId: string }>;
+};
+
 /**
- * Point a reference at the project recreated from the backup. A backup
- * stores no project ids, but a project reference carries the project's name,
- * which is unique per student. Anything that cannot be matched (an entry
- * reference, or a project not in the backup) was already a broken link, so it
- * is left out rather than failing the whole import (issue #90).
+ * Point a reference at the copy of what it pointed at (issues #86, #90). A
+ * project is found by its old id, or by name in an older backup; an entry by
+ * its old id. Anything that cannot be matched (something not in the backup)
+ * was already a broken link, so it is left out rather than failing the import.
  */
-function remapReference(value: unknown, projectIdByName: Map<string, string>) {
+function remapReference(value: unknown, ids: IdMap) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const ref = value as { kind?: unknown; label?: unknown };
-  if ((ref.kind ?? "project") !== "project" || typeof ref.label !== "string") return null;
-  const id = projectIdByName.get(ref.label);
-  return id ? { id, label: ref.label, kind: "project" as const } : null;
+  const ref = value as { id?: unknown; kind?: unknown; label?: unknown };
+  const label = typeof ref.label === "string" ? { label: ref.label } : {};
+  if ((ref.kind ?? "project") === "entry") {
+    const target = typeof ref.id === "string" ? ids.entryByOldId.get(ref.id) : undefined;
+    return target ? { id: target.id, ...label, kind: "entry" as const, projectId: target.projectId } : null;
+  }
+  if (ref.kind !== undefined && ref.kind !== "project") return null;
+  const id = (typeof ref.id === "string" && ids.projectByOldId.get(ref.id))
+    || (typeof ref.label === "string" && ids.projectByName.get(ref.label));
+  return id ? { id, ...label, kind: "project" as const } : null;
 }
+
+/** A timestamp from the backup, or the fallback when an older backup has none. */
+const dateOr = (value: string | null | undefined, fallback: Date) => (value ? new Date(value) : fallback);
 
 /**
  * Every computed result the entry's numbers allow. One field at a time, as
@@ -98,21 +115,35 @@ async function restore(tx: Tx, userId: string, backup: LogbookBackup) {
   };
 
   // Tags are shared across the account, so they are resolved once up front.
-  const tagNames = cleanTagNames(backup.projects.flatMap((p) => p.entries.flatMap((e) => e.tags ?? [])));
+  const tagNames = cleanTagNames(backup.projects.flatMap((p) => [...(p.tags ?? []), ...p.entries.flatMap((e) => e.tags ?? [])]));
   const tagIds = await resolveTagIds(tx, userId, tagNames);
   const tagIdByName = new Map(tagNames.map((name, i) => [name, tagIds[i]]));
+  const tagLinks = (names: string[] | undefined) => cleanTagNames(names)
+    .map((name) => tagIdByName.get(name))
+    .filter((tagId): tagId is string => Boolean(tagId))
+    .map((tagId) => ({ tagId }));
 
   // Every project and its fields first, then the entries, so an entry can
   // refer to a project that comes later in the file.
   const created: { project: BackupProject; id: string; fieldIds: Map<string, string>; formatVersionId: string | null }[] = [];
-  const projectIdByName = new Map<string, string>();
+  const ids: IdMap = { projectByOldId: new Map(), projectByName: new Map(), entryByOldId: new Map() };
 
   for (const project of backup.projects) {
+    const now = new Date();
     const { id: projectId } = await tx.project.create({
-      data: { userId, name: freeName(project.name), description: project.description ?? undefined, status: project.status },
+      data: {
+        userId,
+        name: freeName(project.name),
+        description: project.description ?? undefined,
+        status: project.status,
+        tags: { create: tagLinks(project.tags) },
+        createdAt: dateOr(project.createdAt, now),
+        updatedAt: dateOr(project.updatedAt, now),
+      },
       select: { id: true },
     });
-    projectIdByName.set(project.name, projectId);
+    if (project.id) ids.projectByOldId.set(project.id, projectId);
+    ids.projectByName.set(project.name, projectId);
 
     // Created in dependency order but dated in backup order, so the fields
     // come back in the order the student arranged them.
@@ -166,13 +197,21 @@ async function restore(tx: Tx, userId: string, backup: LogbookBackup) {
     created.push({ project, id: projectId, fieldIds, formatVersionId });
   }
 
+  // Every entry's new id is chosen before any is written, so an entry can
+  // link to one that is restored after it.
+  const newEntryIds = created.map(({ project, id: projectId }) => project.entries.map((entry) => {
+    const id = crypto.randomUUID();
+    if (entry.id) ids.entryByOldId.set(entry.id, { id, projectId });
+    return id;
+  }));
+
   let entries = 0;
-  for (const { project, id: projectId, fieldIds, formatVersionId } of created) {
+  for (const [projectIndex, { project, id: projectId, fieldIds, formatVersionId }] of created.entries()) {
     const fields = await tx.entryField.findMany({ where: { projectId } });
     const referenceFields = new Set(project.fields.filter((f) => f.type === "REFERENCE").map((f) => f.id));
     const computedFields = new Set(project.fields.filter((f) => f.type === "COMPUTED").map((f) => f.id));
-    // A backup lists entries newest first; dating them in that order keeps
-    // the restored logbook in the same order.
+    // An older backup has no timestamps. It lists entries newest first, so
+    // dating them in that order still keeps the restored logbook in order.
     const base = Date.now();
 
     for (const [index, entry] of project.entries.entries()) {
@@ -182,7 +221,7 @@ async function restore(tx: Tx, userId: string, backup: LogbookBackup) {
         // Computed results are worked out again below rather than trusted.
         if (!newFieldId || computedFields.has(oldFieldId)) continue;
         if (referenceFields.has(oldFieldId)) {
-          const remapped = remapReference(value, projectIdByName);
+          const remapped = remapReference(value, ids);
           if (remapped) values[newFieldId] = remapped;
           continue;
         }
@@ -194,20 +233,22 @@ async function restore(tx: Tx, userId: string, backup: LogbookBackup) {
       // entries were logged leaves those entries without it, and a restore
       // has to bring back what was recorded rather than refuse it.
 
-      const createdAt = new Date(base - index);
+      const createdAt = dateOr(entry.createdAt, new Date(base - index));
       const done = entry.status === "DONE";
-      const tagIdsForEntry = cleanTagNames(entry.tags).map((name) => tagIdByName.get(name)).filter((id): id is string => Boolean(id));
+      const archived = Boolean(entry.archivedAt) || entry.archived === true;
       const row = formatEntry(await tx.logbookEntry.create({
         data: {
+          id: newEntryIds[projectIndex][index],
           projectId,
           formatVersionId,
           durationMinutes: entry.durationMinutes,
           entryDate: entry.entryDate ? new Date(entry.entryDate) : null,
           dueDate: entry.dueDate ? new Date(entry.dueDate) : null,
           status: done ? "DONE" : "OPEN",
-          completedAt: done ? createdAt : null,
-          archivedAt: entry.archived ? createdAt : null,
+          completedAt: done ? dateOr(entry.completedAt, createdAt) : null,
+          archivedAt: archived ? dateOr(entry.archivedAt, createdAt) : null,
           createdAt,
+          updatedAt: dateOr(entry.updatedAt, createdAt),
           values: {
             create: Object.entries({ ...values, ...computeValues(fields, values) })
               .filter(([, value]) => !isEmptyValue(value))
@@ -216,7 +257,7 @@ async function restore(tx: Tx, userId: string, backup: LogbookBackup) {
                 value: typeof value === "object" ? JSON.stringify(value) : String(value),
               })),
           },
-          tags: { create: tagIdsForEntry.map((tagId) => ({ tagId })) },
+          tags: { create: tagLinks(entry.tags) },
         },
         include: ENTRY_INCLUDE,
       }));

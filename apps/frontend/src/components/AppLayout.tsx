@@ -168,7 +168,9 @@ export default function AppLayout() {
         )}
 
         {/* Page content */}
-        <div id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto p-6 lg:p-8 outline-none">
+        {/* On a phone, room below the last item so it can scroll clear of the
+            "Need help?" button pinned to the bottom-right corner. */}
+        <div id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto p-6 lg:p-8 max-sm:pb-24 outline-none">
           <Outlet />
         </div>
       </main>
