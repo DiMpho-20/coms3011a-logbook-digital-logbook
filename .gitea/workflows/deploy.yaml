@@ -60,11 +60,13 @@ jobs:
       # coverage table into this log, which is the visible evidence the
       # client asked for. The plain test scripts are unchanged for local use.
       #
-      # Which database: the run's own one above when it comes up, with the
-      # schema built from the migrations. Over the network, the shared
-      # database (secret DATABASE_URL) has made the suite take 12 minutes and
-      # fail on query timeouts, so it is now only the fallback, for a runner
-      # that cannot start the service, and is then given fewer workers.
+      # Which database, in order: the service container above; if the runner
+      # does not provide one (ours did not), PostgreSQL installed inside the
+      # job; only if both fail, the shared database (secret DATABASE_URL),
+      # with fewer workers. Either of the first two is this run's own, so
+      # tests never write into shared data, and the suite runs in under a
+      # minute instead of the 12 to 20 the shared database over the network
+      # took, failing on query timeouts.
       # (Run from apps/backend: Prisma 7 reads the URL from prisma.config.ts.)
       - name: Choose the test database
         working-directory: apps/backend
@@ -72,18 +74,44 @@ jobs:
           RUN_DB: postgresql://logbook:logbook@logbook-test-db:5432/logbook_test
           SHARED_DB: ${{ secrets.DATABASE_URL }}
         run: |
-          for attempt in $(seq 1 12); do
+          use_db() {
+            echo "DATABASE_URL=$1" >> "$GITHUB_ENV"
+            echo "TEST_WORKERS=$2" >> "$GITHUB_ENV"
+          }
+          # Runs a command as the postgres system user, with or without root.
+          as_pg() {
+            if [ "$(id -u)" = 0 ]; then su postgres -s /bin/sh -c "$1"; else sudo -u postgres sh -c "$1"; fi
+          }
+
+          # 1. The service container, where the runner starts one.
+          for attempt in $(seq 1 6); do
             if DATABASE_URL="$RUN_DB" npx prisma migrate deploy; then
-              echo "Backend tests use this run's own database."
-              echo "DATABASE_URL=$RUN_DB" >> "$GITHUB_ENV"
-              echo "TEST_WORKERS=4" >> "$GITHUB_ENV"
+              echo "Backend tests use this run's own database (service container)."
+              use_db "$RUN_DB" 4
               exit 0
             fi
             sleep 5
           done
-          echo "::warning::This run's database never came up; backend tests fall back to the shared DATABASE_URL."
-          echo "DATABASE_URL=$SHARED_DB" >> "$GITHUB_ENV"
-          echo "TEST_WORKERS=2" >> "$GITHUB_ENV"
+
+          # 2. Otherwise PostgreSQL installed inside this job, still this run's own.
+          echo "No service container; installing PostgreSQL in the job instead."
+          SUDO=""; [ "$(id -u)" = 0 ] || SUDO="sudo"
+          LOCAL_DB=postgresql://logbook:logbook@127.0.0.1:5432/logbook_test
+          if command -v apt-get > /dev/null \
+            && $SUDO apt-get update -qq \
+            && DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq postgresql > /dev/null \
+            && $SUDO service postgresql start \
+            && as_pg "psql -v ON_ERROR_STOP=1 -c \"CREATE ROLE logbook LOGIN SUPERUSER PASSWORD 'logbook'\"" \
+            && as_pg "createdb -O logbook logbook_test" \
+            && DATABASE_URL="$LOCAL_DB" npx prisma migrate deploy; then
+            echo "Backend tests use this run's own database (installed in the job)."
+            use_db "$LOCAL_DB" 4
+            exit 0
+          fi
+
+          # 3. Last resort: the shared database, with fewer workers.
+          echo "::warning::No database of this run's own could be started; backend tests fall back to the shared DATABASE_URL."
+          use_db "$SHARED_DB" 2
 
       # if: always() — coverage must reach the commit on every push, even one
       # whose earlier step failed; the report below needs both summaries.
