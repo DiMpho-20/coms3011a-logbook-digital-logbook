@@ -223,13 +223,15 @@ client (`npx prisma generate` in `apps/backend` — see
 > DATABASE_URL=postgresql://…/logbook_test npm run test --workspace=apps/backend
 > ```
 >
-> CI gives each run a PostgreSQL database of its own, a service container
-> beside the runner whose schema is built from the migrations, so the suite
-> runs in about a minute and never writes into shared data. Only if that
-> container cannot start does the run fall back to the database in the
-> `DATABASE_URL` repository secret, with fewer workers, and say so in a
-> warning: over the network that database has made the suite take twelve
-> minutes and fail on query timeouts.
+> CI gives each run a PostgreSQL database of its own, with its schema built
+> from the migrations, so the suite runs in under a minute and never writes
+> into shared data. The workflow asks for a service container first; our
+> Gitea runner does not provide one, so the step installs PostgreSQL inside
+> the job instead. Only if both fail does the run fall back to the database
+> in the `DATABASE_URL` repository secret, with fewer workers, and say so in
+> a warning: over the network that database has made the suite take 12 to 20
+> minutes and fail on query timeouts. The log of the "Choose the test
+> database" step says which one a run used.
 
 > **Email behaviour in tests:** with no SMTP credentials configured,
 > registration auto-verifies (dev mode) and password-reset emails fail

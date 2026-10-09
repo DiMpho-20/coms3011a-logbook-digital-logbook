@@ -262,7 +262,7 @@ until they are added. Repository settings → Actions → Secrets:
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → the account ID in the sidebar |
 
 The backend suite gets a database of its own for each run. The
-`DATABASE_URL` secret is only its fallback, used (with a warning in the log)
+`DATABASE_URL` secret is only its last-resort fallback, used (with a warning in the log)
 if the runner cannot start that database.
 
 The Cloudflare Pages project name defaults to `coms3011a-logbook`; set the
