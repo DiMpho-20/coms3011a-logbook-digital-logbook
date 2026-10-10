@@ -9,6 +9,7 @@ import type {
 } from "@logbook/shared";
 import { api } from "../api/client";
 import {
+  entrySyncInterrupted,
   isOfflineRequest,
   remapPendingEntries,
   removePendingEntriesForProject,
@@ -44,6 +45,8 @@ interface PendingProject {
 }
 
 let activeSync: Promise<number> | null = null;
+/** Set when the last sync stopped on a lost connection rather than finishing. */
+let interrupted = false;
 
 export function isOfflineId(id: string): boolean {
   return id.startsWith("offline-");
@@ -220,6 +223,7 @@ export function syncPendingProjects(): Promise<number> {
   if (!navigator.onLine || !localStorage.getItem("token")) return Promise.resolve(0);
 
   activeSync = (async () => {
+    interrupted = false;
     let synced = 0;
     for (const { project } of readPending()) {
       // Re-read each time: the previous iteration saved its progress.
@@ -267,7 +271,10 @@ export function syncPendingProjects(): Promise<number> {
         synced++;
       } catch (error) {
         // A connectivity failure means the rest can't succeed either.
-        if (isOfflineRequest(error)) break;
+        if (isOfflineRequest(error)) {
+          interrupted = true;
+          break;
+        }
         item.lastError = errorMessage(error);
         save();
       }
@@ -278,15 +285,52 @@ export function syncPendingProjects(): Promise<number> {
   return activeSync;
 }
 
-/** Projects go first so entries logged against them have a real project id to go to. */
-export async function syncEverything(): Promise<void> {
+/**
+ * Projects go first so entries logged against them have a real project id to go to.
+ * Resolves true when a lost connection stopped it with work still queued.
+ */
+export async function syncEverything(): Promise<boolean> {
   await syncPendingProjects();
+  const projectsInterrupted = interrupted;
   await syncPendingEntries();
+  return projectsInterrupted || entrySyncInterrupted();
 }
 
+// Waits between retries after a sync that could not reach the server.
+const RETRY_DELAYS_MS = [2_000, 5_000, 10_000, 30_000];
+
 export function startFullOfflineSync() {
-  void syncEverything();
-  const onOnline = () => { void syncEverything(); };
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let attempt = 0;
+  let stopped = false;
+
+  // The browser reports "online" as soon as it has a network, which is often
+  // before requests get through — and a sleeping backend fails its first
+  // requests while it wakes. Either way the queue would sit unsent until the
+  // page reloaded, so keep retrying, backing off, until it goes through.
+  const run = async () => {
+    clearTimeout(retryTimer);
+    retryTimer = undefined;
+    const interruptedNow = await syncEverything();
+    if (stopped) return;
+    if (interruptedNow && navigator.onLine) {
+      const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
+      attempt++;
+      retryTimer = setTimeout(() => { void run(); }, delay);
+    } else {
+      attempt = 0;
+    }
+  };
+
+  void run();
+  const onOnline = () => {
+    attempt = 0;
+    void run();
+  };
   window.addEventListener("online", onOnline);
-  return () => window.removeEventListener("online", onOnline);
+  return () => {
+    stopped = true;
+    clearTimeout(retryTimer);
+    window.removeEventListener("online", onOnline);
+  };
 }

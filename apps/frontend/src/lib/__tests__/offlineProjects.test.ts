@@ -15,6 +15,7 @@ import {
   removeQueuedField,
   removeQueuedProject,
   resolveSyncedId,
+  startFullOfflineSync,
   syncEverything,
   syncPendingProjects,
   updateQueuedField,
@@ -171,5 +172,51 @@ describe("syncing queued projects", () => {
     localStorage.removeItem("token");
     expect(await syncPendingProjects()).toBe(0);
     expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe("syncing after reconnecting", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("keeps retrying when the first attempt cannot reach the server", async () => {
+    vi.useFakeTimers();
+    queueProject({ name: "Made offline" });
+    post.mockRejectedValueOnce(networkError).mockResolvedValueOnce({ data: { id: "srv-later" } });
+
+    const stop = startFullOfflineSync();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(pendingProjectCount()).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(pendingProjectCount()).toBe(0);
+    expect(post).toHaveBeenCalledTimes(2);
+    stop();
+  });
+
+  it("does not retry a project the server refused", async () => {
+    vi.useFakeTimers();
+    queueProject({ name: "Taken" });
+    post.mockRejectedValue({ response: { status: 409, data: { error: "Taken." } }, code: "ERR_BAD_REQUEST" });
+
+    const stop = startFullOfflineSync();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(post).toHaveBeenCalledTimes(1);
+    stop();
+    post.mockReset();
+  });
+
+  it("stops retrying once stopped", async () => {
+    vi.useFakeTimers();
+    queueProject({ name: "Never reaches" });
+    post.mockRejectedValue(networkError);
+
+    const stop = startFullOfflineSync();
+    await vi.advanceTimersByTimeAsync(0);
+    stop();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(post).toHaveBeenCalledTimes(1);
+    post.mockReset();
   });
 });

@@ -10,6 +10,7 @@ interface PendingEntry {
 }
 
 let activeSync: Promise<number> | null = null;
+let interrupted = false;
 
 function readPending(): PendingEntry[] {
   try {
@@ -62,11 +63,17 @@ export function isOfflineRequest(error: unknown): boolean {
   return !navigator.onLine || (!axiosError.response && Boolean(axiosError.code));
 }
 
+/** Whether the last sync stopped on a lost connection, leaving entries a retry could send. */
+export function entrySyncInterrupted(): boolean {
+  return interrupted;
+}
+
 export function syncPendingEntries(): Promise<number> {
   if (activeSync) return activeSync;
   if (!navigator.onLine || !localStorage.getItem("token")) return Promise.resolve(0);
 
   activeSync = (async () => {
+    interrupted = false;
     const pending = readPending();
     let synced = 0;
     const remaining: PendingEntry[] = [];
@@ -85,6 +92,7 @@ export function syncPendingEntries(): Promise<number> {
         remaining.push(item);
         // A connectivity failure means later requests cannot succeed either.
         if (isOfflineRequest(error)) {
+          interrupted = true;
           remaining.push(...pending.slice(synced + remaining.length));
           break;
         }

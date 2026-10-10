@@ -27,6 +27,8 @@ import TagInput, { type TagInputHandle } from "../components/TagInput";
 import TagFilterBar from "../components/TagFilterBar";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import { FolderKanban } from "lucide-react";
+import { SYNC_EVENT } from "../lib/offlineEntries";
+import { resolveSyncedId } from "../lib/offlineProjects";
 import { findFormulaProblem, formulaIdsToNames, formulaNamesToIds, orderForSaving } from "../lib/formulas";
 
 type EntryField = Partial<BaseEntryField> &
@@ -96,11 +98,12 @@ export default function ProjectsPage() {
   // Guards against an older load overwriting a newer one's results.
   const loadRunRef = useRef(0);
 
-  const loadProjects = async () => {
+  /** `quiet` refreshes the list in place, without the loading skeleton. */
+  const loadProjects = async ({ quiet = false } = {}) => {
     const run = ++loadRunRef.current;
     try {
       setLoadError(null);
-      setLoading(true);
+      if (!quiet) setLoading(true);
       const data = await fetchProjects();
       if (run !== loadRunRef.current) return;
       setProjects(data);
@@ -131,6 +134,16 @@ export default function ProjectsPage() {
   useEffect(() => {
     loadProjects();
   }, []);
+
+  // A project created offline is listed under a temporary id. Once it syncs,
+  // reload so it shows as the saved project instead of "Not synced yet".
+  useEffect(() => {
+    const onSync = () => {
+      if (projects.some((p) => resolveSyncedId(p.id) !== p.id)) void loadProjects({ quiet: true });
+    };
+    window.addEventListener(SYNC_EVENT, onSync);
+    return () => window.removeEventListener(SYNC_EVENT, onSync);
+  }, [projects]);
 
   const filteredProjects = useMemo(() => {
     return projects.filter((p) => {
@@ -335,7 +348,7 @@ export default function ProjectsPage() {
       <div className="space-y-6 max-w-6xl">
         {header}
         <div className="rounded-xl border border-slate-200 bg-white">
-          <ErrorState message={loadError} onRetry={loadProjects} />
+          <ErrorState message={loadError} onRetry={() => loadProjects()} />
         </div>
       </div>
     );
