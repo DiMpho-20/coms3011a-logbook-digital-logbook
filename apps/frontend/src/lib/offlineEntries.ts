@@ -68,6 +68,17 @@ export function entrySyncInterrupted(): boolean {
   return interrupted;
 }
 
+/**
+ * A sync failure worth retrying: the request never got an answer, or the
+ * server answered that it could not handle it right now (it is down, waking
+ * up, or cannot reach its database) rather than that the data was wrong.
+ */
+export function isTemporaryFailure(error: unknown): boolean {
+  if (isOfflineRequest(error)) return true;
+  const status = (error as { response?: { status?: number } })?.response?.status;
+  return status !== undefined && (status >= 500 || status === 408 || status === 429);
+}
+
 export function syncPendingEntries(): Promise<number> {
   if (activeSync) return activeSync;
   if (!navigator.onLine || !localStorage.getItem("token")) return Promise.resolve(0);
@@ -91,7 +102,7 @@ export function syncPendingEntries(): Promise<number> {
       } catch (error) {
         remaining.push(item);
         // A connectivity failure means later requests cannot succeed either.
-        if (isOfflineRequest(error)) {
+        if (isTemporaryFailure(error)) {
           interrupted = true;
           remaining.push(...pending.slice(synced + remaining.length));
           break;

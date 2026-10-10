@@ -10,7 +10,7 @@ import type {
 import { api } from "../api/client";
 import {
   entrySyncInterrupted,
-  isOfflineRequest,
+  isTemporaryFailure,
   remapPendingEntries,
   removePendingEntriesForProject,
   syncPendingEntries,
@@ -270,8 +270,9 @@ export function syncPendingProjects(): Promise<number> {
         writePending(readPending().filter((p) => p.project.id !== item.project.id));
         synced++;
       } catch (error) {
-        // A connectivity failure means the rest can't succeed either.
-        if (isOfflineRequest(error)) {
+        // The server is unreachable or not ready yet, so the rest can't
+        // succeed either; this one is retried rather than marked as refused.
+        if (isTemporaryFailure(error)) {
           interrupted = true;
           break;
         }

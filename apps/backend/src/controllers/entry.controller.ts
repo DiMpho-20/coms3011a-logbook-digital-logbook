@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
+import { DATABASE_UNAVAILABLE, isDatabaseUnavailable } from "../utils/readRetry.js";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import { createEntrySchema, updateEntrySchema } from "../schemas/entry.schema.js";
 import type { Entry } from "@logbook/shared";
@@ -329,6 +330,7 @@ export const createEntry = async (req: AuthenticatedRequest, res: Response) => {
     return res.status(201).json(automated ?? entry);
   } catch (error: any) {
     console.error("Failed to create entry:", error);
+    if (isDatabaseUnavailable(error)) return res.status(503).json({ error: DATABASE_UNAVAILABLE });
     return res.status(400).json({ error: error.errors || error.message });
   }
 };

@@ -63,6 +63,24 @@ export function isTransportFailure(error: unknown): boolean {
   return typeof code === "string" && TRANSPORT_CODES.has(code);
 }
 
+/**
+ * The database could not be reached at all — down, waking from suspension, or
+ * out of pooled connections — so nothing was wrong with the request itself.
+ * Handlers answer 503 for these, which tells the client to try again later
+ * instead of treating its data as rejected.
+ */
+export function isDatabaseUnavailable(error: unknown): boolean {
+  if (isTransportFailure(error)) return true;
+  const { errorCode, code, name } = (error ?? {}) as { errorCode?: unknown; code?: unknown; name?: unknown };
+  return (
+    (typeof errorCode === "string" && TRANSPORT_CODES.has(errorCode)) ||
+    code === "P2024" ||
+    name === "PrismaClientInitializationError"
+  );
+}
+
+export const DATABASE_UNAVAILABLE = "The server can't reach its database right now. Try again shortly.";
+
 /** How long to wait before attempt n + 1, so the pool can hand out another connection. */
 export function retryDelayMs(attempt: number): number {
   return 150 * attempt;

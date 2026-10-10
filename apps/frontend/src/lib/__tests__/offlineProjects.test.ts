@@ -195,6 +195,23 @@ describe("syncing after reconnecting", () => {
     stop();
   });
 
+  it("retries when the server answers that it can't handle it yet", async () => {
+    vi.useFakeTimers();
+    queueProject({ name: "Server waking" });
+    post
+      .mockRejectedValueOnce({ response: { status: 503, data: { error: "Try again shortly." } }, code: "ERR_BAD_RESPONSE" })
+      .mockResolvedValueOnce({ data: { id: "srv-awake" } });
+
+    const stop = startFullOfflineSync();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(pendingProjectCount()).toBe(1);
+    expect(pendingProjectErrors()).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(pendingProjectCount()).toBe(0);
+    stop();
+  });
+
   it("does not retry a project the server refused", async () => {
     vi.useFakeTimers();
     queueProject({ name: "Taken" });

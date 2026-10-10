@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
+import { DATABASE_UNAVAILABLE, isDatabaseUnavailable } from "../utils/readRetry.js";
 import { createFormatVersion, backfillNewField, recalculateComputedFields } from "../utils/entryFormat.js";
 import { validateFormula } from "../utils/computedFields.js";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
@@ -60,6 +61,7 @@ export const createEntryField = async (req: AuthenticatedRequest, res: Response)
     return res.status(201).json(field);
   } catch (error: any) {
     if (isDuplicateName(error)) return res.status(409).json({ error: DUPLICATE_NAME });
+    if (isDatabaseUnavailable(error)) return res.status(503).json({ error: DATABASE_UNAVAILABLE });
     return res.status(400).json({ error: error.message || "Failed to create entry field" });
   }
 };

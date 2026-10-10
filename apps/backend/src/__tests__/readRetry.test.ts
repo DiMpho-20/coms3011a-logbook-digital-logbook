@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   withReadRetry,
   isTransportFailure,
+  isDatabaseUnavailable,
   isRetryableRead,
   retryDelayMs,
   MAX_READ_ATTEMPTS,
@@ -129,5 +130,21 @@ describe("retrying a read", () => {
     await withReadRetry("findUniqueOrThrow", run, { sleep: noSleep, onRetry });
 
     expect(onRetry).toHaveBeenCalledWith("findUniqueOrThrow", 1);
+  });
+});
+
+describe("telling an unreachable database from a bad request", () => {
+  it("counts a dead connection, a failed start-up and an exhausted pool", () => {
+    expect(isDatabaseUnavailable(failure("P1001"))).toBe(true);
+    expect(isDatabaseUnavailable(failure("ECONNRESET"))).toBe(true);
+    expect(isDatabaseUnavailable(failure("P2024"))).toBe(true);
+    expect(isDatabaseUnavailable(Object.assign(new Error("boom"), { errorCode: "P1001" }))).toBe(true);
+    expect(isDatabaseUnavailable(Object.assign(new Error("boom"), { name: "PrismaClientInitializationError" }))).toBe(true);
+  });
+
+  it("leaves answers the database gave, and validation errors, alone", () => {
+    expect(isDatabaseUnavailable(failure("P2002"))).toBe(false);
+    expect(isDatabaseUnavailable(failure())).toBe(false);
+    expect(isDatabaseUnavailable(undefined)).toBe(false);
   });
 });

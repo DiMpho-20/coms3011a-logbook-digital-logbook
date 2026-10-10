@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
+import { DATABASE_UNAVAILABLE, isDatabaseUnavailable } from "../utils/readRetry.js";
 import {
   createProjectSchema,
   updateProjectSchema,
@@ -78,6 +79,7 @@ export const createProject = async (req: AuthenticatedRequest, res: Response) =>
         error: "You already have a project with that name",
       });
     }
+    if (isDatabaseUnavailable(error)) return res.status(503).json({ error: DATABASE_UNAVAILABLE });
     return res.status(400).json({ error: error.errors || error.message });
   }
 };
