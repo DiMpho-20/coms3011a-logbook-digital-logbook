@@ -256,18 +256,16 @@ branches:
 Each deploy step runs only once its secret exists, so the pipeline stays green
 until they are added. Repository settings → Actions → Secrets:
 
-| Secret | Where to get it |
+| Secret or variable | Where to get it |
 |---|---|
 | `RENDER_DEPLOY_HOOK_URL` | Render → the API service → Settings → Deploy Hook |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → a token with *Cloudflare Pages: Edit* |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → the account ID in the sidebar |
+| `CLOUDFLARE_PAGES_PROJECT` *(variable, not a secret)* | Cloudflare → Workers & Pages → the project's name; set it only if it differs from the default `coms3011a-logbook` |
 
 The backend suite gets a database of its own for each run. The
 `DATABASE_URL` secret is only its last-resort fallback, used (with a warning in the log)
 if the runner cannot start that database.
-
-The Cloudflare Pages project name defaults to `coms3011a-logbook`; set the
-`CLOUDFLARE_PAGES_PROJECT` repository variable if it differs.
 
 ### Database migrations on deploy
 
@@ -279,6 +277,13 @@ to forget. To apply migrations by hand instead:
 ```bash
 cd apps/backend && DATABASE_URL=<production connection string> npx prisma migrate deploy
 ```
+
+Neon's pooled endpoint can split a migration's advisory lock across
+connections, so a deploy's `migrate deploy` can then hang and time out
+(P1002). Production therefore also sets `DIRECT_URL` — the same database's
+direct endpoint, the host without `-pooler` — which `prisma.config.ts`
+prefers for the Prisma CLI. Leave it unset locally and in CI; `DATABASE_URL`
+is used instead.
 
 ### Keeping the API awake
 
@@ -304,7 +309,7 @@ second pinger.
 ### Required API environment (Render)
 
 Set in the Render service's environment, as listed in `apps/backend/.env.example`:
-`DATABASE_URL`, `JWT_SECRET`, `TWO_FACTOR_ENCRYPTION_KEY`, `APP_URL`, an email
+`DATABASE_URL`, `DIRECT_URL` (see above), `JWT_SECRET`, `TWO_FACTOR_ENCRYPTION_KEY`, `APP_URL`, an email
 provider (`RESEND_API_KEY` or Gmail), and for the integrations `GEMINI_API_KEY`
 (help assistant) and `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
 `GOOGLE_REDIRECT_URI`, `GOOGLE_TOKEN_ENCRYPTION_KEY` (Google Calendar sync).

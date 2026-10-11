@@ -38,7 +38,8 @@ The backend only accepts browser requests from `localhost` and `*.pages.dev` ori
 coverage, builds) and, once it passes,
 deploys: a Render deploy hook rebuilds the API — whose container applies any
 pending migrations before serving — and Wrangler publishes the frontend to
-Cloudflare Pages. A scheduled workflow keeps the free-tier API awake. See
+Cloudflare Pages. A free cron-job.org ping keeps the free-tier API awake
+during the day; the workflow that used to do it now runs manually only. See
 [Deployment](setup.md#deployment).
 
 ## 2. Tech Stack

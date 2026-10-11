@@ -25,7 +25,7 @@ This document explains everything about how the Digital Logbook backend is teste
 | **Vitest 4** | Test runner and assertion framework | Same engine that powers our frontend build tooling (Vite), so one dependency ecosystem covers the whole monorepo. Fast, ESM-native, and watch-mode works out of the box with TypeScript — no extra transpile config. |
 | **Supertest** | HTTP-level request helper | Lets tests call the Express app directly (`request(app).post(...)`) without starting a real server or opening a port. We test the real HTTP layer — routing, middleware, validation, status codes, JSON bodies — not just functions. |
 | **The real Express app** (`src/app.ts`) | System under test | The app module is exported separately from the server entry point (`src/index.ts`) precisely so tests can import it without binding port 3000. |
-| **Real PostgreSQL** | Real database | Integration tests run against a real PostgreSQL database with the app's schema — a database created for each run in CI, a dedicated `logbook_test` database locally — exercising real Prisma queries, real constraints (unique, cascade deletes), and real SQL aggregation. Mocking Prisma would test our mocks, not our app; locally the suite points at its own database so it never touches your entries. |
+| **Real PostgreSQL** | Real database | Integration tests run against a real PostgreSQL database with the app's schema — a database created for each run in CI, and locally whatever `DATABASE_URL` points at (point it at a dedicated database, as docs/testing.md recommends, if you don't want test users in your dev data) — exercising real Prisma queries, real constraints (unique, cascade deletes), and real SQL aggregation. Mocking Prisma would test our mocks, not our app. |
 | **otplib** | TOTP code generation in tests | The 2FA tests generate *genuinely valid* time-based codes with the same library the server uses to verify them, so the full TOTP round-trip is tested end-to-end. |
 
 **Testing pyramid position:** the API tests are **integration tests** — they sit above unit tests and below end-to-end UI tests. Each test makes a real HTTP request to the real app backed by the real database, and asserts on the HTTP response. The utils tests are **unit tests** that exercise pure functions in isolation.
@@ -34,7 +34,7 @@ This document explains everything about how the Digital Logbook backend is teste
 
 ## What We Test
 
-786 tests across 43 files (85% line coverage, October 2026). The original four Sprint 2 files are still here; the suite has grown around them feature by feature, and most newer files are named after the bug or user story they lock in.
+789 tests across 43 files (85% line coverage, October 2026). The original four Sprint 2 files are still here; the suite has grown around them feature by feature, and most newer files are named after the bug or user story they lock in.
 
 ### Core API & infrastructure
 
@@ -206,49 +206,65 @@ Prerequisites: a reachable `DATABASE_URL` in `apps/backend/.env` and a regenerat
 
 ## Proof of Passing Runs
 
-**Run date: 2026-09-27 · 505 / 505 tests passing · 27 / 27 test files passing**
+**Run date: 2026-10-11 · 789 / 789 tests passing · 43 / 43 test files passing**
 
 Captured from `npm run test:coverage --workspace=apps/backend` (run against
-the remote database with Vitest's default worker pool — per-file times are
+a local PostgreSQL database with Vitest's default worker pool — per-file times are
 wall-clock and include the time a file spent queued behind its worker's
 previous file):
 
 ```text
- ✓ src/__tests__/api.test.ts (27 tests) 53374ms
- ✓ src/__tests__/auth.test.ts (33 tests) 23720ms
- ✓ src/__tests__/authCrypto.test.ts (28 tests) 30ms
- ✓ src/__tests__/automationEngine.test.ts (51 tests) 352794ms
- ✓ src/__tests__/automationRules.test.ts (28 tests) 19ms
- ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 53289ms
- ✓ src/__tests__/customStatistics.test.ts (27 tests) 64106ms
- ✓ src/__tests__/entriesListing.test.ts (14 tests) 30855ms
- ✓ src/__tests__/entryHistory.test.ts (18 tests) 196734ms
- ✓ src/__tests__/entryOwnership.test.ts (9 tests) 32127ms
- ✓ src/__tests__/entryValidation.test.ts (17 tests) 184336ms
- ✓ src/__tests__/expressions.test.ts (28 tests) 26ms
- ✓ src/__tests__/expressionStats.test.ts (22 tests) 37680ms
- ✓ src/__tests__/googleCalendar.test.ts (13 tests) 102ms
- ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 30ms
- ✓ src/__tests__/jwtSecret.test.ts (5 tests) 137ms
- ✓ src/__tests__/projectDelete.test.ts (6 tests) 39685ms
- ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 9293ms
- ✓ src/__tests__/push.test.ts (11 tests) 49532ms
- ✓ src/__tests__/rateLimit.test.ts (6 tests) 160ms
- ✓ src/__tests__/recurringEntries.test.ts (3 tests) 11ms
- ✓ src/__tests__/reminders.test.ts (42 tests) 249595ms
- ✓ src/__tests__/sprint2.test.ts (22 tests) 57062ms
- ✓ src/__tests__/stats.test.ts (10 tests) 132627ms
- ✓ src/__tests__/tags.test.ts (13 tests) 69059ms
- ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 24195ms
- ✓ src/__tests__/utils.test.ts (32 tests) 1729ms
+ ✓ src/__tests__/api.test.ts (27 tests) 3768ms
+ ✓ src/__tests__/assessmentReminderRules.test.ts (12 tests) 70ms
+ ✓ src/__tests__/assessmentReminders.test.ts (22 tests) 19824ms
+ ✓ src/__tests__/assistant.test.ts (14 tests) 685ms
+ ✓ src/__tests__/auth.test.ts (33 tests) 17480ms
+ ✓ src/__tests__/authCrypto.test.ts (28 tests) 114ms
+ ✓ src/__tests__/automationEngine.test.ts (51 tests) 15416ms
+ ✓ src/__tests__/automationRules.test.ts (28 tests) 137ms
+ ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 4814ms
+ ✓ src/__tests__/customStatistics.test.ts (27 tests) 5211ms
+ ✓ src/__tests__/dashboardLayout.test.ts (8 tests) 4086ms
+ ✓ src/__tests__/entriesListing.test.ts (20 tests) 6587ms
+ ✓ src/__tests__/entryFieldIntegrity.test.ts (11 tests) 5227ms
+ ✓ src/__tests__/entryHistory.test.ts (18 tests) 11127ms
+ ✓ src/__tests__/entryOwnership.test.ts (9 tests) 3866ms
+ ✓ src/__tests__/entryValidation.test.ts (17 tests) 11320ms
+ ✓ src/__tests__/expressions.test.ts (28 tests) 107ms
+ ✓ src/__tests__/expressionStats.test.ts (22 tests) 5960ms
+ ✓ src/__tests__/googleCalendar.test.ts (13 tests) 214ms
+ ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 47ms
+ ✓ src/__tests__/grades.test.ts (42 tests) 11347ms
+ ✓ src/__tests__/gradesValidation.test.ts (53 tests) 642ms
+ ✓ src/__tests__/importLogbook.test.ts (8 tests) 5342ms
+ ✓ src/__tests__/jwtSecret.test.ts (5 tests) 269ms
+ ✓ src/__tests__/openEntries.test.ts (5 tests) 2341ms
+ ✓ src/__tests__/profile.test.ts (23 tests) 5001ms
+ ✓ src/__tests__/profileInput.test.ts (38 tests) 96ms
+ ✓ src/__tests__/projectDelete.test.ts (6 tests) 4201ms
+ ✓ src/__tests__/projectSchema.test.ts (2 tests) 109ms
+ ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 2383ms
+ ✓ src/__tests__/push.test.ts (11 tests) 4514ms
+ ✓ src/__tests__/rateLimit.test.ts (6 tests) 422ms
+ ✓ src/__tests__/readRetry.test.ts (15 tests) 122ms
+ ✓ src/__tests__/recurringEntries.test.ts (3 tests) 31ms
+ ✓ src/__tests__/referenceIntegrity.test.ts (12 tests) 3642ms
+ ✓ src/__tests__/reminders.test.ts (42 tests) 16354ms
+ ✓ src/__tests__/savedFilters.test.ts (6 tests) 3367ms
+ ✓ src/__tests__/sprint2.test.ts (22 tests) 4726ms
+ ✓ src/__tests__/stats.test.ts (13 tests) 8278ms
+ ✓ src/__tests__/tags.test.ts (13 tests) 4673ms
+ ✓ src/__tests__/timeSummaries.test.ts (3 tests) 6053ms
+ ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 13853ms
+ ✓ src/__tests__/utils.test.ts (33 tests) 4689ms
 
- Test Files  27 passed (27)
-      Tests  505 passed (505)
-   Duration  432.73s (transform 4.16s, setup 578ms, import 38.66s, tests 1662.31s, environment 6ms)
+ Test Files  43 passed (43)
+      Tests  789 passed (789)
+   Duration  102.29s (transform 13.12s, setup 1.73s, import 126.50s, tests 218.52s, environment 25ms)
 ```
 
-**Coverage (V8 provider):** 84.78% statements · 79.68% branches · 92.12%
-functions · 85.43% lines.
+**Coverage (V8 provider):** 84.23% statements · 79.79% branches · 92.7%
+functions · 85.16% lines.
 
 ---
 
