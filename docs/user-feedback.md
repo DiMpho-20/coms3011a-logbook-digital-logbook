@@ -225,8 +225,7 @@ industry average of 68 (Sauro, 2011); median 75.
 - **Login latency is the one recurring friction.** Three testers named
   login or registration as the slowest moment, and nobody reported any
   other performance problem — consistent with the free hosting tier's
-  cold start (see the planned hosting migration in the integration
-  table).
+  cold start (see the integration table for what was done about it).
 - **Reliability held up.** Five of six testers saw no misbehaviour and
   reported that saving worked every time; the two exceptions were
   single occurrences with no reproduction detail.
@@ -245,11 +244,11 @@ and the round it was validated in.
 
 | Round | Finding | Action taken | Commit | Validated in |
 |---|---|---|---|---|
-| R1 | Tester 5 requested saved filters on the entries page | Saved-filter feature implemented — name, save, apply, delete, persisted to localStorage | `fd68b32` feat: add saved filters on entries page | R1 (pre-emptive; shipped before feedback was collected) |
-| R1 | Testers 1 & 2 found entry-field format confusing when adding entries | Filed as Gitea issue **FEAT-002**; add inline help text and field-type hints to the entry form | *(FEAT-002 filed; still open as of 2026-09-28)* | — |
-| R1 | Tester 2 found calendar/board views hard to locate | Filed as Gitea issue **FEAT-003**; consider adding nav hints or a guided tour for secondary views | *(FEAT-003 filed; still open as of 2026-09-28)* | — |
+| R1 | Tester 5 requested saved filters on the entries page | Saved-filter feature implemented — name, save, apply, delete — first in localStorage, later kept on the account so filters follow the student between devices | `fd68b32` feat: add saved filters on entries page; `43534ad` feat: keep saved filters on the account | R1 (pre-emptive; shipped before feedback was collected) |
+| R1 | Testers 1 & 2 found entry-field format confusing when adding entries | Filed as Gitea issue **FEAT-002**; add inline help text and field-type hints to the entry form | *(FEAT-002 partly addressed: required fields are marked and tag and link fields show placeholder hints; per-type badges and formula tooltips are still open)* | R2 — no tester confused by entry fields |
+| R1 | Tester 2 found calendar/board views hard to locate | Filed as Gitea issue **FEAT-003**; consider adding nav hints or a guided tour for secondary views | *(FEAT-003 partly addressed: the sidebar groups pages under Today, Work, Academics and Personal with an icon for each, and the help assistant can take a student to any page; no guided tour)* | R2 — 6/6 found Calendar and Board straight away |
 | R1 | All 6 testers praised the UI and ease of use | No action needed — validates current design direction | — | — |
-| R2 | Three testers named login/registration as the slowest moment; one rated speed "Slow, noticeable waiting" | Planned hosting migration (agreed with the client — see [Client Interactions](client-interactions.md)) removes the cold-start delay | *(planned)* | — |
+| R2 | Three testers named login/registration as the slowest moment; one rated speed "Slow, noticeable waiting" | Hosting stayed on Render's free tier. Instead, a scheduled pinger keeps the API awake from 06:00 to 23:50 so daytime sign-ins skip the cold start (see [Setup](setup.md#keeping-the-api-awake)) | `cf51ac4` docs: record the cron-job.org pinger that keeps the API awake | — |
 | R2 | Tester 1 suggested a year-to-date / grade-tracking view | Filed as Gitea issue **FEAT-009**, then built as the **My Grades** feature — modules, secured marks, target grades and a what-if calculator ([My Grades](extra-features/my-grades.md)) | `0dea059` feat(grades): add modules and assessments API; `7e26597` feat(grades): add My Grades pages | — |
 | R2 | One single save failure and one "once or twice" misbehaviour, with no reproduction detail | Logged for monitoring — to be re-checked in Round 3 | — | — |
 
@@ -265,13 +264,13 @@ across rounds is login/registration latency, which matches the free
 hosting tier's cold start.
 
 Round 1's friction points (entry-field clarity, view discoverability)
-did not resurface in Round 2; the queued improvements (FEAT-002,
-FEAT-003) remain in the integration table until they ship.
+did not resurface in Round 2; FEAT-002 and FEAT-003 have been partly
+addressed, as the integration table records.
 
 **Planned actions:**
 
-1. Migrate hosting off the free tier to remove the cold-start delay (already agreed with the client).
-2. Ship and reference the FEAT-002 / FEAT-003 fixes in the integration table.
+1. Keep the API awake during the day with the scheduled pinger (done); moving off the free tier would remove the night-time cold start too.
+2. Finish FEAT-002 (field-type badges, formula tooltips) and FEAT-003 (a first-visit tour).
 3. Run Round 3, including a client review session, and fill in the "Validated in" column.
 
 *(Done since Round 2: the grade-tracking suggestion was built as **My Grades** — see the integration table above.)*

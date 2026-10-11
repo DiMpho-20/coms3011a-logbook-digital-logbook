@@ -303,7 +303,7 @@ Several improvements identified from client feedback after the Intermediate phas
 
 Improvements that remain useful for further development:
 
-1. Add frontend toast notifications for API errors, and distinguish "server unreachable" from "wrong credentials".
+1. Use the toast notifications, so far shown only on the Open Work and Project Detail pages, for API errors across the app, and distinguish "server unreachable" from "wrong credentials" on the sign-in page.
 2. Improve the visual presentation of overdue entries.
 
 These items are treated as **future improvements rather than incomplete user stories**.

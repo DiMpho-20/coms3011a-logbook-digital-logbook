@@ -5,7 +5,8 @@
 A student can connect their own Google account from the **Calendar** page and
 copy the due dates of their open logbook entries into their **primary Google
 Calendar** as all-day events. Syncing again brings the calendar up to date:
-changed dates are moved, and finished or deleted entries are removed.
+changed dates are moved, and finished, archived or deleted entries are
+removed.
 
 ## 2. Problem / Motivation
 
@@ -29,11 +30,14 @@ On the **Calendar** page, a Google Calendar panel offers:
 
 Each event is an all-day event on the due date, titled
 `<Project name> — <entry's first text value>`, with a link back to the project
-in its description. Only **open** entries that **have a due date** are synced.
+in its description. Only **open**, **unarchived** entries that **have a due
+date** are synced — the same work the Open Work page lists.
 
 A sync with nothing to change reports "Everything is already up to date."
-If the server has not been configured for Google, the **Connect** button is
-disabled and the panel explains that sync is not set up on the server yet.
+If the server has not been configured for Google, the API answers `503`, the
+**Connect** button is disabled and the panel explains that sync is not set up
+on the server yet. If the status check itself fails (for example offline), the
+panel says so and offers **Try again** instead.
 
 ## 4. How It Works
 
@@ -107,7 +111,7 @@ event ids**:
 3. For each open, dated entry it either inserts a new event, patches an event
    whose title, description or date changed, or leaves an unchanged one alone.
 4. Any logbook event left over belongs to an entry that was finished,
-   undated or deleted, or is a duplicate; it is deleted. "Already gone" (404,
+   undated, archived or deleted, or is a duplicate; it is deleted. "Already gone" (404,
    410) counts as success.
 5. It returns `{ created, updated, removed }`.
 
@@ -197,5 +201,7 @@ From the commit history:
   Calendar integration") and the OAuth binding and sync fixes (`cd4bf6e`).
 - **Alon-Algorithm**: fixed the backend build by importing only the Calendar
   module from `googleapis` (`f81386c`).
+- **Dineo**: left archived entries out of the sync, returned `503` when Google
+  is not configured, and added the retry on a failed status check (`f24477e`).
 
 The team should confirm this list.

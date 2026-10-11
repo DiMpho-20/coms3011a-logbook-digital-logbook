@@ -173,7 +173,7 @@ The client conducted a review of the project against the assessment rubric, chec
 
   * The existing `due_date` field provides the required data for calendar events.
   * Google Calendar API integration requires OAuth2 configuration and external service credentials.
-  * This feature remains planned for future development.
+  * This feature remained planned at the time of the meeting. **Since delivered:** due dates sync to Google Calendar (FEAT-001).
 
 #### 6. Per-Project Time Recording with Stopwatch
 
@@ -318,7 +318,7 @@ The Intermediate user stories themselves have been completed and integrated into
   * Document the project's **internal APIs**, including endpoints, requests, responses, and their purpose.
     * **Done.** Every endpoint is documented in the [API Reference](api-reference.md).
   * Set up a **CI/CD pipeline** to automatically run tests and generate/check code coverage.
-    * **Done for CI.** Gitea Actions typechecks, lints, runs both test suites with coverage and posts the coverage on each commit. Deployment is still done by hand.
+    * **Done.** Gitea Actions typechecks, lints, runs both test suites with coverage and posts the coverage on each commit. A passing push to `main` then deploys the API to Render and the frontend to Cloudflare Pages.
   * Continue documenting technical decisions and client feedback as project evidence.
 
 ---
@@ -362,7 +362,7 @@ The Intermediate user stories themselves have been completed and integrated into
   * Expand the available **entry filtering options**.
     * **Done.** Entries can be filtered by project, tag, week, overdue and archive state, and by the values of custom fields; several filters combine in one search, results are ranked by relevance, and filters are saved to the account (US35, US36, US37).
   * Investigate and design the **auto-completion/auto-compilation** feature for repeated or similar entries.
-    * **Not started.** Tag names are suggested as you type, and recurring entries (US27) cover work that repeats on a schedule, but entries are not yet completed from earlier ones.
+    * **Done.** A new entry starts from the predictable parts of the project's last one: its time spent, tags and repeated field values (not the description, links, dates or computed values; checklist items come back unticked), with a note saying so. Pressing N anywhere starts a new entry and Ctrl/Cmd+Enter saves it. Tag names are suggested as you type, and recurring entries (US27) cover work that repeats on a schedule.
   * Ask **Branden** for clarification on the expected **expression/custom statistics** functionality.
     * **Done.** Custom expressions and saved statistics were delivered (US22, US23).
   * Use the newly created **Gitea project as the project's bug tracker** instead of MantisBT.

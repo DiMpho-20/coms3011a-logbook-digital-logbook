@@ -50,7 +50,7 @@ flowchart LR
 | M8 – Dashboard and automation | US25–US28: custom dashboard, persisted layout, recurring entries, reminders | Member 2 | Complete | Dashboard, recurrence, reminder and push tests pass |
 | M9 – Record history | US29–US32: version history, view as of a date, restore, archiving | Member 3 | Complete | History, restore and archiving tests pass |
 | M10 – Search and performance | US33–US37: query performance, structured, combined and ranked search | Member 4 | Complete | Performance and search tests pass |
-| M11 – Release | Deployment check, documentation, final demonstration and submission | Whole team | Planned | All required acceptance tests pass and no critical defects remain |
+| M11 – Release | Deployment check, documentation, final demonstration and submission | Whole team | In progress — deployed with CI/CD and every story passing; final demonstration and submission remain | All required acceptance tests pass and no critical defects remain |
 
 ## Detailed plan
 

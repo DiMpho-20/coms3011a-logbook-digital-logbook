@@ -260,9 +260,9 @@ comment markers around each image.
 
 ## 9. Future Improvements
 
-- An academic snapshot and a "What needs attention?" summary on the
-  dashboard or profile, linking to module pages and built on the engine's
-  existing statuses.
+- A "What needs attention?" summary across modules. (The dashboard already
+  shows **Modules at a glance** for the current year, built on the engine's
+  statuses.)
 - Performance trends per module from real, dated marks only (never what-if
   values).
 - Grades in export/import.

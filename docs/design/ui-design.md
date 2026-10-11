@@ -192,6 +192,7 @@ The form is designed to allow students to capture logbook information quickly wi
 Capture works from the keyboard alone:
 
 * **N**, pressed anywhere in the app while not typing in a field, opens a new entry on the project the student last worked in (or their first active project).
+* The form starts from the predictable parts of the project's last entry — its time spent, tags and repeated field values — with a note saying so. The description, links, dates and computed values start empty, and checklist items come back unticked.
 * The cursor starts in the first field of the form.
 * **Ctrl+Enter** (Cmd+Enter on a Mac) saves the entry.
 
@@ -348,6 +349,13 @@ The Profile is an identity card — photo or initial, name, degree and year,
 email, student number — with entries, time logged and streak; then twelve
 weeks of activity as a heatmap whose every day is labelled for screen
 readers; then recent projects and the tags used most.
+
+### 22. Help Assistant
+
+A help button on every page opens a short chat that answers "how do I…?"
+questions about the logbook and offers a button to the right page. It is
+backed by Google's Gemini API; see the
+[AI Help Assistant](../extra-features/ai-help-assistant.md) for how it works.
 
 ## Responsive Design
 
