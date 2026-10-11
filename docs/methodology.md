@@ -253,7 +253,7 @@ All sixteen stories are done. US34 is the same story as US24, so it was closed w
 
 * **Shared types package:** Extracting types into `@logbook/shared` eliminated duplication and helped identify type mismatches between the frontend and backend early.
 
-* **Integration testing:** 27 Vitest tests running against the Neon database provided confidence that API endpoints worked correctly, including edge cases such as duplicate names, missing resources, and invalid input. The suite has since grown to 33 backend and 24 frontend test files.
+* **Integration testing:** 27 Vitest tests running against the Neon database provided confidence that API endpoints worked correctly, including edge cases such as duplicate names, missing resources, and invalid input. The suite has since grown to 43 backend and 55 frontend test files.
 
 * **Prisma ORM adoption:** Migrating from raw SQL to Prisma simplified database access and provided type-safe queries.
 

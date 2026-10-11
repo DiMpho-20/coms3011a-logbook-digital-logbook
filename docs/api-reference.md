@@ -483,13 +483,39 @@ that account's data.
 | `limit` | number | `200` | Capped at `500` |
 | `offset` | number | `0` | Rows to skip, for paging ("load more") |
 | `archived` | string | `exclude` | `exclude`, `only` or `include` archived entries |
+| `search` | string | — | Case-insensitive text matched against the project name, every field value and tag names. Results are ranked by relevance (see below) |
+| `entryTab` | string | `all` | `all`, `week` (the last seven days) or `overdue` (open entries whose due date has passed) |
+| `tags` | string | — | Comma-separated tag names; an entry matches if it has any of them |
+| `sort` | string | `newest` | `newest` or `oldest`. Ignored while `search` is set, since results are then ranked by relevance |
+| `filters` | string | — | JSON array of custom-field filters, `[{ "fieldId": "…", "op": "gt", "value": "2" }]`. Every filter must hold |
+
+All the parameters combine: each one narrows the same result set.
+
+**Custom-field filter operations**, by field type:
+
+| Field type | `op` |
+|---|---|
+| `TEXT` | `contains`, `equals` |
+| `NUMBER` | `equals`, `gt`, `lt` |
+| `BOOLEAN` | `is_true`, `is_false` |
+| `DATE` | `on`, `before`, `after` |
+| `TAGS` | `has_tag` |
+
+An unknown field, an operation the field's type does not support, or a
+non-numeric value for a `NUMBER` filter returns `400`.
 
 `from` and `to` filter on `COALESCE(entryDate, createdAt)` — the date the
 interface shows. An entry backdated to March counts as March, not as the day
 it was typed, which is what the timeline and calendar already display.
 
-Results are ordered newest first by that same date, with the entry id as a
-tiebreaker so the order is stable between identical dates.
+Without `search`, results are ordered by that same date (newest first unless
+`sort=oldest`), with the entry id as a tiebreaker so the order is stable
+between identical dates.
+
+**Relevance ranking.** With `search`, each entry is scored: 3 if the project
+name matches, plus 3 for each matching text field, 2 for each matching tags
+field, 1 for each other matching field, and 2 for each matching tag. Results
+are ordered by score, then newest first.
 
 **Response `200`:**
 
@@ -516,9 +542,14 @@ tiebreaker so the order is stable between identical dates.
   },
   "limit": 200,
   "offset": 0,
-  "truncated": false
+  "truncated": false,
+  "stats": { "total": 42, "weekCount": 5, "weekMinutes": 310, "overdueCount": 1, "streak": 3 }
 }
 ```
+
+`stats` covers the whole filtered set, not just the page returned: how many
+entries match, how many and how many minutes fall in the last seven days, how
+many are overdue, and the current run of consecutive days with an entry.
 
 Unlike `GET /api/projects/:projectId/entries`, an entry does not carry its
 own `format`. Each entry names its `formatVersionId` and the snapshots are
