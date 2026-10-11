@@ -4,12 +4,20 @@ import { Resend } from "resend";
 const APP_URL = process.env.APP_URL || "http://localhost:5173";
 
 // ── Email provider resolution ────────────────────────────────────────────
-// Priority: Resend API  ▸  Gmail SMTP  ▸  dev-mode console log
-// The app never breaks — it always picks the best available provider.
+// Priority: Brevo API  ▸  Resend API  ▸  Gmail SMTP  ▸  dev-mode console log
+//
+// Brevo is preferred in production because it uses an HTTPS API rather than
+// SMTP. Render's free tier blocks outbound SMTP (ports 25, 465, 587), which
+// makes Gmail unusable there — the connection hangs until it times out.
+// Brevo, like Resend, sends over port 443, which is not blocked.
+//
+// Resend is kept as a fallback for environments where a verified domain is
+// available. Gmail is kept as a fallback for local development.
 
-type EmailProvider = "resend" | "gmail" | "dev";
+type EmailProvider = "brevo" | "resend" | "gmail" | "dev";
 
 function resolveProvider(): EmailProvider {
+  if (process.env.BREVO_API_KEY) return "brevo";
   if (process.env.RESEND_API_KEY) return "resend";
   if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) return "gmail";
   return "dev";
@@ -37,9 +45,40 @@ const resend =
 
 const RESEND_FROM = process.env.RESEND_FROM || "Digital Logbook <onboarding@resend.dev>";
 
+// The address Brevo sends from. Must be a verified sender in the Brevo
+// dashboard before emails will be accepted. Falls back to the Gmail account
+// used locally so the same env var can drive both providers.
+const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || process.env.GMAIL_USER || "";
+const BREVO_FROM_NAME = process.env.BREVO_FROM_NAME || "Digital Logbook";
+
 // ── Internal send helper ─────────────────────────────────────────────────
 
 async function send(toEmail: string, subject: string, html: string): Promise<void> {
+  if (provider === "brevo") {
+    if (!BREVO_FROM_EMAIL) {
+      throw new Error("BREVO_FROM_EMAIL (or GMAIL_USER) must be set to use Brevo.");
+    }
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "api-key": process.env.BREVO_API_KEY!,
+      },
+      body: JSON.stringify({
+        sender: { name: BREVO_FROM_NAME, email: BREVO_FROM_EMAIL },
+        to: [{ email: toEmail }],
+        subject,
+        htmlContent: html,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`Brevo API error ${res.status}: ${body}`);
+    }
+    return;
+  }
+
   if (provider === "resend" && resend) {
     const { error } = await resend.emails.send({
       from: RESEND_FROM,
