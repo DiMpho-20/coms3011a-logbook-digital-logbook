@@ -46,6 +46,12 @@ export default defineConfig({
     setupFiles: ['./src/test-setup.ts'],
     css: false,
     include: ['src/**/__tests__/**/*.{test,spec}.{ts,tsx}'],
+    // Worker threads rather than the default child processes, and at most two
+    // at once. On a loaded CI runner the default pool timed out starting its
+    // workers ("Timeout waiting for worker to respond"), every file failed
+    // before running, and the run published 0% frontend coverage.
+    pool: 'threads',
+    maxWorkers: 2,
     // Stays comfortably above the Testing Library ceiling set in
     // src/test-setup.ts (15s), so a slow-but-passing find reports its own
     // result rather than being killed by the per-test clock first. Raised
