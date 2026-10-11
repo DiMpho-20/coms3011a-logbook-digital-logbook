@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/api-reference/">
+        <link rel="canonical" href="https://no-boys-just-bugs-digital-logbook-doc.netlify.app/api-reference/">
       
       
         <link rel="prev" href="../client-interactions/">
@@ -682,6 +682,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#get-apiprojectstime-summaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/projects/time-summaries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#get-apiprojectsidtime-summary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -963,6 +974,34 @@
     <span class="md-ellipsis">
       
         POST /api/entries/archive
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-restore-apiimport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backup &amp; Restore (/api/import) 🔒
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backup &amp; Restore (/api/import) 🔒">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-apiimport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/import
       
     </span>
   </a>
@@ -1280,6 +1319,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#saved-filters-apisaved-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Saved filters (/api/saved-filters) 🔒
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Saved filters (/api/saved-filters) 🔒">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apisaved-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/saved-filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apisaved-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/saved-filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apisaved-filtersid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/saved-filters/:id
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#push-notifications-apipush" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1413,6 +1502,111 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#my-grades-apigrades" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        My Grades (/api/grades) 🔒
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="My Grades (/api/grades) 🔒">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apigradesmodulesyearyear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/grades/modules?year=&lt;year&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apigradesmodules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/grades/modules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apigradesmodulesmoduleid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/grades/modules/:moduleId
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#patch-apigradesmodulesmoduleid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH /api/grades/modules/:moduleId
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apigradesmodulesmoduleid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/grades/modules/:moduleId
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apigradesmodulesmoduleidassessments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/grades/modules/:moduleId/assessments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#patch-apigradesassessmentsassessmentid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH /api/grades/assessments/:assessmentId
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apigradesassessmentsassessmentid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/grades/assessments/:assessmentId
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#google-calendar-apigoogle-calendar" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1473,6 +1667,73 @@
     <span class="md-ellipsis">
       
         DELETE /api/google-calendar/disconnect 🔒
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#profile-apime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Profile (/api/me) 🔒
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Profile (/api/me) 🔒">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/me
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#patch-apime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH /api/me
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#help-assistant-apiassistant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Help assistant (/api/assistant) 🔒
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Help assistant (/api/assistant) 🔒">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-apiassistantchat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/assistant/chat 🔒
       
     </span>
   </a>
@@ -1629,6 +1890,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../authentication-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../user-stories/user-stories/" class="md-nav__link">
         
   
@@ -1645,6 +1933,177 @@
   
 
       </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extra Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Extra Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/ai-help-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Help Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/my-grades/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    My Grades
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/google-calendar-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Calendar Sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -2115,6 +2574,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#get-apiprojectstime-summaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/projects/time-summaries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#get-apiprojectsidtime-summary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2396,6 +2866,34 @@
     <span class="md-ellipsis">
       
         POST /api/entries/archive
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-restore-apiimport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backup &amp; Restore (/api/import) 🔒
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backup &amp; Restore (/api/import) 🔒">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-apiimport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/import
       
     </span>
   </a>
@@ -2713,6 +3211,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#saved-filters-apisaved-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Saved filters (/api/saved-filters) 🔒
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Saved filters (/api/saved-filters) 🔒">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apisaved-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/saved-filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apisaved-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/saved-filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apisaved-filtersid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/saved-filters/:id
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#push-notifications-apipush" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2846,6 +3394,111 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#my-grades-apigrades" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        My Grades (/api/grades) 🔒
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="My Grades (/api/grades) 🔒">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apigradesmodulesyearyear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/grades/modules?year=&lt;year&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apigradesmodules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/grades/modules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apigradesmodulesmoduleid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/grades/modules/:moduleId
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#patch-apigradesmodulesmoduleid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH /api/grades/modules/:moduleId
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apigradesmodulesmoduleid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/grades/modules/:moduleId
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apigradesmodulesmoduleidassessments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/grades/modules/:moduleId/assessments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#patch-apigradesassessmentsassessmentid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH /api/grades/assessments/:assessmentId
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apigradesassessmentsassessmentid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/grades/assessments/:assessmentId
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#google-calendar-apigoogle-calendar" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2906,6 +3559,73 @@
     <span class="md-ellipsis">
       
         DELETE /api/google-calendar/disconnect 🔒
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#profile-apime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Profile (/api/me) 🔒
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Profile (/api/me) 🔒">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/me
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#patch-apime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH /api/me
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#help-assistant-apiassistant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Help assistant (/api/assistant) 🔒
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Help assistant (/api/assistant) 🔒">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-apiassistantchat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/assistant/chat 🔒
       
     </span>
   </a>
@@ -3034,7 +3754,7 @@ endpoint: request a path under it, such as <code>/api/health</code>.</p>
 </tr>
 </tbody>
 </table>
-<p><strong>Response <code>200</code>:</strong> <code>{ "message": "Email verified successfully." }</code>
+<p><strong>Response <code>200</code>:</strong> <code>{ "message": "Email verified successfully. You can now log in." }</code>
 <strong>Errors:</strong> <code>400</code> (invalid or expired token)</p>
 <hr />
 <h3 id="post-apiauthlogin"><code>POST /api/auth/login</code></h3>
@@ -3129,7 +3849,7 @@ whether the email exists (prevents account enumeration).</p>
 </tbody>
 </table>
 <p><strong>Response <code>200</code>:</strong>
-<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"If account exists, a reset link has been sent."</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"If account exists, a password reset email has been sent."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <hr />
 <h3 id="post-apiauthreset-password"><code>POST /api/auth/reset-password</code></h3>
@@ -3155,7 +3875,7 @@ whether the email exists (prevents account enumeration).</p>
 </tr>
 </tbody>
 </table>
-<p><strong>Response <code>200</code>:</strong> <code>{ "message": "Password reset successfully." }</code>
+<p><strong>Response <code>200</code>:</strong> <code>{ "message": "Password updated successfully. You can now log in." }</code>
 <strong>Errors:</strong> <code>400</code> (invalid or expired token)</p>
 <hr />
 <h3 id="delete-apiauthaccount"><code>DELETE /api/auth/account</code> 🔒</h3>
@@ -3377,6 +4097,16 @@ recovery codes are left.</p>
 <p><strong>Response <code>200</code>:</strong> <code>{ "message": "Project deleted", "deletedEntries": 12 }</code>
 <strong>Errors:</strong> <code>404</code> (not found, or not the caller's)</p>
 <hr />
+<h3 id="get-apiprojectstime-summaries"><code>GET /api/projects/time-summaries</code></h3>
+<p>Time totals for every project the caller owns in one request, so the Projects
+page does not need one request per project. Projects with no entries are
+included with zero totals.</p>
+<p><strong>Response <code>200</code>:</strong>
+<div class="highlight"><pre><span></span><code><span class="p">[</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">"projectId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nt">"totalMinutes"</span><span class="p">:</span><span class="w"> </span><span class="mi">180</span><span class="p">,</span><span class="w"> </span><span class="nt">"totalHours"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"entryCount"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"lastEntryAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T…"</span><span class="w"> </span><span class="p">}</span>
+<span class="p">]</span>
+</code></pre></div></p>
+<hr />
 <h3 id="get-apiprojectsidtime-summary"><code>GET /api/projects/:id/time-summary</code></h3>
 <p>Get aggregated time statistics for a project.</p>
 <p><strong>Response <code>200</code>:</strong>
@@ -3578,13 +4308,82 @@ that account's data.</p>
 <td><code>exclude</code></td>
 <td><code>exclude</code>, <code>only</code> or <code>include</code> archived entries</td>
 </tr>
+<tr>
+<td><code>search</code></td>
+<td>string</td>
+<td>—</td>
+<td>Case-insensitive text matched against the project name, every field value and tag names. Results are ranked by relevance (see below)</td>
+</tr>
+<tr>
+<td><code>entryTab</code></td>
+<td>string</td>
+<td><code>all</code></td>
+<td><code>all</code>, <code>week</code> (the last seven days) or <code>overdue</code> (open entries whose due date has passed)</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>string</td>
+<td>—</td>
+<td>Comma-separated tag names; an entry matches if it has any of them</td>
+</tr>
+<tr>
+<td><code>sort</code></td>
+<td>string</td>
+<td><code>newest</code></td>
+<td><code>newest</code> or <code>oldest</code>. Ignored while <code>search</code> is set, since results are then ranked by relevance</td>
+</tr>
+<tr>
+<td><code>filters</code></td>
+<td>string</td>
+<td>—</td>
+<td>JSON array of custom-field filters, <code>[{ "fieldId": "…", "op": "gt", "value": "2" }]</code>. Every filter must hold</td>
+</tr>
 </tbody>
 </table>
+<p>All the parameters combine: each one narrows the same result set.</p>
+<p><strong>Custom-field filter operations</strong>, by field type:</p>
+<table>
+<thead>
+<tr>
+<th>Field type</th>
+<th><code>op</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TEXT</code></td>
+<td><code>contains</code>, <code>equals</code></td>
+</tr>
+<tr>
+<td><code>NUMBER</code></td>
+<td><code>equals</code>, <code>gt</code>, <code>lt</code></td>
+</tr>
+<tr>
+<td><code>BOOLEAN</code></td>
+<td><code>is_true</code>, <code>is_false</code></td>
+</tr>
+<tr>
+<td><code>DATE</code></td>
+<td><code>on</code>, <code>before</code>, <code>after</code></td>
+</tr>
+<tr>
+<td><code>TAGS</code></td>
+<td><code>has_tag</code></td>
+</tr>
+</tbody>
+</table>
+<p>An unknown field, an operation the field's type does not support, or a
+non-numeric value for a <code>NUMBER</code> filter returns <code>400</code>.</p>
 <p><code>from</code> and <code>to</code> filter on <code>COALESCE(entryDate, createdAt)</code> — the date the
 interface shows. An entry backdated to March counts as March, not as the day
 it was typed, which is what the timeline and calendar already display.</p>
-<p>Results are ordered newest first by that same date, with the entry id as a
-tiebreaker so the order is stable between identical dates.</p>
+<p>Without <code>search</code>, results are ordered by that same date (newest first unless
+<code>sort=oldest</code>), with the entry id as a tiebreaker so the order is stable
+between identical dates.</p>
+<p><strong>Relevance ranking.</strong> With <code>search</code>, each entry is scored: 3 if the project
+name matches, plus 3 for each matching text field, 2 for each matching tags
+field, 1 for each other matching field, and 2 for each matching tag. Results
+are ordered by score, then newest first.</p>
 <p><strong>Response <code>200</code>:</strong></p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
 <span class="w">  </span><span class="nt">"entries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -3608,9 +4407,13 @@ tiebreaker so the order is stable between identical dates.</p>
 <span class="w">  </span><span class="p">},</span>
 <span class="w">  </span><span class="nt">"limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">"offset"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">"truncated"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">  </span><span class="nt">"truncated"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"stats"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"total"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span><span class="w"> </span><span class="nt">"weekCount"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"weekMinutes"</span><span class="p">:</span><span class="w"> </span><span class="mi">310</span><span class="p">,</span><span class="w"> </span><span class="nt">"overdueCount"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"streak"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
+<p><code>stats</code> covers the whole filtered set, not just the page returned: how many
+entries match, how many and how many minutes fall in the last seven days, how
+many are overdue, and the current run of consecutive days with an entry.</p>
 <p>Unlike <code>GET /api/projects/:projectId/entries</code>, an entry does not carry its
 own <code>format</code>. Each entry names its <code>formatVersionId</code> and the snapshots are
 returned once in the shared <code>formats</code> map — a term of entries on a nine-field
@@ -3881,6 +4684,46 @@ The rule must belong to the authenticated user.</p>
 <p><strong>Response <code>200</code>:</strong> <code>{ "updated": 2 }</code>
 <strong>Errors:</strong> <code>400</code></p>
 <hr />
+<h2 id="backup-restore-apiimport">Backup &amp; Restore (<code>/api/import</code>) 🔒</h2>
+<h3 id="post-apiimport"><code>POST /api/import</code></h3>
+<p>Restore a JSON backup made by <strong>Settings → Export / Import</strong>. The whole backup is imported in one database transaction: either every project, field and entry in the file is imported, or nothing is. That means a failed import can simply be retried.</p>
+<p>The body is the backup file itself (up to 10 MB):</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>format</code></td>
+<td>string</td>
+<td>Yes — <code>"digital-logbook-backup"</code></td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>number</td>
+<td>Yes — <code>1</code></td>
+</tr>
+<tr>
+<td><code>projects</code></td>
+<td>array</td>
+<td>Yes — each with <code>name</code>, <code>description</code>, <code>status</code>, <code>fields</code> (<code>id</code>, <code>name</code>, <code>type</code>, <code>required</code>, <code>formula</code>) and <code>entries</code> (<code>durationMinutes</code>, <code>entryDate</code>, <code>dueDate</code>, <code>values</code> keyed by the backup's field ids). Optional: the project's <code>id</code>, <code>tags</code>, <code>createdAt</code>, <code>updatedAt</code>; each entry's <code>id</code>, <code>status</code>, <code>completedAt</code>, <code>tags</code>, <code>archived</code>, <code>archivedAt</code>, <code>createdAt</code>, <code>updatedAt</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Projects, fields and entries get new ids. Entry values, computed-field formulas and references are rewritten to point at them: a project reference by the project's old <code>id</code> (or by its name, for a backup without ids), and an entry reference by the entry's old <code>id</code>, even when that entry comes later in the file. A reference to anything outside the backup is dropped.</li>
+<li>Project tags, entry tags, completion and archive dates, and the original <code>createdAt</code>/<code>updatedAt</code> are restored as they were. A backup without them still imports: completed and archived entries are then dated at the import.</li>
+<li>Computed results are recalculated rather than copied from the file.</li>
+<li>If a project's name is already taken, it is imported as <code>Name (imported)</code>, <code>Name (imported 2)</code> and so on.</li>
+<li>Required fields are not enforced, so entries logged before a field became required still restore.</li>
+</ul>
+<p><strong>Response <code>201</code>:</strong> <code>{ "projects": 2, "entries": 37 }</code>
+<strong>Errors:</strong> <code>400</code> (not a valid backup, or an invalid field, formula or entry value), <code>409</code> (two fields in one project whose names differ only by case). Every error message ends with "Nothing was imported."</p>
+<hr />
 <h2 id="statistics-api">Statistics (<code>/api/...</code>) 🔒</h2>
 <h3 id="post-apiprojectsprojectidstatsgroup"><code>POST /api/projects/:projectId/stats/group</code></h3>
 <p>Aggregate entry field values with grouping.</p>
@@ -4132,14 +4975,20 @@ the user's reminder rules:</p>
 <td><code>DAILY_LOG</code></td>
 <td>Nothing has been logged today and it is past <code>dailyLogTime</code></td>
 </tr>
+<tr>
+<td><code>ASSESSMENT</code></td>
+<td>A dated, unmarked My Grades assessment with <code>remind</code> on is 5 days away (one reminder, kept until 3 days before) or 2 days away (a second, kept until the day). New ones appear from 08:00 in <code>timeZone</code>. Needs <code>assessmentEnabled</code></td>
+</tr>
 </tbody>
 </table>
 <p>Rules are evaluated whenever reminders are read (<code>GET /reminders</code> and
 <code>GET /reminders/count</code>). Each condition produces at most one reminder, so a
 completed or dismissed reminder stays that way while the condition holds. A
 pending generated reminder whose condition lapses is marked <code>COMPLETED</code> if
-its entry was marked done (or, for <code>DAILY_LOG</code>, something was logged), and
-removed otherwise, e.g. when the due date moves or the rule is switched off.
+its entry was marked done (or, for <code>DAILY_LOG</code>, something was logged; for
+<code>ASSESSMENT</code>, the assessment was marked or recorded as missed), and removed
+otherwise, e.g. when the due date moves or the rule is switched off.
+Deleting an assessment deletes its reminders.
 Calendar days are counted in the rules' <code>timeZone</code>.</p>
 <p>Reminder object:
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
@@ -4155,9 +5004,12 @@ Calendar days are counted in the rules' <code>timeZone</code>.</p>
 <span class="w">  </span><span class="nt">"entry"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"projectId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"projectName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Chemistry"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"label"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Submit lab report"</span><span class="p">,</span><span class="w"> </span><span class="nt">"dueDate"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-27T00:00:00.000Z"</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OPEN"</span>
-<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"assessment"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 <span class="p">}</span>
-</code></pre></div></p>
+</code></pre></div>
+For an <code>ASSESSMENT</code> reminder, <code>entry</code> is <code>null</code> and <code>assessment</code> is
+<code>{ "id", "moduleId", "moduleCode", "name", "date": "2026-11-15", "dateKind": "TEST" }</code>.</p>
 <h3 id="get-apireminders"><code>GET /api/reminders</code></h3>
 <p>List the caller's reminders.</p>
 <p><strong>Query:</strong> <code>status</code> = <code>pending</code> (default) | <code>completed</code> | <code>dismissed</code> | <code>done</code> (completed + dismissed) | <code>all</code>;
@@ -4197,13 +5049,14 @@ condition holds, so they must be dismissed instead.</p>
 <span class="w">  </span><span class="nt">"overdueEnabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">"staleEnabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"staleDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">"dailyLogEnabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"dailyLogTime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"18:00"</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">"timeZone"</span><span class="p">:</span><span class="w"> </span><span class="s2">"UTC"</span>
+<span class="w">  </span><span class="nt">"timeZone"</span><span class="p">:</span><span class="w"> </span><span class="s2">"UTC"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"assessmentEnabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="p">}</span>
 </code></pre></div></p>
 <hr />
 <h3 id="put-apireminderssettings"><code>PUT /api/reminders/settings</code></h3>
 <p>Update any subset of the rules. <code>dueSoonDays</code> 0–30, <code>staleDays</code> 1–365,
-<code>dailyLogTime</code> <code>HH:MM</code>, <code>timeZone</code> an IANA zone name.</p>
+<code>dailyLogTime</code> <code>HH:MM</code>, <code>timeZone</code> an IANA zone name, <code>assessmentEnabled</code> a boolean.</p>
 <p><strong>Response <code>200</code>:</strong> the full rules.
 <strong>Errors:</strong> <code>400</code> (out-of-range or invalid value)</p>
 <hr />
@@ -4227,6 +5080,48 @@ or <code>{ "panels": null, "updatedAt": null }</code> when the caller has never 
 <hr />
 <h3 id="delete-apidashboardlayout"><code>DELETE /api/dashboard/layout</code></h3>
 <p>Go back to the default dashboard. <strong>Response <code>204</code>:</strong> No content.</p>
+<hr />
+<h2 id="saved-filters-apisaved-filters">Saved filters (<code>/api/saved-filters</code>) 🔒</h2>
+<p>Named Entries-page filters, kept on the account so they follow the student
+between browsers and devices. The web app caches them in <code>localStorage</code> for
+offline use; a filter saved offline (or before filters were kept on the
+account) is uploaded on the next visit.</p>
+<p>A saved filter object:
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Overdue reports"</span><span class="p">,</span><span class="w"> </span><span class="nt">"searchQuery"</span><span class="p">:</span><span class="w"> </span><span class="s2">"report"</span><span class="p">,</span><span class="w"> </span><span class="nt">"filterProjectId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"all"</span><span class="p">,</span><span class="w"> </span><span class="nt">"filterTab"</span><span class="p">:</span><span class="w"> </span><span class="s2">"overdue"</span><span class="p">,</span><span class="w"> </span><span class="nt">"sortOrder"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newest"</span><span class="p">,</span><span class="w"> </span><span class="nt">"selectedTags"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"exam"</span><span class="p">],</span><span class="w"> </span><span class="nt">"fieldFilters"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"fieldId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"op"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gt"</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2"</span><span class="w"> </span><span class="p">}],</span><span class="w"> </span><span class="nt">"archivedFilter"</span><span class="p">:</span><span class="w"> </span><span class="s2">"include"</span><span class="p">,</span><span class="w"> </span><span class="nt">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="get-apisaved-filters"><code>GET /api/saved-filters</code></h3>
+<p>The caller's saved filters, oldest first.</p>
+<p><strong>Response <code>200</code>:</strong> Array of saved filter objects.</p>
+<h3 id="post-apisaved-filters"><code>POST /api/saved-filters</code></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Trimmed; 1–100 characters</td>
+</tr>
+<tr>
+<td><code>filters</code></td>
+<td>object</td>
+<td>Yes</td>
+<td><code>searchQuery</code>, <code>filterProjectId</code>, <code>filterTab</code> (<code>all</code>/<code>week</code>/<code>overdue</code>), <code>sortOrder</code> (<code>newest</code>/<code>oldest</code>), and optionally <code>selectedTags</code>, <code>fieldFilters</code>, <code>archivedFilter</code> (<code>exclude</code>/<code>include</code>/<code>only</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response <code>201</code>:</strong> The saved filter object.
+<strong>Errors:</strong> <code>400</code> (blank name, malformed filters, or already 50 saved filters)</p>
+<h3 id="delete-apisaved-filtersid"><code>DELETE /api/saved-filters/:id</code></h3>
+<p><strong>Response <code>204</code>:</strong> No content.
+<strong>Errors:</strong> <code>404</code> (not found, or not the caller's)</p>
 <hr />
 <h2 id="push-notifications-apipush">Push notifications (<code>/api/push</code>) 🔒</h2>
 <p>Web push for reminders. When <code>VAPID_PUBLIC_KEY</code> and <code>VAPID_PRIVATE_KEY</code> are
@@ -4354,13 +5249,193 @@ within the same pass or a later one.</p>
 recorded as a further entry version: the user's save is version <em>n</em>,
 automation's effect is <em>n+1</em>, visible and revertable in the history UI.</p>
 <hr />
+<h2 id="my-grades-apigrades">My Grades (<code>/api/grades</code>) 🔒</h2>
+<p>FEAT-009. A student's university modules and the assessments that make up their
+marks. The API stores and returns exactly what the student entered; every grade
+figure (secured points, averages, required marks, what-if projections) is
+worked out in the browser by the grade engine, <code>apps/frontend/src/lib/grades.ts</code>.</p>
+<p><strong>Two levels of weighting.</strong> An assessment's <code>weight</code> is its share of its
+<em>section</em>. A <code>SEMESTER</code> module has one section worth 100%. A <code>FULL_YEAR</code> module
+has Semester 1 and Semester 2: <code>semester1Weight</code> is Semester 1's share of the
+module and Semester 2 counts for the rest, so the two always total 100. There is
+no default split.</p>
+<p><strong>Ownership.</strong> Every route needs a signed-in student. Any route naming a
+<code>:moduleId</code> or <code>:assessmentId</code> only ever finds the caller's own record: another
+student's id, or a malformed one, is <code>404</code>.</p>
+<p>A module object:
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"COMS3011A"</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Software Design"</span><span class="p">,</span><span class="w"> </span><span class="nt">"academicYear"</span><span class="p">:</span><span class="w"> </span><span class="mi">2026</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SEMESTER"</span><span class="p">,</span><span class="w"> </span><span class="nt">"semester"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"semester1Weight"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"targetMark"</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"updatedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"assessments"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="cm">/* assessment objects, in the student's order */</span><span class="w"> </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p>An assessment object:
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"moduleId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Midterm"</span><span class="p">,</span><span class="w"> </span><span class="nt">"section"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"markObtained"</span><span class="p">:</span><span class="w"> </span><span class="mi">25</span><span class="p">,</span><span class="w"> </span><span class="nt">"markMax"</span><span class="p">:</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="nt">"markPercent"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"missed"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-15"</span><span class="p">,</span><span class="w"> </span><span class="nt">"dateKind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TEST"</span><span class="p">,</span><span class="w"> </span><span class="nt">"remind"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"updatedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<ul>
+<li>A mark is either <code>markObtained</code> out of <code>markMax</code>, or <code>markPercent</code>, or neither
+  (not marked yet). <code>missed: true</code> counts as 0% and cannot carry a mark.</li>
+<li><code>date</code> is a calendar day, <code>YYYY-MM-DD</code>, with no time and so no time zone.
+  <code>dateKind</code> (<code>DUE</code> or <code>TEST</code>) is given exactly when <code>date</code> is.</li>
+<li>Weights, percentages and marks allow at most two decimal places.</li>
+<li>There is no <code>status</code> field: it is derived from the mark by the grade engine.</li>
+</ul>
+<h3 id="get-apigradesmodulesyearyear"><code>GET /api/grades/modules?year=&lt;year&gt;</code></h3>
+<p>The caller's modules with their assessments, newest year first, then by code.
+<code>year</code> is optional.</p>
+<p><strong>Response <code>200</code>:</strong> an array of module objects.
+<strong>Errors:</strong> <code>400</code> (<code>year</code> is not a year from 2000 to 2100)</p>
+<h3 id="post-apigradesmodules"><code>POST /api/grades/modules</code></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code</code></td>
+<td>string, up to 20 characters; trimmed and upper-cased</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>academicYear</code></td>
+<td>integer, 2000–2100</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td><code>SEMESTER</code> or <code>FULL_YEAR</code></td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>semester</code></td>
+<td><code>1</code> or <code>2</code></td>
+<td>For <code>SEMESTER</code> only</td>
+</tr>
+<tr>
+<td><code>semester1Weight</code></td>
+<td>number, 0–100</td>
+<td>For <code>FULL_YEAR</code> only</td>
+</tr>
+<tr>
+<td><code>targetMark</code></td>
+<td>number, 0–100, or <code>null</code></td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response <code>201</code>:</strong> the module object.
+<strong>Errors:</strong> <code>400</code> (invalid field, or a field that doesn't fit the type), <code>409</code> (the same code already exists for that year; repeating a module in a later year is fine)</p>
+<h3 id="get-apigradesmodulesmoduleid"><code>GET /api/grades/modules/:moduleId</code></h3>
+<p><strong>Response <code>200</code>:</strong> the module object.
+<strong>Errors:</strong> <code>404</code></p>
+<h3 id="patch-apigradesmodulesmoduleid"><code>PATCH /api/grades/modules/:moduleId</code></h3>
+<p>Any of the create fields; at least one. To change <code>type</code>, send the field the new
+type needs and <code>null</code> for the one it doesn't. A semester module's assessments
+move into the semester it ran in; a full-year module can only become a semester
+module while all of its assessments are in one semester.</p>
+<p><strong>Response <code>200</code>:</strong> the updated module object.
+<strong>Errors:</strong> <code>400</code>, <code>404</code>, <code>409</code> (duplicate code, or assessments in both semesters)</p>
+<h3 id="delete-apigradesmodulesmoduleid"><code>DELETE /api/grades/modules/:moduleId</code></h3>
+<p>Deletes the module and its assessments.</p>
+<p><strong>Response <code>204</code>.</strong>
+<strong>Errors:</strong> <code>404</code></p>
+<h3 id="post-apigradesmodulesmoduleidassessments"><code>POST /api/grades/modules/:moduleId/assessments</code></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>string, up to 120 characters</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>weight</code></td>
+<td>number, 0–100 (share of its section)</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>section</code></td>
+<td><code>1</code> or <code>2</code></td>
+<td>In a <code>FULL_YEAR</code> module only</td>
+</tr>
+<tr>
+<td><code>markObtained</code>, <code>markMax</code></td>
+<td>numbers, <code>markMax</code> above 0 and <code>markObtained</code> no more than it</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>markPercent</code></td>
+<td>number, 0–100</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>missed</code></td>
+<td>boolean</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>date</code></td>
+<td><code>YYYY-MM-DD</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>dateKind</code></td>
+<td><code>DUE</code> or <code>TEST</code></td>
+<td>With <code>date</code></td>
+</tr>
+<tr>
+<td><code>remind</code></td>
+<td>boolean: reminders 5 and 2 days before the date</td>
+<td>No (defaults to <code>true</code>)</td>
+</tr>
+<tr>
+<td><code>position</code></td>
+<td>integer</td>
+<td>No (defaults to the end)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response <code>201</code>:</strong> the assessment object.
+<strong>Errors:</strong> <code>400</code>, <code>404</code> (module not found)</p>
+<h3 id="patch-apigradesassessmentsassessmentid"><code>PATCH /api/grades/assessments/:assessmentId</code></h3>
+<p>Any of the create fields; at least one. The mark (<code>markObtained</code>, <code>markMax</code>,
+<code>markPercent</code>, <code>missed</code>) and the date (<code>date</code>, <code>dateKind</code>) are each replaced as
+a whole: send any part and the parts left out are cleared, so switching from
+25/40 to 62.5% can't leave both behind.</p>
+<p><strong>Response <code>200</code>:</strong> the updated assessment object.
+<strong>Errors:</strong> <code>400</code>, <code>404</code></p>
+<h3 id="delete-apigradesassessmentsassessmentid"><code>DELETE /api/grades/assessments/:assessmentId</code></h3>
+<p><strong>Response <code>204</code>.</strong>
+<strong>Errors:</strong> <code>404</code></p>
+<hr />
 <h2 id="google-calendar-apigoogle-calendar">Google Calendar (<code>/api/google-calendar</code>)</h2>
 <p>Syncs open entries' due dates into the user's primary Google Calendar using the
 <a href="https://developers.google.com/calendar/api">Google Calendar API</a> (OAuth 2.0,
-scope <code>calendar.events</code>). Each open entry with a due date becomes an all-day
-event. The logbook tags its events with private extended properties, so a sync
-can find them again: it creates new events, updates events whose date or title
-changed, and removes events for entries that were completed, undated, or deleted.
+scope <code>calendar.events</code>). Each open, unarchived entry with a due date becomes
+an all-day event — the same work Open Work lists. The logbook tags its events
+with private extended properties, so a sync can find them again: it creates new
+events, updates events whose date or title changed, and removes events for
+entries that were completed, undated, archived, or deleted.
 Events the user created themselves are never touched.</p>
 <p>Google access and refresh tokens are stored per user, encrypted with AES-256-GCM
 (<code>GOOGLE_TOKEN_ENCRYPTION_KEY</code>). They are never returned by the API.</p>
@@ -4370,7 +5445,7 @@ token bound to the caller, which the callback requires.</p>
 <p><strong>Response <code>200</code>:</strong>
 <div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://accounts.google.com/o/oauth2/v2/auth?...&amp;state=..."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<strong>Errors:</strong> <code>500</code> (Google Calendar not configured on the server)</p>
+<strong>Errors:</strong> <code>503</code> (Google Calendar is not configured on this server)</p>
 <h3 id="get-apigoogle-calendarcallback"><code>GET /api/google-calendar/callback</code></h3>
 <p>Google redirects the browser here after consent. It is not called by the SPA.
 The user is identified only from the signed <code>state</code>. On completion the
@@ -4394,25 +5469,134 @@ browser is redirected to <code>APP_URL/calendar?calendar=connected</code>, <code
 </tr>
 </tbody>
 </table>
-<p><strong>Errors:</strong> <code>400</code> (missing <code>code</code> or <code>state</code>), <code>401</code> (invalid or expired <code>state</code>)</p>
+<p><strong>Errors:</strong> <code>400</code> (missing <code>code</code> or <code>state</code>), <code>401</code> (invalid or expired <code>state</code>),
+<code>503</code> (not configured on this server)</p>
 <h3 id="get-apigoogle-calendarstatus"><code>GET /api/google-calendar/status</code> 🔒</h3>
 <p><strong>Response <code>200</code>:</strong>
 <div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">"configured"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"connected"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"connectedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-24T10:00:00.000Z"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <h3 id="post-apigoogle-calendarsync"><code>POST /api/google-calendar/sync</code> 🔒</h3>
-<p>Mirrors the caller's open, dated entries into Google Calendar. Safe to repeat.</p>
+<p>Mirrors the caller's open, dated, unarchived entries into Google Calendar. Safe to repeat.</p>
 <p><strong>Response <code>200</code>:</strong>
 <div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Due dates synced to Google Calendar."</span><span class="p">,</span><span class="w"> </span><span class="nt">"created"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"updated"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"removed"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <strong>Errors:</strong> <code>400</code> (not connected), <code>409</code> (access was revoked in the Google
 account; the connection is removed and the user must reconnect), <code>502</code>
-(Google API failure)</p>
+(Google API failure), <code>503</code> (not configured on this server)</p>
 <h3 id="delete-apigoogle-calendardisconnect"><code>DELETE /api/google-calendar/disconnect</code> 🔒</h3>
 <p>Revokes the grant at Google (best effort) and deletes the stored tokens.
 Events that were already synced remain in the user's calendar.</p>
 <p><strong>Response <code>200</code>:</strong>
 <div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Google Calendar connection removed."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
+<hr />
+<h2 id="profile-apime">Profile (<code>/api/me</code>) 🔒</h2>
+<p>Both endpoints act on the account in the token. There is no id in the URL, so
+one student cannot read or change another's profile.</p>
+<h3 id="get-apime"><code>GET /api/me</code></h3>
+<p>The signed-in student's profile.</p>
+<p><strong>Response <code>200</code>:</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"student@example.com"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"fullName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Thandi Mokoena"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"isEmailVerified"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"bio"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"avatar"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"studentNumber"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2812345"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"degree"</span><span class="p">:</span><span class="w"> </span><span class="s2">"BSc Computer Science"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"yearOfStudy"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3rd year"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"memberSince"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-08-01T…"</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors:</strong> <code>404</code> (the account was deleted while the token was still valid)</p>
+<h3 id="patch-apime"><code>PATCH /api/me</code></h3>
+<p>Update the editable profile fields. A field left out is not changed; <code>null</code>
+or <code>""</code> clears it.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fullName</code></td>
+<td>string</td>
+<td>Up to 255 characters. Cannot be cleared</td>
+</tr>
+<tr>
+<td><code>bio</code></td>
+<td>string | null</td>
+<td>Up to 280 characters</td>
+</tr>
+<tr>
+<td><code>studentNumber</code></td>
+<td>string | null</td>
+<td>Up to 32 characters</td>
+</tr>
+<tr>
+<td><code>degree</code></td>
+<td>string | null</td>
+<td>Up to 120 characters</td>
+</tr>
+<tr>
+<td><code>yearOfStudy</code></td>
+<td>string | null</td>
+<td>Up to 32 characters</td>
+</tr>
+<tr>
+<td><code>avatar</code></td>
+<td>string | null</td>
+<td>A PNG, JPEG or WebP <code>data:</code> URL, under 512 KB once encoded</td>
+</tr>
+</tbody>
+</table>
+<p>The email address, password and two-factor settings cannot be changed here.</p>
+<p><strong>Response <code>200</code>:</strong> The updated profile, as for <code>GET /api/me</code>.
+<strong>Errors:</strong> <code>400</code> (a field is too long, the name is empty, or the image is invalid), <code>404</code> (account not found)</p>
+<hr />
+<h2 id="help-assistant-apiassistant">Help assistant (<code>/api/assistant</code>) 🔒</h2>
+<p>An in-app helper that answers "how do I…?" questions about Digital Logbook,
+backed by the <a href="https://ai.google.dev/">Gemini API</a>. It is given a written guide
+to the app and may suggest one page to open. Only the conversation and the
+page the user is on are sent to Gemini — no logbook data. Rate-limited per IP
+(<code>RATE_LIMIT_ASSISTANT_MAX</code> per <code>RATE_LIMIT_ASSISTANT_WINDOW_MINUTES</code>).</p>
+<h3 id="post-apiassistantchat"><code>POST /api/assistant/chat</code> 🔒</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>messages</code></td>
+<td><code>{ role: "user" \| "model", text: string }[]</code></td>
+<td>Yes</td>
+<td>The conversation so far, oldest first. Must start and end with a <code>user</code> message; each text is 1–1000 characters; only the last 20 are used</td>
+</tr>
+<tr>
+<td><code>currentPath</code></td>
+<td>string</td>
+<td>No</td>
+<td>The page the user is on, e.g. <code>/entries</code>; up to 200 characters, passed on only if it looks like an app path</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response <code>200</code>:</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">"reply"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Open Reminders and press New reminder."</span><span class="p">,</span><span class="w"> </span><span class="nt">"navigateTo"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/reminders"</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<code>navigateTo</code> is one of the app's pages (<code>/dashboard</code>, <code>/projects</code>, <code>/entries</code>,
+<code>/open-work</code>, <code>/stats</code>, <code>/calendar</code>, <code>/board</code>, <code>/reminders</code>, <code>/grades</code>,
+<code>/profile</code>, <code>/settings</code>) or <code>null</code>.</p>
+<p><strong>Errors:</strong> <code>400</code> (invalid conversation), <code>429</code> (rate limited), <code>502</code> (no
+configured Gemini model could answer), <code>503</code> (no <code>GEMINI_API_KEY</code> on this server)</p>
 <hr />
 <h2 id="error-format">Error Format</h2>
 <p>All error responses use a consistent JSON shape:</p>
@@ -4448,15 +5632,19 @@ Events that were already synced remain in the user's calendar.</p>
 </tr>
 <tr>
 <td><code>429</code></td>
-<td>Too many requests — the rate limit on sign-in, sign-up or 2FA was hit; wait and try again</td>
+<td>Too many requests — the rate limit on sign-in, sign-up, 2FA or the help assistant was hit; wait and try again</td>
 </tr>
 <tr>
 <td><code>500</code></td>
 <td>Unexpected server error</td>
 </tr>
 <tr>
+<td><code>502</code></td>
+<td>An external service failed (Google Calendar, or every Gemini model for the help assistant)</td>
+</tr>
+<tr>
 <td><code>503</code></td>
-<td>A feature is not configured on this server (the 2FA encryption key or the push keys)</td>
+<td>A feature is not configured on this server (the 2FA encryption key, the push keys, Google Calendar or the Gemini key)</td>
 </tr>
 </tbody>
 </table>
@@ -4483,6 +5671,11 @@ string.</p>
 <td><strong>Google Calendar API</strong></td>
 <td>Syncs entry due dates to the user's calendar (<a href="#google-calendar-apigoogle-calendar">details</a>)</td>
 <td><code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>, <code>GOOGLE_REDIRECT_URI</code>, <code>GOOGLE_TOKEN_ENCRYPTION_KEY</code>, <code>APP_URL</code></td>
+</tr>
+<tr>
+<td><strong>Gemini API</strong></td>
+<td>The in-app help assistant (<a href="#help-assistant-apiassistant">details</a>)</td>
+<td><code>GEMINI_API_KEY</code>, optional <code>GEMINI_MODEL</code></td>
 </tr>
 <tr>
 <td><strong>Resend</strong></td>

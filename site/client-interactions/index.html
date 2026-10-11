@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/client-interactions/">
+        <link rel="canonical" href="https://no-boys-just-bugs-digital-logbook-doc.netlify.app/client-interactions/">
       
       
         <link rel="prev" href="../methodology/">
@@ -887,6 +887,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../authentication-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../user-stories/user-stories/" class="md-nav__link">
         
   
@@ -903,6 +930,177 @@
   
 
       </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extra Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Extra Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/ai-help-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Help Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/my-grades/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    My Grades
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/google-calendar-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Calendar Sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1715,7 +1913,7 @@
 <p>The existing <code>due_date</code> field provides the required data for calendar events.</p>
 </li>
 <li>Google Calendar API integration requires OAuth2 configuration and external service credentials.</li>
-<li>This feature remains planned for future development.</li>
+<li>This feature remained planned at the time of the meeting. <strong>Since delivered:</strong> due dates sync to Google Calendar (FEAT-001).</li>
 </ul>
 <h4 id="6-per-project-time-recording-with-stopwatch">6. Per-Project Time Recording with Stopwatch</h4>
 <ul>
@@ -1884,7 +2082,7 @@
 </ul>
 </li>
 <li>Set up a <strong>CI/CD pipeline</strong> to automatically run tests and generate/check code coverage.<ul>
-<li><strong>Done for CI.</strong> Gitea Actions typechecks, lints, runs both test suites with coverage and posts the coverage on each commit. Deployment is still done by hand.</li>
+<li><strong>Done.</strong> Gitea Actions typechecks, lints, runs both test suites with coverage and posts the coverage on each commit. A passing push to <code>main</code> then deploys the API to Render and the frontend to Cloudflare Pages.</li>
 </ul>
 </li>
 <li>Continue documenting technical decisions and client feedback as project evidence.</li>
@@ -1943,11 +2141,11 @@
 </ul>
 </li>
 <li>Expand the available <strong>entry filtering options</strong>.<ul>
-<li><strong>Partly done.</strong> Entries can be filtered by project, tag, week, overdue and archive state, and filters can be saved. Searching inside custom fields and combining filters are in the Sprint 3 backlog (US36, US37).</li>
+<li><strong>Done.</strong> Entries can be filtered by project, tag, week, overdue and archive state, and by the values of custom fields; several filters combine in one search, results are ranked by relevance, and filters are saved to the account (US35, US36, US37).</li>
 </ul>
 </li>
 <li>Investigate and design the <strong>auto-completion/auto-compilation</strong> feature for repeated or similar entries.<ul>
-<li><strong>Not started.</strong> Tag names are suggested as you type, and recurring entries (US27) cover work that repeats on a schedule, but entries are not yet completed from earlier ones.</li>
+<li><strong>Done.</strong> A new entry starts from the predictable parts of the project's last one: its time spent, tags and repeated field values (not the description, links, dates or computed values; checklist items come back unticked), with a note saying so. Pressing N anywhere starts a new entry and Ctrl/Cmd+Enter saves it. Tag names are suggested as you type, and recurring entries (US27) cover work that repeats on a schedule.</li>
 </ul>
 </li>
 <li>Ask <strong>Branden</strong> for clarification on the expected <strong>expression/custom statistics</strong> functionality.<ul>

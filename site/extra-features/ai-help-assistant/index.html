@@ -1,0 +1,1594 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Technical documentation and architecture for the Digital Logbook project.">
+      
+      
+      
+        <link rel="canonical" href="https://no-boys-just-bugs-digital-logbook-doc.netlify.app/extra-features/ai-help-assistant/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../my-grades/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>AI Help Assistant - Digital Logbook Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ai-help-assistant" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Digital Logbook Documentation" class="md-header__button md-logo" aria-label="Digital Logbook Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Digital Logbook Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              AI Help Assistant
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Digital Logbook Documentation" class="md-nav__button md-logo" aria-label="Digital Logbook Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Digital Logbook Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../methodology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../client-interactions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client Interactions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-feedback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Feedback
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../third-party/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Third-Party Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../authentication-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-stories/user-stories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Stories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extra Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Extra Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Help Assistant
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Help Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-problem-motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Problem / Motivation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-what-it-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. What It Does
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. How It Works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-technical-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Technical Implementation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Technical Implementation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ai-specific-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI-specific details
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-user-workflow-demonstration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. User Workflow / Demonstration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-screenshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Screenshots
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-future-improvements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Future Improvements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-contributors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Contributors
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../my-grades/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    My Grades
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../google-calendar-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Calendar Sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/database-erd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/ui-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UI Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/development-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/system-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-problem-motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Problem / Motivation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-what-it-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. What It Does
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. How It Works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-technical-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Technical Implementation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Technical Implementation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ai-specific-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI-specific details
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-user-workflow-demonstration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. User Workflow / Demonstration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-screenshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Screenshots
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-future-improvements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Future Improvements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-contributors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Contributors
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="ai-help-assistant">AI Help Assistant</h1>
+<h2 id="1-overview">1. Overview</h2>
+<p>A floating <strong>"Ask for help"</strong> chat button appears on every signed-in page. A
+student types a question about using the app ("How do I make an entry
+repeat?") and gets a short answer generated by Google's <strong>Gemini</strong> API. When
+one page of the app answers the question, the reply comes with a
+<strong>"Take me to …"</strong> button that navigates there.</p>
+<p>The assistant only answers questions about Digital Logbook, and it never sees
+the student's logbook data.</p>
+<h2 id="2-problem-motivation">2. Problem / Motivation</h2>
+<p>The app has grown to many pages: projects, entries, open work, stats,
+calendar, board, reminders, My Grades, profile and settings, each with several
+tools. In Round 1 user testing, one of six testers struggled to find the
+Calendar and Board views (tracked as <code>FEAT-003</code>, view discoverability). A
+student who cannot find a feature effectively does not have it.</p>
+<p>The commit that introduced the assistant describes its purpose as helping
+students "find their way around the app": instead of searching the sidebar,
+they can ask in their own words and be taken to the right page. (<code>FEAT-003</code>
+itself, which proposes navigation hints and a guided tour, remains a separate
+open issue.)</p>
+<h2 id="3-what-it-does">3. What It Does</h2>
+<ul>
+<li>A round button in the corner of every signed-in page opens a chat panel.</li>
+<li>The panel offers four suggested questions to start with, for example
+  "Where do I set up reminders?".</li>
+<li>The student's question, together with the earlier turns of the
+  conversation, is answered in two to five sentences or a few steps, naming
+  the exact page and button to use.</li>
+<li>If the answer is a page, a <strong>"Take me to Reminders"</strong> (or similar) button
+  appears under the reply. It is hidden when the student is already on that
+  page.</li>
+<li>Off-topic questions are politely declined.</li>
+<li>If the assistant is not configured, busy or rate-limited, the panel shows
+  the server's explanation and puts the question back in the text box, so it
+  can be sent again without being sent twice.</li>
+<li>Enter sends; Shift+Enter adds a new line; Escape closes the panel.</li>
+<li>The conversation lasts until the page is reloaded; it is not stored.</li>
+</ul>
+<h2 id="4-how-it-works">4. How It Works</h2>
+<pre class="mermaid"><code>sequenceDiagram
+    participant S as Student (browser)
+    participant F as HelpAssistant.tsx
+    participant B as Backend /api/assistant/chat
+    participant G as Gemini API
+    S-&gt;&gt;F: types a question
+    F-&gt;&gt;B: POST { messages, currentPath } + JWT
+    B-&gt;&gt;B: requireAuth, rate limit, validate (Zod)
+    B-&gt;&gt;G: system instruction (app guide + current page) + conversation,&lt;br/&gt;JSON response schema
+    alt model busy / out of quota
+        G--&gt;&gt;B: 429 / 503
+        B-&gt;&gt;G: same request to the next model
+    end
+    G--&gt;&gt;B: { "reply": "...", "navigateTo": "/reminders" }
+    B-&gt;&gt;B: parse JSON, check navigateTo against the allowlist
+    B--&gt;&gt;F: { reply, navigateTo }
+    F--&gt;&gt;S: answer + "Take me to …" button</code></pre>
+<ol>
+<li><strong>Browser.</strong> <code>HelpAssistant.tsx</code> sends the whole conversation so far plus
+   the current route (<code>location.pathname</code>) to <code>POST /api/assistant/chat</code>
+   through the shared Axios client, which attaches the student's JWT.</li>
+<li><strong>Backend checks.</strong> The route requires a signed-in student
+   (<code>requireAuth</code>), applies a dedicated rate limit, and validates the body
+   with Zod before anything is sent to Google.</li>
+<li><strong>Prompt.</strong> The backend builds a Gemini request: a fixed <em>system
+   instruction</em> describing the app, plus the student's current page, plus the
+   conversation.</li>
+<li><strong>Structured output.</strong> Gemini is asked to reply in a fixed JSON shape: an
+   answer, and at most one page from a fixed list.</li>
+<li><strong>Validation and fallback.</strong> The backend parses the JSON, discards any page
+   that is not a real route, and, if a model is busy, retries with the next
+   configured model.</li>
+<li><strong>Display.</strong> The frontend shows the reply and, when there is a page, a
+   button that calls React Router's <code>navigate()</code>.</li>
+</ol>
+<h2 id="5-technical-implementation">5. Technical Implementation</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>File</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>UI</td>
+<td><code>apps/frontend/src/components/HelpAssistant.tsx</code></td>
+<td>Floating button, chat panel, suggested questions, "Take me to" button, error display</td>
+</tr>
+<tr>
+<td>UI mount</td>
+<td><code>apps/frontend/src/components/AppLayout.tsx</code></td>
+<td>Renders the assistant once inside the signed-in layout, so it is on every app page</td>
+</tr>
+<tr>
+<td>API client</td>
+<td><code>apps/frontend/src/api.ts</code> (<code>askAssistant</code>)</td>
+<td><code>POST /assistant/chat</code></td>
+</tr>
+<tr>
+<td>Route</td>
+<td><code>apps/backend/src/routes/assistant.routes.ts</code></td>
+<td><code>POST /api/assistant/chat</code> behind <code>requireAuth</code> and <code>assistantLimiter</code></td>
+</tr>
+<tr>
+<td>Controller</td>
+<td><code>apps/backend/src/controllers/assistant.controller.ts</code></td>
+<td>503 when unconfigured, 400 on invalid input, 502 when no model answers</td>
+</tr>
+<tr>
+<td>Validation</td>
+<td><code>apps/backend/src/schemas/assistant.schema.ts</code></td>
+<td>Conversation shape and size limits</td>
+</tr>
+<tr>
+<td>AI logic</td>
+<td><code>apps/backend/src/utils/assistant.ts</code></td>
+<td>App guide, request building, Gemini calls, model fallback, response parsing</td>
+</tr>
+<tr>
+<td>Rate limit</td>
+<td><code>apps/backend/src/middleware/rateLimit.middleware.ts</code> (<code>assistantLimiter</code>)</td>
+<td>Questions per window per IP address</td>
+</tr>
+<tr>
+<td>Tests</td>
+<td><code>apps/backend/src/__tests__/assistant.test.ts</code>, <code>apps/frontend/src/components/__tests__/HelpAssistant.test.tsx</code></td>
+<td>Gemini is mocked; no real API calls in tests</td>
+</tr>
+</tbody>
+</table>
+<p>No database tables are involved, and no new npm dependency: the backend calls
+Gemini's REST endpoint with Node's built-in <code>fetch</code>.</p>
+<h3 id="ai-specific-details">AI-specific details</h3>
+<p><strong>Provider and endpoint.</strong> Google's Gemini API, called over REST at
+<code>https://generativelanguage.googleapis.com/v1beta/models/&lt;model&gt;:generateContent</code>.
+The API key is sent in the <code>x-goog-api-key</code> header from the backend only; the
+browser never sees it.</p>
+<p><strong>Model(s).</strong> By default the backend tries <code>gemini-flash-lite-latest</code>, then
+<code>gemini-3.1-flash-lite</code>. The list can be replaced with the <code>GEMINI_MODEL</code>
+environment variable (comma-separated, tried in order).</p>
+<p><strong>Why this provider and these models.</strong> The code and configuration record
+that the free tier is enough for this use (<code>apps/backend/.env.example</code>), and
+that the "lite" models are the ones a free-tier key can use reliably
+(<code>apps/backend/src/utils/assistant.ts</code>). Gemini also supports a JSON
+<em>response schema</em>, which the "Take me to" button depends on (see below). A
+comparison with other providers is not recorded in the repository.</p>
+<p><strong>What is sent to the AI.</strong> Only:</p>
+<ul>
+<li>the conversation in the chat panel (the student's questions and the
+  assistant's earlier answers), at most the last 20 messages, each at most
+  1,000 characters;</li>
+<li>the route the student is currently on, e.g. <code>/reminders</code>;</li>
+<li>the fixed app guide (below).</li>
+</ul>
+<p>No logbook data (projects, entries, grades), no name, email or account id is
+sent. The code records why: the free Gemini tier may use prompts to improve
+Google's models.</p>
+<p><strong>How the prompt is constructed.</strong> <code>buildRequest()</code> in <code>assistant.ts</code> sends:</p>
+<ul>
+<li><code>systemInstruction</code>: the constant <code>APP_GUIDE</code> text plus
+  "The student is currently on <code>&lt;path&gt;</code>." <code>APP_GUIDE</code> tells the model its role,
+  to be brief, to name exact pages and buttons, to answer only about this app,
+  and never to invent features. It then describes every page and its controls.
+  Because it is written by hand, it must be updated whenever a feature is
+  added (it was, for example, extended for My Grades).</li>
+<li><code>contents</code>: the conversation, each message tagged <code>user</code> or <code>model</code>.</li>
+<li><code>generationConfig</code>: <code>temperature: 0.3</code> (consistent, factual answers),
+  <code>maxOutputTokens: 600</code>, <code>responseMimeType: "application/json"</code> and a
+  <code>responseSchema</code> requiring <code>reply</code> (a string) and <code>navigateTo</code> (one of
+  <code>"none"</code> or the allowed app routes).</li>
+</ul>
+<p><strong>How the response is processed.</strong> <code>parseModelOutput()</code>:</p>
+<ul>
+<li>parses the JSON; if the model ignored the format, the raw text is still used
+  as the answer;</li>
+<li>keeps <code>navigateTo</code> only if it is in <code>NAVIGABLE_PATHS</code>, the list of real
+  routes, so the model can never send a student to a page that does not
+  exist;</li>
+<li>treats an empty answer as a failure, so the next model is tried.</li>
+</ul>
+<p><strong>Error and fallback behaviour.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GEMINI_API_KEY</code> not set</td>
+<td><code>503</code> "The help assistant is not set up on this server."</td>
+</tr>
+<tr>
+<td>Invalid conversation (empty, too long, not ending with a question)</td>
+<td><code>400</code> with the reason</td>
+</tr>
+<tr>
+<td>Too many questions from one address</td>
+<td><code>429</code> from the rate limiter (default 30 per 10 minutes, configurable)</td>
+</tr>
+<tr>
+<td>A model answers 404, 429, 500 or 503, or returns nothing</td>
+<td>The next model is tried</td>
+</tr>
+<tr>
+<td>Any other error, or every model failed</td>
+<td><code>502</code> "The assistant couldn't answer right now…"</td>
+</tr>
+<tr>
+<td>A model takes more than 20 seconds</td>
+<td>The request is aborted and treated as a failure</td>
+</tr>
+</tbody>
+</table>
+<p>In every error case the frontend shows the message and keeps the typed
+question.</p>
+<p><strong>Security and privacy.</strong></p>
+<ul>
+<li>The API key lives only in the backend environment (<code>GEMINI_API_KEY</code>); the
+  frontend talks to our backend, never to Google directly.</li>
+<li>Only signed-in students can use the endpoint, and it is rate-limited to
+  protect the shared free-tier quota.</li>
+<li>No personal or logbook data is sent (see above).</li>
+<li>The model's output cannot cause navigation outside the allowlisted routes.</li>
+<li>Input size is capped (20 messages × 1,000 characters).</li>
+</ul>
+<p><strong>Example interaction.</strong> The exchange below shows the format; the exact wording
+of a live answer comes from the model and varies.</p>
+<blockquote>
+<p><strong>Student:</strong> Where do I set up reminders?</p>
+<p><strong>Assistant:</strong> Open Reminders and press New reminder. Your reminder rules,
+such as how many days before a due date to remind you, are on the same page.</p>
+<p><strong>[Take me to Reminders]</strong></p>
+</blockquote>
+<p>The backend receives <code>{"reply": "...", "navigateTo": "/reminders"}</code> from
+Gemini and returns the same shape to the browser.</p>
+<h2 id="6-user-workflow-demonstration">6. User Workflow / Demonstration</h2>
+<ol>
+<li>Sign in; any app page shows the round help button in the corner.</li>
+<li>Click it. The panel opens with suggested questions.</li>
+<li>Click "Where do I set up reminders?" or type a question.</li>
+<li>Read the answer; click <strong>Take me to Reminders</strong>. On a computer the panel
+   stays open on the new page; on a phone-sized screen it closes so the page
+   is visible. The conversation is kept either way.</li>
+<li>Ask a follow-up ("And how do I turn on notifications?"); the earlier turns
+   are sent too, so the assistant understands "and".</li>
+<li>Ask something unrelated ("What's the capital of France?") to see it decline.</li>
+</ol>
+<h2 id="7-screenshots">7. Screenshots</h2>
+<p>Add these files under <code>docs/extra-features/images/ai-help-assistant/</code>, then
+remove the comment markers around each image.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Should show</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>chat-closed.png</code></td>
+<td>An app page with the help button in the corner</td>
+</tr>
+<tr>
+<td><code>chat-suggestions.png</code></td>
+<td>The open panel with the suggested questions</td>
+</tr>
+<tr>
+<td><code>chat-answer.png</code></td>
+<td>An answer with its "Take me to …" button</td>
+</tr>
+<tr>
+<td><code>chat-error.png</code></td>
+<td>The message shown when the assistant is unavailable</td>
+</tr>
+</tbody>
+</table>
+<!-- ![Help button on an app page](images/ai-help-assistant/chat-closed.png) -->
+<!-- ![Chat panel with suggested questions](images/ai-help-assistant/chat-suggestions.png) -->
+<!-- ![An answer with a Take me to button](images/ai-help-assistant/chat-answer.png) -->
+<!-- ![Assistant unavailable message](images/ai-help-assistant/chat-error.png) -->
+
+<h2 id="8-limitations">8. Limitations</h2>
+<ul>
+<li><strong>Accuracy depends on the hand-written app guide.</strong> A feature missing from
+  <code>APP_GUIDE</code> is unknown to the assistant, and the model may still phrase an
+  answer imperfectly.</li>
+<li><strong>Two lists to keep in step.</strong> The pages the assistant may point to
+  (<code>NAVIGABLE_PATHS</code> in the backend) and the names on its buttons
+  (<code>PAGE_NAMES</code> in <code>HelpAssistant.tsx</code>) are separate lists. A page added to
+  the first but not the second shows its path, such as "/grades", instead of
+  its name.</li>
+<li><strong>Free-tier limits.</strong> Shared quota can run out; the fallback model helps but
+  cannot guarantee an answer. Free-tier prompts may be used by Google to
+  improve its models, which is why no logbook data is sent.</li>
+<li><strong>The rate limit is per IP address,</strong> so students behind one network
+  address share it.</li>
+<li><strong>No memory between visits.</strong> The conversation is lost on reload.</li>
+<li><strong>Answers are not streamed;</strong> the student waits for the whole reply.</li>
+<li><strong>Help only.</strong> It cannot perform actions or read the student's own data, so
+  it cannot answer "what is due tomorrow?".</li>
+</ul>
+<h2 id="9-future-improvements">9. Future Improvements</h2>
+<ul>
+<li>Share one list of pages between the backend allowlist and the frontend's
+  button names, so they cannot drift apart.</li>
+<li>Generate parts of <code>APP_GUIDE</code> from the route list, so new pages cannot be
+  forgotten.</li>
+<li>Stream answers for a faster feel.</li>
+<li>With explicit consent and a paid tier that does not train on prompts, allow
+  questions about the student's own data.</li>
+<li>Add the guided tour proposed in <code>FEAT-003</code> alongside the assistant.</li>
+</ul>
+<h2 id="10-contributors">10. Contributors</h2>
+<p>From the commit history:</p>
+<ul>
+<li><strong>WendyAmahle</strong>: designed and implemented the assistant (commit <code>8209119</code>,
+  "add a Gemini help assistant for finding your way around the app").</li>
+<li><strong>Dineo</strong>: extended the app guide for My Grades and assessment reminders.</li>
+</ul>
+<p>The team should confirm this list.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "search.suggest", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

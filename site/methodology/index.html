@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/methodology/">
+        <link rel="canonical" href="https://no-boys-just-bugs-digital-logbook-doc.netlify.app/methodology/">
       
       
         <link rel="prev" href="../architecture/">
@@ -766,6 +766,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../authentication-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../user-stories/user-stories/" class="md-nav__link">
         
   
@@ -782,6 +809,177 @@
   
 
       </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extra Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Extra Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/ai-help-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Help Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/my-grades/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    My Grades
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/google-calendar-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Calendar Sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1515,27 +1713,17 @@
 </tr>
 <tr>
 <td style="text-align: left;">Versioning &amp; Record History</td>
-<td style="text-align: left;">US29, US30, US31</td>
-<td style="text-align: left;">Done</td>
-</tr>
-<tr>
-<td style="text-align: left;">Versioning &amp; Record History</td>
-<td style="text-align: left;">US32</td>
-<td style="text-align: left;">In Progress</td>
-</tr>
-<tr>
-<td style="text-align: left;">Advanced Search &amp; Performance</td>
-<td style="text-align: left;">US33</td>
+<td style="text-align: left;">US29, US30, US31, US32</td>
 <td style="text-align: left;">Done</td>
 </tr>
 <tr>
 <td style="text-align: left;">Advanced Search &amp; Performance</td>
-<td style="text-align: left;">US34, US35, US36, US37</td>
-<td style="text-align: left;">Backlog</td>
+<td style="text-align: left;">US33, US34, US35, US36, US37</td>
+<td style="text-align: left;">Done</td>
 </tr>
 </tbody>
 </table>
-<p>Eleven of the sixteen stories are done. The completed stories added:</p>
+<p>All sixteen stories are done. US34 is the same story as US24, so it was closed with it. The completed stories added:</p>
 <ul>
 <li>Custom expressions over an owner's own entries, saved as statistics alongside the built-in ones.</li>
 <li>Automation rules evaluated when an entry is created or saved, which can add or remove tags and set status.</li>
@@ -1543,7 +1731,9 @@
 <li>Recurring entries generated from a stored template on a daily, weekly, or monthly pattern.</li>
 <li>Automatic reminders for upcoming and overdue due dates, stalled entries, and a daily logging reminder, delivered as web push notifications when the logbook is closed.</li>
 <li>A version history for every entry, a view of an entry as it stood on a given date, and restoring an earlier version.</li>
+<li>Archiving old entries out of the default views without losing them.</li>
 <li>Faster queries on a long record: database indexes on the common lookup columns, a paginated Entries page, and a single request for open work instead of one per project.</li>
+<li>Structured search: filters on custom fields, several filters combined in one search, and results ranked by relevance.</li>
 </ul>
 <hr />
 <h2 id="3-retrospective">3. Retrospective</h2>
@@ -1556,7 +1746,7 @@
 <p><strong>Shared types package:</strong> Extracting types into <code>@logbook/shared</code> eliminated duplication and helped identify type mismatches between the frontend and backend early.</p>
 </li>
 <li>
-<p><strong>Integration testing:</strong> 27 Vitest tests running against the Neon database provided confidence that API endpoints worked correctly, including edge cases such as duplicate names, missing resources, and invalid input. The suite has since grown to 33 backend and 24 frontend test files.</p>
+<p><strong>Integration testing:</strong> 27 Vitest tests running against the Neon database provided confidence that API endpoints worked correctly, including edge cases such as duplicate names, missing resources, and invalid input. The suite has since grown to 43 backend and 55 frontend test files.</p>
 </li>
 <li>
 <p><strong>Prisma ORM adoption:</strong> Migrating from raw SQL to Prisma simplified database access and provided type-safe queries.</p>
@@ -1622,7 +1812,7 @@
 </ul>
 <p>Improvements that remain useful for further development:</p>
 <ol>
-<li>Add frontend toast notifications for API errors, and distinguish "server unreachable" from "wrong credentials".</li>
+<li>Use the toast notifications, so far shown only on the Open Work and Project Detail pages, for API errors across the app, and distinguish "server unreachable" from "wrong credentials" on the sign-in page.</li>
 <li>Improve the visual presentation of overdue entries.</li>
 </ol>
 <p>These items are treated as <strong>future improvements rather than incomplete user stories</strong>.</p>

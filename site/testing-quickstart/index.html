@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/testing-quickstart/">
+        <link rel="canonical" href="https://no-boys-just-bugs-digital-logbook-doc.netlify.app/testing-quickstart/">
       
       
         <link rel="prev" href="../testing/">
@@ -571,6 +571,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../authentication-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../user-stories/user-stories/" class="md-nav__link">
         
   
@@ -587,6 +614,177 @@
   
 
       </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extra Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Extra Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/ai-help-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Help Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/my-grades/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    My Grades
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/google-calendar-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Calendar Sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -871,13 +1069,13 @@ npm<span class="w"> </span>run<span class="w"> </span>test:coverage<span class="
 </code></pre></div>
 <p>The end of the output is a table. Read the <code>All files</code> row — the last number
 is <strong>% Lines</strong>, the number coverage is measured on. Backend example, from the
-2026-09-28 run:</p>
+2026-10-08 run:</p>
 <div class="highlight"><pre><span></span><code>File      | % Stmts | % Branch | % Funcs | % Lines
-All files |   84.38 |    79.73 |   90.88 |   85.12
+All files |   84.22 |    79.77 |   92.63 |   85.09
 </code></pre></div>
 <h2 id="4-the-50-rule">4. The 50% rule</h2>
 <p>The project <strong>must stay above 50% combined coverage</strong> — that is the figure the
-marking rubric reads. Where it stands (2026-09-28, 960 tests):</p>
+marking rubric reads. Where it stands (2026-10-08, 1,606 tests):</p>
 <table>
 <thead>
 <tr>
@@ -888,21 +1086,21 @@ marking rubric reads. Where it stands (2026-09-28, 960 tests):</p>
 <tbody>
 <tr>
 <td>Backend</td>
-<td>85.12% (1,843 of 2,165 lines)</td>
+<td>85.09%</td>
 </tr>
 <tr>
 <td>Frontend</td>
-<td>59.54% (2,242 of 3,765 lines)</td>
+<td>80.52%</td>
 </tr>
 <tr>
 <td><strong>Combined</strong></td>
-<td><strong>68.89%</strong> (4,085 of 5,930 lines)</td>
+<td><strong>82.07%</strong> (6,750 of 8,225 lines)</td>
 </tr>
 </tbody>
 </table>
-<p>The margin over the bar is real but not free: the frontend is the lower of
-the two, so untested frontend code moves the combined figure most — test the
-code you add. After you push, CI runs both suites and publishes
+<p>CI also enforces its own floors: the backend fails below 80% of lines and the
+frontend below 78%. The frontend is the lower of the two, so untested frontend
+code is what will trip a floor first — test the code you add. After you push, CI runs both suites and publishes
 <code>coverage/backend</code>, <code>coverage/frontend</code> and <code>coverage/combined</code> on your
 commit in Gitea; a red run blocks the merge.</p>
 

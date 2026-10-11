@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/user-feedback/">
+        <link rel="canonical" href="https://no-boys-just-bugs-digital-logbook-doc.netlify.app/user-feedback/">
       
       
         <link rel="prev" href="../testing-quickstart/">
@@ -726,6 +726,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../authentication-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../user-stories/user-stories/" class="md-nav__link">
         
   
@@ -742,6 +769,177 @@
   
 
       </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extra Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Extra Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/ai-help-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Help Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/my-grades/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    My Grades
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/google-calendar-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Calendar Sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1808,8 +2006,7 @@ sit above the 68 benchmark.</p>
 <li><strong>Login latency is the one recurring friction.</strong> Three testers named
   login or registration as the slowest moment, and nobody reported any
   other performance problem — consistent with the free hosting tier's
-  cold start (see the planned hosting migration in the integration
-  table).</li>
+  cold start (see the integration table for what was done about it).</li>
 <li><strong>Reliability held up.</strong> Five of six testers saw no misbehaviour and
   reported that saving worked every time; the two exceptions were
   single occurrences with no reproduction detail.</li>
@@ -1837,23 +2034,23 @@ and the round it was validated in.</p>
 <tr>
 <td>R1</td>
 <td>Tester 5 requested saved filters on the entries page</td>
-<td>Saved-filter feature implemented — name, save, apply, delete, persisted to localStorage</td>
-<td><code>fd68b32</code> feat: add saved filters on entries page</td>
+<td>Saved-filter feature implemented — name, save, apply, delete — first in localStorage, later kept on the account so filters follow the student between devices</td>
+<td><code>fd68b32</code> feat: add saved filters on entries page; <code>43534ad</code> feat: keep saved filters on the account</td>
 <td>R1 (pre-emptive; shipped before feedback was collected)</td>
 </tr>
 <tr>
 <td>R1</td>
 <td>Testers 1 &amp; 2 found entry-field format confusing when adding entries</td>
 <td>Filed as Gitea issue <strong>FEAT-002</strong>; add inline help text and field-type hints to the entry form</td>
-<td><em>(FEAT-002 filed; still open as of 2026-09-28)</em></td>
-<td>—</td>
+<td><em>(FEAT-002 partly addressed: required fields are marked and tag and link fields show placeholder hints; per-type badges and formula tooltips are still open)</em></td>
+<td>R2 — no tester confused by entry fields</td>
 </tr>
 <tr>
 <td>R1</td>
 <td>Tester 2 found calendar/board views hard to locate</td>
 <td>Filed as Gitea issue <strong>FEAT-003</strong>; consider adding nav hints or a guided tour for secondary views</td>
-<td><em>(FEAT-003 filed; still open as of 2026-09-28)</em></td>
-<td>—</td>
+<td><em>(FEAT-003 partly addressed: the sidebar groups pages under Today, Work, Academics and Personal with an icon for each, and the help assistant can take a student to any page; no guided tour)</em></td>
+<td>R2 — 6/6 found Calendar and Board straight away</td>
 </tr>
 <tr>
 <td>R1</td>
@@ -1865,15 +2062,15 @@ and the round it was validated in.</p>
 <tr>
 <td>R2</td>
 <td>Three testers named login/registration as the slowest moment; one rated speed "Slow, noticeable waiting"</td>
-<td>Planned hosting migration (agreed with the client — see <a href="../client-interactions/">Client Interactions</a>) removes the cold-start delay</td>
-<td><em>(planned)</em></td>
+<td>Hosting stayed on Render's free tier. Instead, a scheduled pinger keeps the API awake from 06:00 to 23:50 so daytime sign-ins skip the cold start (see <a href="../setup/#keeping-the-api-awake">Setup</a>)</td>
+<td><code>cf51ac4</code> docs: record the cron-job.org pinger that keeps the API awake</td>
 <td>—</td>
 </tr>
 <tr>
 <td>R2</td>
 <td>Tester 1 suggested a year-to-date / grade-tracking view</td>
-<td>Filed as Gitea issue <strong>FEAT-009</strong>; to be triaged for a future sprint</td>
-<td><em>(issue filed, triage pending)</em></td>
+<td>Filed as Gitea issue <strong>FEAT-009</strong>, then built as the <strong>My Grades</strong> feature — modules, secured marks, target grades and a what-if calculator (<a href="../extra-features/my-grades/">My Grades</a>)</td>
+<td><code>0dea059</code> feat(grades): add modules and assessments API; <code>7e26597</code> feat(grades): add My Grades pages</td>
 <td>—</td>
 </tr>
 <tr>
@@ -1894,15 +2091,15 @@ and reported that saving worked every time. The one recurring complaint
 across rounds is login/registration latency, which matches the free
 hosting tier's cold start.</p>
 <p>Round 1's friction points (entry-field clarity, view discoverability)
-did not resurface in Round 2; the queued improvements (FEAT-002,
-FEAT-003) remain in the integration table until they ship.</p>
+did not resurface in Round 2; FEAT-002 and FEAT-003 have been partly
+addressed, as the integration table records.</p>
 <p><strong>Planned actions:</strong></p>
 <ol>
-<li>Migrate hosting off the free tier to remove the cold-start delay (already agreed with the client).</li>
-<li>Triage the Round 2 suggestion (year-to-date / grade tracking — FEAT-009) in the next sprint planning.</li>
-<li>Ship and reference the FEAT-002 / FEAT-003 fixes in the integration table.</li>
+<li>Keep the API awake during the day with the scheduled pinger (done); moving off the free tier would remove the night-time cold start too.</li>
+<li>Finish FEAT-002 (field-type badges, formula tooltips) and FEAT-003 (a first-visit tour).</li>
 <li>Run Round 3, including a client review session, and fill in the "Validated in" column.</li>
 </ol>
+<p><em>(Done since Round 2: the grade-tracking suggestion was built as </em><em>My Grades</em><em> — see the integration table above.)</em></p>
 <p><em>Related: <a href="../testing/">Testing</a> documents the automated test suite that
 runs alongside this process.</em></p>
 

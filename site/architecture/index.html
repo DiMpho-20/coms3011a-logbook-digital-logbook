@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/architecture/">
+        <link rel="canonical" href="https://no-boys-just-bugs-digital-logbook-doc.netlify.app/architecture/">
       
       
         <link rel="prev" href="../setup/">
@@ -698,6 +698,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../authentication-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../user-stories/user-stories/" class="md-nav__link">
         
   
@@ -714,6 +741,177 @@
   
 
       </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extra Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Extra Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/ai-help-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Help Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/my-grades/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    My Grades
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/google-calendar-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Calendar Sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1105,6 +1303,7 @@
     Push["Browser push service&lt;br/&gt;(web push)"]
     Google["Google Calendar API"]
     Mail["Resend / Gmail SMTP"]
+    Gemini["Google Gemini API"]
 
     Browser -- "loads app" --&gt; Pages
     Browser -- "HTTPS /api, JWT" --&gt; API
@@ -1112,7 +1311,8 @@
     API -- "VAPID-signed pushes" --&gt; Push
     Push -- "notifications" --&gt; Browser
     API -- "OAuth, event sync" --&gt; Google
-    API -- "verification &amp; reset emails" --&gt; Mail</code></pre>
+    API -- "verification &amp; reset emails" --&gt; Mail
+    API -- "help assistant questions" --&gt; Gemini</code></pre>
 <table>
 <thead>
 <tr>
@@ -1140,11 +1340,17 @@
 <tr>
 <td>CI</td>
 <td>Gitea Actions (<code>.gitea/workflows/deploy.yaml</code>)</td>
-<td>Installs, typechecks, lints, tests and builds on every push. It deploys nothing; both deployments are done by hand.</td>
+<td>Installs, typechecks, lints, tests and builds on every push. A passing push to <code>main</code> also deploys both apps (below).</td>
 </tr>
 </tbody>
 </table>
 <p>The backend only accepts browser requests from <code>localhost</code> and <code>*.pages.dev</code> origins (CORS, <code>apps/backend/src/app.ts</code>).</p>
+<p><strong>Delivery.</strong> A push to <code>main</code> runs CI (typecheck, lint, both test suites with
+coverage, builds) and, once it passes,
+deploys: a Render deploy hook rebuilds the API — whose container applies any
+pending migrations before serving — and Wrangler publishes the frontend to
+Cloudflare Pages. A scheduled workflow keeps the free-tier API awake. See
+<a href="../setup/#deployment">Deployment</a>.</p>
 <h2 id="2-tech-stack">2. Tech Stack</h2>
 <table>
 <thead>
@@ -1345,7 +1551,7 @@
 │   │
 │   └── backend/                   # Express REST API
 │       ├── prisma/
-│       │   ├── schema.prisma      # 20 models (§4)
+│       │   ├── schema.prisma      # 23 models (§4)
 │       │   └── migrations/        # 0_init baseline + dated migrations
 │       └── src/
 │           ├── routes/            # Express routers, one per area
@@ -1354,7 +1560,8 @@
 │           ├── middleware/        # requireAuth (JWT), rate limiting
 │           ├── utils/             # Domain logic: entry formats and versions, computed
 │           │                      #   fields, expressions, automation, recurrence,
-│           │                      #   reminders, push, tags, token and crypto helpers
+│           │                      #   reminders, push, tags, grades, help assistant,
+│           │                      #   token and crypto helpers
 │           ├── services/          # Google Calendar client
 │           ├── jobs/              # Background jobs started with the server (§6)
 │           ├── __tests__/         # Vitest + Supertest suite
@@ -1367,7 +1574,7 @@
 └── mkdocs.yml
 </code></pre></div>
 <h2 id="4-data-model">4. Data Model</h2>
-<p>The schema in <code>apps/backend/prisma/schema.prisma</code> has twenty models. See <a href="../design/database-erd/">Database design</a> for the full diagram; they group as follows.</p>
+<p>The schema in <code>apps/backend/prisma/schema.prisma</code> has twenty-three models. See <a href="../design/database-erd/">Database design</a> for the full diagram; they group as follows.</p>
 <table>
 <thead>
 <tr>
@@ -1380,7 +1587,7 @@
 <tr>
 <td>Accounts</td>
 <td><code>User</code>, <code>PasswordReset</code>, <code>TwoFactorRecoveryCode</code></td>
-<td>Reset and verification tokens are stored hashed. TOTP secrets are encrypted at rest.</td>
+<td>Reset and verification tokens are stored hashed. TOTP secrets are encrypted at rest. <code>User</code> also holds the profile card (bio, avatar, student number, degree, year of study).</td>
 </tr>
 <tr>
 <td>Projects &amp; formats</td>
@@ -1418,6 +1625,16 @@
 <td>Manual and rule-generated reminders, each user's rules, and the devices subscribed to push.</td>
 </tr>
 <tr>
+<td>Saved filters</td>
+<td><code>SavedFilter</code></td>
+<td>Named Entries page filter combinations, kept on the account.</td>
+</tr>
+<tr>
+<td>My Grades</td>
+<td><code>AcademicModule</code>, <code>Assessment</code></td>
+<td>Modules, their weighted assessments and marks; dated assessments raise reminders.</td>
+</tr>
+<tr>
 <td>Integrations</td>
 <td><code>GoogleCalendarConnection</code></td>
 <td>Encrypted OAuth tokens for Calendar sync.</td>
@@ -1427,7 +1644,7 @@
 <p><strong>Field types</strong> (<code>EntryFieldType</code>): <code>TEXT</code>, <code>NUMBER</code>, <code>DATE</code>, <code>BOOLEAN</code>, <code>TAGS</code>, <code>CHECKLIST</code>, <code>LINK</code>, <code>REFERENCE</code>, <code>COMPUTED</code>.</p>
 <p><strong>Key constraints:</strong> one account per email; project names unique per user; field names unique per project (case-insensitive, among non-archived fields); one value per field per entry; version numbers unique per entry. Foreign keys cascade on delete, so deleting an account erases all of its data.</p>
 <h2 id="5-api">5. API</h2>
-<p>All routes are under <code>/api</code> and, apart from sign-up, sign-in, password reset and the health checks, need a <code>Bearer</code> JWT. Every request body is validated with Zod (<code>400</code> on failure), and every resource is checked against the signed-in user (<code>404</code> for another user's data). The full list with request and response shapes is in the <a href="../api-reference/">API Reference</a>.</p>
+<p>All routes are under <code>/api</code> and, apart from sign-up, email verification, sign-in, password reset, the Google OAuth callback and the health checks, need a <code>Bearer</code> JWT. Every request body is validated with Zod (<code>400</code> on failure), and every resource is checked against the signed-in user (<code>404</code> for another user's data). The full list with request and response shapes is in the <a href="../api-reference/">API Reference</a>.</p>
 <table>
 <thead>
 <tr>
@@ -1442,7 +1659,7 @@
 </tr>
 <tr>
 <td>Projects</td>
-<td><code>/projects</code>, <code>/projects/:id</code>, <code>/projects/:id/time-summary</code>, <code>/projects/:id/status</code></td>
+<td><code>/projects</code>, <code>/projects/:id</code>, <code>/projects/time-summaries</code>, <code>/projects/:id/time-summary</code>, <code>/projects/:id/status</code></td>
 </tr>
 <tr>
 <td>Entry fields &amp; formats</td>
@@ -1451,6 +1668,10 @@
 <tr>
 <td>Entries</td>
 <td><code>/entries</code>, <code>/projects/:projectId/entries</code>, <code>/entries/:id</code>, <code>/entries/:id/status</code>, <code>/me/open-entries</code></td>
+</tr>
+<tr>
+<td>Backup &amp; restore</td>
+<td><code>/import</code></td>
 </tr>
 <tr>
 <td>History &amp; archive</td>
@@ -1471,6 +1692,22 @@
 <tr>
 <td>Dashboard</td>
 <td><code>/dashboard/layout</code></td>
+</tr>
+<tr>
+<td>Saved filters</td>
+<td><code>/saved-filters</code>, <code>/saved-filters/:id</code></td>
+</tr>
+<tr>
+<td>Profile</td>
+<td><code>/me</code></td>
+</tr>
+<tr>
+<td>My Grades</td>
+<td><code>/grades/modules</code>, <code>/grades/modules/:moduleId</code>, <code>/grades/modules/:moduleId/assessments</code>, <code>/grades/assessments/:assessmentId</code></td>
+</tr>
+<tr>
+<td>Help assistant</td>
+<td><code>/assistant/chat</code></td>
 </tr>
 <tr>
 <td>Tags</td>
@@ -1525,7 +1762,7 @@
 </table>
 <p>The jobs run only while the server is awake. The work is also done on demand: listing entries creates any due recurring entries, and reading reminders generates them, so nothing is lost while the server sleeps. Only push notifications wait until it wakes.</p>
 <h3 id="reminders-and-notifications">Reminders and notifications</h3>
-<p>Reminders come from the user (<code>MANUAL</code>) or from their rules (<code>DUE_SOON</code>, <code>OVERDUE</code>, <code>STALE</code>, <code>DAILY_LOG</code>). A device can be notified in two ways:</p>
+<p>Reminders come from the user (<code>MANUAL</code>), from their rules (<code>DUE_SOON</code>, <code>OVERDUE</code>, <code>STALE</code>, <code>DAILY_LOG</code>), or from dated assessments in My Grades (<code>ASSESSMENT</code>, 5 and 2 days before). A device can be notified in two ways:</p>
 <ul>
 <li><strong>Push:</strong> where the browser supports it and the server has VAPID keys, the browser subscribes and the server pushes each reminder as it falls due, even with the logbook closed. <code>public/sw.js</code> receives the push and shows it.</li>
 <li><strong>In-app:</strong> otherwise, an open logbook tab checks for newly due reminders every five minutes and shows them itself.</li>
@@ -1543,7 +1780,8 @@
 │   ├── /register          RegisterPage
 │   ├── /verify-email      VerifyEmail
 │   ├── /forgot-password   ForgotPasswordPage
-│   └── /reset-password    ResetPasswordPage
+│   ├── /reset-password    ResetPasswordPage
+│   └── /privacy           PrivacyPage
 │
 └── Protected routes (ProtectedRoute → AppLayout with Sidebar)
     ├── /dashboard         DashboardPage: chosen and arranged panels, including saved statistics
@@ -1555,6 +1793,8 @@
     ├── /calendar          CalendarPage: entries by due date, Google Calendar sync
     ├── /board             BoardPage: entries as a board
     ├── /reminders         RemindersPage: reminders and reminder rules
+    ├── /grades            GradesPage: modules and what is still needed (My Grades)
+    ├── /grades/:moduleId  GradeModulePage: a module's assessments, marks and what-ifs
     ├── /settings          SettingsPage: account, 2FA, notifications, data export/import
     └── /profile           ProfilePage
 </code></pre></div>
@@ -1594,6 +1834,10 @@
 <tr>
 <td><code>DeleteProjectModal</code></td>
 <td>Confirmed project deletion</td>
+</tr>
+<tr>
+<td><code>HelpAssistant</code></td>
+<td>The in-app AI help chat</td>
 </tr>
 </tbody>
 </table>

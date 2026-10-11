@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/">
+        <link rel="canonical" href="https://no-boys-just-bugs-digital-logbook-doc.netlify.app/">
       
       
       
@@ -602,6 +602,33 @@
   
   
     <li class="md-nav__item">
+      <a href="authentication-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="user-stories/user-stories/" class="md-nav__link">
         
   
@@ -618,6 +645,177 @@
   
 
       </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extra Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Extra Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="extra-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="extra-features/ai-help-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Help Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="extra-features/my-grades/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    My Grades
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="extra-features/google-calendar-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Calendar Sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -916,10 +1114,12 @@
 <li><strong><a href="testing/">Testing</a>:</strong> Automated test suite (stack, coverage, policy, proof of passing runs) and the formal user-feedback process.</li>
 <li><strong><a href="testing-quickstart/">Testing Quickstart</a>:</strong> What to do when adding a feature: test file, running it, and the coverage rule.</li>
 <li><strong><a href="user-feedback/">User Feedback</a>:</strong> SUS questionnaire, observation sheet, scoring setup, and the feedback-to-commit integration trail.</li>
+<li><strong><a href="extra-features/">Extra Features</a>:</strong> Features beyond the user stories: the AI help assistant, My Grades and Google Calendar sync.</li>
+<li><strong><a href="authentication-analysis/">Authentication Analysis</a>:</strong> Legal liabilities of handling credentials, the precautions taken, and the trade-offs of self-hosted authentication.</li>
 <li><strong><a href="third-party/">Third-Party Code</a>:</strong> Every dependency and external service, with motivation for each choice.</li>
 <li><strong><a href="user-stories/user-stories/">User Stories</a>:</strong> Acceptance tests for every Basic, Intermediate and Advanced user story.</li>
 <li><strong><a href="design/architecture/">Architecture Design</a>:</strong> Layers, the sign-in flow, and the request pipeline.</li>
-<li><strong><a href="design/database-erd/">Database Design</a>:</strong> Entity relationship diagrams for all twenty tables, constraints, indexes, and schema history.</li>
+<li><strong><a href="design/database-erd/">Database Design</a>:</strong> Entity relationship diagrams for all twenty-three tables, constraints, indexes, and schema history.</li>
 <li><strong><a href="design/system-design/">System Design</a>:</strong> The initial system design, and how it has evolved.</li>
 <li><strong><a href="design/development-plan/">Development Plan</a>:</strong> Development phases, dependencies, testing strategy, and definition of done.</li>
 <li><strong><a href="design/roadmap/">Roadmap</a>:</strong> Milestones, owners and status for every sprint.</li>
@@ -968,7 +1168,7 @@
 </tr>
 <tr>
 <td><strong>Linting</strong></td>
-<td>oxlint (frontend) / TypeScript type checker (backend)</td>
+<td>oxlint (frontend) / ESLint + TypeScript type checker (backend)</td>
 </tr>
 <tr>
 <td><strong>Workspace</strong></td>
@@ -1050,7 +1250,7 @@
 <li><strong>Automatic Reminders</strong> (US28) — Reminders for upcoming and overdue due dates, stalled entries and daily logging, delivered as push notifications even with the logbook closed.</li>
 <li><strong>Entry Version History</strong> (US29–US31) — Every change is kept; view an entry as it was on any date, and restore an earlier version.</li>
 <li><strong>Archiving &amp; Performance</strong> (US32, US33) — Archive old entries out of the way; database indexes, a paginated Entries page and one request for open work.</li>
-<li><strong>Advanced Search</strong> (US35–US37) — Searching inside custom fields, combining filters and ranking results; still in the Sprint 3 backlog.</li>
+<li><strong>Advanced Search</strong> (US35–US37) — Searching inside custom fields, combining filters and ranking results by relevance.</li>
 </ul>
 <h2 id="sprint-3-ownership">Sprint 3 Ownership</h2>
 <table>

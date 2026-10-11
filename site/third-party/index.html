@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://digital-logbook-docs.pages.dev/third-party/">
+        <link rel="canonical" href="https://no-boys-just-bugs-digital-logbook-doc.netlify.app/third-party/">
       
       
         <link rel="prev" href="../user-feedback/">
       
       
-        <link rel="next" href="../user-stories/user-stories/">
+        <link rel="next" href="../authentication-analysis/">
       
       
         
@@ -604,6 +604,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../authentication-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../user-stories/user-stories/" class="md-nav__link">
         
   
@@ -620,6 +647,177 @@
   
 
       </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extra Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Extra Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/ai-help-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Help Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/my-grades/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    My Grades
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extra-features/google-calendar-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Calendar Sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1166,7 +1364,7 @@ license was verified from the installed <code>package.json</code> on disk.</p>
 <td>Lets tests fire real HTTP requests at the actual Express app (through the real auth middleware and Zod validation), rather than calling handlers with fake request objects.</td>
 </tr>
 <tr>
-<td><a href="https://eslint.org">eslint</a> ^10 + typescript-eslint ^8</td>
+<td><a href="https://eslint.org">eslint</a> ^10 + @eslint/js + typescript-eslint ^8</td>
 <td>MIT</td>
 <td>backend</td>
 <td>Lints the backend with TypeScript-aware rules.</td>
@@ -1213,6 +1411,11 @@ license was verified from the installed <code>package.json</code> on disk.</p>
 <td><a href="https://developers.google.com/calendar">Google Calendar API</a></td>
 <td>Due-date sync</td>
 <td>Mirrors entry due dates into the student's own calendar via OAuth.</td>
+</tr>
+<tr>
+<td><a href="https://ai.google.dev">Google Gemini API</a></td>
+<td>AI help assistant</td>
+<td>Answers "how do I…?" questions in the in-app help chat. Called over plain HTTPS with <code>fetch</code>, so it adds no package; off when <code>GEMINI_API_KEY</code> is not set.</td>
 </tr>
 <tr>
 <td><a href="https://render.com">Render</a></td>
