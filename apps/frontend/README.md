@@ -115,6 +115,7 @@ The service worker is only registered in a production build, so under `npm run d
 | `/verify-email` | Email verification |
 | `/forgot-password` | Request password reset |
 | `/reset-password` | Reset password |
+| `/privacy` | Privacy notice |
 
 ### Protected Routes (JWT required)
 
@@ -131,6 +132,8 @@ All protected routes are wrapped in `AppLayout` (sidebar + content area):
 | `/calendar` | Entries by due date, Google Calendar sync |
 | `/board` | Entries as a board |
 | `/reminders` | Reminders and reminder rules |
+| `/grades` | My Grades: modules and what is still needed |
+| `/grades/:moduleId` | A module's assessments, marks and what-ifs |
 | `/settings` | Account, 2FA, theme, notifications, data export/import |
 | `/profile` | User profile |
 

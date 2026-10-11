@@ -65,6 +65,7 @@ The main goals of the Digital Logbook are to:
 * **Automatic reminders** — for upcoming and overdue work, stalled entries and daily logging, delivered as push notifications
 * **Entry history** — every change is kept; view an entry as it was on any date and restore an earlier version
 * **Archiving and performance** — archive old entries; indexed queries and paginated lists for long records
+* **Advanced search** — search inside custom fields, combine several filters, and get results ranked by relevance
 
 ### My Grades
 
@@ -112,7 +113,7 @@ The `@logbook/shared` package (`packages/shared/`) contains TypeScript definitio
 ### Testing and CI
 
 * Vitest with Supertest (backend) and Testing Library (frontend)
-* Gitea Actions typechecks, lints, runs both test suites with coverage, and builds on every push
+* Gitea Actions typechecks, lints, runs both test suites with coverage, and builds on every push; a passing push to `main` deploys the API to Render and the frontend to Cloudflare Pages
 
 ## Project Structure
 
@@ -267,4 +268,4 @@ test: add project creation tests
 
 ## Project Status
 
-The Basic (Sprint 1) and Intermediate (Sprint 2) requirements are complete. Sprint 3 (Advanced) is in its final stage: custom statistics, the personal dashboard, automation, recurring entries, reminders, entry history and query performance are done, and archiving and the advanced search stories are being completed. See the [methodology](docs/methodology.md) for the current board status.
+The Basic (Sprint 1), Intermediate (Sprint 2) and Advanced (Sprint 3) requirements are complete: every user story passes its acceptance tests. Beyond the user stories, the app also has My Grades, Google Calendar sync and an AI help assistant. See the [methodology](docs/methodology.md) for the board status.

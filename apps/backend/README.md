@@ -30,7 +30,7 @@ Deployed on Render at <https://digital-logbook-backend-latest.onrender.com>, wit
 ```
 apps/backend/
 ├── prisma/
-│   ├── schema.prisma        # Database schema (20 models)
+│   ├── schema.prisma        # Database schema (23 models)
 │   └── migrations/          # 0_init baseline + dated migrations
 ├── prisma.config.ts         # Prisma 7 config (reads DATABASE_URL from .env)
 ├── src/
@@ -122,12 +122,12 @@ The API will be available at `http://localhost:3000`. The startup log says which
 
 ## API
 
-All routes are prefixed with `/api`. Apart from sign-up, sign-in, password reset and the health checks, they require a `Bearer <token>` in the `Authorization` header, and every resource is checked against the signed-in user (another user's data returns `404`).
+All routes are prefixed with `/api`. Apart from sign-up, email verification, sign-in, password reset, the Google OAuth callback and the health checks, they require a `Bearer <token>` in the `Authorization` header, and every resource is checked against the signed-in user (another user's data returns `404`).
 
 | Area | Routes |
 |---|---|
 | Authentication, 2FA, account | `/api/auth/*` |
-| Projects | `/api/projects`, `/api/projects/:id`, `/api/projects/:id/status`, `/api/projects/:id/time-summary` |
+| Projects | `/api/projects`, `/api/projects/:id`, `/api/projects/:id/status`, `/api/projects/time-summaries`, `/api/projects/:id/time-summary` |
 | Entry fields & formats | `/api/projects/:projectId/entry-fields`, `/api/projects/:projectId/entry-format-versions`, `/api/entry-fields/:id` |
 | Entries | `/api/entries`, `/api/projects/:projectId/entries`, `/api/entries/:id`, `/api/entries/:id/status`, `/api/me/open-entries` |
 | Backup & restore | `/api/import` |
@@ -136,6 +136,10 @@ All routes are prefixed with `/api`. Apart from sign-up, sign-in, password reset
 | Automation | `/api/projects/:projectId/automation-rules`, `/api/recurrences/:id` |
 | Reminders & push | `/api/reminders`, `/api/reminders/count`, `/api/reminders/settings`, `/api/push/public-key`, `/api/push/subscriptions` |
 | Dashboard | `/api/dashboard/layout` |
+| Saved filters | `/api/saved-filters`, `/api/saved-filters/:id` |
+| Profile | `/api/me` |
+| My Grades | `/api/grades/modules`, `/api/grades/modules/:moduleId`, `/api/grades/modules/:moduleId/assessments`, `/api/grades/assessments/:assessmentId` |
+| Help assistant | `/api/assistant/chat` |
 | Tags | `/api/tags` |
 | Google Calendar | `/api/google-calendar/{connect,callback,status,sync,disconnect}` |
 | Utility | `/api/health`, `/api/db-check` (no auth) |
@@ -144,7 +148,7 @@ Every endpoint is documented in [docs/api-reference.md](../../docs/api-reference
 
 ## Testing
 
-The suite in `src/__tests__/` has 30 files and 543 tests (run of 2026-09-28): integration tests that call the real Express app with Supertest against the database in `.env`, and unit tests for pure logic such as expressions, automation conditions and the read-retry policy. Each file creates and deletes its own test user.
+The suite in `src/__tests__/` has 43 files and 786 tests (run of 2026-10-08): integration tests that call the real Express app with Supertest against the database in `.env`, and unit tests for pure logic such as expressions, automation conditions and the read-retry policy. Each file creates and deletes its own test user.
 
 ```bash
 # Run all tests

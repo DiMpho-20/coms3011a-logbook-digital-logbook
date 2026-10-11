@@ -313,7 +313,7 @@
 
 # Digital Logbook – Advanced User Stories
 
-Numbered as on the Sprint 3 board (Gitea issues #94–#109).
+Numbered as on the Sprint 3 board (Gitea issues #94–#109). The numbers US16–US21 are not used: Sprint 3 numbering starts at US22 to match the board.
 
 ## US22 – Define Custom Expressions
 

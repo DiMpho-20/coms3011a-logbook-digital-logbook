@@ -37,6 +37,7 @@ nav:
   - Testing Quickstart: testing-quickstart.md
   - User Feedback: user-feedback.md
   - Third-Party Code: third-party.md
+  - Authentication Analysis: authentication-analysis.md
   - User Stories: user-stories/user-stories.md
   - Extra Features:
       - Overview: extra-features/README.md

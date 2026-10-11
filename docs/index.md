@@ -13,6 +13,7 @@ Welcome to the technical documentation for the **COMS3011A Digital Logbook** pro
 * **[Testing Quickstart](testing-quickstart.md):** What to do when adding a feature: test file, running it, and the coverage rule.
 * **[User Feedback](user-feedback.md):** SUS questionnaire, observation sheet, scoring setup, and the feedback-to-commit integration trail.
 * **[Extra Features](extra-features/README.md):** Features beyond the user stories: the AI help assistant, My Grades and Google Calendar sync.
+* **[Authentication Analysis](authentication-analysis.md):** Legal liabilities of handling credentials, the precautions taken, and the trade-offs of self-hosted authentication.
 * **[Third-Party Code](third-party.md):** Every dependency and external service, with motivation for each choice.
 * **[User Stories](user-stories/user-stories.md):** Acceptance tests for every Basic, Intermediate and Advanced user story.
 * **[Architecture Design](design/architecture.md):** Layers, the sign-in flow, and the request pipeline.

@@ -250,6 +250,7 @@ erDiagram
         int stale_days
         boolean daily_log_enabled
         string daily_log_time "HH:MM"
+        boolean assessment_enabled "My Grades reminders"
         string time_zone
         datetime updated_at
     }
@@ -620,7 +621,7 @@ strings never leave the environment configuration.
 | Indexes for common query patterns | 3 | `projects`, `entry_fields`, `logbook_entries`, `entry_values`, `entry_versions`, `tags`, `GoogleCalendarConnection` |
 | Profile fields (`bio`, `avatar`, `student_number`, `degree`, `year_of_study`) — `20260929120000_user_profile_fields` | 3 | `users` |
 | My Grades (`academic_modules`, `assessments`) — `20261005200000_my_grades` | 3 | new tables + enums |
-| Assessment reminders (`reminders.assessment_id`, `ASSESSMENT` source) — `20261006090000_assessment_reminders` | 3 | `reminders` |
+| Assessment reminders (`reminders.assessment_id`, `ASSESSMENT` source, `assessments.remind`, `reminder_settings.assessment_enabled`) — `20261006090000_assessment_reminders` | 3 | `reminders`, `assessments`, `reminder_settings` |
 | Saved filters on the account — `20261006120000_saved_filters` | 3 | new table |
 
 The rows up to the squash summarise work that arrived as eight dated

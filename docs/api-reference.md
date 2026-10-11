@@ -63,7 +63,7 @@ Verify a user's email address with the token sent during registration.
 |---|---|---|
 | `token` | string | Yes |
 
-**Response `200`:** `{ "message": "Email verified successfully." }`
+**Response `200`:** `{ "message": "Email verified successfully. You can now log in." }`
 **Errors:** `400` (invalid or expired token)
 
 ---
@@ -133,7 +133,7 @@ whether the email exists (prevents account enumeration).
 
 **Response `200`:**
 ```json
-{ "message": "If account exists, a reset link has been sent." }
+{ "message": "If account exists, a password reset email has been sent." }
 ```
 
 ---
@@ -147,7 +147,7 @@ Reset the password using a single-use token from the reset email.
 | `token` | string | Yes |
 | `newPassword` | string | Yes — same rules as registration |
 
-**Response `200`:** `{ "message": "Password reset successfully." }`
+**Response `200`:** `{ "message": "Password updated successfully. You can now log in." }`
 **Errors:** `400` (invalid or expired token)
 
 ---
@@ -1207,6 +1207,7 @@ Stop pushing to a device. **Body:** `{ "endpoint": "..." }`
 
 **Response `204`:** No content. Devices the push service reports as gone
 (`404`/`410`) are removed automatically.
+
 ---
 
 ## Automation Rules (`/api/projects/:projectId/automation-rules`) 🔒
@@ -1621,9 +1622,10 @@ All error responses use a consistent JSON shape:
 | `403` | Forbidden (e.g. unverified account trying to log in) |
 | `404` | Resource not found — also returned for a resource that belongs to another user, so its existence is not revealed |
 | `409` | Conflict (duplicate name or email) |
-| `429` | Too many requests — the rate limit on sign-in, sign-up or 2FA was hit; wait and try again |
+| `429` | Too many requests — the rate limit on sign-in, sign-up, 2FA or the help assistant was hit; wait and try again |
 | `500` | Unexpected server error |
-| `503` | A feature is not configured on this server (the 2FA encryption key or the push keys) |
+| `502` | An external service failed (Google Calendar, or every Gemini model for the help assistant) |
+| `503` | A feature is not configured on this server (the 2FA encryption key, the push keys, Google Calendar or the Gemini key) |
 
 Request bodies that fail Zod validation on the auth routes return
 `{ "errors": { "<field>": ["message"] } }` instead of a single `error`

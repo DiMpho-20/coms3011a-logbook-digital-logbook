@@ -34,7 +34,7 @@ demonstrates that compliance and explores its consequences.
 | Session tokens | `jsonwebtoken` | Stateless JWT signed with HMAC-SHA256 |
 | TOTP 2FA | `otplib` | Time-based one-time password generation and verification |
 | QR provisioning | `qrcode` | Encode the `otpauth://` URI as a scannable image |
-| Email delivery | `nodemailer` (Gmail SMTP) | Send verification, reset and deletion-scheduled emails |
+| Email delivery | `resend` (preferred), `nodemailer` over Gmail SMTP (fallback) | Send verification, reset and deletion-scheduled emails |
 | Rate limiting | `express-rate-limit` | Throttle sensitive endpoints |
 | Persistence | Prisma + PostgreSQL (Neon) | Store users and their data |
 
@@ -126,8 +126,9 @@ user-authored content (projects, entries, tags). Under POPIA we act as the
   This is a cross-border transfer of personal information. In a production
   deployment we would need to document the legal basis, or use a region
   within South Africa.
-- Emails are delivered through **Gmail's SMTP** service. Recipient addresses
-  and email contents traverse Google's infrastructure.
+- Emails are delivered through **Resend**, or **Gmail's SMTP** service when
+  Resend is not configured. Recipient addresses and email contents traverse
+  that provider's infrastructure.
 
 ### 3.2 Consumer Protection Act
 
@@ -443,7 +444,8 @@ Every secret lives in an environment variable that is never committed:
 | --- | --- |
 | `JWT_SECRET` | Signs session tokens |
 | `TWO_FACTOR_ENCRYPTION_KEY` | Encrypts TOTP secrets at rest |
-| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | Sends verification, reset and deletion emails |
+| `RESEND_API_KEY`, `RESEND_FROM` | Sends verification, reset and deletion emails through Resend |
+| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | The Gmail SMTP fallback when Resend is not set |
 | `DATABASE_URL` | Prisma connection string |
 | `APP_URL` | Base URL for links in emails |
 
@@ -507,8 +509,8 @@ the Render dashboard.
   accessed on 3 October?" That would be a large addition and out of scope.
 - **Operational fragility.** Every deployment must set six environment
   variables correctly. A missing `JWT_SECRET` in production means no one can
-  sign in. A missing `GMAIL_APP_PASSWORD` means no one receives verification
-  emails. A provider would handle these centrally.
+  sign in. A missing email provider key (`RESEND_API_KEY`, or the Gmail
+  pair) means no one receives verification emails. A provider would handle these centrally.
 
 ### 5.3 Comparison table
 
@@ -560,7 +562,8 @@ required by the project brief.
 The Digital Logbook implements authentication using established libraries
 called from endpoints the team wrote. No cryptographic primitive is
 implemented by us: `bcryptjs` does password hashing, `jsonwebtoken` does session
-tokens, `otplib` does TOTP, and `nodemailer` delivers email through Gmail SMTP.
+tokens, `otplib` does TOTP, and `resend` (or `nodemailer` over Gmail SMTP)
+delivers email.
 The current implementation reflects a running list of bug fixes that closed
 specific weaknesses — a hardcoded JWT secret, unencrypted TOTP secrets,
 unbound 2FA steps, and absent recovery codes — each of which is documented
