@@ -13,6 +13,7 @@ flowchart LR
     Push["Browser push service<br/>(web push)"]
     Google["Google Calendar API"]
     Mail["Resend / Gmail SMTP"]
+    Gemini["Google Gemini API"]
 
     Browser -- "loads app" --> Pages
     Browser -- "HTTPS /api, JWT" --> API
@@ -21,6 +22,7 @@ flowchart LR
     Push -- "notifications" --> Browser
     API -- "OAuth, event sync" --> Google
     API -- "verification & reset emails" --> Mail
+    API -- "help assistant questions" --> Gemini
 ```
 
 | Part | Hosted on | Notes |
@@ -28,7 +30,7 @@ flowchart LR
 | Frontend | Cloudflare Pages (`*.pages.dev`) | Static Vite build. A production build calls the Render API directly; the dev server proxies `/api` to `localhost:3000` instead. |
 | Backend | Render | One Node process serving the API and running the background jobs (§6). On the free tier it sleeps when idle, and the jobs pause with it. |
 | Database | Neon (serverless PostgreSQL) | Reached through Prisma's `pg` driver adapter. |
-| CI | Gitea Actions (`.gitea/workflows/deploy.yaml`) | Installs, typechecks, lints, tests and builds on every push. It deploys nothing; both deployments are done by hand. |
+| CI | Gitea Actions (`.gitea/workflows/deploy.yaml`) | Installs, typechecks, lints, tests and builds on every push. A passing push to `main` also deploys both apps (below). |
 
 The backend only accepts browser requests from `localhost` and `*.pages.dev` origins (CORS, `apps/backend/src/app.ts`).
 
@@ -88,7 +90,7 @@ coms3011a-logbook-digital-logbook/
 │   │
 │   └── backend/                   # Express REST API
 │       ├── prisma/
-│       │   ├── schema.prisma      # 20 models (§4)
+│       │   ├── schema.prisma      # 23 models (§4)
 │       │   └── migrations/        # 0_init baseline + dated migrations
 │       └── src/
 │           ├── routes/            # Express routers, one per area
@@ -97,7 +99,8 @@ coms3011a-logbook-digital-logbook/
 │           ├── middleware/        # requireAuth (JWT), rate limiting
 │           ├── utils/             # Domain logic: entry formats and versions, computed
 │           │                      #   fields, expressions, automation, recurrence,
-│           │                      #   reminders, push, tags, token and crypto helpers
+│           │                      #   reminders, push, tags, grades, help assistant,
+│           │                      #   token and crypto helpers
 │           ├── services/          # Google Calendar client
 │           ├── jobs/              # Background jobs started with the server (§6)
 │           ├── __tests__/         # Vitest + Supertest suite
@@ -112,11 +115,11 @@ coms3011a-logbook-digital-logbook/
 
 ## 4. Data Model
 
-The schema in `apps/backend/prisma/schema.prisma` has twenty models. See [Database design](design/database-erd.md) for the full diagram; they group as follows.
+The schema in `apps/backend/prisma/schema.prisma` has twenty-three models. See [Database design](design/database-erd.md) for the full diagram; they group as follows.
 
 | Area | Models | Notes |
 |---|---|---|
-| Accounts | `User`, `PasswordReset`, `TwoFactorRecoveryCode` | Reset and verification tokens are stored hashed. TOTP secrets are encrypted at rest. |
+| Accounts | `User`, `PasswordReset`, `TwoFactorRecoveryCode` | Reset and verification tokens are stored hashed. TOTP secrets are encrypted at rest. `User` also holds the profile card (bio, avatar, student number, degree, year of study). |
 | Projects & formats | `Project`, `EntryField`, `EntryFormatVersion` | A project's entry format is its fields. Each format change writes an immutable `EntryFormatVersion`, and an entry stays pinned to the version it was created under. |
 | Entries | `LogbookEntry`, `EntryValue` | One `EntryValue` row per field per entry, stored as text and interpreted by the field's type. Entries carry duration, entry and due dates, an `OPEN`/`DONE` status, and an `archivedAt` marker. |
 | History | `EntryVersion` | A full snapshot of the entry on every create, edit, restore and automated change. Rows are never updated. |
@@ -124,6 +127,8 @@ The schema in `apps/backend/prisma/schema.prisma` has twenty models. See [Databa
 | Statistics & dashboard | `CustomStatistic`, `DashboardLayout` | Saved expressions, and the user's chosen dashboard panels in order. |
 | Automation | `AutomationRule`, `RecurrenceRule` | Rules applied when entries are saved, and templates for repeating entries. |
 | Reminders | `Reminder`, `ReminderSettings`, `PushSubscription` | Manual and rule-generated reminders, each user's rules, and the devices subscribed to push. |
+| Saved filters | `SavedFilter` | Named Entries page filter combinations, kept on the account. |
+| My Grades | `AcademicModule`, `Assessment` | Modules, their weighted assessments and marks; dated assessments raise reminders. |
 | Integrations | `GoogleCalendarConnection` | Encrypted OAuth tokens for Calendar sync. |
 
 **Field types** (`EntryFieldType`): `TEXT`, `NUMBER`, `DATE`, `BOOLEAN`, `TAGS`, `CHECKLIST`, `LINK`, `REFERENCE`, `COMPUTED`.
@@ -132,12 +137,12 @@ The schema in `apps/backend/prisma/schema.prisma` has twenty models. See [Databa
 
 ## 5. API
 
-All routes are under `/api` and, apart from sign-up, sign-in, password reset and the health checks, need a `Bearer` JWT. Every request body is validated with Zod (`400` on failure), and every resource is checked against the signed-in user (`404` for another user's data). The full list with request and response shapes is in the [API Reference](api-reference.md).
+All routes are under `/api` and, apart from sign-up, email verification, sign-in, password reset, the Google OAuth callback and the health checks, need a `Bearer` JWT. Every request body is validated with Zod (`400` on failure), and every resource is checked against the signed-in user (`404` for another user's data). The full list with request and response shapes is in the [API Reference](api-reference.md).
 
 | Area | Base paths |
 |---|---|
 | Authentication, 2FA, account | `/auth/*` |
-| Projects | `/projects`, `/projects/:id`, `/projects/:id/time-summary`, `/projects/:id/status` |
+| Projects | `/projects`, `/projects/:id`, `/projects/time-summaries`, `/projects/:id/time-summary`, `/projects/:id/status` |
 | Entry fields & formats | `/projects/:projectId/entry-fields`, `/projects/:projectId/entry-format-versions`, `/entry-fields/:id` |
 | Entries | `/entries`, `/projects/:projectId/entries`, `/entries/:id`, `/entries/:id/status`, `/me/open-entries` |
 | Backup & restore | `/import` |
@@ -146,6 +151,10 @@ All routes are under `/api` and, apart from sign-up, sign-in, password reset and
 | Automation | `/projects/:projectId/automation-rules`, `/recurrences/:id` |
 | Reminders & push | `/reminders`, `/reminders/count`, `/reminders/settings`, `/push/public-key`, `/push/subscriptions` |
 | Dashboard | `/dashboard/layout` |
+| Saved filters | `/saved-filters`, `/saved-filters/:id` |
+| Profile | `/me` |
+| My Grades | `/grades/modules`, `/grades/modules/:moduleId`, `/grades/modules/:moduleId/assessments`, `/grades/assessments/:assessmentId` |
+| Help assistant | `/assistant/chat` |
 | Tags | `/tags` |
 | Google Calendar | `/google-calendar/{connect,callback,status,sync,disconnect}` |
 | Utility | `/health`, `/db-check` |
@@ -176,7 +185,7 @@ The jobs run only while the server is awake. The work is also done on demand: li
 
 ### Reminders and notifications
 
-Reminders come from the user (`MANUAL`) or from their rules (`DUE_SOON`, `OVERDUE`, `STALE`, `DAILY_LOG`). A device can be notified in two ways:
+Reminders come from the user (`MANUAL`), from their rules (`DUE_SOON`, `OVERDUE`, `STALE`, `DAILY_LOG`), or from dated assessments in My Grades (`ASSESSMENT`, 5 and 2 days before). A device can be notified in two ways:
 
 * **Push:** where the browser supports it and the server has VAPID keys, the browser subscribes and the server pushes each reminder as it falls due, even with the logbook closed. `public/sw.js` receives the push and shows it.
 * **In-app:** otherwise, an open logbook tab checks for newly due reminders every five minutes and shows them itself.
@@ -201,7 +210,8 @@ App (BrowserRouter)
 │   ├── /register          RegisterPage
 │   ├── /verify-email      VerifyEmail
 │   ├── /forgot-password   ForgotPasswordPage
-│   └── /reset-password    ResetPasswordPage
+│   ├── /reset-password    ResetPasswordPage
+│   └── /privacy           PrivacyPage
 │
 └── Protected routes (ProtectedRoute → AppLayout with Sidebar)
     ├── /dashboard         DashboardPage: chosen and arranged panels, including saved statistics
@@ -213,6 +223,8 @@ App (BrowserRouter)
     ├── /calendar          CalendarPage: entries by due date, Google Calendar sync
     ├── /board             BoardPage: entries as a board
     ├── /reminders         RemindersPage: reminders and reminder rules
+    ├── /grades            GradesPage: modules and what is still needed (My Grades)
+    ├── /grades/:moduleId  GradeModulePage: a module's assessments, marks and what-ifs
     ├── /settings          SettingsPage: account, 2FA, notifications, data export/import
     └── /profile           ProfilePage
 ```
@@ -228,6 +240,7 @@ Notable components beyond the basic layout, card and state components:
 | `GoogleCalendarSync` | Connect, sync and disconnect Google Calendar |
 | `BarChart`, `TrendChart`, `WeekComparison` | Statistics and dashboard charts |
 | `DeleteProjectModal` | Confirmed project deletion |
+| `HelpAssistant` | The in-app AI help chat |
 
 `api/client.ts` points the Axios instance at `/api` in development and at the Render URL in production. `api.ts` wraps every endpoint in a typed function.
 

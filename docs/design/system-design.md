@@ -122,14 +122,14 @@ changed is what was built on top of it.
 
 | Area | Initial design | Now |
 |---|---|---|
-| Database | 6 tables | 20 tables: format versions, entry versions, tags, custom statistics, dashboard layouts, automation and recurrence rules, reminders, push subscriptions, recovery codes and the Google Calendar connection were added |
+| Database | 6 tables | 23 tables: format versions, entry versions, tags, custom statistics, dashboard layouts, saved filters, automation and recurrence rules, reminders, push subscriptions, recovery codes, the Google Calendar connection, and academic modules and assessments for My Grades were added |
 | Field types | Text, Number, Date, Boolean | Also Tags, Checklist, Link, Reference and Computed |
 | Entry history | An entry is overwritten when edited | Every change is kept as a version and can be viewed or restored |
 | Authentication | JWT sign-in, email verification, password reset | Also TOTP two-factor authentication with recovery codes, encrypted secrets, hashed tokens and rate limiting |
 | Email | Nodemailer (Gmail SMTP) | Resend, with Gmail SMTP as a fallback |
 | Background work | None | Jobs in the API process create recurring entries, push due reminders and purge deleted accounts |
 | Frontend | Pages, components, API client, routing | Also a service worker for offline use and push notifications, and an offline entry queue |
-| Integrations | None | Google Calendar sync and web push |
+| Integrations | None | Google Calendar sync, web push and the Gemini-backed help assistant |
 | Deployment | Not yet decided | Frontend on Cloudflare Pages, backend on Render, database on Neon, CI on Gitea Actions |
 
 The request pipeline also gained an explicit ownership check: a valid token

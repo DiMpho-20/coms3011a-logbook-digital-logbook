@@ -83,6 +83,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `GMAIL_USER`, `GMAIL_APP_PASSWORD` | Email via Gmail SMTP (used only when Resend is not set) | As above |
 | `TWO_FACTOR_ENCRYPTION_KEY` | Encrypts 2FA secrets | Enabling 2FA returns `503`. Never change it once set: existing 2FA users would be locked out |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_TOKEN_ENCRYPTION_KEY` | Google Calendar sync | The Calendar page reports that Google Calendar is not configured |
+| `GEMINI_API_KEY` (and optionally `GEMINI_MODEL`) | The AI help assistant | The assistant answers `503` and the chat says it is unavailable |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (and optionally `VAPID_SUBJECT`) | Push notifications for reminders (see [Push notifications](#push-notifications)) | Reminders stay in-app only; the backend logs `VAPID keys not set` on start |
 | `RATE_LIMIT_*`, `RATE_LIMIT_DISABLED`, `TRUST_PROXY_HOPS` | Rate-limit tuning | Sensible defaults apply; see the comments in `.env.example` |
 
@@ -98,7 +99,7 @@ npx prisma generate
 npx prisma migrate deploy
 ```
 
-> The migration history was squashed on 2026-09-27 into a baseline, `prisma/migrations/0_init`, which creates the core schema (eighteen tables, enums, unique indexes and foreign keys) on an empty database. Dated migrations after it add the rest — push subscriptions, dashboard layouts, and unique entry-field names — for twenty tables in all. `npx prisma migrate deploy` applies them in order, so it bootstraps a fresh Neon project end-to-end; there is no need for `prisma db push`, and new schema changes should arrive as dated migrations (`npx prisma migrate dev --name <change>`).
+> The migration history was squashed on 2026-09-27 into a baseline, `prisma/migrations/0_init`, which creates the core schema (eighteen tables, enums, unique indexes and foreign keys) on an empty database. Dated migrations after it add the rest — push subscriptions, dashboard layouts, unique entry-field names, profile fields, My Grades, assessment reminders and saved filters — for twenty-three tables in all. `npx prisma migrate deploy` applies them in order, so it bootstraps a fresh Neon project end-to-end; there is no need for `prisma db push`, and new schema changes should arrive as dated migrations (`npx prisma migrate dev --name <change>`).
 
 ### 6. Run development servers
 

@@ -48,5 +48,5 @@ in the meantime.
 - No document contains credentials. Configuration is described by the
   *name* of each environment variable only; values live in each environment's
   `.env` and are never committed.
-- Statements describe the code as it is on the `Dineo` branch. Where a document
-  could not confirm something from the code, it says so.
+- Statements describe the code as it is on `main`. Where a document could not
+  confirm something from the code, it says so.

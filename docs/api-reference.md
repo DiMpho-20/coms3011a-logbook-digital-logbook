@@ -338,6 +338,21 @@ Permanently delete a project together with its entry fields, entries, their valu
 
 ---
 
+### `GET /api/projects/time-summaries`
+
+Time totals for every project the caller owns in one request, so the Projects
+page does not need one request per project. Projects with no entries are
+included with zero totals.
+
+**Response `200`:**
+```json
+[
+  { "projectId": "…", "totalMinutes": 180, "totalHours": 3, "entryCount": 5, "lastEntryAt": "2026-09-14T…" }
+]
+```
+
+---
+
 ### `GET /api/projects/:id/time-summary`
 
 Get aggregated time statistics for a project.
@@ -1512,6 +1527,54 @@ Events that were already synced remain in the user's calendar.
 ```json
 { "message": "Google Calendar connection removed." }
 ```
+
+---
+
+## Profile (`/api/me`) 🔒
+
+Both endpoints act on the account in the token. There is no id in the URL, so
+one student cannot read or change another's profile.
+
+### `GET /api/me`
+
+The signed-in student's profile.
+
+**Response `200`:**
+```json
+{
+  "id": "…",
+  "email": "student@example.com",
+  "fullName": "Thandi Mokoena",
+  "isEmailVerified": true,
+  "bio": null,
+  "avatar": null,
+  "studentNumber": "2812345",
+  "degree": "BSc Computer Science",
+  "yearOfStudy": "3rd year",
+  "memberSince": "2026-08-01T…"
+}
+```
+
+**Errors:** `404` (the account was deleted while the token was still valid)
+
+### `PATCH /api/me`
+
+Update the editable profile fields. A field left out is not changed; `null`
+or `""` clears it.
+
+| Field | Type | Notes |
+|---|---|---|
+| `fullName` | string | Up to 255 characters. Cannot be cleared |
+| `bio` | string \| null | Up to 280 characters |
+| `studentNumber` | string \| null | Up to 32 characters |
+| `degree` | string \| null | Up to 120 characters |
+| `yearOfStudy` | string \| null | Up to 32 characters |
+| `avatar` | string \| null | A PNG, JPEG or WebP `data:` URL, under 512 KB once encoded |
+
+The email address, password and two-factor settings cannot be changed here.
+
+**Response `200`:** The updated profile, as for `GET /api/me`.
+**Errors:** `400` (a field is too long, the name is empty, or the image is invalid), `404` (account not found)
 
 ---
 

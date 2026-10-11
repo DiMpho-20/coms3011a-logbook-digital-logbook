@@ -132,8 +132,8 @@ below cover the whole monorepo.
 
 #### Pure logic (60 tests)
 
-- **`savedFilters.test.ts` (14)** — saved-filter persistence in
-  localStorage
+- **`savedFilters.test.ts` (15)** — saved filters kept on the account,
+  with a localStorage copy for offline use and upload of filters saved offline
 - **`formulas.test.ts` (16)** — the computed-field formula helpers
 - **`utils.test.ts` (11)** — date keys, formatting, streaks
 - **`dashboardInsights.test.ts` (13)** — streaks, monthly counts, weekly
@@ -462,8 +462,9 @@ whether it *works for real users*. Our formal process:
 5. **Records:** each round is logged in `docs/user-feedback.md` with the
    raw scores, findings, and the feedback → action → commit trail.
 
-The first formal round is scheduled for Sprint 2; results will be
-published on this site.
+Two rounds have been run: Round 1 on 14 September 2026 (Sprint 2, SUS 72.9)
+and Round 2 on 28 September 2026 (Sprint 3, SUS 72.5). The results are on the
+[User Feedback](user-feedback.md) page.
 
 ---
 

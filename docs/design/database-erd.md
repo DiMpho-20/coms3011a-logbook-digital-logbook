@@ -4,7 +4,8 @@
 
 The Digital Logbook uses a PostgreSQL database to store users, projects,
 project entry formats, logbook entries and their history, and the features
-built on top of them: tags, statistics, dashboards, automation and reminders.
+built on top of them: tags, statistics, dashboards, automation, reminders,
+saved filters and the My Grades module tracker.
 
 A key design goal was that different projects need different logbook
 entry structures (e.g. one project may track "hours worked" and "task
@@ -19,9 +20,9 @@ We use **UUIDs** rather than auto-incrementing integers as primary keys
 to avoid exposing sequential, guessable IDs and to make it easier to
 merge or migrate data across environments without ID collisions.
 
-The schema has twenty tables. The diagrams below split them into the core
-logbook and the features around it; `USER`, `PROJECT` and `LOGBOOK_ENTRY`
-appear in both.
+The schema has twenty-three tables. The diagrams below split them into the
+core logbook, the features around it, and My Grades; `USER`, `PROJECT`,
+`LOGBOOK_ENTRY` and `REMINDER` appear in more than one.
 
 ## Entity Relationship Diagrams
 
@@ -50,6 +51,11 @@ erDiagram
         datetime email_verification_expiry "nullable"
         string two_factor_secret "nullable, encrypted TOTP secret"
         boolean is_two_factor_enabled "default false"
+        string bio "nullable, up to 280"
+        text avatar "nullable, image data URL"
+        string student_number "nullable"
+        string degree "nullable"
+        string year_of_study "nullable"
         datetime scheduled_deletion_at "nullable, end of deletion grace period"
         datetime created_at
         datetime updated_at
@@ -153,6 +159,7 @@ erDiagram
     USER ||--o| REMINDER_SETTINGS : configures
     USER ||--o{ PUSH_SUBSCRIPTION : "notified on"
     USER ||--o| GOOGLE_CALENDAR_CONNECTION : connects
+    USER ||--o{ SAVED_FILTER : saves
 
     TAG {
         uuid id PK
@@ -220,7 +227,8 @@ erDiagram
         uuid id PK
         uuid user_id FK
         uuid entry_id FK "nullable"
-        enum source "MANUAL, DUE_SOON, OVERDUE, STALE, DAILY_LOG"
+        uuid assessment_id FK "nullable, ASSESSMENT reminders"
+        enum source "MANUAL, DUE_SOON, OVERDUE, STALE, DAILY_LOG, ASSESSMENT"
         string rule_key "nullable, dedupes generated reminders"
         string title
         text note "nullable"
@@ -264,6 +272,55 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
+
+    SAVED_FILTER {
+        uuid id PK
+        uuid user_id FK
+        string name
+        jsonb filters "the Entries page filter state"
+        datetime created_at
+    }
+```
+
+### My Grades
+
+```mermaid
+erDiagram
+    USER ||--o{ ACADEMIC_MODULE : takes
+    ACADEMIC_MODULE ||--o{ ASSESSMENT : "assessed by"
+    ASSESSMENT |o--o{ REMINDER : "reminds of"
+
+    ACADEMIC_MODULE {
+        uuid id PK
+        uuid user_id FK
+        string code "upper-cased, e.g. COMS3011A"
+        string name
+        int academic_year
+        enum type "SEMESTER, FULL_YEAR"
+        int semester "nullable, 1 or 2 for a semester module"
+        decimal semester1_weight "nullable, full-year modules only"
+        decimal target_mark "nullable"
+        datetime created_at
+        datetime updated_at
+    }
+
+    ASSESSMENT {
+        uuid id PK
+        uuid module_id FK
+        string name
+        int section "nullable, 1 or 2 in a full-year module"
+        decimal weight "share of its section, 0-100"
+        decimal mark_obtained "nullable"
+        decimal mark_max "nullable"
+        decimal mark_percent "nullable"
+        boolean missed "counts as 0%"
+        date date "nullable"
+        enum date_kind "nullable, DUE or TEST"
+        boolean remind "default true"
+        int position
+        datetime created_at
+        datetime updated_at
+    }
 ```
 
 ### Enums
@@ -276,7 +333,9 @@ erDiagram
 | `AutomationTrigger` | `ENTRY_CREATED`, `ENTRY_UPDATED` | `automation_rules.trigger` |
 | `RecurrencePattern` | `DAILY`, `WEEKLY`, `MONTHLY` | `recurrence_rules.pattern` |
 | `ReminderStatus` | `PENDING`, `COMPLETED`, `DISMISSED` | `reminders.status` |
-| `ReminderSource` | `MANUAL`, `DUE_SOON`, `OVERDUE`, `STALE`, `DAILY_LOG` | `reminders.source` |
+| `ReminderSource` | `MANUAL`, `DUE_SOON`, `OVERDUE`, `STALE`, `DAILY_LOG`, `ASSESSMENT` | `reminders.source` |
+| `ModuleType` | `SEMESTER`, `FULL_YEAR` | `academic_modules.type` |
+| `AssessmentDateKind` | `DUE`, `TEST` | `assessments.date_kind` |
 
 ### Constraints
 
@@ -289,6 +348,7 @@ erDiagram
 - `REMINDER(user_id, rule_key)` — Unique, so a rule-generated reminder is created once however often the rules are applied.
 - `PUSH_SUBSCRIPTION.endpoint` — Unique. An endpoint belongs to one browser; if another user signs in on it, the subscription moves to them.
 - `TWO_FACTOR_RECOVERY_CODE(user_id, code_hash)` — Unique.
+- `ACADEMIC_MODULE(user_id, code, academic_year)` — Unique. Taking a module again in a later year is a new row, not a clash.
 - All foreign keys use `ON DELETE CASCADE` for full account erasure, except `logbook_entries.format_version_id` and `logbook_entries.recurrence_rule_id`, which use `ON DELETE SET NULL` — deleting a snapshot or a recurrence rule must not destroy entries.
 
 ### Indexes
@@ -302,6 +362,9 @@ code, push subscription and Google Calendar tables. Reminders are indexed on
 `(user_id, status, remind_at)` for the due-reminder query,
 `recurrence_rules` on `(enabled, next_occurrence)` for the recurrence job, and
 `automation_rules` on `(project_id, enabled)` for the rule runner.
+`saved_filters.user_id`, `academic_modules(user_id, academic_year)`,
+`assessments.module_id` and `reminders.assessment_id` are indexed for the
+saved-filter, My Grades and assessment-reminder lookups.
 
 ## Main Entities
 
@@ -487,6 +550,29 @@ notifications.
 The user's Google OAuth tokens, encrypted at rest, used to mirror entry due
 dates into their calendar. At most one per user.
 
+### Profile
+
+The profile card lives on `USER` itself: `bio`, `avatar` (a downscaled image
+stored as a data URL), `student_number`, `degree` and `year_of_study`. All are
+optional, and keeping them on the server means the profile follows the student
+between devices.
+
+### Saved Filter
+
+A named combination of Entries page filters (search text, project, tab, sort,
+tags, custom-field filters and archive state), stored as JSONB because it is
+read and written whole. Kept on the account so saved filters follow the student
+between devices; the browser keeps a copy for offline use.
+
+### Academic Module and Assessment
+
+The My Grades extra feature (`FEAT-009`). An `ACADEMIC_MODULE` is a course the
+student takes in a given year, either one semester or the full year; an
+`ASSESSMENT` is one weighted piece of work in it. A mark is kept as entered,
+out of a maximum or as a percentage, and `missed` counts as 0% while staying
+distinct from an entered zero. A dated assessment with `remind` on generates
+`ASSESSMENT` reminders 5 and 2 days before its date; they are deleted with it.
+
 ## Schema Changes Over Time
 
 ### How changes are applied
@@ -532,10 +618,14 @@ strings never leave the environment configuration.
 | Dashboard layouts — `20260927020000_dashboard_layouts` | 3 | new table |
 | Unique live field names per project — `20260927140000_unique_entry_field_names` | 3 | `entry_fields` |
 | Indexes for common query patterns | 3 | `projects`, `entry_fields`, `logbook_entries`, `entry_values`, `entry_versions`, `tags`, `GoogleCalendarConnection` |
+| Profile fields (`bio`, `avatar`, `student_number`, `degree`, `year_of_study`) — `20260929120000_user_profile_fields` | 3 | `users` |
+| My Grades (`academic_modules`, `assessments`) — `20261005200000_my_grades` | 3 | new tables + enums |
+| Assessment reminders (`reminders.assessment_id`, `ASSESSMENT` source) — `20261006090000_assessment_reminders` | 3 | `reminders` |
+| Saved filters on the account — `20261006120000_saved_filters` | 3 | new table |
 
 The rows up to the squash summarise work that arrived as eight dated
 migrations and was folded into the baseline on 2026-09-27; each original
-migration is still visible in the git history. The three rows naming a
+migration is still visible in the git history. The seven rows naming a
 migration landed *on top of* the squashed baseline, which is the workflow
 every later schema change follows.
 

@@ -72,7 +72,7 @@ Before adding a library we check:
 | [@testing-library/react](https://testing-library.com/docs/react-testing-library/intro/) ^16 + jest-dom + user-event | MIT | frontend | Renders components and drives them the way a user would — by label, role and text — so tests don't break when markup changes. |
 | [jsdom](https://github.com/jsdom/jsdom) ^30 | MIT | frontend | A browser DOM inside Node, so component tests run without a real browser. |
 | [supertest](https://github.com/ladjs/supertest) ^7.2 | MIT | backend | Lets tests fire real HTTP requests at the actual Express app (through the real auth middleware and Zod validation), rather than calling handlers with fake request objects. |
-| [eslint](https://eslint.org) ^10 + typescript-eslint ^8 | MIT | backend | Lints the backend with TypeScript-aware rules. |
+| [eslint](https://eslint.org) ^10 + @eslint/js + typescript-eslint ^8 | MIT | backend | Lints the backend with TypeScript-aware rules. |
 | [oxlint](https://oxc.rs) ^1.75 | MIT | frontend | Rust-based linter — fast enough to run on every save. |
 
 ## External services
@@ -84,6 +84,7 @@ Before adding a library we check:
 | Gmail SMTP | Transactional email (fallback) | Used when Resend is not configured: a Gmail account with an app password — zero cost, no signup friction, and it works locally. |
 | Browser push services | Reminder notifications | Each browser vendor's push service delivers the server's VAPID-signed messages to the device. Nothing to sign up for; the browser chooses the service. |
 | [Google Calendar API](https://developers.google.com/calendar) | Due-date sync | Mirrors entry due dates into the student's own calendar via OAuth. |
+| [Google Gemini API](https://ai.google.dev) | AI help assistant | Answers "how do I…?" questions in the in-app help chat. Called over plain HTTPS with `fetch`, so it adds no package; off when `GEMINI_API_KEY` is not set. |
 | [Render](https://render.com) | Backend hosting | Deploys the Express API from `main` with a free tier that suits a student project. |
 | [Cloudflare Pages](https://pages.cloudflare.com) | Frontend hosting | Global CDN for the built React app. |
 | [Netlify](https://www.netlify.com) | Documentation hosting | Hosts this MkDocs documentation site. |
