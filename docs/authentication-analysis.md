@@ -34,7 +34,7 @@ demonstrates that compliance and explores its consequences.
 | Session tokens | `jsonwebtoken` | Stateless JWT signed with HMAC-SHA256 |
 | TOTP 2FA | `otplib` | Time-based one-time password generation and verification |
 | QR provisioning | `qrcode` | Encode the `otpauth://` URI as a scannable image |
-| Email delivery | `resend` (preferred), `nodemailer` over Gmail SMTP (fallback) | Send verification, reset and deletion-scheduled emails |
+| Email delivery | `brevo` HTTP API (preferred), `resend`, `nodemailer` over Gmail SMTP (local fallback) | Send verification, reset and deletion-scheduled emails |
 | Rate limiting | `express-rate-limit` | Throttle sensitive endpoints |
 | Persistence | Prisma + PostgreSQL (Neon) | Store users and their data |
 
@@ -126,9 +126,10 @@ user-authored content (projects, entries, tags). Under POPIA we act as the
   This is a cross-border transfer of personal information. In a production
   deployment we would need to document the legal basis, or use a region
   within South Africa.
-- Emails are delivered through **Resend**, or **Gmail's SMTP** service when
-  Resend is not configured. Recipient addresses and email contents traverse
-  that provider's infrastructure.
+- Emails are delivered through **Brevo**, a third-party transactional email
+  provider. Recipient addresses and email contents traverse Brevo's
+  infrastructure, which is located outside South Africa. Resend and Gmail
+  SMTP remain in the code as fallbacks but are not used in production.
 
 ### 3.2 Consumer Protection Act
 
@@ -444,13 +445,42 @@ Every secret lives in an environment variable that is never committed:
 | --- | --- |
 | `JWT_SECRET` | Signs session tokens |
 | `TWO_FACTOR_ENCRYPTION_KEY` | Encrypts TOTP secrets at rest |
-| `RESEND_API_KEY`, `RESEND_FROM` | Sends verification, reset and deletion emails through Resend |
-| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | The Gmail SMTP fallback when Resend is not set |
+| `BREVO_API_KEY` | Sends verification, reset and deletion emails through Brevo (production) |
+| `BREVO_FROM_EMAIL` | The verified sender address in the Brevo dashboard |
+| `BREVO_FROM_NAME` | Display name shown in outgoing mail (defaults to "Digital Logbook") |
+| `RESEND_API_KEY`, `RESEND_FROM` | First fallback provider if Brevo is not configured |
+| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | Local-development fallback only; SMTP is blocked on Render's free tier |
 | `DATABASE_URL` | Prisma connection string |
 | `APP_URL` | Base URL for links in emails |
 
 `.env` is listed in `.gitignore`. In production the same variables are set in
 the Render dashboard.
+
+### 4.11 Email delivery: why Brevo and not Gmail
+
+The original implementation used Gmail SMTP through Nodemailer. This works
+locally but fails in production: Render's free web services block outbound
+SMTP traffic to ports 25, 465 and 587. Gmail's SMTP server does not listen
+on any other port, so the connection is dropped silently and the request
+hangs until it times out. The visible symptom is that registration and
+password reset appear to hang indefinitely on the deployed app while
+working normally on a developer's machine.
+
+Brevo is used instead because it delivers over HTTPS (port 443), which
+Render does not block. It is the same category of "established practice"
+as the other libraries in this system. The provider selection in
+`utils/email.ts` prefers Brevo, then falls back to Resend, then Gmail, and
+finally to a dev-mode console log, so local development without any
+provider configured continues to work.
+
+Two consequences are accepted:
+
+- Brevo's free tier allows 300 emails per day. Beyond that, up to 1,000 are
+  queued and sent the next day.
+- We send from a freemail (Gmail) domain, so DKIM and DMARC cannot be
+  configured. Brevo warns that this is not recommended. Emails may
+  therefore land in spam. The registration and password-reset success
+  messages tell users to check their spam folder.
 
 ---
 
@@ -507,10 +537,13 @@ the Render dashboard.
 - **Limited audit trail.** We do not log successful logins, failed logins, 2FA
   challenges or password resets in a way that would answer "was this account
   accessed on 3 October?" That would be a large addition and out of scope.
-- **Operational fragility.** Every deployment must set six environment
-  variables correctly. A missing `JWT_SECRET` in production means no one can
-  sign in. A missing email provider key (`RESEND_API_KEY`, or the Gmail
-  pair) means no one receives verification emails. A provider would handle these centrally.
+- **Operational fragility.** Every production deployment must set six
+  environment variables correctly: `JWT_SECRET`, `TWO_FACTOR_ENCRYPTION_KEY`,
+  `BREVO_API_KEY`, `BREVO_FROM_EMAIL`, `DATABASE_URL` and `APP_URL`. A missing
+  `JWT_SECRET` means no one can sign in. A missing `BREVO_API_KEY` means no
+  one receives verification emails, because the fallbacks behind it are not
+  configured in production and Gmail SMTP cannot reach the internet from
+  Render. A provider would handle these centrally.
 
 ### 5.3 Comparison table
 
@@ -562,8 +595,7 @@ required by the project brief.
 The Digital Logbook implements authentication using established libraries
 called from endpoints the team wrote. No cryptographic primitive is
 implemented by us: `bcryptjs` does password hashing, `jsonwebtoken` does session
-tokens, `otplib` does TOTP, and `resend` (or `nodemailer` over Gmail SMTP)
-delivers email.
+tokens, `otplib` does TOTP, and `brevo` delivers email over its HTTPS API.
 The current implementation reflects a running list of bug fixes that closed
 specific weaknesses — a hardcoded JWT secret, unencrypted TOTP secrets,
 unbound 2FA steps, and absent recovery codes — each of which is documented
