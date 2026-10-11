@@ -400,10 +400,8 @@ The Advanced phase answers the brief's request for a logbook that computes over 
 |---|---|---|
 | Custom Statistics & Expressions | US22 Define Custom Expressions, US23 Save Custom Statistics, US24 Entry Automation Rules | Done |
 | Personal Dashboard & Automation | US25 Create a Custom Dashboard, US26 Arrange and Persist Dashboard Layout, US27 Create Recurring Entries, US28 Generate Automatic Reminders | Done |
-| Versioning & Record History | US29 Preserve Entry Version History, US30 View an Entry as It Existed on a Given Date, US31 Restore a Previous Entry Version | Done |
-| Versioning & Record History | US32 Archive Old Entries | In Progress |
-| Advanced Search & Performance | US33 Maintain Query Performance for Large Logbooks | Done |
-| Advanced Search & Performance | US34 Apply Rules When Capturing Entries, US35 Rank Search Results by Relevance, US36 Combine Search Filters, US37 Search Custom Fields | Backlog |
+| Versioning & Record History | US29 Preserve Entry Version History, US30 View an Entry as It Existed on a Given Date, US31 Restore a Previous Entry Version, US32 Archive Old Entries | Done |
+| Advanced Search & Performance | US33 Maintain Query Performance for Large Logbooks, US34 Apply Rules When Capturing Entries (same story as US24), US35 Rank Search Results by Relevance, US36 Combine Search Filters, US37 Search Custom Fields | Done |
 
 ### Custom Statistics & Expressions
 
@@ -469,7 +467,7 @@ A logbook whose owner can compute over their own data, arrange their own dashboa
 
 ### Deliverable
 
-The Advanced functionality integrated with the existing Digital Logbook, with the remaining search stories scheduled from the Sprint 3 backlog.
+The Advanced functionality integrated with the existing Digital Logbook, with all Sprint 3 stories complete.
 
 ---
 
@@ -628,8 +626,10 @@ The Advanced development (Sprint 3) then added:
 5. Automatic reminders with push notifications.
 6. Entry version history, viewing an entry as of a date, and restoring a version.
 7. Query-performance work for large logbooks.
+8. Archiving old entries.
+9. Structured search: custom-field filters, combined filters and relevance ranking.
 
-Entry archiving and the structured-search stories remain in progress on the Sprint 3 board.
+All Sprint 3 stories are complete.
 
 This dependency-driven approach allowed each phase to build on previously completed functionality while reducing the risk of breaking existing project and entry data.
 

@@ -228,12 +228,10 @@ Status on the Sprint 3 board:
 | :--- | :------ | :----- |
 | Custom Statistics & Expressions | US22, US23, US24 | Done |
 | Personal Dashboard & Automation | US25, US26, US27, US28 | Done |
-| Versioning & Record History | US29, US30, US31 | Done |
-| Versioning & Record History | US32 | In Progress |
-| Advanced Search & Performance | US33 | Done |
-| Advanced Search & Performance | US34, US35, US36, US37 | Backlog |
+| Versioning & Record History | US29, US30, US31, US32 | Done |
+| Advanced Search & Performance | US33, US34, US35, US36, US37 | Done |
 
-Eleven of the sixteen stories are done. The completed stories added:
+All sixteen stories are done. US34 is the same story as US24, so it was closed with it. The completed stories added:
 
 * Custom expressions over an owner's own entries, saved as statistics alongside the built-in ones.
 * Automation rules evaluated when an entry is created or saved, which can add or remove tags and set status.
@@ -241,7 +239,9 @@ Eleven of the sixteen stories are done. The completed stories added:
 * Recurring entries generated from a stored template on a daily, weekly, or monthly pattern.
 * Automatic reminders for upcoming and overdue due dates, stalled entries, and a daily logging reminder, delivered as web push notifications when the logbook is closed.
 * A version history for every entry, a view of an entry as it stood on a given date, and restoring an earlier version.
+* Archiving old entries out of the default views without losing them.
 * Faster queries on a long record: database indexes on the common lookup columns, a paginated Entries page, and a single request for open work instead of one per project.
+* Structured search: filters on custom fields, several filters combined in one search, and results ranked by relevance.
 
 ---
 

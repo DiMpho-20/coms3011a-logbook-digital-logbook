@@ -45,11 +45,11 @@ flowchart LR
 | M3 – Rich entry formats | US07–US10: rich fields, editable/versioned formats, computed fields | Person 1 | Complete | Rich-field, format-history and computed-field tests pass |
 | M4 – Statistics and views | US11–US13: custom-field analysis, calendar/board views, due/unfinished work | Person 2 | Complete | Statistics, view and due-date tests pass |
 | M5 – Resilience and portability | US14–US15: offline capture/sync, export/import | Person 3 | Complete | Offline and export/import tests pass |
-| M6 – Integration and quality | Cross-feature integration, regression, responsive and usability testing | Person 4 with all members | Ongoing | Test results, defect fixes and a clean CI build |
+| M6 – Integration and quality | Cross-feature integration, regression, responsive and usability testing | Person 4 with all members | Complete | Test results, defect fixes and a clean CI build |
 | M7 – Statistics and expressions | US22–US24: custom expressions, saved statistics, automation rules | Member 1 | Complete | Expression, statistic and automation tests pass |
 | M8 – Dashboard and automation | US25–US28: custom dashboard, persisted layout, recurring entries, reminders | Member 2 | Complete | Dashboard, recurrence, reminder and push tests pass |
-| M9 – Record history | US29–US32: version history, view as of a date, restore, archiving | Member 3 | US29–US31 complete; US32 in progress | History and restore tests pass |
-| M10 – Search and performance | US33–US37: query performance, structured, combined and ranked search | Member 4 | US33 complete; US34–US37 in backlog | Performance work merged; search stories outstanding |
+| M9 – Record history | US29–US32: version history, view as of a date, restore, archiving | Member 3 | Complete | History, restore and archiving tests pass |
+| M10 – Search and performance | US33–US37: query performance, structured, combined and ranked search | Member 4 | Complete | Performance and search tests pass |
 | M11 – Release | Deployment check, documentation, final demonstration and submission | Whole team | Planned | All required acceptance tests pass and no critical defects remain |
 
 ## Detailed plan
@@ -212,7 +212,7 @@ deployment configuration are documented, and no known critical defect remains.
 | US29 | Every change to an entry is kept as a version | M2 entries | Complete |
 | US30 | See an entry as it was on a given date | US29 | Complete |
 | US31 | Restore an earlier version, itself recorded as a new version | US29 | Complete |
-| US32 | Archive old entries out of the default views without losing them | M2 entries | In progress |
+| US32 | Archive old entries out of the default views without losing them | M2 entries | Complete |
 
 ---
 
@@ -224,10 +224,10 @@ deployment configuration are documented, and no known critical defect remains.
 | Story | Capability | Dependency | Status |
 | --- | --- | --- | --- |
 | US33 | Indexes, paginated entry listing and one request for open work | M2 entries | Complete |
-| US34 | Apply rules when capturing entries (overlaps with US24) | US24 | Backlog |
-| US35 | Rank search results by relevance | US37 | Backlog |
-| US36 | Combine several search filters | US37 | Backlog |
-| US37 | Search inside custom fields | M2 browsing; M3 custom fields | Backlog |
+| US34 | Apply rules when capturing entries (same story as US24) | US24 | Complete |
+| US35 | Rank search results by relevance | US37 | Complete |
+| US36 | Combine several search filters | US37 | Complete |
+| US37 | Search inside custom fields | M2 browsing; M3 custom fields | Complete |
 
 ---
 

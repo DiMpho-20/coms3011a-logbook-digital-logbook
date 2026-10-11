@@ -360,7 +360,7 @@ The Intermediate user stories themselves have been completed and integrated into
   * Provide users with **customisable dashboard options** so they can choose what information is displayed.
     * **Done (both).** Students choose and arrange their dashboard panels, including their own saved statistics, and the layout is kept on the server (US25, US26).
   * Expand the available **entry filtering options**.
-    * **Partly done.** Entries can be filtered by project, tag, week, overdue and archive state, and filters can be saved. Searching inside custom fields and combining filters are in the Sprint 3 backlog (US36, US37).
+    * **Done.** Entries can be filtered by project, tag, week, overdue and archive state, and by the values of custom fields; several filters combine in one search, results are ranked by relevance, and filters are saved to the account (US35, US36, US37).
   * Investigate and design the **auto-completion/auto-compilation** feature for repeated or similar entries.
     * **Not started.** Tag names are suggested as you type, and recurring entries (US27) cover work that repeats on a schedule, but entries are not yet completed from earlier ones.
   * Ask **Branden** for clarification on the expected **expression/custom statistics** functionality.

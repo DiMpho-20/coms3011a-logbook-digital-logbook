@@ -91,7 +91,7 @@ Sprint 3 delivers the Advanced logbook: computing over data whose shape only its
 - **Automatic Reminders** (US28) — Reminders for upcoming and overdue due dates, stalled entries and daily logging, delivered as push notifications even with the logbook closed.
 - **Entry Version History** (US29–US31) — Every change is kept; view an entry as it was on any date, and restore an earlier version.
 - **Archiving & Performance** (US32, US33) — Archive old entries out of the way; database indexes, a paginated Entries page and one request for open work.
-- **Advanced Search** (US35–US37) — Searching inside custom fields, combining filters and ranking results; still in the Sprint 3 backlog.
+- **Advanced Search** (US35–US37) — Searching inside custom fields, combining filters and ranking results by relevance.
 
 ## Sprint 3 Ownership
 
