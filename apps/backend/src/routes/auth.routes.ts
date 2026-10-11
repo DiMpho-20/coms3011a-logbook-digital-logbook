@@ -140,7 +140,7 @@ router.post("/register", registerLimiter, async (req: Request, res: Response) =>
     }
 
     const message = hasEmailConfig
-      ? "User registered successfully. Please check your email to verify your account."
+      ? "Account registered! Check your inbox for the verification link. If you don't see it within a minute, check your spam folder."
       : "User registered successfully. Email auto-verified (dev mode).";
 
     return res.status(201).json({
@@ -332,7 +332,7 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
 
   // Return success even if user not found to prevent email enumeration attacks
   if (!user) {
-    return res.json({ message: "If account exists, a password reset email has been sent." });
+    return res.json({ message: "If an account exists with that email, a reset link has been sent. Check your inbox — if you don't see it within a minute, check your spam folder." });
   }
 
   // Generate secure random reset token. The raw value is emailed and never
@@ -353,7 +353,7 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
   }
 
   return res.json({
-    message: "If account exists, a password reset email has been sent.",
+    message: "If an account exists with that email, a reset link has been sent. Check your inbox — if you don't see it within a minute, check your spam folder.",
   });
 });
 

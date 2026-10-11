@@ -30,7 +30,7 @@ export const ForgotPasswordPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       const response = await api.post("/auth/forgot-password", { email });
-      setSuccessMsg(response.data.message || "Reset link has been generated!");
+      setSuccessMsg(response.data.message || "If an account exists with that email, a reset link has been sent. Check your inbox — if you don't see it within a minute, check your spam folder.");
       if (response.data.mockResetToken) {
         setMockToken(response.data.mockResetToken);
       }

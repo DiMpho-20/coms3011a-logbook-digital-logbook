@@ -42,7 +42,7 @@ export const RegisterPage: React.FC = () => {
       setFormData({ fullName: "", email: "", password: "" });
       setSuccessMsg(
         response.data.message ||
-          "Account registered! Please check your inbox and verify your email before signing in."
+          "Account registered! Check your inbox for the verification link. If you don't see it within a minute, check your spam folder."
       );
     } catch (err: any) {
       console.error("Registration error:", err);
