@@ -1349,7 +1349,8 @@
 coverage, builds) and, once it passes,
 deploys: a Render deploy hook rebuilds the API — whose container applies any
 pending migrations before serving — and Wrangler publishes the frontend to
-Cloudflare Pages. A scheduled workflow keeps the free-tier API awake. See
+Cloudflare Pages. A free cron-job.org ping keeps the free-tier API awake
+during the day; the workflow that used to do it now runs manually only. See
 <a href="../setup/#deployment">Deployment</a>.</p>
 <h2 id="2-tech-stack">2. Tech Stack</h2>
 <table>

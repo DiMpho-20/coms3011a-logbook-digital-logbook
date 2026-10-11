@@ -1846,7 +1846,7 @@ until they are added. Repository settings → Actions → Secrets:</p>
 <table>
 <thead>
 <tr>
-<th>Secret</th>
+<th>Secret or variable</th>
 <th>Where to get it</th>
 </tr>
 </thead>
@@ -1863,13 +1863,15 @@ until they are added. Repository settings → Actions → Secrets:</p>
 <td><code>CLOUDFLARE_ACCOUNT_ID</code></td>
 <td>Cloudflare dashboard → Workers &amp; Pages → the account ID in the sidebar</td>
 </tr>
+<tr>
+<td><code>CLOUDFLARE_PAGES_PROJECT</code> <em>(variable, not a secret)</em></td>
+<td>Cloudflare → Workers &amp; Pages → the project's name; set it only if it differs from the default <code>coms3011a-logbook</code></td>
+</tr>
 </tbody>
 </table>
 <p>The backend suite gets a database of its own for each run. The
 <code>DATABASE_URL</code> secret is only its last-resort fallback, used (with a warning in the log)
 if the runner cannot start that database.</p>
-<p>The Cloudflare Pages project name defaults to <code>coms3011a-logbook</code>; set the
-<code>CLOUDFLARE_PAGES_PROJECT</code> repository variable if it differs.</p>
 <h3 id="database-migrations-on-deploy">Database migrations on deploy</h3>
 <p>The API container starts with <code>npm run start:deploy</code>, which runs
 <code>prisma migrate deploy</code> before serving. A deploy therefore brings the
@@ -1877,6 +1879,12 @@ production schema up to date by itself; there is no separate migration step
 to forget. To apply migrations by hand instead:</p>
 <div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>apps/backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span>&lt;production<span class="w"> </span>connection<span class="w"> </span>string&gt;<span class="w"> </span>npx<span class="w"> </span>prisma<span class="w"> </span>migrate<span class="w"> </span>deploy
 </code></pre></div>
+<p>Neon's pooled endpoint can split a migration's advisory lock across
+connections, so a deploy's <code>migrate deploy</code> can then hang and time out
+(P1002). Production therefore also sets <code>DIRECT_URL</code> — the same database's
+direct endpoint, the host without <code>-pooler</code> — which <code>prisma.config.ts</code>
+prefers for the Prisma CLI. Leave it unset locally and in CI; <code>DATABASE_URL</code>
+is used instead.</p>
 <h3 id="keeping-the-api-awake">Keeping the API awake</h3>
 <p>Render's free tier sleeps after about 15 quiet minutes, and the first request
 then waits up to a minute (one cold start was measured at 33 s). To avoid that,
@@ -1899,7 +1907,7 @@ second pinger.</p>
 </ul>
 <h3 id="required-api-environment-render">Required API environment (Render)</h3>
 <p>Set in the Render service's environment, as listed in <code>apps/backend/.env.example</code>:
-<code>DATABASE_URL</code>, <code>JWT_SECRET</code>, <code>TWO_FACTOR_ENCRYPTION_KEY</code>, <code>APP_URL</code>, an email
+<code>DATABASE_URL</code>, <code>DIRECT_URL</code> (see above), <code>JWT_SECRET</code>, <code>TWO_FACTOR_ENCRYPTION_KEY</code>, <code>APP_URL</code>, an email
 provider (<code>RESEND_API_KEY</code> or Gmail), and for the integrations <code>GEMINI_API_KEY</code>
 (help assistant) and <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>,
 <code>GOOGLE_REDIRECT_URI</code>, <code>GOOGLE_TOKEN_ENCRYPTION_KEY</code> (Google Calendar sync).
