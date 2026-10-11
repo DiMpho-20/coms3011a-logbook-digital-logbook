@@ -28,14 +28,14 @@ logic like saved-filter persistence).
 
 ## What We Test
 
-1,606 tests in total: 786 backend across 43 files, 820 frontend across 55
-files. Line coverage is **85.1% backend** and **80.5% frontend** (October 2026;
+1,616 tests in total: 789 backend across 43 files, 827 frontend across 55
+files. Line coverage is **85.2% backend** and **80.5% frontend** (October 2026;
 see [Coverage](#coverage)). The per-area counts below were taken when each
 area was last described and have grown since. Per-file detail for the backend lives in
 [`apps/backend/TESTING.md`](https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook/src/branch/main/apps/backend/TESTING.md); the summaries
 below cover the whole monorepo.
 
-### Backend — 786 tests across 43 files
+### Backend — 789 tests across 43 files
 
 - **Core API & infrastructure (63):** `api.test.ts` (27) — health, project
   CRUD, entry fields, entries, time summaries; plus `projectDelete` (6),
@@ -68,7 +68,7 @@ below cover the whole monorepo.
   subscriptions and the due-reminder delivery job, US28), `utils` (32 —
   computed fields, formulas, auth utils, format versions)
 
-### Frontend — 820 tests across 55 files
+### Frontend — 827 tests across 55 files
 
 #### API client, offline queue and import/export (72 tests)
 
@@ -392,7 +392,7 @@ those.
 ## What We Don't Test (and Why)
 
 No suite proves everything; these are the gaps we know about, stated so a
-reader knows exactly where the assurance of 1,606 green tests stops.
+reader knows exactly where the assurance of 1,616 green tests stops.
 
 - **Full user journeys in a real browser.** There are no end-to-end tests
   (Playwright/Cypress) driving the deployed app. Component tests render
@@ -470,136 +470,135 @@ and Round 2 on 28 September 2026 (Sprint 3, SUS 72.5). The results are on the
 
 ## Proof of Passing Runs
 
-**Run date: 2026-10-08 · 1,606 / 1,606 tests passing · 98 / 98 test files passing**
+**Run date: 2026-10-11 · 1,616 / 1,616 tests passing · 98 / 98 test files passing**
 
 Both suites captured the same day from `npm run test:coverage` — the backend
-against a throwaway PostgreSQL 16 container, the same per-run database CI now
-provisions, with the coverage floors (backend 80, frontend 78) active in
-both configs.
+against the local PostgreSQL database its `.env` points at, with the coverage
+floors (backend 80, frontend 78) active in both configs.
 
-### Backend (786 tests, 43 files)
+### Backend (789 tests, 43 files)
 
 ```text
- ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 7722ms
- ✓ src/__tests__/reminders.test.ts (42 tests) 8067ms
- ✓ src/__tests__/assessmentReminders.test.ts (22 tests) 9237ms
- ✓ src/__tests__/auth.test.ts (33 tests) 9267ms
- ✓ src/__tests__/entryHistory.test.ts (18 tests) 4030ms
- ✓ src/__tests__/grades.test.ts (42 tests) 3802ms
- ✓ src/__tests__/entryValidation.test.ts (17 tests) 3843ms
- ✓ src/__tests__/automationEngine.test.ts (51 tests) 5895ms
- ✓ src/__tests__/sprint2.test.ts (22 tests) 2344ms
- ✓ src/__tests__/customStatistics.test.ts (27 tests) 2547ms
- ✓ src/__tests__/tags.test.ts (13 tests) 2034ms
- ✓ src/__tests__/stats.test.ts (13 tests) 3841ms
- ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 2069ms
- ✓ src/__tests__/projectDelete.test.ts (6 tests) 2181ms
- ✓ src/__tests__/entryOwnership.test.ts (9 tests) 2145ms
- ✓ src/__tests__/entryFieldIntegrity.test.ts (11 tests) 2462ms
- ✓ src/__tests__/profile.test.ts (23 tests) 1613ms
- ✓ src/__tests__/entriesListing.test.ts (20 tests) 1974ms
- ✓ src/__tests__/expressionStats.test.ts (22 tests) 1958ms
- ✓ src/__tests__/push.test.ts (11 tests) 2023ms
- ✓ src/__tests__/timeSummaries.test.ts (3 tests) 1782ms
- ✓ src/__tests__/importLogbook.test.ts (7 tests) 1744ms
- ✓ src/__tests__/dashboardLayout.test.ts (8 tests) 1749ms
- ✓ src/__tests__/api.test.ts (27 tests) 1877ms
- ✓ src/__tests__/utils.test.ts (33 tests) 1408ms
- ✓ src/__tests__/referenceIntegrity.test.ts (12 tests) 1839ms
- ✓ src/__tests__/savedFilters.test.ts (6 tests) 1713ms
- ✓ src/__tests__/openEntries.test.ts (5 tests) 1110ms
- ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 1110ms
- ✓ src/__tests__/rateLimit.test.ts (6 tests) 240ms
- ✓ src/__tests__/jwtSecret.test.ts (5 tests) 146ms
- ✓ src/__tests__/assistant.test.ts (14 tests) 389ms
- ✓ src/__tests__/gradesValidation.test.ts (53 tests) 262ms
- ✓ src/__tests__/googleCalendar.test.ts (13 tests) 210ms
- ✓ src/__tests__/profileInput.test.ts (38 tests) 67ms
- ✓ src/__tests__/authCrypto.test.ts (28 tests) 55ms
- ✓ src/__tests__/expressions.test.ts (28 tests) 37ms
- ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 38ms
- ✓ src/__tests__/automationRules.test.ts (28 tests) 31ms
- ✓ src/__tests__/readRetry.test.ts (13 tests) 19ms
- ✓ src/__tests__/projectSchema.test.ts (2 tests) 20ms
- ✓ src/__tests__/assessmentReminderRules.test.ts (12 tests) 12ms
- ✓ src/__tests__/recurringEntries.test.ts (3 tests) 17ms
+ ✓ src/__tests__/api.test.ts (27 tests) 3768ms
+ ✓ src/__tests__/assessmentReminderRules.test.ts (12 tests) 70ms
+ ✓ src/__tests__/assessmentReminders.test.ts (22 tests) 19824ms
+ ✓ src/__tests__/assistant.test.ts (14 tests) 685ms
+ ✓ src/__tests__/auth.test.ts (33 tests) 17480ms
+ ✓ src/__tests__/authCrypto.test.ts (28 tests) 114ms
+ ✓ src/__tests__/automationEngine.test.ts (51 tests) 15416ms
+ ✓ src/__tests__/automationRules.test.ts (28 tests) 137ms
+ ✓ src/__tests__/blankNumericValues.test.ts (6 tests) 4814ms
+ ✓ src/__tests__/customStatistics.test.ts (27 tests) 5211ms
+ ✓ src/__tests__/dashboardLayout.test.ts (8 tests) 4086ms
+ ✓ src/__tests__/entriesListing.test.ts (20 tests) 6587ms
+ ✓ src/__tests__/entryFieldIntegrity.test.ts (11 tests) 5227ms
+ ✓ src/__tests__/entryHistory.test.ts (18 tests) 11127ms
+ ✓ src/__tests__/entryOwnership.test.ts (9 tests) 3866ms
+ ✓ src/__tests__/entryValidation.test.ts (17 tests) 11320ms
+ ✓ src/__tests__/expressions.test.ts (28 tests) 107ms
+ ✓ src/__tests__/expressionStats.test.ts (22 tests) 5960ms
+ ✓ src/__tests__/googleCalendar.test.ts (13 tests) 214ms
+ ✓ src/__tests__/googleCalendarSync.test.ts (7 tests) 47ms
+ ✓ src/__tests__/grades.test.ts (42 tests) 11347ms
+ ✓ src/__tests__/gradesValidation.test.ts (53 tests) 642ms
+ ✓ src/__tests__/importLogbook.test.ts (8 tests) 5342ms
+ ✓ src/__tests__/jwtSecret.test.ts (5 tests) 269ms
+ ✓ src/__tests__/openEntries.test.ts (5 tests) 2341ms
+ ✓ src/__tests__/profile.test.ts (23 tests) 5001ms
+ ✓ src/__tests__/profileInput.test.ts (38 tests) 96ms
+ ✓ src/__tests__/projectDelete.test.ts (6 tests) 4201ms
+ ✓ src/__tests__/projectSchema.test.ts (2 tests) 109ms
+ ✓ src/__tests__/purgeDeletedAccounts.test.ts (6 tests) 2383ms
+ ✓ src/__tests__/push.test.ts (11 tests) 4514ms
+ ✓ src/__tests__/rateLimit.test.ts (6 tests) 422ms
+ ✓ src/__tests__/readRetry.test.ts (15 tests) 122ms
+ ✓ src/__tests__/recurringEntries.test.ts (3 tests) 31ms
+ ✓ src/__tests__/referenceIntegrity.test.ts (12 tests) 3642ms
+ ✓ src/__tests__/reminders.test.ts (42 tests) 16354ms
+ ✓ src/__tests__/savedFilters.test.ts (6 tests) 3367ms
+ ✓ src/__tests__/sprint2.test.ts (22 tests) 4726ms
+ ✓ src/__tests__/stats.test.ts (13 tests) 8278ms
+ ✓ src/__tests__/tags.test.ts (13 tests) 4673ms
+ ✓ src/__tests__/timeSummaries.test.ts (3 tests) 6053ms
+ ✓ src/__tests__/twoFactorSecurity.test.ts (21 tests) 13853ms
+ ✓ src/__tests__/utils.test.ts (33 tests) 4689ms
 
  Test Files  43 passed (43)
-      Tests  786 passed (786)
-   Duration  44.06s (transform 7.17s, setup 822ms, import 55.21s, tests 94.93s, environment 11ms)
+      Tests  789 passed (789)
+   Duration  102.29s (transform 13.12s, setup 1.73s, import 126.50s, tests 218.52s, environment 25ms)
 ```
 
-### Frontend (820 tests, 55 files)
+### Frontend (827 tests, 55 files)
 
 ```text
- ✓ src/pages/__tests__/GradesPage.test.tsx (24 tests) 9260ms
- ✓ src/pages/__tests__/ProjectsPage.test.tsx (25 tests) 9887ms
- ✓ src/pages/__tests__/EntriesPage.test.tsx (23 tests) 11632ms
- ✓ src/pages/__tests__/GradeModulePage.test.tsx (21 tests) 15066ms
- ✓ src/pages/__tests__/DashboardPage.test.tsx (30 tests) 20552ms
- ✓ src/components/__tests__/EntryHistoryModal.test.tsx (20 tests) 11351ms
- ✓ src/pages/__tests__/SettingsPage.test.tsx (18 tests) 9761ms
- ✓ src/pages/__tests__/LoginFlow.test.tsx (9 tests) 10945ms
- ✓ src/pages/__tests__/RemindersPage.test.tsx (20 tests) 8792ms
- ✓ src/pages/__tests__/StatsPage.test.tsx (45 tests) 32295ms
- ✓ src/pages/__tests__/CalendarPage.test.tsx (22 tests) 32365ms
- ✓ src/components/__tests__/Sidebar.test.tsx (7 tests) 3199ms
- ✓ src/pages/__tests__/ProfilePage.test.tsx (6 tests) 3641ms
- ✓ src/pages/__tests__/OpenWorkPage.test.tsx (24 tests) 9319ms
- ✓ src/components/__tests__/AutomationRules.test.tsx (25 tests) 6060ms
- ✓ src/components/__tests__/HelpAssistant.test.tsx (6 tests) 3781ms
- ✓ src/components/__tests__/EntryForm.test.tsx (18 tests) 5716ms
- ✓ src/pages/__tests__/LoginPage.test.tsx (5 tests) 3913ms
- ✓ src/components/__tests__/DeleteProjectModal.test.tsx (16 tests) 2686ms
- ✓ src/pages/__tests__/RegisterPage.test.tsx (7 tests) 3750ms
- ✓ src/components/__tests__/AppLayout.test.tsx (5 tests) 3263ms
- ✓ src/components/__tests__/displayComponents.test.tsx (21 tests) 3878ms
- ✓ src/components/__tests__/interactiveComponents.test.tsx (26 tests) 3386ms
- ✓ src/pages/__tests__/AuthPages.test.tsx (11 tests) 3456ms
- ✓ src/pages/__tests__/ProjectDetailPage.test.tsx (7 tests) 4540ms
- ✓ src/components/__tests__/LandingPage.test.tsx (3 tests) 4464ms
- ✓ src/pages/__tests__/BoardPage.test.tsx (15 tests) 3214ms
- ✓ src/components/__tests__/LoginStage3D.test.tsx (5 tests) 2191ms
- ✓ src/components/__tests__/GoogleCalendarSync.test.tsx (3 tests) 2499ms
- ✓ src/components/__tests__/ReferencePicker.test.tsx (8 tests) 1822ms
- ✓ src/pages/__tests__/PrivacyPage.test.tsx (1 test) 2294ms
- ✓ src/lib/__tests__/grades.test.ts (93 tests) 1039ms
- ✓ src/components/__tests__/TrendChart.test.tsx (4 tests) 542ms
- ✓ src/components/__tests__/BarChart.test.tsx (4 tests) 1148ms
- ✓ src/lib/__tests__/dashboardInsights.test.ts (13 tests) 196ms
- ✓ src/components/__tests__/ProtectedRoute.test.tsx (3 tests) 244ms
- ✓ src/lib/__tests__/gradeDisplay.test.ts (18 tests) 277ms
- ✓ src/__tests__/api.test.ts (29 tests) 157ms
- ✓ src/lib/__tests__/savedFilters.test.ts (15 tests) 87ms
- ✓ src/lib/__tests__/offlineEntries.test.ts (18 tests) 149ms
- ✓ src/lib/__tests__/offlineProjects.test.ts (11 tests) 116ms
- ✓ src/lib/__tests__/quickCapture.test.ts (10 tests) 86ms
- ✓ src/lib/__tests__/csvExport.test.ts (4 tests) 59ms
- ✓ src/lib/__tests__/profileActivity.test.ts (32 tests) 145ms
- ✓ src/api/__tests__/client.test.ts (10 tests) 179ms
- ✓ src/lib/__tests__/utils.test.ts (11 tests) 67ms
- ✓ src/lib/__tests__/offlineCache.test.ts (7 tests) 152ms
- ✓ src/lib/__tests__/today.test.ts (8 tests) 107ms
- ✓ src/lib/__tests__/reminderNotifications.test.ts (10 tests) 75ms
- ✓ src/lib/__tests__/formulas.test.ts (16 tests) 87ms
- ✓ src/lib/__tests__/entryDefaults.test.ts (6 tests) 77ms
- ✓ src/__tests__/gradesApi.test.ts (6 tests) 111ms
- ✓ src/lib/__tests__/appearance.test.ts (7 tests) 63ms
- ✓ src/lib/__tests__/encouragement.test.ts (3 tests) 34ms
- ✓ src/lib/__tests__/dashboardPreferences.test.ts (6 tests) 27ms
+ ✓ src/__tests__/api.test.ts (30 tests) 272ms
+ ✓ src/__tests__/gradesApi.test.ts (6 tests) 94ms
+ ✓ src/api/__tests__/client.test.ts (10 tests) 93ms
+ ✓ src/components/__tests__/AppLayout.test.tsx (5 tests) 5008ms
+ ✓ src/components/__tests__/AutomationRules.test.tsx (25 tests) 9247ms
+ ✓ src/components/__tests__/BarChart.test.tsx (4 tests) 1356ms
+ ✓ src/components/__tests__/DeleteProjectModal.test.tsx (16 tests) 6851ms
+ ✓ src/components/__tests__/EntryForm.test.tsx (18 tests) 8939ms
+ ✓ src/components/__tests__/EntryHistoryModal.test.tsx (20 tests) 14548ms
+ ✓ src/components/__tests__/GoogleCalendarSync.test.tsx (3 tests) 1987ms
+ ✓ src/components/__tests__/HelpAssistant.test.tsx (6 tests) 4935ms
+ ✓ src/components/__tests__/LandingPage.test.tsx (3 tests) 4902ms
+ ✓ src/components/__tests__/LoginStage3D.test.tsx (7 tests) 3047ms
+ ✓ src/components/__tests__/ProtectedRoute.test.tsx (3 tests) 389ms
+ ✓ src/components/__tests__/ReferencePicker.test.tsx (8 tests) 1798ms
+ ✓ src/components/__tests__/Sidebar.test.tsx (7 tests) 6459ms
+ ✓ src/components/__tests__/TrendChart.test.tsx (4 tests) 641ms
+ ✓ src/components/__tests__/displayComponents.test.tsx (21 tests) 4979ms
+ ✓ src/components/__tests__/interactiveComponents.test.tsx (26 tests) 5122ms
+ ✓ src/lib/__tests__/appearance.test.ts (7 tests) 49ms
+ ✓ src/lib/__tests__/csvExport.test.ts (4 tests) 29ms
+ ✓ src/lib/__tests__/dashboardInsights.test.ts (13 tests) 256ms
+ ✓ src/lib/__tests__/dashboardPreferences.test.ts (6 tests) 25ms
+ ✓ src/lib/__tests__/encouragement.test.ts (3 tests) 32ms
+ ✓ src/lib/__tests__/entryDefaults.test.ts (6 tests) 81ms
+ ✓ src/lib/__tests__/formulas.test.ts (16 tests) 116ms
+ ✓ src/lib/__tests__/gradeDisplay.test.ts (18 tests) 104ms
+ ✓ src/lib/__tests__/grades.test.ts (93 tests) 1268ms
+ ✓ src/lib/__tests__/offlineCache.test.ts (7 tests) 110ms
+ ✓ src/lib/__tests__/offlineEntries.test.ts (18 tests) 137ms
+ ✓ src/lib/__tests__/offlineProjects.test.ts (15 tests) 171ms
+ ✓ src/lib/__tests__/profileActivity.test.ts (32 tests) 127ms
+ ✓ src/lib/__tests__/quickCapture.test.ts (10 tests) 69ms
+ ✓ src/lib/__tests__/reminderNotifications.test.ts (10 tests) 235ms
+ ✓ src/lib/__tests__/savedFilters.test.ts (15 tests) 66ms
+ ✓ src/lib/__tests__/today.test.ts (8 tests) 78ms
+ ✓ src/lib/__tests__/utils.test.ts (11 tests) 112ms
+ ✓ src/pages/__tests__/AuthPages.test.tsx (11 tests) 3726ms
+ ✓ src/pages/__tests__/BoardPage.test.tsx (15 tests) 4285ms
+ ✓ src/pages/__tests__/CalendarPage.test.tsx (22 tests) 51216ms
+ ✓ src/pages/__tests__/DashboardPage.test.tsx (30 tests) 32943ms
+ ✓ src/pages/__tests__/EntriesPage.test.tsx (23 tests) 17223ms
+ ✓ src/pages/__tests__/GradeModulePage.test.tsx (21 tests) 22533ms
+ ✓ src/pages/__tests__/GradesPage.test.tsx (24 tests) 16386ms
+ ✓ src/pages/__tests__/LoginPage.test.tsx (5 tests) 7521ms
+ ✓ src/pages/__tests__/LoginFlow.test.tsx (9 tests) 14986ms
+ ✓ src/pages/__tests__/OpenWorkPage.test.tsx (24 tests) 12317ms
+ ✓ src/pages/__tests__/PrivacyPage.test.tsx (1 test) 1423ms
+ ✓ src/pages/__tests__/ProfilePage.test.tsx (6 tests) 6366ms
+ ✓ src/pages/__tests__/ProjectDetailPage.test.tsx (7 tests) 7427ms
+ ✓ src/pages/__tests__/ProjectsPage.test.tsx (25 tests) 18905ms
+ ✓ src/pages/__tests__/RegisterPage.test.tsx (7 tests) 8611ms
+ ✓ src/pages/__tests__/RemindersPage.test.tsx (20 tests) 11585ms
+ ✓ src/pages/__tests__/SettingsPage.test.tsx (18 tests) 13455ms
+ ✓ src/pages/__tests__/StatsPage.test.tsx (45 tests) 50608ms
 
  Test Files  55 passed (55)
-      Tests  820 passed (820)
-   Duration  83.45s (transform 12.58s, setup 32.71s, import 38.95s, tests 254.20s, environment 185.32s)
+      Tests  827 passed (827)
+   Duration  112.94s (transform 19.74s, setup 40.67s, import 61.71s, tests 385.25s, environment 218.37s)
 ```
 
 ### Coverage (V8 provider, from the same runs)
 
 | Suite | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| Backend | 84.22% | 79.77% | 92.63% | 85.09% |
-| Frontend | 78.87% | 76.92% | 76.37% | 80.52% |
-| **Combined (lines)** | | | | **82.07%** (6,750 of 8,225) |
+| Backend | 84.23% | 79.79% | 92.7% | 85.16% |
+| Frontend | 78.87% | 76.89% | 76.04% | 80.53% |
+| **Combined (lines)** | | | | **82.10%** (6,819 of 8,306) |
 
 ---
 

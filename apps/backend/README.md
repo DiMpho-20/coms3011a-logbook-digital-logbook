@@ -148,7 +148,7 @@ Every endpoint is documented in [docs/api-reference.md](../../docs/api-reference
 
 ## Testing
 
-The suite in `src/__tests__/` has 43 files and 786 tests (run of 2026-10-08): integration tests that call the real Express app with Supertest against the database in `.env`, and unit tests for pure logic such as expressions, automation conditions and the read-retry policy. Each file creates and deletes its own test user.
+The suite in `src/__tests__/` has 43 files and 789 tests (run of 2026-10-11): integration tests that call the real Express app with Supertest against the database in `.env`, and unit tests for pure logic such as expressions, automation conditions and the read-retry policy. Each file creates and deletes its own test user.
 
 ```bash
 # Run all tests

@@ -159,33 +159,34 @@ Separately, `components/Sidebar.tsx` writes a `radial-gradient` into an inline s
 
 ## 12. Issue backlog, re-verified
 
+Statuses re-checked against the code on 2026-10-11, after the Sprint 2/3 work
+closed most of them. Every fix carries the regression test named in
+`apps/backend/TESTING.md` — the project's rule that a bug is not done until a
+test would have caught it.
+
 | ID | Recorded | Verified state |
 |---|---|---|
 | BUG-001 format-version race | Open | Still open. `utils/entryFormat.ts` reads the highest version and writes `version + 1` outside any transaction. |
-| BUG-002 hardcoded JWT fallback | Open | Still open. `utils/auth.ts:4`. |
-| BUG-003 no rate limiting | Open | Still open. No middleware in `app.ts`, no dependency in `apps/backend/package.json`. |
-| BUG-004 TOTP secrets plaintext | Open | Still open. `schema.prisma:43` stores `twoFactorSecret` as a plain `String`. |
-| BUG-005 no 2FA recovery codes | Open | Still open. |
-| BUG-006 2FA steps not linked | Open | Still open. |
-| BUG-007 CI Node version mismatch | Open | Still open. Workflow pins `node-version: 20`, `.nvmrc` says `22`, the dev machine runs 24. |
+| BUG-002 hardcoded JWT fallback | Open | Fixed since the audit. The constant is gone: production refuses to start without `JWT_SECRET`, and elsewhere a per-process random secret is generated (`utils/auth.ts`); `jwtSecret.test.ts` locks it in. |
+| BUG-003 no rate limiting | Open | Fixed since the audit. `app.ts` mounts `authLimiter` from `middleware/rateLimit.middleware.ts`; `rateLimit.test.ts` locks it in. |
+| BUG-004 TOTP secrets plaintext | Open | Fixed since the audit. Secrets are encrypted at rest with `TWO_FACTOR_ENCRYPTION_KEY` (`utils/twoFactorSecret.ts`); setup answers 503 while the key is unset. |
+| BUG-005 no 2FA recovery codes | Open | Fixed since the audit. The recovery-code lifecycle is covered as HTTP behaviour by `twoFactorSecurity.test.ts`. |
+| BUG-006 2FA steps not linked | Open | Fixed since the audit. Login hands off through a purpose-scoped `2fa-pending` token (`utils/auth.ts`). |
+| BUG-007 CI Node version mismatch | Open | Fixed since the audit. Since `1cb9e15` (2026-09-21) the workflow reads `node-version-file: '.nvmrc'`, so CI runs the declared Node 22. |
 | BUG-008 stale Prisma client | Fixed | Agreed; remaining risk is procedural. |
-| BUG-009 dashboard New Entry button | Fixed | Agreed. Note the intended dashboard wants the action back, in the layout header. |
+| BUG-009 dashboard New Entry button | Fixed | Agreed. The intended action is back: `AppLayout` mounts the quick-capture control in the layout header. |
 | BUG-010 session-expiry redirect | Fixed | Agreed by code and unit test; the credential-401 exemption list is correct. |
-| BUG-011 missing ownership checks | New | High. See §3. |
-| BUG-012 blank numeric breaks statistics | New | High. See §4. |
-| BUG-013 duplicate React keys in the field editor | New | Medium. See §5. |
-| BUG-014 N+1 fan-out on list views | New | Medium. See §6. |
-| BUG-015 no delete-project endpoint | New | Low. See §7. |
+| BUG-011 missing ownership checks | New | Fixed since the audit. `ownedProject`/`ownedEntry` scope every entry and statistics query by `userId`; `entryOwnership.test.ts` locks it in. |
+| BUG-012 blank numeric breaks statistics | New | Fixed since the audit. Blank values are filtered before the `::numeric` cast (`stats.controller.ts`); `blankNumericValues.test.ts` locks it in. |
+| BUG-013 duplicate React keys in the field editor | New | Fixed since the audit. New rows use `new-${crypto.randomUUID()}` instead of `Date.now()` (`ProjectsPage.tsx`). |
+| BUG-014 N+1 fan-out on list views | New | Fixed since the audit. The dashboard and entries pages fetch through the batched `fetchAllEntries` endpoint instead of one request per project. |
+| BUG-015 no delete-project endpoint | New | Fixed since the audit. `DELETE /projects/:id` exists and cascades; `projectDelete.test.ts` locks it in. |
 
-Of the feature requests, FEAT-001 (Google Calendar) is implemented and should move from Planned to Done pending a runtime check. FEAT-002, FEAT-003, FEAT-004, FEAT-006 and FEAT-008 remain open. FEAT-007 duplicates BUG-003 and should be closed as a duplicate.
+Of the feature requests (statuses re-checked 2026-10-11): FEAT-001 (Google Calendar) has since been delivered and checked live — the OAuth hand-off and the due-date mirror work end to end, and the one remaining wrinkle, the OAuth redirect falling back to localhost, is a missing `APP_URL` on Render, not missing code. FEAT-009 (My Grades) was built from Round 2 feedback after this audit. FEAT-007 was delivered through the BUG-003 fix, to its own acceptance criteria. FEAT-002 and FEAT-003 are partly addressed — the Round 1 rows in [User Feedback](user-feedback.md) record what remains — FEAT-004 has paging on the entry listing, and FEAT-006 has a reduced-motion guard and a skip link. FEAT-005 and FEAT-008 remain open.
 
 ## 13. Repository hygiene
 
-The working tree is clean, but only when git is told `core.autocrlf=true`. Git for Windows sets that in its system configuration; environments that do not, including any Linux or CI checkout, see all 204 tracked files as modified. `git diff --ignore-cr-at-eol` is empty, confirming the difference is entirely line endings. A `.gitattributes` containing `* text=auto eol=lf` would settle it permanently.
-
-`prisma/migrations/` holds only `20260908000000_entry_format_versions` and `20260920000000_add_tags`. There is no baseline migration for the core eleven-model schema, so a fresh environment brought up with `prisma migrate deploy` would not arrive at the current schema. The tags migration exists locally; whether it has been applied to the production Neon database — an open item from the 2026-09-18 client meeting — could not be checked, as that database is unreachable from the audit environment.
-
-The MkDocs build output in `site/` is committed to the repository and accounts for most of the line-ending churn above.
+Both findings were true at the audit date and both have since been resolved (re-checked 2026-10-11): the tracked files now check out clean on Linux and in CI without `core.autocrlf`, and `prisma/migrations/` now leads with a baseline (`0_init`) and carries the full history, so a fresh environment brought up with `prisma migrate deploy` — as CI's per-run database and the Render deploy's startup step both do — arrives at the current schema. The MkDocs build output in `site/` remains committed to the repository.
 
 ## 14. Recommended sequence
 
