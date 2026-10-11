@@ -326,7 +326,7 @@ describe("Password reset", () => {
       .send({ email: `nobody_reset_${ts}@example.com` });
 
     expect(res.status).toBe(200);
-    expect(res.body.message).toContain("If account exists");
+    expect(res.body.message).toContain("If an account exists with that email");
   });
 
   it("POST /forgot-password returns the same message for real emails", async () => {
@@ -336,7 +336,7 @@ describe("Password reset", () => {
 
     expect(res.status).toBe(200);
     // Identical response — no account enumeration
-    expect(res.body.message).toContain("If account exists");
+    expect(res.body.message).toContain("If an account exists with that email");
   });
 
   it("POST /reset-password rejects an invalid token → 400", async () => {
