@@ -12,7 +12,8 @@ This document explains, in depth, how authentication and security work in the Di
    - [Registration & Email Verification](#1-registration--email-verification)
    - [Login (without 2FA)](#2-login-without-2fa)
    - [Password Reset](#3-password-reset)
-   - [Account Deletion](#4-account-deletion)
+   - [Logout & Session Revocation](#4-logout--session-revocation)
+   - [Account Deletion](#5-account-deletion)
 4. [Two-Factor Authentication (TOTP)](#two-factor-authentication-totp)
    - [How TOTP Works in General](#how-totp-works-in-general)
    - [Enabling 2FA (Setup Flow)](#enabling-2fa-setup-flow)
@@ -45,11 +46,11 @@ All of the auth logic is hand-written Express route handlers built on **establis
 
 | File | Role |
 |---|---|
-| [`src/routes/auth.routes.ts`](src/routes/auth.routes.ts) | All authentication endpoints: register, login, 2FA setup/verify/disable/recovery-codes, email verification, password reset, account deletion |
-| [`src/utils/auth.ts`](src/utils/auth.ts) | Password hashing (`bcryptjs`, 10 salt rounds), JWT sign/verify (7-day expiry), and the 5-minute purpose-scoped `2fa-pending` token that links the two login steps |
+| [`src/routes/auth.routes.ts`](src/routes/auth.routes.ts) | All authentication endpoints: register, login, logout, 2FA setup/verify/disable/recovery-codes, email verification, password reset, account deletion |
+| [`src/utils/auth.ts`](src/utils/auth.ts) | Password hashing (`bcryptjs`, 10 salt rounds), JWT sign/verify (7-day expiry, carrying the account's session version), and the 5-minute purpose-scoped `2fa-pending` token that links the two login steps |
 | [`src/utils/twoFactorSecret.ts`](src/utils/twoFactorSecret.ts) | AES-256-GCM encryption/decryption of TOTP secrets under `TWO_FACTOR_ENCRYPTION_KEY`, with detection of pre-encryption plaintext rows |
 | [`src/utils/tokens.ts`](src/utils/tokens.ts) | Raw-token generation, SHA-256 token digests, and the recovery-code vocabulary (generation, normalisation, digests) |
-| [`src/middleware/auth.middleware.ts`](src/middleware/auth.middleware.ts) | `requireAuth` middleware — extracts and verifies the `Bearer` token on protected routes, attaches `req.userId` |
+| [`src/middleware/auth.middleware.ts`](src/middleware/auth.middleware.ts) | `requireAuth` middleware — verifies the `Bearer` token, confirms the account still exists and still holds the token's session version, attaches `req.userId` |
 | [`packages/shared/src/auth.ts`](../../../packages/shared/src/auth.ts) | Zod validation schemas for every auth request body, shared between frontend and backend |
 | [`src/utils/email.ts`](src/utils/email.ts) | Email delivery helpers for verification and password-reset mails |
 | [`prisma/schema.prisma`](prisma/schema.prisma) | The `User`, `PasswordReset` and `TwoFactorRecoveryCode` models — where auth data lives |
@@ -68,14 +69,19 @@ sequenceDiagram
     alt Token invalid or missing
         MW-->>FE: 401 Unauthorized
     else Token valid
-        MW->>C: req.userId = decoded.userId
-        C->>DB: Query scoped to userId
-        DB-->>C: User's data only
-        C-->>FE: 200 OK
+        MW->>DB: Read users.token_version
+        alt Claim no longer matches the account
+            MW-->>FE: 401 Session ended, sign in again
+        else Still current
+            MW->>C: req.userId = decoded.userId
+            C->>DB: Query scoped to userId
+            DB-->>C: User's data only
+            C-->>FE: 200 OK
+        end
     end
 ```
 
-Because every protected query is scoped by the `userId` embedded in the (server-signed) JWT, one user can never read or modify another user's projects or entries.
+Because every protected query is scoped by the `userId` embedded in the (server-signed) JWT, one user can never read or modify another user's projects or entries. The extra read of `token_version` is one lookup on the primary key, and it is what makes a signed-out token stop working — see [Logout & Session Revocation](#4-logout--session-revocation).
 
 ---
 
@@ -128,13 +134,45 @@ The reset flow is deliberately split into two endpoints so the secret (the token
 1. Find a reset record where the token matches and `expiresAt` is still in the future — otherwise `400 Invalid or expired password reset token`.
 2. Hash the new password with bcrypt.
 3. **Atomically**, in a single database transaction:
-   - update the user's `passwordHash`, and
+   - update the user's `passwordHash` and increment `tokenVersion`, and
    - delete **all** of that user's reset tokens (single-use semantics — a token can never be replayed, and any outstanding tokens are invalidated the moment the password changes).
+
+The version bump is what withdraws the sessions: every token issued before the
+reset stops being accepted, including one that was stolen before the password
+was changed.
+
+### 4. Logout & Session Revocation
+
+A JWT cannot be un-signed, so revocation is expressed as a **version** the
+account holds and every token claims:
+
+- `users.token_version` starts at 0. `generateToken(userId, version)` puts it in
+the token as `ver`, and `requireAuth` compares the two on every request.
+- `POST /api/auth/logout` increments the column and returns `204`. From then on
+every token minted under the old version is refused — the one the caller signed
+out with, and every other device's.
+- Resetting a password and scheduling an account for deletion increment it too,
+in the same write as the change they make.
+
+Two consequences worth stating plainly:
+
+- **Revocation is per account, not per device.** Signing out on a phone signs
+  the laptop out as well. Per-device revocation would need each token to carry
+  an identifier and a denylist of revoked identifiers, plus a job to expire
+  them; one integer per account is the trade this design makes.
+- **Tokens issued before the column existed still work.** They carry no `ver`
+  claim, which is read as 0 — the column's default — so adding it signed nobody
+  out. Anything unreadable in the claim is treated the same way rather than
+  trusted.
+
+### 5. Account Deletion
 
 **`DELETE /api/auth/account`** with `{ confirmPassword }` (requires `Authorization: Bearer <jwt>`):
 
 1. Verify the caller's current password against the stored hash. A stolen JWT alone is not enough to delete the account — this is a deliberate re-authentication step.
-2. Delete the user row. Every foreign key in the schema uses `ON DELETE CASCADE`, so all projects, entries, field values, and reset tokens belonging to the user are permanently erased in the same operation — satisfying the "full account erasure" requirement.
+2. Schedule the deletion: the account enters a **30-day grace period**, ending at midnight 30 days out, and a confirmation email is sent. During the grace period the owner can still sign in (the login response carries `scheduledDeletionAt`) and can cancel with `POST /api/auth/account/cancel-deletion`.
+3. Scheduling it increments `tokenVersion`, so asking for the account to be deleted also signs out every device.
+4. Once the grace period has ended, the purge job deletes the user row. Every foreign key in the schema uses `ON DELETE CASCADE`, so all projects, entries, field values, and reset tokens are erased in the same operation — satisfying the "full account erasure" requirement.
 
 ---
 
@@ -249,6 +287,7 @@ model User {
   emailVerificationExpiry DateTime? @map("email_verification_expiry")
   twoFactorSecret         String?   @map("two_factor_secret") @db.VarChar(255)
   isTwoFactorEnabled      Boolean   @default(false) @map("is_two_factor_enabled")
+  tokenVersion            Int       @default(0) @map("token_version")
   // ... timestamps, relations
 }
 
@@ -279,6 +318,7 @@ Two things the column names alone do not say:
 
 - `twoFactorSecret` stores the TOTP secret **encrypted** (AES-256-GCM, a versioned `v1.<iv>.<tag>.<ciphertext>` envelope) — never plaintext. Rows written before encryption landed keep working and are re-encrypted the next time their owner signs in.
 - `tokenHash` on `PasswordReset` and `codeHash` on `TwoFactorRecoveryCode` hold **SHA-256 digests**, not the values themselves. A database leak yields hashes; the raw tokens exist only in the emails (or, for recovery codes, in the one-time `verify-setup`/`recovery-codes` responses) and in the user's hands.
+- `tokenVersion` is the account's current session version. Every token names the version it was minted under; a mismatch means the session was withdrawn. It is the only state the server keeps about a session, and it is why logout can end a token that was never stored anywhere.
 
 ### Do you need a migration for auth?
 
@@ -287,8 +327,10 @@ uses the **Prisma Migrate** workflow: the whole schema — including
 `two_factor_secret`, `is_two_factor_enabled`, `password_resets` and
 `two_factor_recovery_codes` — is created by the single squashed baseline
 `prisma/migrations/0_init` (`npx prisma migrate deploy` from
-`apps/backend/`). See the [backend README](README.md) for the current
-setup steps.
+`apps/backend/`). Columns added later arrive as their own migrations —
+`20261125140000_session_token_version` is the one that added `token_version` —
+and `migrate deploy` applies whichever are outstanding. See the
+[backend README](README.md) for the current setup steps.
 
 ---
 
@@ -299,6 +341,7 @@ setup steps.
 | **Passwords never stored in plain text** | bcrypt with per-password salt (10 rounds). Hashes are non-reversible and salt defeats rainbow tables. |
 | **Tokens can't be forged** | JWTs are signed with `JWT_SECRET`; a modified payload invalidates the signature. |
 | **Session expiry** | JWTs expire after 7 days, forcing periodic re-authentication. |
+| **Sessions can be withdrawn** | Each token carries the account's `tokenVersion`; `requireAuth` refuses a mismatch. Logout, password reset and scheduling deletion increment it, so a copied token stops working the moment its owner acts. |
 | **No account enumeration via login** | Identical `Invalid email or password` for unknown email and wrong password. |
 | **No account enumeration via forgot-password** | Same response message whether or not the email exists. |
 | **Reset tokens are single-use** | All of a user's reset tokens are deleted in the same transaction that updates the password. |
@@ -324,7 +367,7 @@ The five limitations this section originally listed — no 2FA recovery codes, p
 
 1. **`TWO_FACTOR_ENCRYPTION_KEY` is now production-critical.** It must be set before anyone can enable 2FA — setup returns `503` without it rather than storing an unprotected secret — and it must never be rotated casually or lost. Losing it makes every stored TOTP secret undecryptable: affected users can still sign in with a recovery code, but TOTP codes stop verifying until they disable and re-enrol 2FA. Any strong string works as the key (it is SHA-256-hashed to the AES-256 key length), so the operational rule is the same as for `JWT_SECRET`: generate once, put it in the deployment environment, back it up.
 2. **Recovery codes are shown exactly once.** They exist in readable form only in the `verify-setup` and `recovery-codes` responses; the database keeps SHA-256 digests, so there is no "show my codes again" — only regeneration, which is password-gated and invalidates the previous set. A user who skips storing them and then loses both the authenticator and the codes needs an administrator to clear `twoFactorSecret`.
-3. **Sessions cannot be individually revoked.** Sign-out is client-side (the token is simply dropped from storage); the JWT itself stays valid for its full 7-day life, and a password change does not invalidate tokens issued before it. This is the standard stateless-JWT trade-off, recorded here so reviewers see it was weighed. *Possible future improvement: a token-version column checked at verify time.*
+3. **Sessions are revoked per account, not per device.** Signing out, resetting a password or scheduling deletion withdraws every token the account has issued, so a sign-out on one device signs the others out too. Per-device revocation — "sign out everywhere except here" — would need each token to carry an identifier, a denylist of withdrawn identifiers, and a job to expire the rows; the version column trades that machinery for a coarser guarantee. Recorded here so reviewers see the trade was weighed. *Possible future improvement: a `jti` per token, or `httpOnly` cookies, which would also answer the `localStorage` exposure in the audit.*
 
 ---
 

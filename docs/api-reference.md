@@ -151,6 +151,27 @@ Reset the password using a single-use token from the reset email.
 **Response `200`:** `{ "message": "Password updated successfully. You can now log in." }`
 **Errors:** `400` (invalid or expired token)
 
+Every session issued before the reset stops working, so a token stolen before
+the password was changed cannot be used after it.
+
+---
+
+### `POST /api/auth/logout` 🔒
+
+End the session the request carries — and every other session for the same
+account. The token is refused from the next request onwards, so a copy of it
+is worthless the moment its owner signs out.
+
+No body. **Response `204`** with no content.
+
+Revocation is per account, not per device: the server keeps one version number
+per user and stamps it into every token it issues; signing out increments it.
+Ending only the calling device would need a per-token denylist and a job to
+expire its entries. Resetting a password and scheduling an account for deletion
+increment the same number, so those actions sign out every device too.
+
+**Errors:** `401` (no token, or a token that was already withdrawn)
+
 ---
 
 ### `DELETE /api/auth/account` 🔒
@@ -165,7 +186,8 @@ values, tokens) are permanently deleted by the purge job, which runs when the
 server starts and then hourly, or at the next login attempt if that comes first.
 
 Calling this again while a deletion is already scheduled keeps the original
-date and does not send another email.
+date and does not send another email. Scheduling it signs out every device on
+the account, including the one that asked.
 
 | Field | Type | Required |
 |---|---|---|
@@ -1653,7 +1675,7 @@ console instead of sent.
 
 🔒 = requires `Authorization: Bearer <token>` header.
 
-*Related: [Authentication & Security Guide](https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook/src/branch/main/apps/backend/AUTHENTICATION.md)
+*Related: [Authentication & Security Guide](https://github.com/DiMpho-20/coms3011a-logbook-digital-logbook/blob/main/apps/backend/AUTHENTICATION.md)
 covers the 2FA lifecycle, password reset flow, and security properties in
 detail. [Testing](testing.md) documents the automated test coverage for
 every endpoint listed above.*

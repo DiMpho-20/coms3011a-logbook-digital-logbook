@@ -14,7 +14,7 @@
 ### 1. Clone the repository
 
 ```bash
-git clone https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook.git
+git clone https://github.com/DiMpho-20/coms3011a-logbook-digital-logbook.git
 cd coms3011a-logbook-digital-logbook
 ```
 

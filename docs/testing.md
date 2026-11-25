@@ -28,23 +28,25 @@ logic like saved-filter persistence).
 
 ## What We Test
 
-1,616 tests in total: 789 backend across 43 files, 827 frontend across 55
-files. Line coverage is **85.2% backend** and **80.5% frontend** (October 2026;
+1,635 tests in total: 808 backend across 45 files, 827 frontend across 55
+files. Line coverage is **85.1% backend** and **80.5% frontend** (November 2026;
 see [Coverage](#coverage)). The per-area counts below were taken when each
 area was last described and have grown since. Per-file detail for the backend lives in
-[`apps/backend/TESTING.md`](https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook/src/branch/main/apps/backend/TESTING.md); the summaries
+[`apps/backend/TESTING.md`](https://github.com/DiMpho-20/coms3011a-logbook-digital-logbook/blob/main/apps/backend/TESTING.md); the summaries
 below cover the whole monorepo.
 
-### Backend — 789 tests across 43 files
+### Backend — 808 tests across 45 files
 
 - **Core API & infrastructure (63):** `api.test.ts` (27) — health, project
   CRUD, entry fields, entries, time summaries; plus `projectDelete` (6),
   `purgeDeletedAccounts` (6), `rateLimit` (6, BUG-003), `jwtSecret`
   (5, BUG-002) and `readRetry` (13 — which failed reads may be retried, and
   that writes and real database errors never are)
-- **Authentication & security (91):** `auth.test.ts` (33) — registration,
+- **Authentication & security (101):** `auth.test.ts` (34) — registration,
   login, route protection, the 2FA lifecycle, password reset, account
-  deletion; `authCrypto.test.ts` (28) — AES-256-GCM round-trip, tamper and
+  deletion; `sessionRevocation.test.ts` (5) — signing out, resetting a
+  password and scheduling a deletion each withdraw the tokens issued before
+  them; `authCrypto.test.ts` (28) — AES-256-GCM round-trip, tamper and
   wrong-key rejection, token hashing, recovery-code generation;
   `twoFactorSecurity.test.ts` (21) — the encrypted secrets, the
   `2fa-pending` hand-off token and the recovery-code lifecycle as HTTP
