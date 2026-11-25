@@ -1,6 +1,6 @@
 import express from "express";
+import helmet from "helmet";
 import cors from "cors";
-import prisma from "./prisma.js";
 import projectRoutes from "./routes/project.routes.js";
 import entryFieldRoutes from "./routes/entryField.routes.js";
 import entryRoutes from "./routes/entry.routes.js";
@@ -18,6 +18,8 @@ import assistantRoutes from "./routes/assistant.routes.js";
 import gradesRoutes from "./routes/grades.routes.js";
 import importRoutes from "./routes/import.routes.js";
 import { authLimiter, nonNegativeIntFromEnv } from "./middleware/rateLimit.middleware.js";
+import { corsOptionsFor, readCorsAllowlist } from "./middleware/cors.middleware.js";
+import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js";
 
 const app = express();
 
@@ -28,17 +30,26 @@ const app = express();
 app.set("trust proxy", nonNegativeIntFromEnv("TRUST_PROXY_HOPS", process.env.NODE_ENV === "production" ? 1 : 0));
 
 // ── Global middleware (must come before routes) ──────────────────────
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173", 
-      "http://127.0.0.1:5174",
-      "https://31d62b64.coms3011a-logbook-digital-logbook.pages.dev",
-      /^https:\/\/.*\.pages\.dev$/
-    ],
-    credentials: true,
-  })
-);
+// Response headers only. The API returns JSON to a known origin, so the CSP
+// here governs documents served by mistake rather than anything the frontend
+// loads; every response carrying nosniff and a frame denial costs nothing.
+app.use(helmet());
+
+// Who may call this API from a browser is configuration, not a constant: the
+// allowlist is CORS_ORIGINS (see .env.example). An unset list in production
+// grants nothing, which is why the warning below exists — a silent, total CORS
+// failure is harder to diagnose than a loud line at boot.
+const corsAllowlist = readCorsAllowlist();
+if (
+  process.env.NODE_ENV === "production" &&
+  corsAllowlist.origins.length === 0 &&
+  !corsAllowlist.pattern
+) {
+  console.warn(
+    "[cors] CORS_ORIGINS is unset in production: every cross-origin browser request will be refused."
+  );
+}
+app.use(cors(corsOptionsFor(corsAllowlist)));
 // Express's default 100 KB would turn away avatars well under the 512 KB cap
 // in profileInput.ts with a bare 413, before that check could explain itself.
 // A whole-logbook backup is one request (issue #87) and outgrows 1 MB long
@@ -70,25 +81,17 @@ app.use("/api/grades", gradesRoutes);
 
 // ── Utility routes ────────────────────────────────────────────────────
 app.get("/", (_req, res) => {
-  res.send("Backend is running. Use /api/health or /api/db-check");
+  res.send("Backend is running. Use /api/health");
 });
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-app.get("/api/db-check", async (_req, res) => {
-  try {
-    const rows = await prisma.$queryRaw<{ now: Date }[]>`SELECT NOW() AS now`;
-    res.json({
-      status: "ok",
-      message: "Successfully connected to Neon PostgreSQL via Prisma",
-      time: rows[0].now,
-    });
-  } catch (error) {
-    console.error("Database connection error:", error);
-    res.status(500).json({ status: "error", message: "Failed to connect to database" });
-  }
-});
+// ── No route matched ──────────────────────────────────────────────────
+// Before this, anything unknown fell through to Express's HTML error page,
+// which the axios client could only report as a parse failure.
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;

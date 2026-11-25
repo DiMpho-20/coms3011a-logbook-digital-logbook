@@ -119,8 +119,11 @@ export const groupStats = async (req: AuthenticatedRequest, res: Response) => {
       groups: [{ key: "total", value: Number(rows[0]?.value ?? 0) }],
     });
   } catch (error: any) {
+    // The message is the client's only when the fault is theirs. A failed
+    // aggregate is ours: the driver's text can name a table, a column or the
+    // connection, all of which belong in the log (P1-5).
     console.error("groupStats failed:", error);
-    return res.status(500).json({ error: error.message || "Failed to compute stats" });
+    return res.status(500).json({ error: "Failed to compute stats" });
   }
 };
 
@@ -210,7 +213,7 @@ export const timelineStats = async (req: AuthenticatedRequest, res: Response) =>
     });
   } catch (error: any) {
     console.error("timelineStats failed:", error);
-    return res.status(500).json({ error: error.message || "Failed to compute timeline" });
+    return res.status(500).json({ error: "Failed to compute timeline" });
   }
 };
 
