@@ -1,287 +1,177 @@
-# Digital Logbook (COMS3011A)
+# Digital Logbook
 
-**Group:** no-boys-just-bugs
+A web logbook for university students: projects, the work logged against them, the time it took, and what is still open — with a logbook entry format each project defines for itself.
 
-A web-based digital logbook application designed to help university students keep track of their projects, work completed, time spent, and tasks that still need to be done.
+**Group:** no-boys-just-bugs · **Module:** COMS3011A · **Licence:** MIT
 
-## Deployed Application
-
-| Environment | URL |
+| | |
 |---|---|
-| **Live App** | <https://coms3011a-logbook.pages.dev> |
-| **API Server** | <https://digital-logbook-backend-latest.onrender.com> — endpoints are under `/api`, e.g. [`/api/health`](https://digital-logbook-backend-latest.onrender.com/api/health) |
+| **Live app** | <https://coms3011a-logbook.pages.dev> |
+| **API** | <https://digital-logbook-backend-latest.onrender.com> (`/api`, e.g. [`/api/health`](https://digital-logbook-backend-latest.onrender.com/api/health)) |
 | **Documentation** | <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> |
 | **Repository** | <https://github.com/DiMpho-20/coms3011a-logbook-digital-logbook> |
 | **Course mirror (Wits Gitea)** | <https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook> |
 
-The API runs on Render's free tier, which sleeps when idle. A cron-job.org pinger keeps it awake from 06:00 to midnight (see [Keeping the API awake](docs/setup.md#keeping-the-api-awake)); outside those hours the first request can take up to a minute while it wakes.
+> **What is deployed is the submitted snapshot** (`79903cb`, 11 October 2026). The 33 commits since then — helmet and the CORS allowlist on the API, the five split pages, the re-grouped documentation — are on `main` and are not live. Re-deploy before demonstrating anything newer; see `docs/project/audits/audit-2026-11-25-round2.md` (P2-3).
 
-## Overview
+The API runs on Render's free tier and sleeps when idle; a cron-job.org pinger wakes it from 06:00 to midnight (`docs/setup.md`, "Keeping the API awake"). Outside those hours the first request can take up to a minute.
 
-The Digital Logbook is intended to replace a physical logbook with a flexible digital version that can be accessed wherever the user is.
+## What it does
 
-The core idea of the system is that each project can have its own **customisable logbook entry format**. Users can define the fields that an entry contains and the type of value each field stores. This allows the logbook to adapt to different projects rather than forcing every project to use the same fixed entry structure.
-
-This repository is organised as a monorepo containing the frontend application, backend API, and shared TypeScript definitions.
-
-## Project Goals
-
-The main goals of the Digital Logbook are to:
-
-* Allow users to create and manage projects.
-* Allow users to customise the fields used in their logbook entries.
-* Make capturing new entries quick and easy.
-* Record the amount of time spent on projects.
-* Provide useful statistics about the user's work.
-* Allow users to browse and search previous entries.
-* Allow users to filter entries by project.
-* Allow projects to be archived when they are no longer active.
+A physical logbook has one fixed set of columns. This one lets the student decide, per project, what an entry contains — text, numbers, dates, booleans, tags, checklists, links, references, or a value computed from the other fields — and then does the arithmetic the paper version cannot: totals, groupings, charts, saved expressions, reminders, version history and a dashboard the student arranges.
 
 ## Features
 
-### Core (Sprint 1)
+**Sprint 1 — the logbook**
+Registration, sign-in, email verification, password reset, account deletion with a 30-day grace period, and optional TOTP two-factor authentication with single-use recovery codes · projects with their own entry format · quick entry capture with a stopwatch and a duration · entry browser with search, project filter and overdue flagging · profile and settings.
 
-* **User authentication** — registration, login, email verification, password reset, account deletion with a 30-day grace period, and optional two-factor authentication with recovery codes
-* **Customisable entry formats** — each project defines its own logbook entry fields
-* **Quick entry capture** — create logbook entries with time tracking and a live stopwatch
-* **Project management** — create, describe, archive, and organise projects
-* **Entry browser** — search and filter entries across all projects
+**Sprint 2 — the flexible logbook**
+Rich field types, editable and versioned entry formats, computed fields, statistics over any field, calendar and board views, open-work tracking, offline capture that syncs on reconnect, JSON/CSV export and JSON import, and one-way Google Calendar sync of due dates.
 
-### Intermediate (Sprint 2)
+**Sprint 3 — the advanced logbook**
+Custom expressions and saved statistics (`SUM({Hours}) / COUNT()`) · a customisable, server-stored dashboard · automation rules · recurring entries · push reminders for due, overdue and stalled work · entry version history with restore · archiving · ranked search across custom fields.
 
-* **Rich field types** — tags, checklists, links, references and computed fields
-* **Editable, versioned entry formats** — change a format without breaking older entries
-* **Statistics** — totals, grouping and charts over any custom field
-* **Calendar, board and open-work views** — with due dates and overdue tracking
-* **Offline capture** — entries made offline sync when the connection returns
-* **Export and import** — export as JSON or CSV, import from a JSON backup
-* **Google Calendar sync** — entry due dates in your own calendar
+**Beyond the user stories**
+*My Grades* — semester and full-year modules, weighted assessments, marks, target marks and what-if projections, with reminders before tests and due dates; *AI Help Assistant* — an in-app chat over Google's Gemini API that answers "how do I…?" and links to the page; *Google Calendar sync*.
 
-### Advanced (Sprint 3)
+## Tech stack
 
-* **Custom expressions and saved statistics** — write `SUM({Hours}) / COUNT()` over your own entries and keep it beside the built-in statistics
-* **Personal dashboard** — choose and arrange the panels you care about; the layout follows you across devices
-* **Automation rules** — tag entries or set their status automatically when they are saved
-* **Recurring entries** — entries that repeat daily, weekly or monthly
-* **Automatic reminders** — for upcoming and overdue work, stalled entries and daily logging, delivered as push notifications
-* **Entry history** — every change is kept; view an entry as it was on any date and restore an earlier version
-* **Archiving and performance** — archive old entries; indexed queries and paginated lists for long records
-* **Advanced search** — search inside custom fields, combine several filters, and get results ranked by relevance
+| Layer | Choice |
+|---|---|
+| Frontend | React 19 · TypeScript 6 · Vite 8 · Tailwind CSS v4 · React Router 7 · Axios |
+| Backend | Node.js 22 · TypeScript · Express 5 · Zod · Prisma 7 (`@prisma/adapter-pg`) |
+| Data | PostgreSQL on Neon |
+| Auth | JWT (7 days, revocable via a per-user `tokenVersion`) · bcryptjs · TOTP 2FA (`otplib`) · `express-rate-limit` |
+| Integrations | Resend / Brevo / Gmail SMTP (email) · `web-push` (reminders) · Google Calendar API · Google Gemini |
+| Testing | Vitest + Supertest (backend) · Vitest + Testing Library + jsdom (frontend) |
+| Tooling | npm workspaces · oxlint (frontend) · ESLint (backend) · Docker (API image) · GitHub Actions + Gitea Actions |
 
-### My Grades
-
-* **Grade tracking** — add semester or full-year modules (with your own Semester 1 / Semester 2 split), their assessments, weights and marks; see what you've secured, your average on marked work, the mark you need for a target, and try what-if marks without saving them
-* **Assessment dates** — due and test dates with an upcoming list and countdowns
-
-### User Experience
-
-* **Profile page** — avatar upload, bio/slogan, degree, year, and student number
-* **Settings** — account management, 2FA, dark/light theme, notifications, and data export/import
-* **Responsive design** — works on desktop and mobile with a collapsible sidebar
-* **Dark mode** — system-aware or manual toggle, and reduced motion for users who ask for it
-
-## Technology Stack
-
-### Frontend
-
-* React 19 with TypeScript
-* Vite 8 (build tooling)
-* Tailwind CSS v4 (design system with `@theme` directive)
-* React Router v7 (client-side routing with nested protected routes)
-* Axios (HTTP client with JWT and expired-session interceptors)
-* A service worker for offline use and push notifications
-
-### Backend
-
-* Node.js 22 with TypeScript
-* Express 5 (REST API)
-* Prisma 7 (ORM with driver adapter pattern)
-* bcryptjs (password hashing) and jsonwebtoken (JWT authentication)
-* otplib and qrcode (two-factor authentication)
-* express-rate-limit (rate limiting on sign-in, sign-up and 2FA)
-* Resend, with nodemailer / Gmail SMTP as a fallback (email)
-* web-push (reminder notifications) and googleapis (Google Calendar)
-* Zod (schema validation, shared with frontend)
-
-### Database
-
-* PostgreSQL (hosted on [Neon](https://neon.tech))
-
-### Shared Package
-
-The `@logbook/shared` package (`packages/shared/`) contains TypeScript definitions, Zod schemas, and interfaces shared between the frontend and backend.
-
-### Testing and CI
-
-* Vitest with Supertest (backend) and Testing Library (frontend)
-* Gitea Actions typechecks, lints, runs both test suites with coverage, and builds on every push; a passing push to `main` deploys the API to Render and the frontend to Cloudflare Pages
-
-## Project Structure
+## Repository layout
 
 ```text
-coms3011a-logbook-digital-logbook/
-│
-├── apps/
-│   ├── frontend/
-│   │   ├── public/sw.js         # Service worker: offline shell, push notifications
-│   │   ├── src/
-│   │   │   ├── components/      # Reusable UI components
-│   │   │   ├── pages/           # Route pages (Dashboard, Projects, Entries, Stats, …)
-│   │   │   ├── lib/             # Offline cache, reminders, dashboard insights, helpers
-│   │   │   ├── api/             # Axios client with JWT interceptor
-│   │   │   ├── api.ts           # Typed API wrapper functions
-│   │   │   ├── App.tsx          # Router configuration
-│   │   │   └── index.css        # Tailwind v4 theme and global styles
-│   │   ├── vite.config.ts
-│   │   └── package.json
-│   │
-│   └── backend/
-│       ├── prisma/              # Prisma schema and migrations
-│       ├── src/
-│       │   ├── controllers/     # Request handlers
-│       │   ├── routes/          # Express route definitions
-│       │   ├── middleware/      # Auth and rate-limit middleware
-│       │   ├── utils/           # Domain logic: formats, versions, expressions,
-│       │   │                    #   automation, recurrence, reminders, push, auth
-│       │   ├── services/        # Google Calendar client
-│       │   ├── jobs/            # Background jobs (recurring entries, reminder
-│       │   │                    #   pushes, deleted-account purge)
-│       │   ├── schemas/         # Validation schemas
-│       │   └── __tests__/       # Vitest tests
-│       ├── .env.example
-│       └── package.json
-│
-├── packages/
-│   └── shared/                  # @logbook/shared — shared types and Zod schemas
-│
-├── docs/                        # Documentation (MkDocs), grouped by subject
-│   ├── index.md                 # Home page and documentation map
-│   ├── setup.md                 # Setup guide and troubleshooting
-│   ├── architecture/            # System architecture, authentication analysis
-│   ├── api/                     # Endpoint reference
-│   ├── testing/                 # Test strategy and quickstart
-│   ├── project/                 # Methodology, client logs, user stories,
-│   │                            #   user feedback, third-party code, audits
-│   ├── design/                  # Design artefacts: ERD, UI, plan, roadmap
-│   └── extra-features/          # AI assistant, My Grades, Calendar sync
-├── .gitea/                      # CI workflow and issue records
-├── .nvmrc
-├── mkdocs.yml
-├── package.json
-└── package-lock.json
+apps/
+├── frontend/              Vite SPA
+│   ├── src/pages/         one file per route, with entries/ and stats/ split into panels and hooks
+│   ├── src/components/    layout, modals, charts, forms
+│   ├── src/lib/           offline cache and sync, grade engine, dashboard insights, helpers
+│   ├── src/api/           Axios client (JWT, expired-session handling)
+│   ├── src/api.ts         typed wrappers per endpoint
+│   └── public/            service worker, icons, manifest
+└── backend/               Express API
+    ├── src/routes/        one router per area, mounted under /api
+    ├── src/controllers/   request handling, one file per area
+    ├── src/schemas/       Zod request schemas
+    ├── src/middleware/    requireAuth, CORS allowlist, rate limits, error handler
+    ├── src/utils/         entry formats and versions, expressions, automation, reminders, push, crypto
+    ├── src/jobs/          recurring entries, reminder pushes, deleted-account purge
+    ├── src/__tests__/     45 Supertest suites against a real PostgreSQL database
+    └── prisma/            schema (23 models) and migrations
+packages/shared/           @logbook/shared — types and Zod schemas used by both apps
+docs/                      documentation, one folder per subject (see below)
 ```
 
-## Application Architecture
+## Running it locally
 
-The frontend and backend are developed as separate applications and communicate through a hand-written HTTP API.
-
-```text
-┌──────────────────────────────────────┐
-│              Frontend                │
-│  React + Vite + TypeScript           │
-│  (Cloudflare Pages)                  │
-└──────────────────┬───────────────────┘
-                   │
-                   │ HTTP API (JWT)
-                   ▼
-┌──────────────────────────────────────┐
-│               Backend                │
-│  Express + Node.js 22 + TypeScript   │
-│  API + background jobs (Render)      │
-└──────────────────┬───────────────────┘
-                   │
-                   │ Prisma
-                   ▼
-┌──────────────────────────────────────┐
-│       PostgreSQL (Neon)              │
-└──────────────────────────────────────┘
-```
-
-See [System Architecture](docs/architecture/overview.md) for the full picture, including push notifications, Google Calendar and email.
-
-## Development Setup
-
-See [docs/setup.md](docs/setup.md) for the full development setup guide, including every environment variable and a troubleshooting table.
-
-**Quick start:**
+Requires Node.js 22.22.2 or newer (`.nvmrc` pins a version) and a PostgreSQL database.
 
 ```bash
 git clone https://github.com/DiMpho-20/coms3011a-logbook-digital-logbook.git
 cd coms3011a-logbook-digital-logbook
 npm install
-npm run build --workspace=packages/shared   # the backend needs the built shared package
+npm run build --workspace=packages/shared     # the backend imports @logbook/shared from dist
 
 cp apps/backend/.env.example apps/backend/.env
-# Edit apps/backend/.env: set DATABASE_URL, and blank any placeholder you are not using
+# Set DATABASE_URL and JWT_SECRET; blank out any placeholder you are not using.
+# The dev script generates the Prisma client and rebuilds the shared package for you.
 
-cd apps/backend && npx prisma generate && npx prisma migrate deploy && cd ../..
-npm run dev --workspace=backend   # Terminal 1 — API on http://localhost:3000
-npm run dev --workspace=frontend  # Terminal 2 — app on http://localhost:5173
+cd apps/backend && npx prisma migrate deploy && cd ../..
+
+npm run dev --workspace=apps/backend          # terminal 1 — API on http://localhost:3000
+npm run dev --workspace=apps/frontend         # terminal 2 — app on http://localhost:5173
 ```
 
-Both servers must be running. If the login page says "Invalid email or password." with correct details, the backend is not running.
+Check it: `curl http://localhost:3000/api/health` returns `{"status":"ok"}`, and the frontend proxies `/api` to the backend in development. If signing in reports "Invalid email or password" with correct credentials, the API is not running.
 
-## Code Quality and Testing
+`docs/setup.md` has the long version: every environment variable, push notifications, Google Calendar, email providers, seeding demo data and a troubleshooting table.
 
-Before committing code or opening a Pull Request, run the linter and the tests:
+## Configuration
+
+Everything is read from the environment; `apps/backend/.env.example` is annotated line by line. The short list:
+
+| Variable | Needed for | Notes |
+|---|---|---|
+| `DATABASE_URL` | always | PostgreSQL connection string. `DIRECT_URL` (Neon endpoint without `-pooler`) is used for migrations only. |
+| `JWT_SECRET` | production | The server refuses to start without it in production; outside production it generates one per process, so sessions end on restart. |
+| `APP_URL` | email links, Calendar redirect | The frontend origin. |
+| `CORS_ORIGINS` | production | Comma-separated exact origins. Unset in production, every cross-origin request is refused and the server says so at boot. `CORS_ORIGIN_PATTERN` covers preview hosts. |
+| `TWO_FACTOR_ENCRYPTION_KEY` | optional 2FA | Encrypts TOTP secrets at rest; 2FA setup answers 503 until it is set. |
+| `GOOGLE_CLIENT_ID` / `_SECRET` / `_REDIRECT_URI` / `GOOGLE_TOKEN_ENCRYPTION_KEY` | Calendar sync | All four, or the feature stays off. |
+| `RESEND_API_KEY` / `BREVO_API_KEY` / `GMAIL_USER` + `GMAIL_APP_PASSWORD` | email | First configured wins (Brevo → Resend → Gmail SMTP); with none, messages are logged to the console. |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | push reminders | `npx web-push generate-vapid-keys`. Unset, reminders stay in-app. |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | help assistant | Unset, the assistant's endpoint answers 503 and the chat button explains why. |
+| `RATE_LIMIT_*`, `TRUST_PROXY_HOPS`, `PORT` | tuning | Defaults are in `.env.example`; auth limits are off only under `NODE_ENV=test`. |
+
+The frontend takes one build-time variable, `VITE_API_URL` (absolute API base URL for a production build); development ignores it and uses the Vite proxy.
+
+## Scripts
+
+| Where | Command | Does |
+|---|---|---|
+| root | `npm run lint` | oxlint (frontend) + ESLint (backend) |
+| root | `npm test` | both suites |
+| backend | `npm run dev` · `build` · `start` · `start:deploy` | tsx watch · `tsc` · `node dist` · migrate then start |
+| backend | `npm run test` · `test:coverage` · `typecheck` · `lint` · `seed:demo` | |
+| frontend | `npm run dev` · `build` · `preview` · `lint` · `test` · `test:coverage` | |
+
+## Testing
+
+1,646 tests in 100 files, measured 2026-11-25 — 816 backend tests in 45 Supertest suites against a real PostgreSQL database, and 830 frontend tests in 55 files (Testing Library + jsdom).
 
 ```bash
-npm run lint
-npm run test --workspace=backend
-npm run test --workspace=frontend
+npm test --workspace=apps/backend     # 70 s locally
+npm test --workspace=apps/frontend    # 167 s locally
+npm run test:coverage --workspace=apps/backend
 ```
 
-Fix any failures before pushing. See [Testing](docs/testing/strategy.md) and the [Testing Quickstart](docs/testing/quickstart.md).
+Coverage floors are enforced by the configs: 80 % of lines on the backend, 78 % on the frontend (last measured 85.16 % and 80.53 %). A feature is not done until its test file exists and the suite is green — the details, the deliberate gaps and the recorded passing runs are in [`docs/testing/strategy.md`](docs/testing/strategy.md) and [`docs/testing/quickstart.md`](docs/testing/quickstart.md).
+
+## Deployment
+
+| Part | Where | How |
+|---|---|---|
+| API | Render (Docker) | The repository `Dockerfile` builds the shared package and the API; `npm run start:deploy` applies pending Prisma migrations, then serves. |
+| Frontend | Cloudflare Pages | Static `vite build`, uploaded with `wrangler pages deploy` from CI. |
+| Database | Neon | Serverless PostgreSQL, reached through Prisma's `pg` adapter. |
+| CI | GitHub Actions (`.github/workflows/ci.yml`) | Typecheck, lint, both suites with coverage, then builds. It does not deploy. |
+| Deploy | Gitea Actions (`.gitea/workflows/deploy.yaml`) | Same checks, then the Render hook and the Pages upload on a passing push to `main`. |
 
 ## Documentation
 
-The full documentation is published at <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> and lives in `docs/`, grouped by subject. Each folder can be read on its own, and [docs/index.md](docs/index.md) is the map of the whole set.
+Published at <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> and grouped by subject in `docs/`; [`docs/index.md`](docs/index.md) is the map of the whole set.
 
 | Group | Contents |
 |---|---|
 | [`docs/setup.md`](docs/setup.md) | Development setup, environment variables and troubleshooting. |
 | [`docs/architecture/`](docs/architecture/overview.md) | System architecture as built, and the authentication analysis. |
-| [`docs/api/reference.md`](docs/api/reference.md) | Every API endpoint with its request and response shapes. |
+| [`docs/api/reference.md`](docs/api/reference.md) | Every endpoint with its request and response shapes. |
 | [`docs/testing/`](docs/testing/strategy.md) | Test strategy, coverage and proof of passing runs, plus the quickstart. |
 | [`docs/project/`](docs/project/methodology.md) | Methodology, client interactions, user stories, user feedback and third-party code. |
 | [`docs/design/`](docs/design/architecture.md) | The course design artefacts: architecture, ERD, UI design, plan and roadmap. |
 | [`docs/extra-features/`](docs/extra-features/index.md) | Features beyond the user stories: AI assistant, My Grades, Calendar sync. |
 
-To preview the documentation locally:
+To preview the site locally: `pip install mkdocs mkdocs-material && mkdocs serve` (<http://127.0.0.1:8000>). `site/` is generated output and is not tracked — edit `docs/`, never `site/`.
+
+## Contributing
+
+GitHub is the primary remote. Before pushing:
 
 ```bash
-pip install mkdocs mkdocs-material
-mkdocs serve        # http://127.0.0.1:8000
-```
-
-The published site is built from `docs/` by Netlify (`mkdocs build`, publishing `site/`).
-That directory is generated output and is not tracked, so edit `docs/` and never `site/`.
-
-## Development Workflow
-
-The project is developed using Git, with GitHub as the primary remote.
-
-A typical workflow is:
-
-```bash
-git pull
-git switch <your-branch>
-# Make changes
 npm run lint
-git add .
-git commit -m "type: description"
-git push
+npm test
 ```
 
-Commit messages should follow the team's agreed convention, for example:
+Commits follow Conventional Commits with a lowercase type and a body that says why — `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`. One logical change per commit, so a reviewer can read the diff without reading the whole branch.
 
-```text
-feat: add project creation
-fix: correct entry validation
-docs: update setup guide
-test: add project creation tests
-```
+## Status
 
-## Project Status
-
-The Basic (Sprint 1), Intermediate (Sprint 2) and Advanced (Sprint 3) requirements are complete: every user story passes its acceptance tests. Beyond the user stories, the app also has My Grades, Google Calendar sync and an AI help assistant. See the [methodology](docs/project/methodology.md) for the board status.
+Sprint 1, 2 and 3 requirements are complete and every user story has passing acceptance tests; My Grades, Google Calendar sync and the AI help assistant sit beyond them. The board, the per-story owners and the retrospectives are in [`docs/project/methodology.md`](docs/project/methodology.md); open engineering work is in the round-2 audit, [`docs/project/audits/audit-2026-11-25-round2.md`](docs/project/audits/audit-2026-11-25-round2.md).
