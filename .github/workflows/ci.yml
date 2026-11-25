@@ -1,0 +1,127 @@
+# Every push to main and every pull request is installed, typechecked, linted,
+# tested against a real database, and built. This is the GitHub counterpart to
+# .gitea/workflows/deploy.yaml and keeps the same step order, because
+# packages/shared must be built before either app can resolve it through dist.
+#
+# Deployment is deliberately not part of this file: it needs Render and
+# Cloudflare credentials, and a pipeline that silently skips those steps reads
+# as green when it has deployed nothing.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A second push to the same branch cancels the run it supersedes, so the
+# result shown is always for the newest commit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Typecheck, lint, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # The backend suites drive the real Prisma client, so they need a migrated
+    # Postgres rather than a mock. The container is this run's own and is
+    # discarded with it; nothing is ever written to a shared database.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: logbook
+          POSTGRES_PASSWORD: logbook
+          POSTGRES_DB: logbook_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U logbook -d logbook_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # prisma.config.ts reads DIRECT_URL first and falls back to DATABASE_URL;
+      # setting both keeps `migrate deploy` and the app on the same connection.
+      DATABASE_URL: postgresql://logbook:logbook@127.0.0.1:5432/logbook_test
+      DIRECT_URL: postgresql://logbook:logbook@127.0.0.1:5432/logbook_test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # .nvmrc is the single source of truth. jsdom 30 needs 22.22.2 and
+          # ESLint 10 needs 20.19, so a hardcoded 20 here would fail at setup.
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Before every typecheck, lint and build below: both apps resolve
+      # @logbook/shared through its package.json, which points at dist.
+      - name: Build shared package
+        run: npm run build --workspace=packages/shared
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
+
+      # Run from apps/backend: Prisma 7 reads the URL from prisma.config.ts,
+      # which lives there.
+      - name: Apply migrations to the CI database
+        working-directory: apps/backend
+        run: npx prisma migrate deploy
+
+      - name: Typecheck backend
+        run: npm run typecheck --workspace=apps/backend
+
+      # Root lint forwards to every workspace with a lint script: ESLint for
+      # the backend, oxlint for the frontend.
+      - name: Lint backend and frontend
+        run: npm run lint
+
+      # test:coverage rather than test: the v8 text reporter prints the table
+      # into this log, and both suites fail on their configured line floor
+      # (backend 80, frontend 78).
+      - name: Backend tests with coverage
+        run: npm run test:coverage --workspace=apps/backend
+
+      - name: Frontend tests with coverage
+        run: npm run test:coverage --workspace=apps/frontend
+
+      # Publishing the numbers is not worth failing a run for, and the step
+      # below is still useful on a red run, where the lcov files diagnose the
+      # failure. if: always() so a failed suite still produces a table.
+      - name: Summarise coverage
+        if: always()
+        continue-on-error: true
+        run: node .github/scripts/coverage-summary.mjs
+
+      - name: Upload coverage reports
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            apps/backend/coverage/lcov.info
+            apps/frontend/coverage/lcov.info
+
+      - name: Build backend
+        run: npm run build --workspace=apps/backend
+
+      - name: Build frontend
+        run: npm run build --workspace=apps/frontend
