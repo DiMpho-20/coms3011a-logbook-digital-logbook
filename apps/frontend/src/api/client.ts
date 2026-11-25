@@ -1,11 +1,16 @@
 import axios from "axios";
 
+// A deployed static build has no dev proxy, so it needs an absolute URL. The
+// one it uses is named in VITE_API_URL (see .env.production); the literal is
+// only what a build packaged without that variable falls back on, and was the
+// only value this file honoured before.
+const DEFAULT_API_URL = "https://digital-logbook-backend-latest.onrender.com/api";
+
 export const api = axios.create({
-  // Local Vite dev server proxies /api to localhost:3000 (see vite.config.ts);
-  // a deployed static build has no such proxy, so it talks to Render directly.
+  // Local Vite dev server proxies /api to localhost:3000 (see vite.config.ts).
   baseURL: import.meta.env.DEV
     ? "/api"
-    : "https://digital-logbook-backend-latest.onrender.com/api",
+    : import.meta.env.VITE_API_URL?.trim() || DEFAULT_API_URL,
   headers: {
     "Content-Type": "application/json",
   },
