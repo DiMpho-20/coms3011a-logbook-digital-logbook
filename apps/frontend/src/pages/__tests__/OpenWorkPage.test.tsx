@@ -46,16 +46,17 @@ const PROJECTS = [
 
 /**
  * Answers the page's one GET, /me/open-entries: every open entry across the
- * owner's projects, each carrying its project's name, as the endpoint returns
- * them. Fixtures are grouped by project id for readability.
+ * owner's projects, each carrying its project's name, inside the paging
+ * envelope the endpoint returns. Fixtures are grouped by project id for
+ * readability.
  */
-const serve = (byProject: Record<string, unknown[]>, projects = PROJECTS) =>
+const serve = (byProject: Record<string, unknown[]>, projects = PROJECTS, truncated = false) =>
   ((url: string) => {
-    if (url !== "/me/open-entries") return Promise.resolve({ data: [] });
+    if (!url.startsWith("/me/open-entries")) return Promise.resolve({ data: [] });
     const all = Object.entries(byProject).flatMap(([id, list]) =>
       list.map((e) => ({ ...(e as object), projectName: projects.find((p) => p.id === id)?.name }))
     );
-    return Promise.resolve({ data: all });
+    return Promise.resolve({ data: { entries: all, limit: all.length, offset: 0, truncated } });
   }) as never;
 
 const renderPage = () =>
@@ -114,14 +115,14 @@ describe("OpenWorkPage — loading and failure", () => {
 });
 
 describe("OpenWorkPage — gathering the work", () => {
-  it("asks for every project's open entries in one request", async () => {
+  it("asks for one page of open entries in one request", async () => {
     vi.mocked(api.get).mockImplementation(serve({ p1: [entry()] }));
     renderPage();
 
     await screen.findByText("Write the report");
     // One request however many projects there are, not one per project.
     expect(api.get).toHaveBeenCalledTimes(1);
-    expect(api.get).toHaveBeenCalledWith("/me/open-entries");
+    expect(api.get).toHaveBeenCalledWith("/me/open-entries?limit=100&offset=0");
   });
 
   it("gathers entries from every project into one list", async () => {
@@ -199,6 +200,61 @@ describe("OpenWorkPage — sorting work into buckets", () => {
     const comingUp = await screen.findByRole("region", { name: "Coming up" });
     expect(within(comingUp).getByText("Later")).toBeInTheDocument();
     expect(within(comingUp).getByText("Write the report")).toBeInTheDocument();
+  });
+});
+
+describe("OpenWorkPage — paging a long list", () => {
+  /** A page of `count` entries the server would place at `offset`. */
+  const page = (offset: number, count: number) =>
+    Array.from({ length: count }, (_, i) => ({
+      ...entry({ id: `e${offset + i}`, dueDate: at(2), values: { "f-sum": `Item ${offset + i}` } }),
+      projectName: "Campus Marketplace",
+    }));
+
+  const pagedServer = () =>
+    ((url: string) => {
+      const offset = Number(new URL(url, "http://local").searchParams.get("offset"));
+      const entries = offset === 0 ? page(0, 100) : page(100, 1);
+      return Promise.resolve({ data: { entries, limit: 100, offset, truncated: offset === 0 } });
+    }) as never;
+
+  it("says the list is a page and brings the rest on request", async () => {
+    vi.mocked(api.get).mockImplementation(pagedServer());
+    renderPage();
+
+    expect(await screen.findByText(/Showing the 100 most urgent items/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Load more open work" }));
+
+    expect(await screen.findByText("Item 100")).toBeInTheDocument();
+    expect(vi.mocked(api.get).mock.calls[1][0]).toBe("/me/open-entries?limit=100&offset=100");
+    // Nothing left over, so the invitation goes away.
+    expect(screen.queryByRole("button", { name: "Load more open work" })).toBeNull();
+  });
+
+  it("says nothing about paging when the whole list arrived", async () => {
+    vi.mocked(api.get).mockImplementation(serve({ p1: [entry({ dueDate: at(2) })] }));
+    renderPage();
+
+    await screen.findByText("Write the report");
+    expect(screen.queryByText(/most urgent items/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Load more open work" })).toBeNull();
+  });
+
+  it("keeps what it has and says so when the next page fails", async () => {
+    vi.mocked(api.get).mockImplementation(((url: string) => {
+      if (url.includes("offset=100")) return Promise.reject(new Error("offline"));
+      return Promise.resolve({ data: { entries: page(0, 100), limit: 100, offset: 0, truncated: true } });
+    }) as never);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Load more open work" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load more open work. Try again.")
+    );
+    // The first page is still on screen, and the invitation still stands.
+    expect(screen.getByText("Item 0")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load more open work" })).toBeInTheDocument();
   });
 });
 

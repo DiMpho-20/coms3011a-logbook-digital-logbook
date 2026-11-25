@@ -20,6 +20,8 @@ const COMING_UP_DAYS = 14;
 const WEEK_DAYS = 6;
 /** Undated items shown before "Show the other …". */
 const BACKLOG_PREVIEW = 5;
+/** Open items asked for per request; the rest arrive a page at a time. */
+const PAGE_SIZE = 100;
 
 type OpenEntry = Entry & { projectName?: string };
 
@@ -73,17 +75,47 @@ export default function OpenWorkPage() {
   const [draftDate, setDraftDate] = useState("");
   const [savingDate, setSavingDate] = useState(false);
   const [showWholeBacklog, setShowWholeBacklog] = useState(false);
+  // The server pages this list, so it says whether another page exists and
+  // from where the next one starts.
+  const [truncated, setTruncated] = useState(false);
+  const [nextOffset, setNextOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Pages are ordered by due date, most urgent first, so a truncated list
+  // loses the items with the least claim on the reader's attention.
+  const page = (offset: number) => api.get(`/me/open-entries?limit=${PAGE_SIZE}&offset=${offset}`);
 
   const load = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await api.get("/me/open-entries");
-      setEntries(res.data);
+      const res = await page(0);
+      setEntries(res.data.entries);
+      setTruncated(res.data.truncated);
+      setNextOffset(res.data.offset + res.data.entries.length);
     } catch (err: any) {
       setError(err?.response?.data?.error ?? "Failed to load open work");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const res = await page(nextOffset);
+      // An entry finished in another tab shifts the page boundaries; never
+      // show the same item twice for it.
+      setEntries((prev) => {
+        const seen = new Set(prev.map((e) => e.id));
+        return [...prev, ...res.data.entries.filter((e: OpenEntry) => !seen.has(e.id))];
+      });
+      setTruncated(res.data.truncated);
+      setNextOffset(res.data.offset + res.data.entries.length);
+    } catch {
+      toast.error("Couldn't load more open work. Try again.");
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -285,6 +317,12 @@ export default function OpenWorkPage() {
               icon={<Inbox className="h-4 w-4" aria-hidden="true" />} />
           </nav>
 
+          {truncated && (
+            <p className="text-xs text-slate-500">
+              Showing the {entries.length} most urgent items. The counts above cover those.
+            </p>
+          )}
+
           {/* ── Overdue: noticeable, not alarming ───────────────────────── */}
           {overdue.length > 0 && (
             <Section
@@ -430,6 +468,18 @@ export default function OpenWorkPage() {
                 </div>
               )}
             </Section>
+          )}
+
+          {truncated && (
+            <div className="flex justify-center">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className={button("secondary", "sm")}
+              >
+                {loadingMore ? "Loading more…" : "Load more open work"}
+              </button>
+            </div>
           )}
         </>
       )}
