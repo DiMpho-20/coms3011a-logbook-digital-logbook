@@ -274,8 +274,13 @@ describe("CalendarPage — what each day shows", () => {
       described("Already done", { id: "d2", entryDate: `${MONTH}-02T00:00:00.000Z`, dueDate: `${DAY_KEY}T00:00:00.000Z`, status: "DONE" }),
     ]));
     renderPage();
-    expect(await screen.findByRole("button", { name: "Due: Hand in report" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Due: Already done" })).toBeNull();
+    // The chip reads "Due:" before its date and "Overdue:" after it, and the
+    // fixture sits on the 15th of whatever month the suite runs in. Accept
+    // either word: what this test is about is which day the entry appears on,
+    // not which of the two it is called. Pinning the word made the suite fail
+    // from the 16th of every month onward.
+    expect(await screen.findByRole("button", { name: /^(?:Due|Overdue): Hand in report$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /: Already done$/ })).toBeNull();
   });
 
   it("says so when the entries cannot be loaded", async () => {
