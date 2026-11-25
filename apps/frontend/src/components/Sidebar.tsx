@@ -19,7 +19,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { clearOfflineCache } from "../lib/offlineCache";
-import { fetchDueReminderCount, fetchDueReminders, REMINDERS_CHANGED_EVENT } from "../api";
+import { endSession, fetchDueReminderCount, fetchDueReminders, REMINDERS_CHANGED_EVENT } from "../api";
 import {
   disableReminderNotifications,
   notifyNewDueReminders,
@@ -136,6 +136,8 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
   const logOut = async () => {
     // Stop pushes to this device before the session ends.
     await disableReminderNotifications();
+    // Withdraw the token on the server too, while the header can still carry it.
+    await endSession();
     localStorage.removeItem("token");
     clearOfflineCache();
     window.location.href = "/login";

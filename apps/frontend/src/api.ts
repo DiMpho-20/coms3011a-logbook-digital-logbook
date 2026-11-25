@@ -804,3 +804,24 @@ export async function askAssistant(
 ): Promise<AssistantReply> {
   return (await api.post("/assistant/chat", { messages, currentPath })).data;
 }
+
+// ── Session ────────────────────────────────────────────────────────────────
+
+/**
+ * End the session on the server as well as in this browser.
+ *
+ * Clearing localStorage only forgets the token here — the token itself stayed
+ * valid for the rest of its seven days, so any copy of it kept working after
+ * "log out". The API now bumps the account's token version, which withdraws
+ * every session it has issued, this one included.
+ *
+ * Failures are swallowed deliberately: being offline, or holding a token that
+ * has already expired, must not stop the browser from signing out locally.
+ */
+export async function endSession(): Promise<void> {
+  try {
+    await api.post("/auth/logout");
+  } catch {
+    // Best effort. The caller clears local state regardless.
+  }
+}
