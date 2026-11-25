@@ -143,21 +143,18 @@ export const getProjectTimeSummary = async (req: AuthenticatedRequest, res: Resp
       return res.status(404).json({ error: "Project not found" });
     }
 
-    // Aggregate entry data
-    const entries = await prisma.logbookEntry.findMany({
+    // One row back from Postgres rather than every entry row reduced in Node:
+    // the cost of this endpoint must not grow with the student's history (P2-1).
+    const totals = await prisma.logbookEntry.aggregate({
       where: { projectId: id },
-      select: {
-        id: true,
-        durationMinutes: true,
-        createdAt: true,
-        entryDate: true,
-      },
-      orderBy: { createdAt: "desc" },
+      _sum: { durationMinutes: true },
+      _count: { _all: true },
+      _max: { createdAt: true },
     });
 
-    const totalMinutes = entries.reduce((sum: number, e: any) => sum + e.durationMinutes, 0);
-    const entryCount = entries.length;
-    const lastEntryAt = entryCount > 0 ? entries[0].createdAt.toISOString() : null;
+    const totalMinutes = totals._sum.durationMinutes ?? 0;
+    const entryCount = totals._count._all;
+    const lastEntryAt = totals._max.createdAt?.toISOString() ?? null;
 
     return res.status(200).json({
       projectId: id,

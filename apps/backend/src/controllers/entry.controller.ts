@@ -782,6 +782,20 @@ export const getOpenEntries = async (req: AuthenticatedRequest, res: Response) =
   try {
     const userId = req.userId!;
 
+    // Open work is the list that accumulates fastest, so it is paged on the
+    // same terms as GET /entries: an explicit limit, capped, plus an offset.
+    const rawLimit = req.query.limit === undefined ? DEFAULT_ENTRY_LIMIT : Number(req.query.limit);
+    if (!Number.isInteger(rawLimit) || rawLimit < 1) {
+      return res.status(400).json({ error: "limit must be a positive integer" });
+    }
+    const limit = Math.min(rawLimit, MAX_ENTRY_LIMIT);
+
+    const rawOffset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+    if (!Number.isInteger(rawOffset) || rawOffset < 0) {
+      return res.status(400).json({ error: "offset must be a non-negative integer" });
+    }
+    const offset = rawOffset;
+
     // Find the user's projects, then all their OPEN entries in one query.
     const entries = await prisma.logbookEntry.findMany({
       where: {
@@ -796,7 +810,12 @@ export const getOpenEntries = async (req: AuthenticatedRequest, res: Response) =
         formatVersion: true,
         project: { select: { id: true, name: true } },
       },
-      orderBy: { createdAt: "desc" },
+      // Most urgent first, undated last. The page groups by due date, so a
+      // truncated tail loses the items with the least claim on the reader's
+      // attention rather than, say, this morning's overdue work.
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
+      take: limit,
+      skip: offset,
     });
 
     const shaped = entries.map((entry) => ({
@@ -804,7 +823,12 @@ export const getOpenEntries = async (req: AuthenticatedRequest, res: Response) =
       projectName: entry.project.name,
     }));
 
-    return res.status(200).json(shaped);
+    return res.status(200).json({
+      entries: shaped,
+      limit,
+      offset,
+      truncated: shaped.length === limit,
+    });
   } catch (error) {
     console.error("Failed to fetch open entries:", error);
     return res.status(500).json({ error: "Failed to fetch open entries" });

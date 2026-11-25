@@ -131,6 +131,24 @@ describe("Stats: counting a non-numeric field", () => {
 });
 
 describe("Stats update correctly after entries change", () => {
+  it("totals the whole history from one aggregate, newest entry included", async () => {
+    const projectId = await createProject(`__stats_total_${ts}`);
+    for (const durationMinutes of [15, 45, 60]) {
+      await request(app).post(`/api/projects/${projectId}/entries`).set(H).send({ durationMinutes, values: {} });
+    }
+
+    const res = await request(app).get(`/api/projects/${projectId}/time-summary`).set(H);
+
+    // The sum is of every entry, not just of whichever page the server read.
+    expect(res.body.totalMinutes).toBe(120);
+    expect(res.body.totalHours).toBe(2);
+    expect(res.body.entryCount).toBe(3);
+
+    const rows = await prisma.logbookEntry.findMany({ where: { projectId }, select: { createdAt: true } });
+    const newest = new Date(Math.max(...rows.map((row) => row.createdAt.getTime())));
+    expect(res.body.lastEntryAt).toBe(newest.toISOString());
+  });
+
   it("reflects an entry edit's new duration in the project time summary", async () => {
     const projectId = await createProject(`__stats_edit_${ts}`);
     const createRes = await request(app)
