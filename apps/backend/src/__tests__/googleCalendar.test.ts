@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import app from "../app.js";
+import prisma from "../prisma.js";
 import { generateOAuthState, verifyOAuthState, verifyToken, generateToken } from "../utils/auth.js";
 import { encryptGoogleToken, decryptGoogleToken } from "../utils/googleTokens.js";
 
@@ -19,19 +20,35 @@ const ENV_KEYS = [
 ] as const;
 const original: Record<string, string | undefined> = {};
 
-beforeAll(() => {
+// A session token names an account, and requireAuth now confirms that account
+// still exists and still holds the version the token was signed under — so the
+// authenticated connect test needs a real row rather than an invented id.
+let userId: string;
+
+beforeAll(async () => {
   for (const k of ENV_KEYS) original[k] = process.env[k];
   process.env.GOOGLE_CLIENT_ID = "test-client";
   process.env.GOOGLE_CLIENT_SECRET = "test-secret";
   process.env.GOOGLE_REDIRECT_URI = "http://localhost:3000/api/google-calendar/callback";
   process.env.GOOGLE_TOKEN_ENCRYPTION_KEY = "test-encryption-key";
+
+  const user = await prisma.user.create({
+    data: {
+      email: `__calendar_${Date.now()}@example.com`,
+      passwordHash: "unused-for-oauth-tests",
+      fullName: "Calendar OAuth",
+      isEmailVerified: true,
+    },
+  });
+  userId = user.id;
 });
 
-afterAll(() => {
+afterAll(async () => {
   for (const k of ENV_KEYS) {
     if (original[k] === undefined) delete process.env[k];
     else process.env[k] = original[k];
   }
+  await prisma.user.delete({ where: { id: userId } }).catch(() => {});
 });
 
 describe("OAuth state", () => {
@@ -107,9 +124,9 @@ describe("GET /api/google-calendar/connect", () => {
   it("embeds state bound to the caller in the auth URL", async () => {
     const res = await request(app)
       .get("/api/google-calendar/connect")
-      .set({ Authorization: `Bearer ${generateToken("user-42")}` });
+      .set({ Authorization: `Bearer ${generateToken(userId)}` });
     expect(res.status).toBe(200);
     const state = new URL(res.body.url).searchParams.get("state");
-    expect(state && verifyOAuthState(state)).toBe("user-42");
+    expect(state && verifyOAuthState(state)).toBe(userId);
   });
 });

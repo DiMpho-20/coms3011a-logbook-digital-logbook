@@ -239,7 +239,7 @@ router.post("/login", loginLimiter, async (req: Request, res: Response) => {
     });
   }
 
-  const token = generateToken(user.id);
+  const token = generateToken(user.id, user.tokenVersion);
   return res.json({
     message: "Login successful",
     user: { id: user.id, fullName: user.fullName, email: user.email },
@@ -307,7 +307,7 @@ router.post("/login/2fa", twoFactorLimiter, async (req: Request, res: Response) 
     }
   }
 
-  const jwtToken = generateToken(user.id);
+  const jwtToken = generateToken(user.id, user.tokenVersion);
   return res.json({
     message: "Login successful",
     user: { id: user.id, fullName: user.fullName, email: user.email },
@@ -316,6 +316,26 @@ router.post("/login/2fa", twoFactorLimiter, async (req: Request, res: Response) 
     usedRecoveryCode,
     recoveryCodesRemaining: await countUnusedRecoveryCodes(user.id),
   });
+});
+
+// ---------------------------------------------------------
+// POST /api/auth/logout — end every session for this account
+// ---------------------------------------------------------
+//
+// Increments the version the tokens were issued under, which invalidates this
+// one and every other signed-in device at the same time. That is the whole
+// mechanism: without a per-token denylist, revocation is per account. Ending
+// only the calling device would need a `jti` column or table and a cleanup job
+// for the entries, which is a different design — this one is one integer.
+router.post("/logout", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  await prisma.user.update({
+    where: { id: req.userId! },
+    data: { tokenVersion: { increment: 1 } },
+  });
+
+  // 204: the token is dead as soon as the update lands, and a body would only
+  // be something for the client to ignore.
+  return res.status(204).send();
 });
 
 // ---------------------------------------------------------
@@ -384,7 +404,12 @@ router.post("/reset-password", async (req: Request, res: Response) => {
   await prisma.$transaction([
     prisma.user.update({
       where: { id: resetRecord.userId },
-      data: { passwordHash: newPasswordHash },
+      data: {
+        passwordHash: newPasswordHash,
+        // Whoever reset the password may not be the person holding the old
+        // tokens. Every session issued before now is withdrawn with it.
+        tokenVersion: { increment: 1 },
+      },
     }),
     prisma.passwordReset.deleteMany({
       where: { userId: resetRecord.userId },
@@ -428,7 +453,13 @@ router.delete("/account", requireAuth, async (req: AuthenticatedRequest, res: Re
   if (!user.scheduledDeletionAt) {
     await prisma.user.update({
       where: { id: userId },
-      data: { scheduledDeletionAt },
+      data: {
+        scheduledDeletionAt,
+        // The browser is about to forget the token; asking for the account to
+        // be deleted is reason enough for the server to forget it too, rather
+        // than leaving every device signed in for the rest of the grace period.
+        tokenVersion: { increment: 1 },
+      },
     });
     await sendDeletionScheduledEmail(user.email, scheduledDeletionAt);
   }

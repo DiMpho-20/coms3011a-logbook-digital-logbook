@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import jwt from "jsonwebtoken";
 
 // ── computedFields ──────────────────────────────────────────────────────
 import {
@@ -195,8 +196,8 @@ describe("auth utils", () => {
   // Dynamically import to allow env override before module load
   let hashPassword: (pw: string) => Promise<string>;
   let comparePassword: (pw: string, hash: string) => Promise<boolean>;
-  let generateToken: (userId: string) => string;
-  let verifyToken: (token: string) => { userId: string } | null;
+  let generateToken: (userId: string, tokenVersion?: number) => string;
+  let verifyToken: (token: string) => { userId: string; tokenVersion: number } | null;
 
   beforeEach(async () => {
     // Set a test secret before importing
@@ -248,6 +249,23 @@ describe("auth utils", () => {
     // Flip the last character to corrupt the signature
     const tampered = token.slice(0, -1) + (token.endsWith("A") ? "B" : "A");
     expect(verifyToken(tampered)).toBeNull();
+  });
+
+  it("carries the account's token version, and reads it back", () => {
+    expect(verifyToken(generateToken("user-abc", 7))).toEqual({ userId: "user-abc", tokenVersion: 7 });
+  });
+
+  it("reads a token minted before versions existed as version 0", () => {
+    // What every browser held the day the column was added: no `ver` claim at
+    // all. Reading it as 0 — the column's default — is what stopped the change
+    // from signing everybody out.
+    const legacy = jwt.sign({ userId: "user-legacy" }, process.env.JWT_SECRET!, { expiresIn: "7d" });
+    expect(verifyToken(legacy)).toEqual({ userId: "user-legacy", tokenVersion: 0 });
+  });
+
+  it("reads a version it cannot trust as 0 rather than using it", () => {
+    const odd = jwt.sign({ userId: "user-odd", ver: "7" }, process.env.JWT_SECRET!, { expiresIn: "7d" });
+    expect(verifyToken(odd)).toEqual({ userId: "user-odd", tokenVersion: 0 });
   });
 });
 

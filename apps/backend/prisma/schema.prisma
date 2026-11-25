@@ -75,6 +75,12 @@ model User {
   twoFactorSecret         String?           @map("two_factor_secret") @db.VarChar(255)
   isTwoFactorEnabled      Boolean           @default(false) @map("is_two_factor_enabled")
 
+  // Bumped whenever every session for this account must end: an explicit
+  // logout, or a password reset. Tokens carry the version they were issued
+  // under, and requireAuth rejects any whose claim no longer matches —
+  // without it a signed-out token stayed valid for its full seven days.
+  tokenVersion            Int               @default(0) @map("token_version")
+
   // US-profile: the student's own profile card. Every field is optional —
   // an account is usable without any of them, and the page shows an empty
   // state rather than demanding they be filled in. These live here rather

@@ -51,19 +51,43 @@ export async function comparePassword(password: string, hash: string): Promise<b
   return bcrypt.compare(password, hash);
 }
 
-// Generate JWT session token
-export function generateToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
+// Generate JWT session token.
+//
+// The token carries the account's current tokenVersion. requireAuth compares it
+// with the database on every request, so incrementing that column — on logout,
+// or on a password reset — is what makes a stateless token revocable.
+export function generateToken(userId: string, tokenVersion = 0): string {
+  return jwt.sign({ userId, ver: tokenVersion }, JWT_SECRET, { expiresIn: "7d" });
+}
+
+/** What a session token asserts, once its signature has been checked. */
+export interface SessionClaims {
+  userId: string;
+  tokenVersion: number;
 }
 
 // Verify JWT token from authorization header
-export function verifyToken(token: string): { userId: string } | null {
+//
+// A token minted before sessions carried a version has no `ver` claim and is
+// read as 0, which is what the column defaults to — so the change itself signs
+// nobody out. Anything that is not a non-negative integer is treated the same
+// way rather than trusted.
+export function verifyToken(token: string): SessionClaims | null {
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId?: string; purpose?: string };
+    const payload = jwt.verify(token, JWT_SECRET) as {
+      userId?: string;
+      purpose?: string;
+      ver?: unknown;
+    };
     // Purpose-scoped tokens (e.g. OAuth state, which travels in URLs) share
     // the signing key but must never be accepted as a session.
     if (payload.purpose !== undefined || typeof payload.userId !== "string") return null;
-    return payload as { userId: string };
+
+    const version = payload.ver;
+    const tokenVersion =
+      typeof version === "number" && Number.isInteger(version) && version >= 0 ? version : 0;
+
+    return { userId: payload.userId, tokenVersion };
   } catch {
     return null;
   }

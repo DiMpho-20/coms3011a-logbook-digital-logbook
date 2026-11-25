@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import crypto from "node:crypto";
 import app from "../app.js";
+import prisma from "../prisma.js";
 import gradesRouter from "../routes/grades.routes.js";
 import { generateToken } from "../utils/auth.js";
 import {
@@ -160,6 +161,29 @@ function gradesRoutes(): { method: string; path: string }[] {
 
 const withIds = (path: string, id: string) => `/api/grades${path.replace(/:(moduleId|assessmentId)/g, id)}`;
 
+// The malformed-id guard sits behind requireAuth, which now confirms the token
+// names an account that still exists — so a real row is needed for the request
+// to reach the route at all.
+let auth: { Authorization: string };
+let userId: string;
+
+beforeAll(async () => {
+  const user = await prisma.user.create({
+    data: {
+      email: `__grades_guard_${Date.now()}@example.com`,
+      passwordHash: "unused-by-the-guard-tests",
+      fullName: "Grades Guard",
+      isEmailVerified: true,
+    },
+  });
+  userId = user.id;
+  auth = { Authorization: `Bearer ${generateToken(userId)}` };
+});
+
+afterAll(async () => {
+  await prisma.user.delete({ where: { id: userId } }).catch(() => {});
+});
+
 describe("grades route guards", () => {
   const routes = gradesRoutes();
 
@@ -185,7 +209,6 @@ describe("grades route guards", () => {
   it.each(routes.filter((r) => r.path.includes(":")).map((r) => [r.method.toUpperCase(), r.path, r.method]))(
     "%s %s treats a malformed id as not found",
     async (_label, path, method) => {
-      const auth = { Authorization: `Bearer ${generateToken(crypto.randomUUID())}` };
       const res = await (request(app) as any)[method](withIds(path, "not-a-uuid")).set(auth).send({});
       expect(res.status).toBe(404);
     }

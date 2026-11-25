@@ -392,11 +392,26 @@ describe("Password reset", () => {
 
 // ── Account Deletion (US00.4) ────────────────────────────────────────────
 
+/**
+ * A session for the 2FA fixture account at the version it holds right now.
+ *
+ * Asking for the account to be deleted withdraws every session it has, so the
+ * steps below sign in again each time — which is what a browser that had just
+ * been redirected to /login would do.
+ */
+const tfaAuth = async (): Promise<{ Authorization: string }> => {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: TFA_USER_ID },
+    select: { tokenVersion: true },
+  });
+  return { Authorization: `Bearer ${generateToken(TFA_USER_ID, user.tokenVersion)}` };
+};
+
 describe("Account deletion", () => {
   it("DELETE /auth/account rejects a wrong password → 401", async () => {
     const res = await request(app)
       .delete("/api/auth/account")
-      .set(tfaToken)
+      .set(await tfaAuth())
       .send({ confirmPassword: "WrongPassword1" });
 
     expect(res.status).toBe(401);
@@ -423,11 +438,19 @@ describe("Account deletion", () => {
     expect(user!.scheduledDeletionAt?.toISOString()).toBe(res.body.scheduledDeletionAt);
   });
 
+  it("withdraws the session that asked for the deletion", async () => {
+    // The browser is signed out either way; the token must die with it rather
+    // than staying usable for the whole 30-day grace period. tfaToken is the
+    // one the successful request above used.
+    const me = await request(app).get("/api/me").set(tfaToken);
+    expect(me.status).toBe(401);
+  });
+
   it("DELETE /auth/account again keeps the original deletion date", async () => {
     const first = await prisma.user.findUnique({ where: { id: TFA_USER_ID } });
     const res = await request(app)
       .delete("/api/auth/account")
-      .set(tfaToken)
+      .set(await tfaAuth())
       .send({ confirmPassword: TEST_PASSWORD });
 
     expect(res.status).toBe(200);
@@ -435,7 +458,7 @@ describe("Account deletion", () => {
   });
 
   it("POST /auth/account/cancel-deletion keeps the account", async () => {
-    const res = await request(app).post("/api/auth/account/cancel-deletion").set(tfaToken);
+    const res = await request(app).post("/api/auth/account/cancel-deletion").set(await tfaAuth());
     expect(res.status).toBe(200);
 
     const user = await prisma.user.findUnique({ where: { id: TFA_USER_ID } });
@@ -443,7 +466,7 @@ describe("Account deletion", () => {
   });
 
   it("POST /auth/account/cancel-deletion with nothing scheduled → 400", async () => {
-    const res = await request(app).post("/api/auth/account/cancel-deletion").set(tfaToken);
+    const res = await request(app).post("/api/auth/account/cancel-deletion").set(await tfaAuth());
     expect(res.status).toBe(400);
   });
 

@@ -1,0 +1,11 @@
+-- Revocable sessions.
+--
+-- A session token carries the value this column held when it was issued, and
+-- requireAuth rejects any token whose claim no longer matches. Incrementing the
+-- column therefore ends every session for that account at once: on logout, and
+-- on password reset, where a stolen token would otherwise outlive the password
+-- that was just changed.
+--
+-- Existing rows default to 0, which is also what a token minted before this
+-- column existed is read as, so nobody is signed out by the migration itself.
+ALTER TABLE "users" ADD COLUMN "token_version" INTEGER NOT NULL DEFAULT 0;

@@ -1,14 +1,34 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import request from "supertest";
-import crypto from "node:crypto";
 import app from "../app.js";
+import prisma from "../prisma.js";
 import { generateToken } from "../utils/auth.js";
 import { APP_GUIDE, parseModelOutput } from "../utils/assistant.js";
 
 // Gemini is stubbed throughout: these tests check what the server sends and
 // how it handles the answers, without spending real quota or needing a key.
 
-const H = { Authorization: `Bearer ${generateToken(crypto.randomUUID())}` };
+// A session token names an account, and requireAuth confirms that account still
+// exists and still holds the version the token was signed under.
+let H: { Authorization: string };
+let userId: string;
+
+beforeAll(async () => {
+  const user = await prisma.user.create({
+    data: {
+      email: `__assistant_${Date.now()}@example.com`,
+      passwordHash: "unused-by-the-assistant-tests",
+      fullName: "Assistant Tests",
+      isEmailVerified: true,
+    },
+  });
+  userId = user.id;
+  H = { Authorization: `Bearer ${generateToken(userId)}` };
+});
+
+afterAll(async () => {
+  await prisma.user.delete({ where: { id: userId } }).catch(() => {});
+});
 const QUESTION = { messages: [{ role: "user", text: "How do I set a reminder?" }], currentPath: "/dashboard" };
 
 function geminiAnswer(payload: unknown, status = 200) {
