@@ -230,6 +230,11 @@ App (BrowserRouter)
     └── /profile           ProfilePage
 ```
 
+The five largest pages — dashboard, entries, project detail, settings and statistics —
+follow one shape: the page file decides what to draw, and the panels, hooks and pure
+helpers it draws with live beside it in `pages/<page>/` (`useDashboardData`, `filters.ts`,
+`useEntryForm`, `BreakdownPanel`, and so on).
+
 Notable components beyond the basic layout, card and state components:
 
 | Component | Purpose |

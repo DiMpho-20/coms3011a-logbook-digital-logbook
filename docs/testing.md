@@ -28,14 +28,14 @@ logic like saved-filter persistence).
 
 ## What We Test
 
-1,635 tests in total: 808 backend across 45 files, 827 frontend across 55
+1,646 tests in total: 816 backend across 45 files, 830 frontend across 55
 files. Line coverage is **85.1% backend** and **80.5% frontend** (November 2026;
 see [Coverage](#coverage)). The per-area counts below were taken when each
 area was last described and have grown since. Per-file detail for the backend lives in
 [`apps/backend/TESTING.md`](https://github.com/DiMpho-20/coms3011a-logbook-digital-logbook/blob/main/apps/backend/TESTING.md); the summaries
 below cover the whole monorepo.
 
-### Backend — 808 tests across 45 files
+### Backend — 816 tests across 45 files
 
 - **Core API & infrastructure (63):** `api.test.ts` (27) — health, project
   CRUD, entry fields, entries, time summaries; plus `projectDelete` (6),
@@ -70,7 +70,7 @@ below cover the whole monorepo.
   subscriptions and the due-reminder delivery job, US28), `utils` (32 —
   computed fields, formulas, auth utils, format versions)
 
-### Frontend — 827 tests across 55 files
+### Frontend — 830 tests across 55 files
 
 #### API client, offline queue and import/export (72 tests)
 
@@ -472,7 +472,10 @@ and Round 2 on 28 September 2026 (Sprint 3, SUS 72.5). The results are on the
 
 ## Proof of Passing Runs
 
-**Run date: 2026-10-11 · 1,616 / 1,616 tests passing · 98 / 98 test files passing**
+**Latest run: 2026-11-25 · 1,646 / 1,646 tests passing · 100 / 100 test files passing.**
+The captures below are the 2026-10-11 run (1,616 tests, 98 files), kept exactly as they
+were recorded; both suites have grown since, and the totals at the top of this page are
+the current ones.
 
 Both suites captured the same day from `npm run test:coverage` — the backend
 against the local PostgreSQL database its `.env` points at, with the coverage
