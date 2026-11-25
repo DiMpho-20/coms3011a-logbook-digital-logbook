@@ -5,6 +5,7 @@ site_url: https://no-boys-just-bugs-digital-logbook-doc.netlify.app/
 # Internal working notes that must not be published
 exclude_docs: |
   feature-audit-2026-09.md
+  audit-2026-11-25.md
 
 theme:
   name: material
