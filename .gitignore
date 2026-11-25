@@ -11,6 +11,10 @@ build/
 # Coverage reports
 coverage/
 
+# MkDocs build output. The documentation site is published from a build of
+# docs/ (see netlify.toml), so the generated pages are never committed.
+site/
+
 # Scratch files from the local AI verification relay
 .qoder-tmp-*
 

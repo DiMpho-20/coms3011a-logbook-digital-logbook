@@ -1,18 +1,20 @@
 {
   "name": "coms3011a-logbook-digital-logbook",
   "version": "1.0.0",
-  "description": "",
+  "description": "Digital Logbook — a web logbook for student projects, work completed, time spent and what is still to do.",
+  "license": "MIT",
+  "private": true,
   "main": "index.js",
   "engines": {
     "node": ">=22.22.2"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   },
   "repository": {
     "type": "git",
-    "url": "https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook.git"
+    "url": "https://github.com/DiMpho-20/coms3011a-logbook-digital-logbook.git"
   },
   "keywords": [],
   "type": "commonjs",
@@ -20,7 +22,6 @@
     "apps/*",
     "packages/*"
   ],
-  "private": true,
   "dependencies": {
     "dotenv": "^17.4.2",
     "pg": "^8.23.0",

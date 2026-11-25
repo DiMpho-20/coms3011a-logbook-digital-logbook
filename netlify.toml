@@ -1,0 +1,5 @@
+# The documentation site is built from docs/ on every deploy rather than being
+# committed: site/ is MkDocs output and is git-ignored.
+[build]
+  command = "pip install -r requirements.txt && mkdocs build"
+  publish = "site"

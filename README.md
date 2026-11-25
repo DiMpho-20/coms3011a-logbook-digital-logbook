@@ -11,7 +11,8 @@ A web-based digital logbook application designed to help university students kee
 | **Live App** | <https://coms3011a-logbook.pages.dev> |
 | **API Server** | <https://digital-logbook-backend-latest.onrender.com> — endpoints are under `/api`, e.g. [`/api/health`](https://digital-logbook-backend-latest.onrender.com/api/health) |
 | **Documentation** | <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> |
-| **Gitea Repository** | <https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook> |
+| **Repository** | <https://github.com/DiMpho-20/coms3011a-logbook-digital-logbook> |
+| **Course mirror (Wits Gitea)** | <https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook> |
 
 The API runs on Render's free tier, which sleeps when idle. A cron-job.org pinger keeps it awake from 06:00 to midnight (see [Keeping the API awake](docs/setup.md#keeping-the-api-awake)); outside those hours the first request can take up to a minute while it wakes.
 
@@ -196,7 +197,7 @@ See [docs/setup.md](docs/setup.md) for the full development setup guide, includi
 **Quick start:**
 
 ```bash
-git clone https://sdp.ms.wits.ac.za/no-boys-just-bugs/coms3011a-logbook-digital-logbook.git
+git clone https://github.com/DiMpho-20/coms3011a-logbook-digital-logbook.git
 cd coms3011a-logbook-digital-logbook
 npm install
 npm run build --workspace=packages/shared   # the backend needs the built shared package
@@ -241,9 +242,12 @@ pip install mkdocs mkdocs-material
 mkdocs serve        # http://127.0.0.1:8000
 ```
 
+The published site is built from `docs/` by Netlify (`mkdocs build`, publishing `site/`).
+That directory is generated output and is not tracked, so edit `docs/` and never `site/`.
+
 ## Development Workflow
 
-The project is developed using Git and Gitea.
+The project is developed using Git, with GitHub as the primary remote.
 
 A typical workflow is:
 
