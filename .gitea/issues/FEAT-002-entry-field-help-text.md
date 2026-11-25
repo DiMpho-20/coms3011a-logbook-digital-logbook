@@ -29,8 +29,8 @@ Entry fields are rendered with only their name as a label. Users must infer the 
 
 ## Evidence
 - SUS Round 1: Testers R1 and R2 found entry-field format confusing
-- `docs/user-feedback.md` integration table: "Entry-field help text" filed for Sprint 3
-- `docs/user-feedback-round1.csv` raw responses
+- `docs/project/feedback/user-feedback.md` integration table: "Entry-field help text" filed for Sprint 3
+- `docs/project/feedback/round1.csv` raw responses
 
 ## Related
 - `apps/frontend/src/components/EntryForm.tsx` — the component to modify

@@ -16,7 +16,7 @@ It is reached from **My Grades** in the sidebar (`/grades`).
 
 In SUS Round 2 the one substantive "one change" suggestion was a
 *"year to date calculator or tracking of grades"*
-(`docs/user-feedback.md`; tracked as `FEAT-009`). Students already work out
+(`docs/project/feedback/user-feedback.md`; tracked as `FEAT-009`). Students already work out
 these figures by hand or in spreadsheets, and the common mistakes are exactly
 the ones the app can prevent:
 
@@ -151,7 +151,7 @@ Pure TypeScript: no React, no network, no dates. Problems are reported as
 | `apps/backend/src/schemas/grades.schema.ts` | Zod field rules and how fields fit together (one way of entering a mark, date ⇔ date kind, section ⇔ module type) |
 | `apps/backend/src/utils/reminders.ts` | The assessment reminder rule inside the existing `generateReminders` |
 
-**API** (`docs/api-reference.md`, "My Grades"):
+**API** (`docs/api/reference.md`, "My Grades"):
 `GET`/`POST /api/grades/modules`, `GET`/`PATCH`/`DELETE /api/grades/modules/:moduleId`,
 `POST /api/grades/modules/:moduleId/assessments`,
 `PATCH`/`DELETE /api/grades/assessments/:assessmentId`.

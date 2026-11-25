@@ -28,7 +28,7 @@ The `DeadlineReminders` component shows upcoming deadlines in the UI. Notificati
 4. Add a notification bell icon in the app header with unread count
 
 ## Evidence
-- `docs/client-interactions.md` — listed as a future improvement
+- `docs/project/client-interactions.md` — listed as a future improvement
 - `apps/frontend/src/components/DeadlineReminders.tsx` — existing passive reminder component
 
 ## Related

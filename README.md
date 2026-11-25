@@ -154,7 +154,16 @@ coms3011a-logbook-digital-logbook/
 ├── packages/
 │   └── shared/                  # @logbook/shared — shared types and Zod schemas
 │
-├── docs/                        # Project documentation (MkDocs)
+├── docs/                        # Documentation (MkDocs), grouped by subject
+│   ├── index.md                 # Home page and documentation map
+│   ├── setup.md                 # Setup guide and troubleshooting
+│   ├── architecture/            # System architecture, authentication analysis
+│   ├── api/                     # Endpoint reference
+│   ├── testing/                 # Test strategy and quickstart
+│   ├── project/                 # Methodology, client logs, user stories,
+│   │                            #   user feedback, third-party code, audits
+│   ├── design/                  # Design artefacts: ERD, UI, plan, roadmap
+│   └── extra-features/          # AI assistant, My Grades, Calendar sync
 ├── .gitea/                      # CI workflow and issue records
 ├── .nvmrc
 ├── mkdocs.yml
@@ -188,7 +197,7 @@ The frontend and backend are developed as separate applications and communicate 
 └──────────────────────────────────────┘
 ```
 
-See [System Architecture](docs/architecture.md) for the full picture, including push notifications, Google Calendar and email.
+See [System Architecture](docs/architecture/overview.md) for the full picture, including push notifications, Google Calendar and email.
 
 ## Development Setup
 
@@ -222,18 +231,21 @@ npm run test --workspace=backend
 npm run test --workspace=frontend
 ```
 
-Fix any failures before pushing. See [Testing](docs/testing.md) and the [Testing Quickstart](docs/testing-quickstart.md).
+Fix any failures before pushing. See [Testing](docs/testing/strategy.md) and the [Testing Quickstart](docs/testing/quickstart.md).
 
 ## Documentation
 
-The full documentation is published at <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> and lives in `docs/`. Good places to start:
+The full documentation is published at <https://no-boys-just-bugs-digital-logbook-doc.netlify.app/> and lives in `docs/`, grouped by subject. Each folder can be read on its own, and [docs/index.md](docs/index.md) is the map of the whole set.
 
-* [`docs/setup.md`](docs/setup.md) — Development setup and troubleshooting.
-* [`docs/architecture.md`](docs/architecture.md) — System architecture as built.
-* [`docs/api-reference.md`](docs/api-reference.md) — Every API endpoint.
-* [`docs/methodology.md`](docs/methodology.md) — How the team works, and sprint status.
-* [`docs/user-stories/user-stories.md`](docs/user-stories/user-stories.md) — User stories and acceptance tests.
-* [`docs/client-interactions.md`](docs/client-interactions.md) — Client meetings and decisions.
+| Group | Contents |
+|---|---|
+| [`docs/setup.md`](docs/setup.md) | Development setup, environment variables and troubleshooting. |
+| [`docs/architecture/`](docs/architecture/overview.md) | System architecture as built, and the authentication analysis. |
+| [`docs/api/reference.md`](docs/api/reference.md) | Every API endpoint with its request and response shapes. |
+| [`docs/testing/`](docs/testing/strategy.md) | Test strategy, coverage and proof of passing runs, plus the quickstart. |
+| [`docs/project/`](docs/project/methodology.md) | Methodology, client interactions, user stories, user feedback and third-party code. |
+| [`docs/design/`](docs/design/architecture.md) | The course design artefacts: architecture, ERD, UI design, plan and roadmap. |
+| [`docs/extra-features/`](docs/extra-features/index.md) | Features beyond the user stories: AI assistant, My Grades, Calendar sync. |
 
 To preview the documentation locally:
 
@@ -272,4 +284,4 @@ test: add project creation tests
 
 ## Project Status
 
-The Basic (Sprint 1), Intermediate (Sprint 2) and Advanced (Sprint 3) requirements are complete: every user story passes its acceptance tests. Beyond the user stories, the app also has My Grades, Google Calendar sync and an AI help assistant. See the [methodology](docs/methodology.md) for the board status.
+The Basic (Sprint 1), Intermediate (Sprint 2) and Advanced (Sprint 3) requirements are complete: every user story passes its acceptance tests. Beyond the user stories, the app also has My Grades, Google Calendar sync and an AI help assistant. See the [methodology](docs/project/methodology.md) for the board status.

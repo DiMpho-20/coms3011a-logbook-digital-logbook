@@ -3,7 +3,7 @@
 > This page records the design as it was planned at the start of the project
 > (August 2026). It is kept unchanged as a record of the starting point. The
 > system has grown considerably since; §4 summarises how, and
-> [System Architecture](../architecture.md) and
+> [System Architecture](../architecture/overview.md) and
 > [Database Design](database-erd.md) describe it as built.
 
 ## 1. High-Level System Architecture

@@ -38,7 +38,7 @@ Use an identifier that cannot collide:
 
 ## Related
 - No frontend test covers the field editor, which is why the suite passes despite the collision
-- Recorded in `docs/feature-audit-2026-09.md` §5
+- Recorded in `docs/project/audits/feature-audit-2026-09.md` §5
 
 ## Resolution
 Fixed. New field rows are identified with `new-${crypto.randomUUID()}` instead

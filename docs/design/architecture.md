@@ -11,7 +11,7 @@ access.
 
 This page explains the design decisions. For the system as built (deployment,
 folder layout, data model, API areas and background jobs), see
-[System Architecture](../architecture.md).
+[System Architecture](../architecture/overview.md).
 
 ## Separation of Concerns
 
@@ -86,4 +86,4 @@ Types and validation schemas that both sides need live in one package,
 `@logbook/shared`, so the frontend and backend cannot disagree about data
 shapes. The frontend reads the package's source directly. The backend uses its
 compiled output, so the package must be rebuilt after a change before the
-backend sees it. See [System Architecture](../architecture.md#8-shared-types-package).
+backend sees it. See [System Architecture](../architecture/overview.md#8-shared-types-package).

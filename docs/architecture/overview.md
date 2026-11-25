@@ -32,6 +32,8 @@ flowchart LR
 | Database | Neon (serverless PostgreSQL) | Reached through Prisma's `pg` driver adapter. |
 | CI | Gitea Actions (`.gitea/workflows/deploy.yaml`) | Installs, typechecks, lints, tests and builds on every push. A passing push to `main` also deploys both apps (below). |
 
+The same picture is drawn as a one-page handout in [deployment-diagram.pdf](deployment-diagram.pdf).
+
 The backend only accepts browser requests from the origins listed in `CORS_ORIGINS`, plus the two Vite dev ports outside production. The list is read in `apps/backend/src/middleware/cors.middleware.ts`; unset in production it grants nothing, and the server says so in its startup log.
 
 **Delivery.** A push to `main` runs CI (typecheck, lint, both test suites with
@@ -40,7 +42,7 @@ deploys: a Render deploy hook rebuilds the API — whose container applies any
 pending migrations before serving — and Wrangler publishes the frontend to
 Cloudflare Pages. A free cron-job.org ping keeps the free-tier API awake
 during the day; the workflow that used to do it now runs manually only. See
-[Deployment](setup.md#deployment).
+[Deployment](../setup.md#deployment).
 
 ## 2. Tech Stack
 
@@ -110,13 +112,20 @@ coms3011a-logbook-digital-logbook/
 │           └── prisma.ts          # Prisma client singleton
 │
 ├── packages/shared/               # @logbook/shared: types and Zod schemas
-├── docs/                          # This documentation (MkDocs)
+├── docs/                          # This documentation (MkDocs), one folder per subject:
+│   ├── setup.md                   #   setup guide
+│   ├── architecture/              #   this page, authentication analysis
+│   ├── api/                       #   endpoint reference
+│   ├── testing/                   #   test strategy and quickstart
+│   ├── project/                   #   methodology, client logs, stories, feedback
+│   ├── design/                    #   course design artefacts (ERD, UI, roadmap)
+│   └── extra-features/            #   features beyond the user stories
 └── mkdocs.yml
 ```
 
 ## 4. Data Model
 
-The schema in `apps/backend/prisma/schema.prisma` has twenty-three models. See [Database design](design/database-erd.md) for the full diagram; they group as follows.
+The schema in `apps/backend/prisma/schema.prisma` has twenty-three models. See [Database design](../design/database-erd.md) for the full diagram; they group as follows.
 
 | Area | Models | Notes |
 |---|---|---|
@@ -138,7 +147,7 @@ The schema in `apps/backend/prisma/schema.prisma` has twenty-three models. See [
 
 ## 5. API
 
-All routes are under `/api` and, apart from sign-up, email verification, sign-in, password reset, the Google OAuth callback and the health checks, need a `Bearer` JWT. Every request body is validated with Zod (`400` on failure), and every resource is checked against the signed-in user (`404` for another user's data). The full list with request and response shapes is in the [API Reference](api-reference.md).
+All routes are under `/api` and, apart from sign-up, email verification, sign-in, password reset, the Google OAuth callback and the health checks, need a `Bearer` JWT. Every request body is validated with Zod (`400` on failure), and every resource is checked against the signed-in user (`404` for another user's data). The full list with request and response shapes is in the [API Reference](../api/reference.md).
 
 | Area | Base paths |
 |---|---|
@@ -264,4 +273,4 @@ Notable components beyond the basic layout, card and state components:
 
 ## 10. Testing
 
-Both apps use Vitest. The backend suite (`apps/backend/src/__tests__/`) runs Supertest integration tests against the database in `.env`, alongside unit tests for pure logic such as expressions and automation conditions. The frontend suite tests components, pages and libraries in jsdom with the API mocked. See [Testing](testing.md) for the strategy and [Setup](setup.md#testing) for how to run them.
+Both apps use Vitest. The backend suite (`apps/backend/src/__tests__/`) runs Supertest integration tests against the database in `.env`, alongside unit tests for pure logic such as expressions and automation conditions. The frontend suite tests components, pages and libraries in jsdom with the API mocked. See [Testing](../testing/strategy.md) for the strategy and [Setup](../setup.md#testing) for how to run them.

@@ -50,7 +50,7 @@ No code path pushes entry due dates to Google on entry create/update/delete,
 so the core acceptance criteria remain unmet.
 
 ## Related
-- `docs/client-interactions.md` — listed as "Planned for a later phase"
+- `docs/project/client-interactions.md` — listed as "Planned for a later phase"
 - `apps/frontend/src/pages/CalendarPage.tsx` — already has the UI for viewing due dates
 
 ## Resolution

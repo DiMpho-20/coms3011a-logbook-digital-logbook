@@ -191,7 +191,7 @@ npm run test --workspace=backend -- automation
 npm run test:watch --workspace=backend
 ```
 
-See [Testing](testing.md) for the test strategy.
+See [Testing](testing/strategy.md) for the test strategy.
 
 ## Shared Types Package
 

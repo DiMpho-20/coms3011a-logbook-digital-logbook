@@ -316,7 +316,7 @@ The Intermediate user stories themselves have been completed and integrated into
   * Investigate and resolve possible frontend–backend communication glitches and performance issues.
     * **Done (2026-09-28).** Pages that sent one request per project now use a single request, the Entries page loads entries in pages, and database indexes were added for the common queries (US33).
   * Document the project's **internal APIs**, including endpoints, requests, responses, and their purpose.
-    * **Done.** Every endpoint is documented in the [API Reference](api-reference.md).
+    * **Done.** Every endpoint is documented in the [API Reference](../api/reference.md).
   * Set up a **CI/CD pipeline** to automatically run tests and generate/check code coverage.
     * **Done.** Gitea Actions typechecks, lints, runs both test suites with coverage and posts the coverage on each commit. A passing push to `main` then deploys the API to Render and the frontend to Cloudflare Pages.
   * Continue documenting technical decisions and client feedback as project evidence.

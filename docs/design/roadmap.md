@@ -161,7 +161,7 @@ logbook.
 
 - Apply tracked Prisma migrations to the target Neon database.
 - Run backend/API tests, frontend tests, production builds and linting in CI on every push.
-- Test every user-story acceptance table in `docs/user-stories/user-stories.md`.
+- Test every user-story acceptance table in `docs/project/user-stories.md`.
 - Test cross-feature flows: rich/versioned formats with offline entries,
   imported data with views/statistics, due dates in all entry views, and
   automation, recurrence and restores writing entry history.

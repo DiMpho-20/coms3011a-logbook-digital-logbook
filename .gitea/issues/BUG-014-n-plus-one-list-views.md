@@ -45,7 +45,7 @@ An earlier draft of the audit claimed the app issues *duplicated* requests (`/ap
 
 ## Related
 - Client feedback, 2026-09-18: "the app is slow"
-- Recorded in `docs/feature-audit-2026-09.md` §6
+- Recorded in `docs/project/audits/feature-audit-2026-09.md` §6
 
 ## Resolution
 Fixed in two steps. First, progressive rendering (commits `624e1de`,

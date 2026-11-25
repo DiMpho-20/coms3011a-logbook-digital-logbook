@@ -44,7 +44,7 @@ The visual language is shared across every page:
 
 The interface was designed using low-fidelity wireframes followed by a higher-fidelity mockup:
 
-* 📄 [Wireframe](../Logbook%20wireframe.pdf) — initial layout and navigation structure for each screen.
+* 📄 [Wireframe](Logbook%20wireframe.pdf) — initial layout and navigation structure for each screen.
 * 📄 [Mockup](DigitalLogbook%20mockup.pdf) — refined visual design based on the wireframe.
 
 The implemented interface follows the overall structure established by these design artifacts while incorporating additional functionality introduced during the Intermediate and Advanced phases.
@@ -196,7 +196,7 @@ Capture works from the keyboard alone:
 * The cursor starts in the first field of the form.
 * **Ctrl+Enter** (Cmd+Enter on a Mac) saves the entry.
 
-*See the [wireframe](../Logbook%20wireframe.pdf) and [mockup](DigitalLogbook%20mockup.pdf) for the original entry form layout.*
+*See the [wireframe](Logbook%20wireframe.pdf) and [mockup](DigitalLogbook%20mockup.pdf) for the original entry form layout.*
 
 ### 8. Entry Format Management
 

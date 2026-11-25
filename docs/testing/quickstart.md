@@ -2,7 +2,7 @@
 
 The short version, for anyone adding a feature: **a feature is not done until
 it has a test file, the suite is green, and coverage stays above 50%.** The
-full story is on the [Testing](testing.md) page.
+full story is on the [Testing](strategy.md) page.
 
 ## 1. Add a test file for your feature
 
@@ -50,7 +50,8 @@ All files |   84.23 |    79.79 |    92.7 |   85.16
 ## 4. The 50% rule
 
 The project **must stay above 50% combined coverage** — that is the figure the
-marking rubric reads. Where it stands (2026-10-11, 1,616 tests):
+marking rubric reads. Where it stands (coverage measured 2026-10-11, when the
+suite ran 1,616 tests; it now runs 1,646):
 
 | Workspace | % Lines |
 |---|---|

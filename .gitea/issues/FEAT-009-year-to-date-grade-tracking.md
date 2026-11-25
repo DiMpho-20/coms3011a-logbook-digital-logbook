@@ -22,8 +22,8 @@ Statistics are grouped per project, per period (group and timeline views) and fo
 
 ## Evidence
 - SUS Round 2 (28 September 2026): the one substantive "one small change" suggestion was "Year to date calculator or tracking of grades"
-- `docs/user-feedback.md` integration table (Round 2 row)
-- `docs/user-feedback-round2.csv` raw responses
+- `docs/project/feedback/user-feedback.md` integration table (Round 2 row)
+- `docs/project/feedback/round2.csv` raw responses
 
 ## Related
 - `apps/frontend/src/pages/StatsPage.tsx` — statistics aggregation UI

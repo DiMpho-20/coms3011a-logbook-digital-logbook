@@ -394,7 +394,7 @@ those.
 ## What We Don't Test (and Why)
 
 No suite proves everything; these are the gaps we know about, stated so a
-reader knows exactly where the assurance of 1,616 green tests stops.
+reader knows exactly where the assurance of 1,646 green tests stops.
 
 - **Full user journeys in a real browser.** There are no end-to-end tests
   (Playwright/Cypress) driving the deployed app. Component tests render
@@ -461,12 +461,12 @@ whether it *works for real users*. Our formal process:
 4. **Analysis & integration:** SUS scores and task failures are reviewed as
    a team; each actionable finding becomes an issue on the tracker with an
    assigned fix, and fixed items are reported back in the next round.
-5. **Records:** each round is logged in `docs/user-feedback.md` with the
+5. **Records:** each round is logged in `docs/project/feedback/user-feedback.md` with the
    raw scores, findings, and the feedback → action → commit trail.
 
 Two rounds have been run: Round 1 on 14 September 2026 (Sprint 2, SUS 72.9)
 and Round 2 on 28 September 2026 (Sprint 3, SUS 72.5). The results are on the
-[User Feedback](user-feedback.md) page.
+[User Feedback](../project/feedback/user-feedback.md) page.
 
 ---
 
@@ -647,6 +647,6 @@ in action:
 
 ---
 
-*Related: [Third-Party Code](third-party.md) documents the testing
-libraries and their licences, and [Database Design](design/database-erd.md)
+*Related: [Third-Party Code](../project/third-party.md) documents the testing
+libraries and their licences, and [Database Design](../design/database-erd.md)
 describes the schema the integration tests run against.*

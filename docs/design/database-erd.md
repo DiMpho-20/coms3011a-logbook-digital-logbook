@@ -524,7 +524,7 @@ redundant, since a project has one owner, but it keeps ownership checks
 single-column. The `@@index(project_id, enabled)` is the only index an
 entry save needs: the runner reads a project's enabled rules and
 evaluates them in memory against the entry it just loaded. See the
-"Automation Rules" section of the [API reference](../api-reference.md)
+"Automation Rules" section of the [API reference](../api/reference.md)
 for the rule language and its deliberate limitations.
 
 ### Recurrence Rule

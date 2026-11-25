@@ -28,7 +28,7 @@ All views are listed in a flat sidebar list. Calendar, Board, and Open Work are 
 
 ## Evidence
 - SUS Round 1: Tester R2 reported difficulty finding calendar/board views
-- `docs/user-feedback.md` integration table: "View discoverability" filed for Sprint 3
+- `docs/project/feedback/user-feedback.md` integration table: "View discoverability" filed for Sprint 3
 
 ## Related
 - `apps/frontend/src/components/Sidebar.tsx` — primary nav component

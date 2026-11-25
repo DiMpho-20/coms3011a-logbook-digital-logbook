@@ -67,7 +67,7 @@ Before adding a library we check:
 | [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react) ^6.0 | MIT | frontend | Fast Refresh + JSX transform for React under Vite. |
 | [tailwindcss](https://tailwindcss.com) ^4.3 + postcss + autoprefixer | MIT | frontend | Utility-first CSS keeps styling inside the components; v4 compiles away unused styles. Responsive prefixes (`sm:`, `lg:`) are how the app meets the responsive-design requirement. |
 | [tsx](https://github.com/privatenumber/tsx) ^4.23 | MIT | backend | Runs TypeScript directly in `npm run dev` with watch mode — no separate build step while developing the API. |
-| [vitest](https://vitest.dev) ^4.1 | MIT | both | Test runner with native TypeScript/ESM support and a Jest-compatible API; runs both the backend and frontend suites. See [Testing](testing.md). |
+| [vitest](https://vitest.dev) ^4.1 | MIT | both | Test runner with native TypeScript/ESM support and a Jest-compatible API; runs both the backend and frontend suites. See [Testing](../testing/strategy.md). |
 | [@vitest/coverage-v8](https://vitest.dev/guide/coverage) ^4.1 | MIT | both | Measures code coverage with V8's built-in instrumentation; produces the figures CI posts on each commit. |
 | [@testing-library/react](https://testing-library.com/docs/react-testing-library/intro/) ^16 + jest-dom + user-event | MIT | frontend | Renders components and drives them the way a user would — by label, role and text — so tests don't break when markup changes. |
 | [jsdom](https://github.com/jsdom/jsdom) ^30 | MIT | frontend | A browser DOM inside Node, so component tests run without a real browser. |

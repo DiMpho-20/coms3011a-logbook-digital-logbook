@@ -31,7 +31,7 @@ The app uses Tailwind CSS for styling with glass-morphism effects that may have 
 5. Document accessibility conformance in docs
 
 ## Evidence
-- `docs/client-interactions.md` — listed as a future improvement
+- `docs/project/client-interactions.md` — listed as a future improvement
 - Glass-morphism UI (`GlassCard.tsx`, `AnimatedBackground.tsx`) may have contrast issues
 
 ## Related

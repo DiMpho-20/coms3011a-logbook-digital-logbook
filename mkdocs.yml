@@ -4,8 +4,7 @@ site_url: https://no-boys-just-bugs-digital-logbook-doc.netlify.app/
 
 # Internal working notes that must not be published
 exclude_docs: |
-  feature-audit-2026-09.md
-  audit-2026-11-25.md
+  project/audits/
 
 theme:
   name: material
@@ -30,25 +29,29 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Setup Guide: setup.md
-  - System Architecture: architecture.md
-  - Methodology: methodology.md
-  - Client Interactions: client-interactions.md
-  - API Reference: api-reference.md
-  - Testing: testing.md
-  - Testing Quickstart: testing-quickstart.md
-  - User Feedback: user-feedback.md
-  - Third-Party Code: third-party.md
-  - Authentication Analysis: authentication-analysis.md
-  - User Stories: user-stories/user-stories.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Authentication Analysis: architecture/authentication.md
+  - API Reference: api/reference.md
+  - Testing:
+      - Strategy: testing/strategy.md
+      - Quickstart: testing/quickstart.md
+  - Project:
+      - Methodology: project/methodology.md
+      - Client Interactions: project/client-interactions.md
+      - User Stories: project/user-stories.md
+      - User Feedback: project/feedback/user-feedback.md
+      - Third-Party Code: project/third-party.md
+  - Design:
+      - Architecture Design: design/architecture.md
+      - System Design: design/system-design.md
+      - Database Design: design/database-erd.md
+      - UI Design: design/ui-design.md
+      - Development Plan: design/development-plan.md
+      - Roadmap: design/roadmap.md
   - Extra Features:
-      - Overview: extra-features/README.md
+      - Overview: extra-features/index.md
       - AI Help Assistant: extra-features/ai-help-assistant.md
       - My Grades: extra-features/my-grades.md
       - Google Calendar Sync: extra-features/google-calendar-sync.md
-  - Design: design/architecture.md
-  - Database design: design/database-erd.md
-  - UI Design: design/ui-design.md
-  - Development Plan: design/development-plan.md
-  - Roadmap: design/roadmap.md
-  - System Design: design/system-design.md
  

@@ -58,7 +58,7 @@ Add a regression test per handler asserting that a second user receives 404.
 
 ## Related
 - Not detected by the original backlog scan: an absent check leaves no pattern to grep for and no comment to read
-- Recorded in `docs/feature-audit-2026-09.md` §3
+- Recorded in `docs/project/audits/feature-audit-2026-09.md` §3
 
 ## Resolution
 Fixed. All five entry handlers and both statistics handlers are now typed

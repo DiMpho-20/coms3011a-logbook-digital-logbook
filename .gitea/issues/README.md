@@ -47,7 +47,7 @@ Issues were identified from:
 - **User feedback (SUS Round 2)**: Year-to-date / grade tracking (FEAT-009)
 - **Client interactions**: Google Calendar (FEAT-001), notifications (FEAT-005), accessibility (FEAT-006)
 - **CI/CD audit**: Node version mismatch (BUG-007)
-- **Feature audit, 2026-09-20** (`docs/feature-audit-2026-09.md`): BUG-011 through BUG-015, found by code review and a manual walkthrough
+- **Feature audit, 2026-09-20** (`docs/project/audits/feature-audit-2026-09.md`): BUG-011 through BUG-015, found by code review and a manual walkthrough
 
 ## Issue Templates
 

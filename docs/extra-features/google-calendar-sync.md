@@ -97,7 +97,7 @@ sequenceDiagram
 | Token encryption | `apps/backend/src/utils/googleTokens.ts` | AES-256-GCM encrypt/decrypt |
 | OAuth state | `apps/backend/src/utils/auth.ts` (`generateOAuthState`, `verifyOAuthState`) | Signed, purpose-scoped, 10-minute state |
 | Database | `GoogleCalendarConnection` model in `apps/backend/prisma/schema.prisma` | One row per student: encrypted access and refresh tokens, expiry |
-| Library | [`googleapis`](https://github.com/googleapis/google-api-nodejs-client) (see `docs/third-party.md`) | OAuth code exchange, token refresh, Calendar API. Only the Calendar module is imported; the package root's type definitions for every Google API made the backend build run out of memory |
+| Library | [`googleapis`](https://github.com/googleapis/google-api-nodejs-client) (see `docs/project/third-party.md`) | OAuth code exchange, token refresh, Calendar API. Only the Calendar module is imported; the package root's type definitions for every Google API made the backend build run out of memory |
 | Tests | `apps/backend/src/__tests__/googleCalendar.test.ts`, `googleCalendarSync.test.ts` | State, encryption, callback, sync; Google is mocked |
 
 **The sync algorithm** (`syncDueDates`) is idempotent and stores **no Google

@@ -54,8 +54,8 @@ questions.
 
 A screenshot of the published form is captured after each round.
 The raw response data for each round is stored as a CSV file in this
-repository (`docs/user-feedback-round1.csv` and
-`docs/user-feedback-round2.csv`).
+repository (`docs/project/feedback/round1.csv` and
+`docs/project/feedback/round2.csv`).
 
 ---
 
@@ -248,8 +248,8 @@ and the round it was validated in.
 | R1 | Testers 1 & 2 found entry-field format confusing when adding entries | Filed as Gitea issue **FEAT-002**; add inline help text and field-type hints to the entry form | *(FEAT-002 partly addressed: required fields are marked and tag and link fields show placeholder hints; per-type badges and formula tooltips are still open)* | R2 — no tester confused by entry fields |
 | R1 | Tester 2 found calendar/board views hard to locate | Filed as Gitea issue **FEAT-003**; consider adding nav hints or a guided tour for secondary views | *(FEAT-003 partly addressed: the sidebar groups pages under Today, Work, Academics and Personal with an icon for each, and the help assistant can take a student to any page; no guided tour)* | R2 — 6/6 found Calendar and Board straight away |
 | R1 | All 6 testers praised the UI and ease of use | No action needed — validates current design direction | — | — |
-| R2 | Three testers named login/registration as the slowest moment; one rated speed "Slow, noticeable waiting" | Hosting stayed on Render's free tier. Instead, a scheduled pinger keeps the API awake from 06:00 to 23:50 so daytime sign-ins skip the cold start (see [Setup](setup.md#keeping-the-api-awake)) | `cf51ac4` docs: record the cron-job.org pinger that keeps the API awake | — |
-| R2 | Tester 1 suggested a year-to-date / grade-tracking view | Filed as Gitea issue **FEAT-009**, then built as the **My Grades** feature — modules, secured marks, target grades and a what-if calculator ([My Grades](extra-features/my-grades.md)) | `0dea059` feat(grades): add modules and assessments API; `7e26597` feat(grades): add My Grades pages | — |
+| R2 | Three testers named login/registration as the slowest moment; one rated speed "Slow, noticeable waiting" | Hosting stayed on Render's free tier. Instead, a scheduled pinger keeps the API awake from 06:00 to 23:50 so daytime sign-ins skip the cold start (see [Setup](../../setup.md#keeping-the-api-awake)) | `cf51ac4` docs: record the cron-job.org pinger that keeps the API awake | — |
+| R2 | Tester 1 suggested a year-to-date / grade-tracking view | Filed as Gitea issue **FEAT-009**, then built as the **My Grades** feature — modules, secured marks, target grades and a what-if calculator ([My Grades](../../extra-features/my-grades.md)) | `0dea059` feat(grades): add modules and assessments API; `7e26597` feat(grades): add My Grades pages | — |
 | R2 | One single save failure and one "once or twice" misbehaviour, with no reproduction detail | Logged for monitoring — to be re-checked in Round 3 | — | — |
 
 ---
@@ -275,5 +275,5 @@ addressed, as the integration table records.
 
 *(Done since Round 2: the grade-tracking suggestion was built as **My Grades** — see the integration table above.)*
 
-*Related: [Testing](testing.md) documents the automated test suite that
+*Related: [Testing](../../testing/strategy.md) documents the automated test suite that
 runs alongside this process.*

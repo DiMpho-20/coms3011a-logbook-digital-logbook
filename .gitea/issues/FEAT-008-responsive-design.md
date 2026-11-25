@@ -31,4 +31,4 @@ The app uses Tailwind CSS responsive utilities but no formal testing has been do
 ## Related
 - `apps/frontend/src/components/Sidebar.tsx` — primary responsive concern
 - `apps/frontend/src/components/AppLayout.tsx` — layout wrapper
-- `docs/client-interactions.md` — responsive design was discussed
+- `docs/project/client-interactions.md` — responsive design was discussed

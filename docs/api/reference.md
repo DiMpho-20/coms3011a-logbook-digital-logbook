@@ -1701,5 +1701,5 @@ console instead of sent.
 
 *Related: [Authentication & Security Guide](https://github.com/DiMpho-20/coms3011a-logbook-digital-logbook/blob/main/apps/backend/AUTHENTICATION.md)
 covers the 2FA lifecycle, password reset flow, and security properties in
-detail. [Testing](testing.md) documents the automated test coverage for
+detail. [Testing](../testing/strategy.md) documents the automated test coverage for
 every endpoint listed above.*

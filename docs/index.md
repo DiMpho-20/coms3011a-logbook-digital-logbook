@@ -2,26 +2,27 @@
 
 Welcome to the technical documentation for the **COMS3011A Digital Logbook** project.
 
-## Quick Links
+## Start Here
 
 * **[Development Setup Guide](setup.md):** Local installation, environment variables, running dev servers, push notifications, and troubleshooting.
-* **[System Architecture](architecture.md):** Deployment, tech stack, monorepo layout, data model, API areas, key flows, and security.
-* **[API Reference](api-reference.md):** Every endpoint with its request and response shapes and errors.
-* **[Project Methodology & Work Tracker](methodology.md):** Kanban workflow, story assignments for all three sprints, board status, and retrospectives.
-* **[Client Interaction Logs](client-interactions.md):** Requirements decisions and client meeting notes.
-* **[Testing](testing.md):** Automated test suite (stack, coverage, policy, proof of passing runs) and the formal user-feedback process.
-* **[Testing Quickstart](testing-quickstart.md):** What to do when adding a feature: test file, running it, and the coverage rule.
-* **[User Feedback](user-feedback.md):** SUS questionnaire, observation sheet, scoring setup, and the feedback-to-commit integration trail.
-* **[Extra Features](extra-features/README.md):** Features beyond the user stories: the AI help assistant, My Grades and Google Calendar sync.
-* **[Authentication Analysis](authentication-analysis.md):** Legal liabilities of handling credentials, the precautions taken, and the trade-offs of self-hosted authentication.
-* **[Third-Party Code](third-party.md):** Every dependency and external service, with motivation for each choice.
-* **[User Stories](user-stories/user-stories.md):** Acceptance tests for every Basic, Intermediate and Advanced user story.
-* **[Architecture Design](design/architecture.md):** Layers, the sign-in flow, and the request pipeline.
-* **[Database Design](design/database-erd.md):** Entity relationship diagrams for all twenty-three tables, constraints, indexes, and schema history.
-* **[System Design](design/system-design.md):** The initial system design, and how it has evolved.
-* **[Development Plan](design/development-plan.md):** Development phases, dependencies, testing strategy, and definition of done.
-* **[Roadmap](design/roadmap.md):** Milestones, owners and status for every sprint.
-* **[UI Design](design/ui-design.md):** Visual design specifications and mockups.
+* **[System Architecture](architecture/overview.md):** Deployment, tech stack, monorepo layout, data model, API areas, key flows, and security.
+* **[API Reference](api/reference.md):** Every endpoint with its request and response shapes and errors.
+* **[Testing](testing/strategy.md):** Automated test suite (stack, coverage, policy, proof of passing runs) and the formal user-feedback process.
+* **[User Stories](project/user-stories.md):** Acceptance tests for every Basic, Intermediate and Advanced user story.
+
+## Documentation Map
+
+The pages are grouped by subject, one folder per group. Every folder can be read on its own.
+
+| Group | Pages |
+|---|---|
+| **Root** | This page and the [Development Setup Guide](setup.md) |
+| **[Architecture](architecture/overview.md)** | [System Architecture](architecture/overview.md) — as built; [Authentication Analysis](architecture/authentication.md) — legal liabilities, precautions and trade-offs |
+| **[API](api/reference.md)** | [API Reference](api/reference.md) — every endpoint, its request and response shapes, and its errors |
+| **[Testing](testing/strategy.md)** | [Testing Strategy](testing/strategy.md) — stack, coverage, policy and proof of passing runs; [Testing Quickstart](testing/quickstart.md) — what to do when adding a feature |
+| **[Project](project/methodology.md)** | [Methodology & Work Tracker](project/methodology.md); [Client Interaction Logs](project/client-interactions.md); [User Stories](project/user-stories.md); [User Feedback](project/feedback/user-feedback.md); [Third-Party Code](project/third-party.md) |
+| **[Design](design/architecture.md)** | [Architecture Design](design/architecture.md) — layers, sign-in flow, request pipeline; [System Design](design/system-design.md) — the initial design and how it evolved; [Database Design](design/database-erd.md) — ERDs for all twenty-three tables; [UI Design](design/ui-design.md) — visual specifications and mockups; [Development Plan](design/development-plan.md); [Roadmap](design/roadmap.md) |
+| **[Extra Features](extra-features/index.md)** | [Overview](extra-features/index.md); [AI Help Assistant](extra-features/ai-help-assistant.md); [My Grades](extra-features/my-grades.md); [Google Calendar Sync](extra-features/google-calendar-sync.md) |
 
 ## Technical Stack Overview
 
@@ -34,7 +35,7 @@ Welcome to the technical documentation for the **COMS3011A Digital Logbook** pro
 | **Email** | Resend (preferred) / Gmail SMTP via `nodemailer` (fallback) |
 | **Notifications** | Web push (`web-push`) with a service worker |
 | **Shared** | `@logbook/shared` — TypeScript interfaces and Zod schemas consumed by both frontend and backend |
-| **Testing** | Vitest + Supertest (backend), Vitest + Testing Library (frontend) — see [Testing](testing.md) |
+| **Testing** | Vitest + Supertest (backend), Vitest + Testing Library (frontend) — see [Testing](testing/strategy.md) |
 | **Linting** | oxlint (frontend) / ESLint + TypeScript type checker (backend) |
 | **Workspace** | Monorepo using npm workspaces |
 

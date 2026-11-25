@@ -6,7 +6,7 @@ Deployed on Render at <https://digital-logbook-backend-latest.onrender.com>, wit
 
 > For an in-depth guide to the authentication system (JWT, TOTP 2FA, recovery codes, password reset, security properties and known limitations), see **[AUTHENTICATION.md](AUTHENTICATION.md)**.
 >
-> For every endpoint with its request and response shapes, see the **[API reference](../../docs/api-reference.md)**. For the testing documentation, see **[Testing](../../docs/testing.md)**.
+> For every endpoint with its request and response shapes, see the **[API reference](../../docs/api/reference.md)**. For the testing documentation, see **[Testing](../../docs/testing/strategy.md)**.
 
 ## Tech Stack
 
@@ -145,7 +145,7 @@ All routes are prefixed with `/api`. Apart from sign-up, email verification, sig
 | Google Calendar | `/api/google-calendar/{connect,callback,status,sync,disconnect}` |
 | Utility | `/api/health` (no auth) |
 
-Every endpoint is documented in [docs/api-reference.md](../../docs/api-reference.md).
+Every endpoint is documented in [docs/api/reference.md](../../docs/api/reference.md).
 
 ## Testing
 
@@ -162,7 +162,7 @@ npm run test --workspace=backend -- automation
 npm run test:coverage --workspace=backend
 ```
 
-See [Testing](../../docs/testing.md) for the strategy, policy and coverage.
+See [Testing](../../docs/testing/strategy.md) for the strategy, policy and coverage.
 
 ## Scripts
 

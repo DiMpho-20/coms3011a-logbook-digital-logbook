@@ -2,7 +2,7 @@
 
 This folder documents the Digital Logbook's **extra features**: functionality
 the team built beyond the user stories in
-[`docs/user-stories/user-stories.md`](../user-stories/user-stories.md)
+[`docs/project/user-stories.md`](../project/user-stories.md)
 (US00.1–US37). Each document explains what the feature does, why we added it,
 and how it is implemented, from the user interface through the API to the
 database and any external service.

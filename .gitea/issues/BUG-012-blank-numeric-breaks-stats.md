@@ -47,7 +47,7 @@ Note when fixing: `utils/entryFormat.ts:53-69` explains at length why `backfillN
 
 ## Related
 - Not covered by `entryValidation.test.ts`, which tests rejection of a *non-numeric* value but never creates an entry that simply leaves a NUMBER field alone and then aggregates
-- Recorded in `docs/feature-audit-2026-09.md` §4
+- Recorded in `docs/project/audits/feature-audit-2026-09.md` §4
 
 ## Resolution
 Fixed in two halves, because fixing only the write path would have left the
