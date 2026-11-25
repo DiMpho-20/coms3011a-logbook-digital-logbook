@@ -378,7 +378,9 @@ included with zero totals.
 
 ### `GET /api/projects/:id/time-summary`
 
-Get aggregated time statistics for a project.
+Get aggregated time statistics for a project. Sum, count and newest entry are
+returned by Postgres in a single row (`_sum`, `_count`, `_max`), so the cost of
+the request does not grow with the length of the project's history.
 
 **Response `200`:**
 ```json
@@ -607,14 +609,36 @@ non-positive `limit`, a negative `offset`, or an unparseable `from`/`to`.
 
 ### `GET /api/me/open-entries`
 
-Every `OPEN` entry across all of the authenticated user's projects, newest
-first, in one request. Used by the Open Work page instead of one request per
-project.
+Every `OPEN` entry across all of the authenticated user's projects, in one
+request, **a page at a time**. Used by the Open Work page instead of one
+request per project. Open work is the list that accumulates fastest, so it is
+paged on the same terms as `GET /api/entries`.
 
-**Response `200`:** an array of entry objects, each with its own `format` and
-an added `projectName`.
+| Query | Default | Notes |
+|---|---|---|
+| `limit` | 200 | Capped at 500 |
+| `offset` | 0 | |
 
-**Errors:** `401`
+**Ordering:** due date ascending, undated work last, newest first within a day.
+A truncated page therefore loses the entries with the least claim on the
+reader's attention rather than this morning's overdue work.
+
+**Response `200`:**
+
+```json
+{
+  "entries": [ /* entry objects, each with its own format and a projectName */ ],
+  "limit": 100,
+  "offset": 0,
+  "truncated": true
+}
+```
+
+`truncated` is true when the page came back full — that is, when more open work
+follows the page — and the client asks for the next one at `offset + entries.length`.
+
+**Errors:** `400` for a `limit` that is not a positive integer or a negative
+`offset`; `401` when the token is missing or invalid.
 
 ---
 
