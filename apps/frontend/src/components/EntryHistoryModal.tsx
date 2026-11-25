@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarSearch, History, Loader2, RotateCcw } from "lucide-react";
 import {
   fetchEntryAtDate,
@@ -105,7 +105,7 @@ export default function EntryHistoryModal({ entry, fields = [], onClose, onResto
   const [restoring, setRestoring] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const load = async (entryId: string, select?: number) => {
+  const load = useCallback(async (entryId: string, select?: number) => {
     setLoading(true);
     setError(null);
     try {
@@ -117,16 +117,20 @@ export default function EntryHistoryModal({ entry, fields = [], onClose, onResto
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
+  // A different entry (or the dialog opening on one) starts from a clean
+  // slate; the object itself can be replaced with the same id after an edit,
+  // which should not throw away the version the student is looking at.
+  const entryId = entry?.id ?? null;
   useEffect(() => {
     setHistory(null);
     setDateResult(null);
     setConfirming(false);
     setNotice(null);
     setDate(todayISO());
-    if (entry) void load(entry.id);
-  }, [entry?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (entryId) void load(entryId);
+  }, [entryId, load]);
 
   const current = useMemo(
     () => history?.versions.find((v) => v.version === history.currentVersion) ?? null,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CalendarClock, CheckCircle2, CircleAlert, Clock, Kanban } from "lucide-react";
 import { api } from "../api/client";
@@ -71,9 +71,9 @@ export default function BoardPage() {
   const [loadError, setLoadError] = useState(false);
   const [groupBy, setGroupBy] = useState(STATUS);
 
-  const selectedProjectId = params.get("project") ?? "";
+  const selectedProjectId = params.get("project") ?? projects[0]?.id ?? "";
 
-  const loadProjects = () => {
+  const loadProjects = useCallback(() => {
     setLoadingProjects(true);
     setProjectsFailed(false);
     api.get("/projects").then((res) => {
@@ -81,20 +81,16 @@ export default function BoardPage() {
       const all = res.data as Project[];
       const sorted = [...all.filter((p) => p.status !== "ARCHIVED"), ...all.filter((p) => p.status === "ARCHIVED")];
       setProjects(sorted);
-      if (!params.get("project") && sorted.length > 0) {
-        setParams({ project: sorted[0].id }, { replace: true });
-      }
       setLoadingProjects(false);
     }).catch(() => {
       setProjectsFailed(true);
       setLoadingProjects(false);
     });
-  };
+  }, []);
 
   useEffect(() => {
     loadProjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadProjects]);
 
   useEffect(() => {
     if (!selectedProjectId) return;

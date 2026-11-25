@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Loader2 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
@@ -96,9 +96,9 @@ export default function CalendarPage() {
   const narrow = useNarrowScreen();
   const [openDay, setOpenDay] = useState<string | null>(null);
 
-  const selectedProjectId = params.get("project") ?? "";
+  const selectedProjectId = params.get("project") ?? projects[0]?.id ?? "";
 
-  const loadProjects = () => {
+  const loadProjects = useCallback(() => {
     setLoadingProjects(true);
     setProjectsFailed(false);
     api.get("/projects").then((res) => {
@@ -106,24 +106,17 @@ export default function CalendarPage() {
       const all = res.data as Project[];
       const sorted = [...all.filter((p) => p.status !== "ARCHIVED"), ...all.filter((p) => p.status === "ARCHIVED")];
       setProjects(sorted);
-      if (!params.get("project") && sorted.length > 0) {
-        setParams((prev) => {
-          prev.set("project", sorted[0].id);
-          return prev;
-        }, { replace: true });
-      }
       setLoadingProjects(false);
     }).catch(() => {
       // Say it failed, rather than that there are no projects.
       setProjectsFailed(true);
       setLoadingProjects(false);
     });
-  };
+  }, []);
 
   useEffect(() => {
     loadProjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadProjects]);
 
   useEffect(() => {
     if (!selectedProjectId) return;
