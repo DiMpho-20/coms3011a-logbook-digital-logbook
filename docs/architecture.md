@@ -32,7 +32,7 @@ flowchart LR
 | Database | Neon (serverless PostgreSQL) | Reached through Prisma's `pg` driver adapter. |
 | CI | Gitea Actions (`.gitea/workflows/deploy.yaml`) | Installs, typechecks, lints, tests and builds on every push. A passing push to `main` also deploys both apps (below). |
 
-The backend only accepts browser requests from `localhost` and `*.pages.dev` origins (CORS, `apps/backend/src/app.ts`).
+The backend only accepts browser requests from the origins listed in `CORS_ORIGINS`, plus the two Vite dev ports outside production. The list is read in `apps/backend/src/middleware/cors.middleware.ts`; unset in production it grants nothing, and the server says so in its startup log.
 
 **Delivery.** A push to `main` runs CI (typecheck, lint, both test suites with
 coverage, builds) and, once it passes,
@@ -158,7 +158,7 @@ All routes are under `/api` and, apart from sign-up, email verification, sign-in
 | Help assistant | `/assistant/chat` |
 | Tags | `/tags` |
 | Google Calendar | `/google-calendar/{connect,callback,status,sync,disconnect}` |
-| Utility | `/health`, `/db-check` |
+| Utility | `/health` |
 
 ## 6. Key Flows
 

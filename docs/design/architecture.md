@@ -67,7 +67,7 @@ Every API request flows through the following pipeline:
 Request → CORS → Body Parser → Rate Limit → Auth Middleware → Zod Validation → Ownership Check → Controller → Prisma → Response
 ```
 
-1. **CORS**: allows requests only from the frontend origins (`localhost` and `*.pages.dev`).
+1. **CORS**: allows only the origins named in `CORS_ORIGINS`, plus the Vite dev ports outside production. An unset list in production grants nothing.
 2. **Body Parser**: parses JSON request bodies.
 3. **Rate Limit**: applies to `/api/auth` routes, with tighter limits on sign-in, sign-up and 2FA, to slow down password guessing.
 4. **Auth Middleware**: verifies the JWT and sets the user id (skipped for public routes).

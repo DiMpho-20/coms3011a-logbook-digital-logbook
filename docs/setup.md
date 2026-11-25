@@ -309,7 +309,7 @@ second pinger.
 ### Required API environment (Render)
 
 Set in the Render service's environment, as listed in `apps/backend/.env.example`:
-`DATABASE_URL`, `DIRECT_URL` (see above), `JWT_SECRET`, `TWO_FACTOR_ENCRYPTION_KEY`, `APP_URL`, an email
+`DATABASE_URL`, `DIRECT_URL` (see above), `JWT_SECRET`, `TWO_FACTOR_ENCRYPTION_KEY`, `APP_URL`, `CORS_ORIGINS` (the Pages URL, comma-separated if there are several — unset, every browser request is refused), an email
 provider (`RESEND_API_KEY` or Gmail), and for the integrations `GEMINI_API_KEY`
 (help assistant) and `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
 `GOOGLE_REDIRECT_URI`, `GOOGLE_TOKEN_ENCRYPTION_KEY` (Google Calendar sync).

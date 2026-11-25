@@ -84,6 +84,7 @@ Required:
 | `PORT` | Server port (default: `3000`) |
 | `APP_URL` | Frontend URL for email links and redirects (default: `http://localhost:5173`) |
 | `JWT_SECRET` | Signs login tokens. Required in production. Locally, without it, a new secret is generated on every start, so every restart signs you out. |
+| `CORS_ORIGINS` | Comma-separated browser origins allowed to call the API, e.g. the Pages URL. Required in production: unset there, every cross-origin request is refused. Locally the Vite dev ports are granted anyway. |
 
 Optional — each feature is simply off without its variables:
 
@@ -142,7 +143,7 @@ All routes are prefixed with `/api`. Apart from sign-up, email verification, sig
 | Help assistant | `/api/assistant/chat` |
 | Tags | `/api/tags` |
 | Google Calendar | `/api/google-calendar/{connect,callback,status,sync,disconnect}` |
-| Utility | `/api/health`, `/api/db-check` (no auth) |
+| Utility | `/api/health` (no auth) |
 
 Every endpoint is documented in [docs/api-reference.md](../../docs/api-reference.md).
 

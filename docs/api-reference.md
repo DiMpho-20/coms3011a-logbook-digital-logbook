@@ -24,13 +24,14 @@ Returns service health status. No authentication required.
 { "status": "ok" }
 ```
 
-### `GET /api/db-check`
+### Errors
 
-Verifies database connectivity. No authentication required.
+Every failure is JSON. A `4xx` carries the reason, because it is the caller's
+to fix; a `5xx` carries only `{ "error": "Internal server error" }` and the
+detail stays in the server log. A path no route matches answers:
 
-**Response `200`:**
 ```json
-{ "status": "ok", "message": "Successfully connected to Neon PostgreSQL via Prisma", "time": "2026-09-28T14:00:00.000Z" }
+{ "error": "Not found" }
 ```
 
 ---
