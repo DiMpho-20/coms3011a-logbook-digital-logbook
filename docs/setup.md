@@ -263,6 +263,14 @@ until they are added. Repository settings → Actions → Secrets:
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → the account ID in the sidebar |
 | `CLOUDFLARE_PAGES_PROJECT` *(variable, not a secret)* | Cloudflare → Workers & Pages → the project's name; set it only if it differs from the default `coms3011a-logbook` |
 
+GitHub deploys too. `.github/workflows/ci.yml` runs the same CI job on every
+push to `main` and every pull request, then a `deploy` job — after that job
+passes, on `main` only — calls the same Render deploy hook and publishes to the
+same Cloudflare Pages project. It reads the same secret names from the GitHub
+repository's Actions settings, so secrets must be set on each remote
+separately, and its last step writes which targets it actually published to the
+run summary. A manual `workflow_dispatch` on `main` deploys without a commit.
+
 The backend suite gets a database of its own for each run. The
 `DATABASE_URL` secret is only its last-resort fallback, used (with a warning in the log)
 if the runner cannot start that database.
