@@ -24,14 +24,14 @@ needed, how it is built, and how a reader can verify it.
 
 - *(repo)* — verifiable from a tracked file or commit in this repository.
 - *(uncommitted)* — present in the working tree at the time of writing
-  (26 November 2026, HEAD `e6cecd1`); no commit is claimed for it.
+  (26 November 2026, HEAD `6f3d23f`); no commit is claimed for it.
 - No secrets, connection strings or personal data appear on this page.
 
 ## At a glance
 
 | Addition | State | Main evidence |
 | --- | --- | --- |
-| Automated deployment on GitHub | uncommitted | `.github/workflows/ci.yml`, `docs/setup.md` |
+| Automated deployment on GitHub | committed 26 Nov | `6f3d23f` — `.github/workflows/ci.yml`, `docs/setup.md` |
 | Second redesign round: Today-first dashboard | uncommitted | `apps/frontend/src/pages/dashboard/`, `DashboardPage.tsx` |
 | Sidebar re-skin and capture-first navigation | uncommitted | `apps/frontend/src/components/Sidebar.tsx`, `AppLayout.tsx` |
 | One-line entry capture | uncommitted | `apps/frontend/src/components/EntryForm.tsx` |
@@ -67,15 +67,16 @@ the summary says both targets were skipped.
 
 **Status and limitations.**
 
-- The change is in the working tree, not committed *(uncommitted)*, so GitHub
-  has not run it yet.
+- Committed as `6f3d23f` and pushed to GitHub; the run it triggers is the
+  first to exercise it. Until the secrets exist, the deploy steps skip and the
+  summary says so.
 - The MkDocs site on Netlify is untouched; whether it rebuilds from GitHub
   depends on Netlify's dashboard, which I did not guess at.
 - Production still serves the coursework snapshot `79903cb`; none of the
   November work is live until a deploy runs.
 
-**Verify.** `git diff .github/workflows/ci.yml`, then read the `deploy` job and
-the `State what this run deployed` step.
+**Verify.** `git show --stat 6f3d23f`, then read the `deploy` job and the
+`State what this run deployed` step.
 
 ## 2. Second redesign round: Today-first dashboard
 
@@ -246,10 +247,10 @@ authors; three belong to teammates and are not claimed.
 - **README rewrite** *(repo)*, `e6cecd1`: the root README now states the app's
   verified behaviour, configuration, scripts, testing and deployment instead
   of aspirational copy.
-- **Setup documentation** *(uncommitted)*: the GitHub deploy paragraph and
+- **Setup documentation** *(repo)*, `6f3d23f`: the GitHub deploy paragraph and
   secret table in `docs/setup.md`, alongside the existing Render/Neon/Cloudflare
   instructions.
-- **Individual evidence set** *(uncommitted)*: this folder — the migrations
+- **Individual evidence set** *(repo)*, `6f3d23f`: this folder — the migrations
   deep dive with its demo script, report notes and screenshot checklist.
 - **Report artefacts** *(untracked)*: `individual-report.tex`, `main.bib` and
   the two testing-section sources used for the written report and the group
@@ -274,9 +275,11 @@ grep -n 'deploy:' -A 20 .github/workflows/ci.yml
 
 ## Honest limitations
 
-- The second redesign round, the sidebar re-skin, one-line capture, the
-  coverage push and the GitHub deploy job are **uncommitted**. They are not in
-  the deployed site, which still serves the coursework snapshot `79903cb`.
+- The second redesign round, the sidebar re-skin, one-line capture and the
+  coverage push (including the 10 new test files) are **uncommitted**. They are
+  not in the deployed site, which still serves the coursework snapshot
+  `79903cb`. Only the deploy job and the documentation are committed so far
+  (`6f3d23f`).
 - The deploy job publishes nothing until the three GitHub secrets exist; the
   run summary is designed to say so rather than hide it.
 - The dashboard redesign was checked with the suite and a manual browser pass;
